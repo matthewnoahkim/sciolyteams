@@ -1,0 +1,285 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Global user account (from OAuth)
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  memberships   Membership[]
+  teamsCreated  Team[]       @relation("TeamCreator")
+  emailsReceived EmailLog[]
+}
+
+// NextAuth models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Team management
+enum Division {
+  B
+  C
+}
+
+enum Role {
+  CAPTAIN
+  MEMBER
+}
+
+model Team {
+  id                    String         @id @default(cuid())
+  name                  String
+  division              Division
+  createdById           String
+  captainInviteCodeHash String
+  memberInviteCodeHash  String
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  createdBy      User              @relation("TeamCreator", fields: [createdById], references: [id])
+  memberships    Membership[]
+  subteams       Subteam[]
+  announcements  Announcement[]
+  calendarEvents CalendarEvent[]
+
+  @@index([createdById])
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  teamId    String
+  role      Role
+  subteamId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team              Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  subteam           Subteam?             @relation(fields: [subteamId], references: [id], onDelete: SetNull)
+  rosterAssignments RosterAssignment[]
+  announcements     Announcement[]
+  calendarEvents    CalendarEvent[]      @relation("CreatorEvents")
+  attendeeEvents    CalendarEvent[]      @relation("AttendeeEvents")
+
+  @@unique([userId, teamId])
+  @@index([teamId])
+  @@index([subteamId])
+}
+
+model Subteam {
+  id        String   @id @default(cuid())
+  teamId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team                      Team                       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  members                   Membership[]
+  rosterAssignments         RosterAssignment[]
+  announcementVisibilities  AnnouncementVisibility[]
+  calendarEvents            CalendarEvent[]
+
+  @@index([teamId])
+}
+
+// Event management
+model Event {
+  id                   String                @id @default(cuid())
+  division             Division
+  name                 String
+  slug                 String
+  maxCompetitors       Int                   @default(2) // 2 for most, 3 for Codebusters & Experimental Design
+  selfScheduled        Boolean               @default(false)
+  createdAt            DateTime              @default(now())
+
+  conflictGroupEvents  ConflictGroupEvent[]
+  rosterAssignments    RosterAssignment[]
+
+  @@unique([division, slug])
+  @@index([division])
+}
+
+model ConflictGroup {
+  id          String               @id @default(cuid())
+  division    Division
+  blockNumber Int
+  name        String
+  createdAt   DateTime             @default(now())
+
+  events      ConflictGroupEvent[]
+
+  @@unique([division, blockNumber])
+  @@index([division])
+}
+
+model ConflictGroupEvent {
+  id              String   @id @default(cuid())
+  conflictGroupId String
+  eventId         String
+  createdAt       DateTime @default(now())
+
+  conflictGroup   ConflictGroup @relation(fields: [conflictGroupId], references: [id], onDelete: Cascade)
+  event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([conflictGroupId, eventId])
+  @@index([eventId])
+}
+
+model RosterAssignment {
+  id             String   @id @default(cuid())
+  subteamId      String
+  membershipId   String
+  eventId        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  subteam        Subteam     @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+  membership     Membership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  event          Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, eventId])
+  @@index([subteamId, eventId])
+  @@index([eventId])
+}
+
+// Announcements
+enum AnnouncementScope {
+  TEAM
+  SUBTEAM
+}
+
+model Announcement {
+  id           String   @id @default(cuid())
+  teamId       String
+  authorId     String
+  title        String
+  content      String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  team         Team                      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  author       Membership                @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  visibilities AnnouncementVisibility[]
+  emails       EmailLog[]
+
+  @@index([teamId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model AnnouncementVisibility {
+  id             String            @id @default(cuid())
+  announcementId String
+  scope          AnnouncementScope
+  subteamId      String?
+  createdAt      DateTime          @default(now())
+
+  announcement   Announcement      @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  subteam        Subteam?          @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@index([subteamId])
+}
+
+// Calendar
+enum CalendarScope {
+  PERSONAL
+  SUBTEAM
+  TEAM
+}
+
+model CalendarEvent {
+  id           String        @id @default(cuid())
+  teamId       String
+  creatorId    String
+  scope        CalendarScope
+  title        String
+  description  String?       @db.Text
+  startUTC     DateTime
+  endUTC       DateTime
+  location     String?
+  subteamId    String?
+  attendeeId   String?       // For PERSONAL scope
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  team         Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator      Membership    @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
+  subteam      Subteam?      @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+  attendee     Membership?   @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([creatorId])
+  @@index([subteamId])
+  @@index([attendeeId])
+  @@index([startUTC])
+}
+
+// Email logging
+model EmailLog {
+  id                 String       @id @default(cuid())
+  announcementId     String?
+  toUserId           String
+  subject            String
+  providerMessageId  String?
+  sentAt             DateTime     @default(now())
+
+  announcement       Announcement? @relation(fields: [announcementId], references: [id], onDelete: SetNull)
+  toUser             User          @relation(fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@index([toUserId])
+}
+

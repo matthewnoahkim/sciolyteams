@@ -1,0 +1,252 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { requireMember, getUserMembership } from '@/lib/rbac'
+import { sendAnnouncementEmail } from '@/lib/email'
+import { z } from 'zod'
+import { AnnouncementScope } from '@prisma/client'
+
+const createAnnouncementSchema = z.object({
+  teamId: z.string(),
+  title: z.string().min(1).max(200),
+  content: z.string().min(1),
+  scope: z.enum(['TEAM', 'SUBTEAM']),
+  subteamIds: z.array(z.string()).optional(),
+  sendEmail: z.boolean().default(false),
+})
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const validated = createAnnouncementSchema.parse(body)
+
+    await requireMember(session.user.id, validated.teamId)
+
+    const membership = await getUserMembership(session.user.id, validated.teamId)
+    if (!membership) {
+      return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
+    }
+
+    // Validate subteam IDs if provided
+    if (validated.scope === 'SUBTEAM' && (!validated.subteamIds || validated.subteamIds.length === 0)) {
+      return NextResponse.json({ error: 'Subteam IDs required for SUBTEAM scope' }, { status: 400 })
+    }
+
+    // Create announcement with visibilities
+    const announcement = await prisma.$transaction(async (tx) => {
+      const ann = await tx.announcement.create({
+        data: {
+          teamId: validated.teamId,
+          authorId: membership.id,
+          title: validated.title,
+          content: validated.content,
+        },
+      })
+
+      // Create visibility records
+      if (validated.scope === 'TEAM') {
+        await tx.announcementVisibility.create({
+          data: {
+            announcementId: ann.id,
+            scope: AnnouncementScope.TEAM,
+          },
+        })
+      } else if (validated.subteamIds) {
+        await Promise.all(
+          validated.subteamIds.map((subteamId) =>
+            tx.announcementVisibility.create({
+              data: {
+                announcementId: ann.id,
+                scope: AnnouncementScope.SUBTEAM,
+                subteamId,
+              },
+            })
+          )
+        )
+      }
+
+      return ann
+    })
+
+    // Send emails if requested
+    if (validated.sendEmail) {
+      const team = await prisma.team.findUnique({
+        where: { id: validated.teamId },
+        select: { name: true },
+      })
+
+      // Get target users
+      let targetUsers: { email: string; id: string }[] = []
+
+      if (validated.scope === 'TEAM') {
+        const memberships = await prisma.membership.findMany({
+          where: { teamId: validated.teamId },
+          include: {
+            user: {
+              select: { id: true, email: true },
+            },
+          },
+        })
+        targetUsers = memberships.map(m => ({ email: m.user.email, id: m.user.id }))
+      } else if (validated.subteamIds) {
+        const memberships = await prisma.membership.findMany({
+          where: {
+            teamId: validated.teamId,
+            subteamId: { in: validated.subteamIds },
+          },
+          include: {
+            user: {
+              select: { id: true, email: true },
+            },
+          },
+        })
+        targetUsers = memberships.map(m => ({ email: m.user.email, id: m.user.id }))
+      }
+
+      // Send emails asynchronously (don't await)
+      Promise.all(
+        targetUsers.map(async (user) => {
+          const result = await sendAnnouncementEmail({
+            to: user.email,
+            teamName: team?.name || 'Team',
+            title: validated.title,
+            content: validated.content,
+            announcementId: announcement.id,
+          })
+
+          // Log email
+          await prisma.emailLog.create({
+            data: {
+              announcementId: announcement.id,
+              toUserId: user.id,
+              subject: `[Team ${team?.name}] ${validated.title}`,
+              providerMessageId: result.messageId,
+            },
+          })
+        })
+      ).catch(error => console.error('Email sending error:', error))
+    }
+
+    const fullAnnouncement = await prisma.announcement.findUnique({
+      where: { id: announcement.id },
+      include: {
+        author: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
+        visibilities: {
+          include: {
+            subteam: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json({ announcement: fullAnnouncement })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 })
+    }
+    if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+    console.error('Create announcement error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(req.url)
+    const teamId = searchParams.get('teamId')
+
+    if (!teamId) {
+      return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
+    }
+
+    await requireMember(session.user.id, teamId)
+
+    const membership = await getUserMembership(session.user.id, teamId)
+    if (!membership) {
+      return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
+    }
+
+    // Get announcements visible to this user
+    const announcements = await prisma.announcement.findMany({
+      where: {
+        teamId,
+        OR: [
+          // Team-wide announcements
+          {
+            visibilities: {
+              some: {
+                scope: AnnouncementScope.TEAM,
+              },
+            },
+          },
+          // Subteam announcements for user's subteam
+          ...(membership.subteamId
+            ? [{
+                visibilities: {
+                  some: {
+                    scope: AnnouncementScope.SUBTEAM,
+                    subteamId: membership.subteamId,
+                  },
+                },
+              }]
+            : []),
+        ],
+      },
+      include: {
+        author: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
+        visibilities: {
+          include: {
+            subteam: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    return NextResponse.json({ announcements })
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+    console.error('Get announcements error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
