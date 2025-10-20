@@ -53,6 +53,7 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
   // Update assignments whenever team memberships change
   useEffect(() => {
     fetchAssignments()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team.memberships])
 
   const fetchEvents = async () => {

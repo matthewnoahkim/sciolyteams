@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDateTime } from '@/lib/utils'
-import { Plus, Send, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface StreamTabProps {
   teamId: string
@@ -29,6 +30,11 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
   const [selectedSubteams, setSelectedSubteams] = useState<string[]>([])
   const [sendEmail, setSendEmail] = useState(false)
   const [isPostSectionCollapsed, setIsPostSectionCollapsed] = useState(true)
+  const [editingAnnouncement, setEditingAnnouncement] = useState<any | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editContent, setEditContent] = useState('')
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
     fetchAnnouncements()
@@ -124,8 +130,55 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
     return announcement.authorId === currentMembership.id || isCaptain
   }
 
+  const handleEditClick = (announcement: any) => {
+    setEditingAnnouncement(announcement)
+    setEditTitle(announcement.title)
+    setEditContent(announcement.content)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsEditing(true)
+
+    try {
+      const response = await fetch(`/api/announcements/${editingAnnouncement.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editTitle,
+          content: editContent,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to update announcement')
+      }
+
+      toast({
+        title: 'Announcement updated',
+        description: 'The announcement has been updated successfully',
+      })
+
+      setIsEditDialogOpen(false)
+      setEditingAnnouncement(null)
+      fetchAnnouncements()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update announcement',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsEditing(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* Only show post announcement section to captains */}
+      {isCaptain && (
       <Card>
         <CardHeader 
           className="cursor-pointer"
@@ -232,6 +285,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
         </CardContent>
         )}
       </Card>
+      )}
 
       <div className="space-y-4">
         <h3 className="text-3xl font-bold">Recent Announcements</h3>
@@ -271,10 +325,20 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
                     <div className="flex gap-1">
                       {announcement.visibilities.map((v: any) => (
                         <Badge key={v.id} variant="secondary" className="text-xs">
-                          {v.scope === 'TEAM' ? 'TEAM' : v.subteam?.name || 'SUBTEAM'}
+                          {v.scope === 'TEAM' ? 'CLUB' : v.subteam?.name || 'SUBTEAM'}
                         </Badge>
                       ))}
                     </div>
+                    {isCaptain && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditClick(announcement)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
                     {canDeleteAnnouncement(announcement) && (
                       <Button
                         variant="ghost"
@@ -295,6 +359,51 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
           ))
         )}
       </div>
+
+      {/* Edit Announcement Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Announcement</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Announcement title"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-content">Message</Label>
+              <textarea
+                id="edit-content"
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                placeholder="Write your message..."
+                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+                disabled={isEditing}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isEditing}>
+                {isEditing ? 'Updating...' : 'Update Announcement'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

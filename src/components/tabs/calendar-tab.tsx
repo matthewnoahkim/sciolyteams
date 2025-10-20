@@ -266,7 +266,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
   const getScopeBadge = (event: any) => {
     switch (event.scope) {
       case 'TEAM':
-        return <Badge variant="default" className="text-xs">TEAM</Badge>
+        return <Badge variant="default" className="text-xs">CLUB</Badge>
       case 'SUBTEAM':
         return <Badge variant="secondary" className="text-xs">{event.subteam?.name || 'SUBTEAM'}</Badge>
       case 'PERSONAL':

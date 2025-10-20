@@ -135,29 +135,35 @@ export async function GET(req: NextRequest) {
     const isCpt = await isCaptain(session.user.id, teamId)
 
     // Get events visible to this user
-    // Captains can see all events, regular members only see team-wide, their subteam, and their personal events
+    // Captains can see team-wide events, all subteam events, and only their own personal events
+    // Regular members only see team-wide, their subteam, and their personal events
     const events = await prisma.calendarEvent.findMany({
       where: {
         teamId,
-        // Captains see all events for the team
-        ...(isCpt ? {} : {
-          OR: [
-            // Team-wide events
-            { scope: CalendarScope.TEAM },
-            // Subteam events for user's subteam
-            ...(membership.subteamId
-              ? [{
+        OR: [
+          // Team-wide events (visible to all)
+          { scope: CalendarScope.TEAM },
+          // Subteam events
+          ...(isCpt
+            ? [
+                // Captains see all subteam events
+                { scope: CalendarScope.SUBTEAM },
+              ]
+            : membership.subteamId
+            ? [
+                // Regular members see only their subteam events
+                {
                   scope: CalendarScope.SUBTEAM,
                   subteamId: membership.subteamId,
-                }]
-              : []),
-            // Personal events for this user
-            {
-              scope: CalendarScope.PERSONAL,
-              attendeeId: membership.id,
-            },
-          ],
-        }),
+                },
+              ]
+            : []),
+          // Personal events for this user only
+          {
+            scope: CalendarScope.PERSONAL,
+            attendeeId: membership.id,
+          },
+        ],
       },
       include: {
         creator: {

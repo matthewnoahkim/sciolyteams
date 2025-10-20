@@ -26,6 +26,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validated = createAnnouncementSchema.parse(body)
 
+    // Only captains can create announcements
+    const isCpt = await isCaptain(session.user.id, validated.teamId)
+    if (!isCpt) {
+      return NextResponse.json(
+        { error: 'Only captains can create announcements' },
+        { status: 403 }
+      )
+    }
+
     await requireMember(session.user.id, validated.teamId)
 
     const membership = await getUserMembership(session.user.id, validated.teamId)
