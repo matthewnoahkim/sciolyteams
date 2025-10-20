@@ -170,17 +170,32 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
     }
   }
 
-  const handleCopy = (code: string, type: string) => {
-    if (code === '••••••••••••') {
-      toast({
-        title: 'Error',
-        description: 'Please reveal the code first',
-        variant: 'destructive',
-      })
-      return
+  const handleCopy = async (code: string, type: string) => {
+    let realCode = code
+    // If code is hidden or codes not fetched, fetch codes first
+    if (code === '••••••••••••' || !codesFetched) {
+      try {
+        const response = await fetch(`/api/teams/${team.id}/invite/codes`)
+        if (!response.ok) throw new Error('Failed to fetch codes')
+        const data = await response.json()
+        if (type === 'Captain') {
+          realCode = data.captainCode
+          setCaptainCode(data.captainCode)
+        } else {
+          realCode = data.memberCode
+          setMemberCode(data.memberCode)
+        }
+        setCodesFetched(true)
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch invite code',
+          variant: 'destructive',
+        })
+        return
+      }
     }
-
-    navigator.clipboard.writeText(code)
+    navigator.clipboard.writeText(realCode)
     toast({
       title: 'Copied!',
       description: `${type} invite code copied to clipboard`,
