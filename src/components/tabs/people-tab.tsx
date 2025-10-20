@@ -45,8 +45,6 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
   const [newTeamName, setNewTeamName] = useState('')
   const [editingTeam, setEditingTeam] = useState<any>(null)
   const [editTeamName, setEditTeamName] = useState('')
-  const [draggedMember, setDraggedMember] = useState<any>(null)
-  const [dropTargetTeam, setDropTargetTeam] = useState<string | null>(null)
   
   // Roster state
   const [events, setEvents] = useState<any[]>([])
@@ -56,8 +54,6 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
   const [selectedMember, setSelectedMember] = useState<string>('')
   const [sortBy, setSortBy] = useState<'category' | 'conflict'>('category')
-  const [draggedMemberForEvent, setDraggedMemberForEvent] = useState<any>(null)
-  const [dropTargetEvent, setDropTargetEvent] = useState<string | null>(null)
   const [contextMenuMember, setContextMenuMember] = useState<any>(null)
   const [contextMenuOpen, setContextMenuOpen] = useState(false)
 
@@ -146,62 +142,6 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
     }
   }
 
-  const handleDragStart = (member: any) => {
-    setDraggedMember(member)
-  }
-
-  const handleDragEnd = () => {
-    setDraggedMember(null)
-    setDropTargetTeam(null)
-  }
-
-  const handleDragOver = (e: React.DragEvent, teamId: string) => {
-    e.preventDefault()
-    setDropTargetTeam(teamId)
-  }
-
-  const handleDragLeave = () => {
-    setDropTargetTeam(null)
-  }
-
-  const handleDrop = async (e: React.DragEvent, teamId: string | null) => {
-    e.preventDefault()
-    
-    if (!draggedMember || loading) return
-
-    setLoading(true)
-    setDropTargetTeam(null)
-
-    try {
-      const response = await fetch(`/api/memberships/${draggedMember.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subteamId: teamId }),
-      })
-
-      if (!response.ok) throw new Error('Failed to assign member')
-
-      const teamName = teamId 
-        ? team.subteams.find((s: any) => s.id === teamId)?.name 
-        : 'Unassigned'
-
-      toast({
-        title: 'Member assigned',
-        description: `${draggedMember.user.name || draggedMember.user.email} moved to ${teamName}`,
-      })
-
-      router.refresh()
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to assign member',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-      setDraggedMember(null)
-    }
-  }
 
   const handleEditTeam = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -342,66 +282,6 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
     }
   }
 
-  const handleDragStartForEvent = (member: any) => {
-    setDraggedMemberForEvent(member)
-  }
-
-  const handleDragEndForEvent = () => {
-    setDraggedMemberForEvent(null)
-    setDropTargetEvent(null)
-  }
-
-  const handleDragOverEvent = (e: React.DragEvent, eventId: string) => {
-    e.preventDefault()
-    setDropTargetEvent(eventId)
-  }
-
-  const handleDragLeaveEvent = () => {
-    setDropTargetEvent(null)
-  }
-
-  const handleDropOnEvent = async (e: React.DragEvent, event: any) => {
-    e.preventDefault()
-    
-    if (!draggedMemberForEvent || loading) return
-
-    setLoading(true)
-    setDropTargetEvent(null)
-
-    try {
-      const response = await fetch('/api/roster', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subteamId: selectedTeam.id,
-          membershipId: draggedMemberForEvent.id,
-          eventId: event.id,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to assign member')
-      }
-
-      toast({
-        title: 'Member assigned',
-        description: `${draggedMemberForEvent.user.name || draggedMemberForEvent.user.email} added to ${event.name}`,
-      })
-
-      router.refresh()
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to assign member',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-      setDraggedMemberForEvent(null)
-    }
-  }
 
   const getAssignmentsForEvent = (eventId: string, subteamId: string) => {
     return assignments.filter((a) => a.eventId === eventId && a.subteamId === subteamId)
@@ -602,7 +482,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
   // Team Grid View
   if (!selectedTeam) {
     return (
-      <div className="space-y-6" style={{ userSelect: draggedMember ? 'none' : 'auto' }}>
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           {isCaptain && (
             <div className="flex gap-2 items-center">
@@ -625,17 +505,12 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
           {team.subteams.map((subteam: any) => (
             <Card 
               key={subteam.id}
-              className={`cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-xl ${
-                dropTargetTeam === subteam.id ? 'ring-2 ring-primary bg-primary/5' : ''
-              }`}
+              className="cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-xl"
               onClick={(e) => {
-                if (!(e.target as HTMLElement).closest('button') && !draggedMember) {
+                if (!(e.target as HTMLElement).closest('button')) {
                   setSelectedTeam(subteam)
                 }
               }}
-              onDragOver={(e) => isCaptain && handleDragOver(e, subteam.id)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => isCaptain && handleDrop(e, subteam.id)}
             >
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -682,12 +557,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                     }}>
                       <DropdownMenuTrigger asChild>
                         <div 
-                          className={`flex items-center gap-2 transition-opacity ${
-                            isCaptain && !loading ? 'cursor-move hover:bg-accent rounded p-1 -m-1' : ''
-                          } ${draggedMember?.id === member.id ? 'opacity-50' : ''}`}
-                          draggable={isCaptain && !loading}
-                          onDragStart={() => handleDragStart(member)}
-                          onDragEnd={handleDragEnd}
+                          className="flex items-center gap-2"
                           onContextMenu={(e) => {
                             if (isCaptain && !loading) {
                               e.preventDefault()
@@ -746,20 +616,12 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
           ))}
         </div>
 
-        {(unassignedMembers.length > 0 || draggedMember) && (
-          <Card 
-            className={`transition-all ${
-              dropTargetTeam === 'unassigned' ? 'ring-2 ring-primary bg-primary/5' : ''
-            } ${draggedMember && unassignedMembers.length === 0 ? 'border-dashed' : ''}`}
-            onDragOver={(e) => isCaptain && handleDragOver(e, 'unassigned')}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => isCaptain && handleDrop(e, null)}
-          >
+        {unassignedMembers.length > 0 && (
+          <Card>
             <CardHeader>
               <CardTitle>Unassigned Members</CardTitle>
             </CardHeader>
             <CardContent>
-              {unassignedMembers.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {unassignedMembers.map((member: any) => (
                   <DropdownMenu key={member.id} open={contextMenuMember?.id === member.id && contextMenuOpen} onOpenChange={(open: boolean) => {
@@ -768,12 +630,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                   }}>
                     <DropdownMenuTrigger asChild>
                       <div
-                        className={`flex items-center gap-2 rounded-full border px-3 py-1 transition-opacity ${
-                          isCaptain && !loading ? 'cursor-move hover:bg-accent' : ''
-                        } ${draggedMember?.id === member.id ? 'opacity-50' : ''}`}
-                        draggable={isCaptain && !loading}
-                        onDragStart={() => handleDragStart(member)}
-                        onDragEnd={handleDragEnd}
+                        className="flex items-center gap-2 rounded-full border px-3 py-1"
                         onContextMenu={(e) => {
                           if (isCaptain && !loading) {
                             e.preventDefault()
@@ -806,12 +663,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                     )}
                   </DropdownMenu>
                 ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Drop here to unassign from team
-                </p>
-              )}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -919,7 +771,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
 
   // Roster View for Selected Team
   return (
-    <div className="space-y-6" style={{ userSelect: draggedMemberForEvent ? 'none' : 'auto' }}>
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={() => setSelectedTeam(null)}>
@@ -974,12 +826,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                   }}>
                     <DropdownMenuTrigger asChild>
                       <div
-                        className={`flex items-center gap-2 rounded-full border px-3 py-1 transition-opacity ${
-                          isCaptain && !loading ? 'cursor-move hover:bg-accent' : ''
-                        } ${draggedMemberForEvent?.id === member.id ? 'opacity-50' : ''}`}
-                        draggable={isCaptain && !loading}
-                        onDragStart={() => handleDragStartForEvent(member)}
-                        onDragEnd={handleDragEndForEvent}
+                        className="flex items-center gap-2 rounded-full border px-3 py-1"
                         onContextMenu={(e) => {
                           if (isCaptain && !loading) {
                             e.preventDefault()
@@ -1048,12 +895,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                       return (
                         <div
                           key={event.id}
-                          className={`flex items-start justify-between rounded-lg border p-4 transition-colors ${
-                            dropTargetEvent === event.id ? 'ring-2 ring-primary bg-primary/5' : ''
-                          }`}
-                          onDragOver={(e) => isCaptain && handleDragOverEvent(e, event.id)}
-                          onDragLeave={handleDragLeaveEvent}
-                          onDrop={(e) => isCaptain && handleDropOnEvent(e, event)}
+                          className="flex items-start justify-between rounded-lg border p-4"
                         >
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
@@ -1167,12 +1009,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                       return (
                         <div
                           key={event.id}
-                          className={`flex items-start justify-between rounded-lg border p-4 transition-colors ${
-                            dropTargetEvent === event.id ? 'ring-2 ring-primary bg-primary/5' : ''
-                          }`}
-                          onDragOver={(e) => isCaptain && handleDragOverEvent(e, event.id)}
-                          onDragLeave={handleDragLeaveEvent}
-                          onDrop={(e) => isCaptain && handleDropOnEvent(e, event)}
+                          className="flex items-start justify-between rounded-lg border p-4"
                         >
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
