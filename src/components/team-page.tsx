@@ -13,6 +13,7 @@ import { RosterTab } from '@/components/tabs/roster-tab'
 import { SubteamsTab } from '@/components/tabs/subteams-tab'
 import { CalendarTab } from '@/components/tabs/calendar-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 interface TeamPageProps {
   team: any
@@ -30,38 +31,39 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const isCaptain = currentMembership.role === 'CAPTAIN'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="container mx-auto flex items-center justify-between p-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/')}>
-              <ArrowLeft className="h-4 w-4" />
+    <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark">
+      <header className="border-b glass-effect-light dark:glass-effect-dark">
+        <div className="container mx-auto flex items-center justify-between p-6">
+          <div className="flex items-center gap-6">
+            <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="apple-button-hover">
+              <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold">{team.name}</h1>
+              <div className="flex items-center gap-4">
+                <h1 className="text-3xl font-bold text-foreground leading-tight">{team.name}</h1>
                 <Badge variant="outline">Division {team.division}</Badge>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-base text-muted-foreground leading-relaxed">
                 {team.memberships.length} member{team.memberships.length !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Avatar className="h-8 w-8">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
                 <AvatarImage src={user.image || ''} />
                 <AvatarFallback>
                   {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-medium">{user.name || user.email}</p>
+                <p className="text-sm font-medium text-foreground">{user.name || user.email}</p>
                 <Badge variant={isCaptain ? 'default' : 'secondary'} className="text-xs">
                   {currentMembership.role}
                 </Badge>
               </div>
             </div>
+            <ThemeToggle />
             <Button
               variant="outline"
               size="sm"
@@ -73,9 +75,9 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
         </div>
       </header>
 
-      <main className="container mx-auto p-6">
+      <main className="container mx-auto p-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-5 mb-10">
             <TabsTrigger value="stream">Stream</TabsTrigger>
             <TabsTrigger value="roster">Roster</TabsTrigger>
             <TabsTrigger value="subteams">Subteams</TabsTrigger>
