@@ -13,6 +13,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
@@ -56,6 +57,8 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
   const [sortBy, setSortBy] = useState<'category' | 'conflict'>('category')
   const [contextMenuMember, setContextMenuMember] = useState<any>(null)
   const [contextMenuOpen, setContextMenuOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [teamToDelete, setTeamToDelete] = useState<any>(null)
 
   useEffect(() => {
     fetchEvents()
@@ -178,15 +181,18 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
     }
   }
 
-  const handleDeleteTeam = async (subteam: any) => {
-    if (!confirm(`Are you sure you want to delete "${subteam.name}"? Members will be unassigned but not removed from the club.`)) {
-      return
-    }
+  const handleDeleteTeamClick = (subteam: any) => {
+    setTeamToDelete(subteam)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteTeam = async () => {
+    if (!teamToDelete) return
 
     setLoading(true)
 
     try {
-      const response = await fetch(`/api/teams/${team.id}/subteams/${subteam.id}`, {
+      const response = await fetch(`/api/teams/${team.id}/subteams/${teamToDelete.id}`, {
         method: 'DELETE',
       })
 
@@ -194,10 +200,10 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
 
       toast({
         title: 'Team deleted',
-        description: subteam.name,
+        description: teamToDelete.name,
       })
 
-      if (selectedTeam?.id === subteam.id) {
+      if (selectedTeam?.id === teamToDelete.id) {
         setSelectedTeam(null)
       }
       router.refresh()
@@ -209,6 +215,8 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
       })
     } finally {
       setLoading(false)
+      setDeleteDialogOpen(false)
+      setTeamToDelete(null)
     }
   }
 
@@ -538,7 +546,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleDeleteTeam(subteam)
+                          handleDeleteTeamClick(subteam)
                         }}
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                       >
@@ -1146,6 +1154,32 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
               disabled={loading || !selectedMember}
             >
               {loading ? 'Adding...' : 'Add to Roster'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Team</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{teamToDelete?.name}"? Members will be unassigned but not removed from the club.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTeam}
+              disabled={loading}
+            >
+              {loading ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
@@ -34,6 +35,8 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
   const [eventDetailsOpen, setEventDetailsOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [eventToDelete, setEventToDelete] = useState<any>(null)
   
   // Helper function to format date for datetime-local input
   const formatDateTimeLocal = (date: Date) => {
@@ -215,13 +218,16 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
     }
   }
 
-  const handleDelete = async (eventId: string) => {
-    if (!confirm('Are you sure you want to delete this event?')) {
-      return
-    }
+  const handleDeleteClick = (eventId: string) => {
+    setEventToDelete(eventId)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (!eventToDelete) return
 
     try {
-      const response = await fetch(`/api/calendar/${eventId}`, {
+      const response = await fetch(`/api/calendar/${eventToDelete}`, {
         method: 'DELETE',
       })
 
@@ -244,6 +250,9 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
         description: error.message || 'Failed to delete event',
         variant: 'destructive',
       })
+    } finally {
+      setDeleteDialogOpen(false)
+      setEventToDelete(null)
     }
   }
 
@@ -798,7 +807,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
                   {canDeleteEvent(selectedEvent) && (
                     <Button
                       variant="destructive"
-                      onClick={() => handleDelete(selectedEvent.id)}
+                      onClick={() => handleDeleteClick(selectedEvent.id)}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete Event
@@ -939,6 +948,31 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Event</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this event? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

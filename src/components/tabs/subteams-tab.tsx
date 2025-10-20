@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
@@ -34,6 +35,8 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
   const [editSubteamName, setEditSubteamName] = useState('')
   const [selectedMembership, setSelectedMembership] = useState<string>('')
   const [selectedSubteam, setSelectedSubteam] = useState<string>('')
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [subteamToDelete, setSubteamToDelete] = useState<any>(null)
 
   const handleCreateSubteam = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -133,15 +136,18 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
     }
   }
 
-  const handleDeleteSubteam = async (subteam: any) => {
-    if (!confirm(`Are you sure you want to delete "${subteam.name}"? Members will be unassigned but not removed from the team.`)) {
-      return
-    }
+  const handleDeleteSubteamClick = (subteam: any) => {
+    setSubteamToDelete(subteam)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteSubteam = async () => {
+    if (!subteamToDelete) return
 
     setLoading(true)
 
     try {
-      const response = await fetch(`/api/teams/${team.id}/subteams/${subteam.id}`, {
+      const response = await fetch(`/api/teams/${team.id}/subteams/${subteamToDelete.id}`, {
         method: 'DELETE',
       })
 
@@ -149,7 +155,7 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
 
       toast({
         title: 'Team deleted',
-        description: subteam.name,
+        description: subteamToDelete.name,
       })
 
       router.refresh()
@@ -161,6 +167,8 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
       })
     } finally {
       setLoading(false)
+      setDeleteDialogOpen(false)
+      setSubteamToDelete(null)
     }
   }
 
@@ -211,7 +219,7 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDeleteSubteam(subteam)}
+                      onClick={() => handleDeleteSubteamClick(subteam)}
                       className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -376,6 +384,32 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Team</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{subteamToDelete?.name}"? Members will be unassigned but not removed from the team.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteSubteam}
+              disabled={loading}
+            >
+              {loading ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

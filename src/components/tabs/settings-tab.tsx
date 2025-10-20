@@ -42,6 +42,8 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
   const [removingMember, setRemovingMember] = useState<string | null>(null)
   const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null)
+  const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false)
+  const [codeTypeToRegenerate, setCodeTypeToRegenerate] = useState<'captain' | 'member' | null>(null)
 
   const openRemoveMemberDialog = (membershipId: string, memberName: string) => {
     setMemberToRemove({ id: membershipId, name: memberName })
@@ -127,10 +129,13 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
     setShowMemberCode(!showMemberCode)
   }
 
-  const handleRegenerate = async (type: 'captain' | 'member') => {
-    if (!confirm(`Are you sure you want to regenerate the ${type} invite code? The old code will no longer work.`)) {
-      return
-    }
+  const handleRegenerateClick = (type: 'captain' | 'member') => {
+    setCodeTypeToRegenerate(type)
+    setRegenerateDialogOpen(true)
+  }
+
+  const handleRegenerate = async () => {
+    if (!codeTypeToRegenerate) return
 
     setLoading(true)
 
@@ -138,14 +143,14 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
       const response = await fetch(`/api/teams/${team.id}/invite/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({ type: codeTypeToRegenerate }),
       })
 
       if (!response.ok) throw new Error('Failed to regenerate code')
 
       const data = await response.json()
       
-      if (type === 'captain') {
+      if (codeTypeToRegenerate === 'captain') {
         setCaptainCode(data.code)
         setShowCaptainCode(true)
       } else {
@@ -157,7 +162,7 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
 
       toast({
         title: 'Code regenerated',
-        description: `New ${type} invite code generated`,
+        description: `New ${codeTypeToRegenerate} invite code generated`,
       })
     } catch (error) {
       toast({
@@ -167,6 +172,8 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
       })
     } finally {
       setLoading(false)
+      setRegenerateDialogOpen(false)
+      setCodeTypeToRegenerate(null)
     }
   }
 
@@ -369,7 +376,7 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => handleRegenerate('captain')}
+                  onClick={() => handleRegenerateClick('captain')}
                   disabled={loading}
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -407,7 +414,7 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => handleRegenerate('member')}
+                  onClick={() => handleRegenerateClick('member')}
                   disabled={loading}
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -575,6 +582,32 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
               disabled={removingMember !== null}
             >
               {removingMember ? 'Removing...' : 'Remove Member'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={regenerateDialogOpen} onOpenChange={setRegenerateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Regenerate Invite Code</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to regenerate the {codeTypeToRegenerate} invite code? The old code will no longer work.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRegenerateDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRegenerate}
+              disabled={loading}
+            >
+              {loading ? 'Regenerating...' : 'Regenerate'}
             </Button>
           </DialogFooter>
         </DialogContent>

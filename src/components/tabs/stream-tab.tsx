@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDateTime } from '@/lib/utils'
 import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 
 interface StreamTabProps {
   teamId: string
@@ -35,6 +35,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
   const [editContent, setEditContent] = useState('')
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [announcementToDelete, setAnnouncementToDelete] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAnnouncements()
@@ -95,13 +97,16 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
     }
   }
 
-  const handleDelete = async (announcementId: string) => {
-    if (!confirm('Are you sure you want to delete this announcement?')) {
-      return
-    }
+  const handleDeleteClick = (announcementId: string) => {
+    setAnnouncementToDelete(announcementId)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (!announcementToDelete) return
 
     try {
-      const response = await fetch(`/api/announcements/${announcementId}`, {
+      const response = await fetch(`/api/announcements/${announcementToDelete}`, {
         method: 'DELETE',
       })
 
@@ -122,6 +127,9 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
         description: error.message || 'Failed to delete announcement',
         variant: 'destructive',
       })
+    } finally {
+      setDeleteDialogOpen(false)
+      setAnnouncementToDelete(null)
     }
   }
 
@@ -343,7 +351,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(announcement.id)}
+                        onClick={() => handleDeleteClick(announcement.id)}
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -402,6 +410,31 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Announcement</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this announcement? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
