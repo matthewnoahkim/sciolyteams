@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.0.0",
+    "@hookform/resolvers": "^3.3.4",
     "@prisma/client": "^5.9.0",
     "@radix-ui/react-alert-dialog": "^1.0.5",
     "@radix-ui/react-avatar": "^1.0.4",
@@ -33,7 +34,6 @@
     "@radix-ui/react-tabs": "^1.0.4",
     "@radix-ui/react-toast": "^1.1.5",
     "@tanstack/react-query": "^5.21.0",
-    "@hookform/resolvers": "^3.3.4",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
@@ -53,6 +53,7 @@
   "devDependencies": {
     "@playwright/test": "^1.41.2",
     "@testing-library/react": "^14.2.1",
+    "@types/babel__core": "^7.20.5",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.11.16",
     "@types/react": "^18.2.52",
@@ -69,4 +70,3 @@
     "vitest": "^1.2.2"
   }
 }
-

@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, X, AlertCircle } from 'lucide-react'
+import { Plus, X, Users } from 'lucide-react'
 
 interface RosterTabProps {
   team: any
@@ -29,8 +29,20 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
   const [loading, setLoading] = useState(false)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
-  const [selectedSubteam, setSelectedSubteam] = useState<string>('')
+  const [activeSubteamId, setActiveSubteamId] = useState<string>('')
   const [selectedMember, setSelectedMember] = useState<string>('')
+
+  // Set initial active subteam
+  useEffect(() => {
+    if (team.subteams.length > 0 && !activeSubteamId) {
+      setActiveSubteamId(team.subteams[0].id)
+    }
+  }, [team.subteams, activeSubteamId])
+
+  // Reset selected member when subteam changes
+  useEffect(() => {
+    setSelectedMember('')
+  }, [activeSubteamId])
 
   useEffect(() => {
     fetchEvents()
@@ -64,7 +76,7 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
   }
 
   const handleAddMember = async () => {
-    if (!selectedEvent || !selectedSubteam || !selectedMember) return
+    if (!selectedEvent || !activeSubteamId || !selectedMember) return
 
     setLoading(true)
     try {
@@ -72,7 +84,7 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subteamId: selectedSubteam,
+          subteamId: activeSubteamId,
           membershipId: selectedMember,
           eventId: selectedEvent.id,
         }),
@@ -127,20 +139,64 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
     }
   }
 
-  const getAssignmentsForEvent = (eventId: string) => {
-    return assignments.filter((a) => a.eventId === eventId)
+  const getAssignmentsForEvent = (eventId: string, subteamId: string) => {
+    return assignments.filter((a) => a.eventId === eventId && a.subteamId === subteamId)
   }
 
-  return (
-    <div className="space-y-6">
+  const activeSubteam = team.subteams.find((s: any) => s.id === activeSubteamId)
+  const activeSubteamMembers = team.memberships.filter((m: any) => m.subteamId === activeSubteamId)
+
+  if (team.subteams.length === 0) {
+    return (
       <Card>
         <CardHeader>
           <CardTitle>Event Roster - Division {team.division}</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="text-center py-8">
+            <Users className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
+            <p className="text-muted-foreground">
+              No subteams yet. Create subteams in the Subteams tab to manage event rosters.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Subteam Selector */}
+      <div className="flex gap-2 flex-wrap">
+        {team.subteams.map((subteam: any) => (
+          <Button
+            key={subteam.id}
+            variant={activeSubteamId === subteam.id ? 'default' : 'outline'}
+            onClick={() => setActiveSubteamId(subteam.id)}
+          >
+            {subteam.name}
+            <Badge variant="secondary" className="ml-2">
+              {subteam.members.length}
+            </Badge>
+          </Button>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>
+              {activeSubteam?.name} Roster - Division {team.division}
+            </CardTitle>
+            <Badge variant="outline">
+              {activeSubteamMembers.length} member{activeSubteamMembers.length !== 1 ? 's' : ''}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
           <div className="space-y-4">
             {events.map((event) => {
-              const eventAssignments = getAssignmentsForEvent(event.id)
+              const eventAssignments = getAssignmentsForEvent(event.id, activeSubteamId)
               const atCapacity = eventAssignments.length >= event.maxCompetitors
 
               return (
@@ -210,49 +266,45 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
         </CardContent>
       </Card>
 
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+      <Dialog 
+        open={addDialogOpen} 
+        onOpenChange={(open) => {
+          setAddDialogOpen(open)
+          if (!open) setSelectedMember('')
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Member to {selectedEvent?.name}</DialogTitle>
+            <DialogTitle>
+              Add Member to {selectedEvent?.name}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label>Subteam</Label>
+              <Label className="text-muted-foreground">
+                Subteam: <span className="font-semibold text-foreground">{activeSubteam?.name}</span>
+              </Label>
+            </div>
+            <div>
+              <Label>Select Member</Label>
               <select
                 className="mt-1 w-full rounded-md border p-2"
-                value={selectedSubteam}
-                onChange={(e) => {
-                  setSelectedSubteam(e.target.value)
-                  setSelectedMember('')
-                }}
+                value={selectedMember}
+                onChange={(e) => setSelectedMember(e.target.value)}
               >
-                <option value="">Select subteam</option>
-                {team.subteams.map((subteam: any) => (
-                  <option key={subteam.id} value={subteam.id}>
-                    {subteam.name}
+                <option value="">Choose a member...</option>
+                {activeSubteamMembers.map((m: any) => (
+                  <option key={m.id} value={m.id}>
+                    {m.user.name || m.user.email}
                   </option>
                 ))}
               </select>
+              {activeSubteamMembers.length === 0 && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No members in this subteam. Assign members in the Subteams tab.
+                </p>
+              )}
             </div>
-            {selectedSubteam && (
-              <div>
-                <Label>Member</Label>
-                <select
-                  className="mt-1 w-full rounded-md border p-2"
-                  value={selectedMember}
-                  onChange={(e) => setSelectedMember(e.target.value)}
-                >
-                  <option value="">Select member</option>
-                  {team.memberships
-                    .filter((m: any) => m.subteamId === selectedSubteam)
-                    .map((m: any) => (
-                      <option key={m.id} value={m.id}>
-                        {m.user.name || m.user.email}
-                      </option>
-                    ))}
-                </select>
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
@@ -262,7 +314,7 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
               onClick={handleAddMember}
               disabled={loading || !selectedMember}
             >
-              {loading ? 'Adding...' : 'Add Member'}
+              {loading ? 'Adding...' : 'Add to Roster'}
             </Button>
           </DialogFooter>
         </DialogContent>
