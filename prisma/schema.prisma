@@ -78,14 +78,16 @@ enum Role {
 }
 
 model Team {
-  id                    String         @id @default(cuid())
-  name                  String
-  division              Division
-  createdById           String
-  captainInviteCodeHash String
-  memberInviteCodeHash  String
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
+  id                        String         @id @default(cuid())
+  name                      String
+  division                  Division
+  createdById               String
+  captainInviteCodeHash     String
+  memberInviteCodeHash      String
+  captainInviteCodeEncrypted String
+  memberInviteCodeEncrypted  String
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
 
   createdBy      User              @relation("TeamCreator", fields: [createdById], references: [id])
   memberships    Membership[]

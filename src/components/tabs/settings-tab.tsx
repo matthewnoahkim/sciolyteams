@@ -19,6 +19,52 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
   const [showCaptainCode, setShowCaptainCode] = useState(false)
   const [showMemberCode, setShowMemberCode] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [codesFetched, setCodesFetched] = useState(false)
+
+  const fetchCodes = async () => {
+    if (codesFetched) return
+
+    try {
+      const response = await fetch(`/api/teams/${team.id}/invite/codes`)
+      
+      if (!response.ok) throw new Error('Failed to fetch codes')
+
+      const data = await response.json()
+      
+      if (data.needsRegeneration) {
+        toast({
+          title: 'Codes need regeneration',
+          description: 'Please regenerate the invite codes',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      setCaptainCode(data.captainCode)
+      setMemberCode(data.memberCode)
+      setCodesFetched(true)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch invite codes',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleShowCaptainCode = async () => {
+    if (!showCaptainCode && !codesFetched) {
+      await fetchCodes()
+    }
+    setShowCaptainCode(!showCaptainCode)
+  }
+
+  const handleShowMemberCode = async () => {
+    if (!showMemberCode && !codesFetched) {
+      await fetchCodes()
+    }
+    setShowMemberCode(!showMemberCode)
+  }
 
   const handleRegenerate = async (type: 'captain' | 'member') => {
     if (!confirm(`Are you sure you want to regenerate the ${type} invite code? The old code will no longer work.`)) {
@@ -45,6 +91,8 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
         setMemberCode(data.code)
         setShowMemberCode(true)
       }
+
+      setCodesFetched(true) // Mark codes as fetched after regeneration
 
       toast({
         title: 'Code regenerated',
@@ -121,7 +169,7 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => setShowCaptainCode(!showCaptainCode)}
+                  onClick={handleShowCaptainCode}
                 >
                   {showCaptainCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
@@ -159,7 +207,7 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => setShowMemberCode(!showMemberCode)}
+                  onClick={handleShowMemberCode}
                 >
                   {showMemberCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
