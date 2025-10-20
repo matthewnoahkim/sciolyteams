@@ -88,6 +88,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               teamId={team.id}
               currentMembership={currentMembership}
               subteams={team.subteams}
+              isCaptain={isCaptain}
             />
           </TabsContent>
 

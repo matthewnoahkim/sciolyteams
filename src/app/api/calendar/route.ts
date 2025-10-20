@@ -61,12 +61,12 @@ export async function POST(req: NextRequest) {
         creatorId: membership.id,
         scope: validated.scope as CalendarScope,
         title: validated.title,
-        description: validated.description,
+        description: validated.description || undefined,
         startUTC: new Date(validated.startUTC),
         endUTC: new Date(validated.endUTC),
-        location: validated.location,
-        subteamId: validated.subteamId,
-        attendeeId: validated.attendeeId,
+        location: validated.location || undefined,
+        subteamId: validated.subteamId || undefined,
+        attendeeId: validated.attendeeId || undefined,
       },
       include: {
         creator: {

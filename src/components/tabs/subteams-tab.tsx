@@ -14,7 +14,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, Users } from 'lucide-react'
+import { Plus, Users, Pencil, Trash2 } from 'lucide-react'
 
 interface SubteamsTabProps {
   team: any
@@ -25,8 +25,11 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
   const { toast } = useToast()
   const [createOpen, setCreateOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [newSubteamName, setNewSubteamName] = useState('')
+  const [editingSubteam, setEditingSubteam] = useState<any>(null)
+  const [editSubteamName, setEditSubteamName] = useState('')
   const [selectedMembership, setSelectedMembership] = useState<string>('')
   const [selectedSubteam, setSelectedSubteam] = useState<string>('')
 
@@ -93,6 +96,78 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
     }
   }
 
+  const handleEditSubteam = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingSubteam) return
+
+    setLoading(true)
+
+    try {
+      const response = await fetch(`/api/teams/${team.id}/subteams/${editingSubteam.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editSubteamName }),
+      })
+
+      if (!response.ok) throw new Error('Failed to update subteam')
+
+      toast({
+        title: 'Subteam updated',
+        description: editSubteamName,
+      })
+
+      setEditOpen(false)
+      setEditingSubteam(null)
+      setEditSubteamName('')
+      window.location.reload()
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update subteam',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteSubteam = async (subteam: any) => {
+    if (!confirm(`Are you sure you want to delete "${subteam.name}"? Members will be unassigned but not removed from the team.`)) {
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const response = await fetch(`/api/teams/${team.id}/subteams/${subteam.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) throw new Error('Failed to delete subteam')
+
+      toast({
+        title: 'Subteam deleted',
+        description: subteam.name,
+      })
+
+      window.location.reload()
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete subteam',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const openEditDialog = (subteam: any) => {
+    setEditingSubteam(subteam)
+    setEditSubteamName(subteam.name)
+    setEditOpen(true)
+  }
+
   const unassignedMembers = team.memberships.filter((m: any) => !m.subteamId)
 
   return (
@@ -114,12 +189,34 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
         {team.subteams.map((subteam: any) => (
           <Card key={subteam.id}>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between text-lg">
-                {subteam.name}
-                <span className="text-sm font-normal text-muted-foreground">
-                  {subteam.members.length} member{subteam.members.length !== 1 ? 's' : ''}
-                </span>
-              </CardTitle>
+              <div className="flex items-start justify-between">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  {subteam.name}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    ({subteam.members.length})
+                  </span>
+                </CardTitle>
+                {isCaptain && (
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openEditDialog(subteam)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteSubteam(subteam)}
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -247,6 +344,36 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
               {loading ? 'Updating...' : 'Update Assignment'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <form onSubmit={handleEditSubteam}>
+            <DialogHeader>
+              <DialogTitle>Edit Subteam</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="edit-name">Subteam Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editSubteamName}
+                  onChange={(e) => setEditSubteamName(e.target.value)}
+                  placeholder="e.g., Team A"
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading || !editSubteamName}>
+                {loading ? 'Updating...' : 'Update'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

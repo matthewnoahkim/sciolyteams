@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDateTime } from '@/lib/utils'
-import { Plus, Calendar as CalendarIcon } from 'lucide-react'
+import { Plus, Calendar as CalendarIcon, Trash2 } from 'lucide-react'
 
 interface CalendarTabProps {
   teamId: string
@@ -26,9 +26,11 @@ interface CalendarTabProps {
 export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTabProps) {
   const { toast } = useToast()
   const [events, setEvents] = useState<any[]>([])
+  const [subteams, setSubteams] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
-  const [formData, setFormData] = useState({
+  
+  const getInitialFormData = () => ({
     title: '',
     description: '',
     startUTC: '',
@@ -38,9 +40,12 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
     subteamId: '',
     attendeeId: currentMembership.id,
   })
+  
+  const [formData, setFormData] = useState(getInitialFormData())
 
   useEffect(() => {
     fetchEvents()
+    fetchSubteams()
   }, [teamId])
 
   const fetchEvents = async () => {
@@ -58,18 +63,58 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
     }
   }
 
+  const fetchSubteams = async () => {
+    try {
+      const response = await fetch(`/api/teams/${teamId}/subteams`)
+      if (response.ok) {
+        const data = await response.json()
+        setSubteams(data.subteams)
+      }
+    } catch (error) {
+      console.error('Failed to fetch subteams:', error)
+    }
+  }
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      // Convert datetime-local format to ISO 8601 format
+      const startISO = new Date(formData.startUTC).toISOString()
+      const endISO = new Date(formData.endUTC).toISOString()
+
+      // Build payload with proper handling of optional fields
+      const payload: any = {
+        teamId,
+        scope: formData.scope,
+        title: formData.title,
+        startUTC: startISO,
+        endUTC: endISO,
+      }
+
+      // Add optional description and location if provided
+      if (formData.description) {
+        payload.description = formData.description
+      }
+      if (formData.location) {
+        payload.location = formData.location
+      }
+      
+      // Add scope-specific fields
+      if (formData.scope === 'SUBTEAM') {
+        if (formData.subteamId) {
+          payload.subteamId = formData.subteamId
+        }
+      } else if (formData.scope === 'PERSONAL') {
+        // attendeeId is required for PERSONAL scope
+        payload.attendeeId = formData.attendeeId
+      }
+
       const response = await fetch('/api/calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          teamId,
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
@@ -83,6 +128,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
       })
 
       setCreateOpen(false)
+      setFormData(getInitialFormData())
       fetchEvents()
     } catch (error: any) {
       toast({
@@ -93,6 +139,41 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleDelete = async (eventId: string) => {
+    if (!confirm('Are you sure you want to delete this event?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/calendar/${eventId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete event')
+      }
+
+      toast({
+        title: 'Event deleted',
+        description: 'The calendar event has been removed',
+      })
+
+      fetchEvents()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete event',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const canDeleteEvent = (event: any) => {
+    // Can delete if you're the creator or a captain
+    return event.creatorId === currentMembership.id || isCaptain
   }
 
   const getScopeBadge = (event: any) => {
@@ -110,7 +191,10 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
     <div className="space-y-6">
       <div className="flex justify-between">
         <h3 className="text-lg font-semibold">Calendar Events</h3>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button onClick={() => {
+          setFormData(getInitialFormData())
+          setCreateOpen(true)
+        }}>
           <Plus className="mr-2 h-4 w-4" />
           New Event
         </Button>
@@ -142,8 +226,23 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
                     <p className="mt-1 text-sm text-muted-foreground">
                       {formatDateTime(event.startUTC)} - {formatDateTime(event.endUTC)}
                     </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Created by {event.creator?.user?.name || 'Unknown'}
+                    </p>
                   </div>
-                  {getScopeBadge(event)}
+                  <div className="flex items-center gap-2">
+                    {getScopeBadge(event)}
+                    {canDeleteEvent(event) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(event.id)}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               {(event.description || event.location) && (
@@ -225,7 +324,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
                       name="scope"
                       value="PERSONAL"
                       checked={formData.scope === 'PERSONAL'}
-                      onChange={(e) => setFormData({ ...formData, scope: 'PERSONAL' })}
+                      onChange={(e) => setFormData({ ...formData, scope: 'PERSONAL', subteamId: '' })}
                     />
                     <span className="text-sm">Personal event</span>
                   </label>
@@ -237,7 +336,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
                           name="scope"
                           value="TEAM"
                           checked={formData.scope === 'TEAM'}
-                          onChange={(e) => setFormData({ ...formData, scope: 'TEAM' })}
+                          onChange={(e) => setFormData({ ...formData, scope: 'TEAM', subteamId: '' })}
                         />
                         <span className="text-sm">Entire team</span>
                       </label>
@@ -247,17 +346,39 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
                           name="scope"
                           value="SUBTEAM"
                           checked={formData.scope === 'SUBTEAM'}
-                          onChange={(e) => setFormData({ ...formData, scope: 'SUBTEAM' })}
+                          onChange={(e) => setFormData({ ...formData, scope: 'SUBTEAM', subteamId: '' })}
                         />
                         <span className="text-sm">Specific subteam</span>
                       </label>
                     </>
                   )}
                 </div>
+                {formData.scope === 'SUBTEAM' && (
+                  <div className="mt-3">
+                    <Label htmlFor="subteam">Select Subteam</Label>
+                    <select
+                      id="subteam"
+                      value={formData.subteamId}
+                      onChange={(e) => setFormData({ ...formData, subteamId: e.target.value })}
+                      required
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="">Select a subteam...</option>
+                      {subteams.map((subteam) => (
+                        <option key={subteam.id} value={subteam.id}>
+                          {subteam.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => {
+                setCreateOpen(false)
+                setFormData(getInitialFormData())
+              }}>
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>

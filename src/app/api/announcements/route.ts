@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember, getUserMembership } from '@/lib/rbac'
+import { requireMember, getUserMembership, isCaptain } from '@/lib/rbac'
 import { sendAnnouncementEmail } from '@/lib/email'
 import { z } from 'zod'
 import { AnnouncementScope } from '@prisma/client'
@@ -190,31 +190,38 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
+    // Check if user is a captain
+    const isCpt = await isCaptain(session.user.id, teamId)
+
     // Get announcements visible to this user
+    // Captains can see all announcements, regular members only see team-wide and their subteam
     const announcements = await prisma.announcement.findMany({
       where: {
         teamId,
-        OR: [
-          // Team-wide announcements
-          {
-            visibilities: {
-              some: {
-                scope: AnnouncementScope.TEAM,
+        // Captains see all announcements for the team
+        ...(isCpt ? {} : {
+          OR: [
+            // Team-wide announcements
+            {
+              visibilities: {
+                some: {
+                  scope: AnnouncementScope.TEAM,
+                },
               },
             },
-          },
-          // Subteam announcements for user's subteam
-          ...(membership.subteamId
-            ? [{
-                visibilities: {
-                  some: {
-                    scope: AnnouncementScope.SUBTEAM,
-                    subteamId: membership.subteamId,
+            // Subteam announcements for user's subteam
+            ...(membership.subteamId
+              ? [{
+                  visibilities: {
+                    some: {
+                      scope: AnnouncementScope.SUBTEAM,
+                      subteamId: membership.subteamId,
+                    },
                   },
-                },
-              }]
-            : []),
-        ],
+                }]
+              : []),
+          ],
+        }),
       },
       include: {
         author: {

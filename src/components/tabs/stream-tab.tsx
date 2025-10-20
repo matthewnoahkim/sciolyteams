@@ -9,15 +9,16 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDateTime } from '@/lib/utils'
-import { Plus, Send } from 'lucide-react'
+import { Plus, Send, Trash2 } from 'lucide-react'
 
 interface StreamTabProps {
   teamId: string
   currentMembership: any
   subteams: any[]
+  isCaptain: boolean
 }
 
-export function StreamTab({ teamId, currentMembership, subteams }: StreamTabProps) {
+export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: StreamTabProps) {
   const { toast } = useToast()
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -85,6 +86,41 @@ export function StreamTab({ teamId, currentMembership, subteams }: StreamTabProp
     } finally {
       setPosting(false)
     }
+  }
+
+  const handleDelete = async (announcementId: string) => {
+    if (!confirm('Are you sure you want to delete this announcement?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/announcements/${announcementId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete announcement')
+      }
+
+      toast({
+        title: 'Announcement deleted',
+        description: 'The announcement has been removed',
+      })
+
+      fetchAnnouncements()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete announcement',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const canDeleteAnnouncement = (announcement: any) => {
+    // Can delete if you're the author or a captain
+    return announcement.authorId === currentMembership.id || isCaptain
   }
 
   return (
@@ -218,12 +254,24 @@ export function StreamTab({ teamId, currentMembership, subteams }: StreamTabProp
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    {announcement.visibilities.map((v: any) => (
-                      <Badge key={v.id} variant="secondary" className="text-xs">
-                        {v.scope === 'TEAM' ? 'TEAM' : v.subteam?.name || 'SUBTEAM'}
-                      </Badge>
-                    ))}
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
+                      {announcement.visibilities.map((v: any) => (
+                        <Badge key={v.id} variant="secondary" className="text-xs">
+                          {v.scope === 'TEAM' ? 'TEAM' : v.subteam?.name || 'SUBTEAM'}
+                        </Badge>
+                      ))}
+                    </div>
+                    {canDeleteAnnouncement(announcement) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(announcement.id)}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardHeader>
