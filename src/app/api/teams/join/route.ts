@@ -66,18 +66,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check team size cap (15 members)
-    const memberCount = await prisma.membership.count({
-      where: { teamId: matchedTeam.id },
-    })
-
-    if (memberCount >= 15) {
-      return NextResponse.json(
-        { error: 'Team is full (maximum 15 members)', code: 'TEAM_FULL' },
-        { status: 400 }
-      )
-    }
-
     // Create membership
     const membership = await prisma.membership.create({
       data: {

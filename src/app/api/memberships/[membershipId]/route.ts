@@ -32,7 +32,7 @@ export async function PATCH(
     const body = await req.json()
     const { subteamId } = updateMembershipSchema.parse(body)
 
-    // If subteamId is provided, verify it belongs to the same team
+    // If subteamId is provided, verify it belongs to the same team and check size limit
     if (subteamId) {
       const subteam = await prisma.subteam.findUnique({
         where: { id: subteamId },
@@ -40,6 +40,18 @@ export async function PATCH(
 
       if (!subteam || subteam.teamId !== membership.teamId) {
         return NextResponse.json({ error: 'Invalid subteam' }, { status: 400 })
+      }
+
+      // Check subteam size cap (15 members per subteam)
+      const subteamMemberCount = await prisma.membership.count({
+        where: { subteamId },
+      })
+
+      if (subteamMemberCount >= 15) {
+        return NextResponse.json(
+          { error: 'Subteam is full (maximum 15 members per subteam)' },
+          { status: 400 }
+        )
       }
     }
 

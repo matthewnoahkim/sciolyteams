@@ -131,26 +131,33 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
+    // Check if user is a captain
+    const isCpt = await isCaptain(session.user.id, teamId)
+
     // Get events visible to this user
+    // Captains can see all events, regular members only see team-wide, their subteam, and their personal events
     const events = await prisma.calendarEvent.findMany({
       where: {
         teamId,
-        OR: [
-          // Team-wide events
-          { scope: CalendarScope.TEAM },
-          // Subteam events for user's subteam
-          ...(membership.subteamId
-            ? [{
-                scope: CalendarScope.SUBTEAM,
-                subteamId: membership.subteamId,
-              }]
-            : []),
-          // Personal events for this user
-          {
-            scope: CalendarScope.PERSONAL,
-            attendeeId: membership.id,
-          },
-        ],
+        // Captains see all events for the team
+        ...(isCpt ? {} : {
+          OR: [
+            // Team-wide events
+            { scope: CalendarScope.TEAM },
+            // Subteam events for user's subteam
+            ...(membership.subteamId
+              ? [{
+                  scope: CalendarScope.SUBTEAM,
+                  subteamId: membership.subteamId,
+                }]
+              : []),
+            // Personal events for this user
+            {
+              scope: CalendarScope.PERSONAL,
+              attendeeId: membership.id,
+            },
+          ],
+        }),
       },
       include: {
         creator: {

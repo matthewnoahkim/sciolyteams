@@ -1,11 +1,22 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Copy, RefreshCw, Eye, EyeOff } from 'lucide-react'
+import { Copy, RefreshCw, Eye, EyeOff, Trash2 } from 'lucide-react'
 
 interface SettingsTabProps {
   team: any
@@ -14,12 +25,16 @@ interface SettingsTabProps {
 
 export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
   const { toast } = useToast()
+  const router = useRouter()
   const [captainCode, setCaptainCode] = useState<string>('••••••••••••')
   const [memberCode, setMemberCode] = useState<string>('••••••••••••')
   const [showCaptainCode, setShowCaptainCode] = useState(false)
   const [showMemberCode, setShowMemberCode] = useState(false)
   const [loading, setLoading] = useState(false)
   const [codesFetched, setCodesFetched] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const fetchCodes = async () => {
     if (codesFetched) return
@@ -126,6 +141,45 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
     })
   }
 
+  const handleDeleteTeam = async () => {
+    if (deleteConfirmation !== team.name) {
+      toast({
+        title: 'Error',
+        description: 'Team name does not match',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setDeleting(true)
+
+    try {
+      const response = await fetch(`/api/teams/${team.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete team')
+      }
+
+      toast({
+        title: 'Team deleted',
+        description: 'The team and all its data have been permanently removed',
+      })
+
+      // Redirect to home page after successful deletion
+      router.push('/')
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete team',
+        variant: 'destructive',
+      })
+      setDeleting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -143,7 +197,7 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
           </div>
           <div>
             <p className="text-sm font-medium">Members</p>
-            <p className="text-lg">{team.memberships.length} / 15</p>
+            <p className="text-lg">{team.memberships.length}</p>
           </div>
           <div>
             <p className="text-sm font-medium">Subteams</p>
@@ -244,6 +298,70 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
           </CardContent>
         </Card>
       )}
+
+      {isCaptain && (
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Danger Zone</CardTitle>
+            <CardDescription>
+              Permanently delete this team and all associated data
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="destructive"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Team
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Team</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the team, all subteams, 
+              announcements, calendar events, roster assignments, and remove all members.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="delete-confirmation">
+                Type <span className="font-bold">{team.name}</span> to confirm
+              </Label>
+              <Input
+                id="delete-confirmation"
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                placeholder="Enter team name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                setDeleteConfirmation('')
+              }}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTeam}
+              disabled={deleting || deleteConfirmation !== team.name}
+            >
+              {deleting ? 'Deleting...' : 'Delete Team Permanently'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember } from '@/lib/rbac'
+import { requireMember, requireCaptain } from '@/lib/rbac'
 
 export async function GET(
   req: NextRequest,
@@ -66,6 +66,43 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
     console.error('Get team error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { teamId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Only captains can delete teams
+    await requireCaptain(session.user.id, params.teamId)
+
+    // Verify team exists
+    const team = await prisma.team.findUnique({
+      where: { id: params.teamId },
+    })
+
+    if (!team) {
+      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    }
+
+    // Delete team (cascading deletes will handle related records)
+    await prisma.team.delete({
+      where: { id: params.teamId },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+    console.error('Delete team error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
