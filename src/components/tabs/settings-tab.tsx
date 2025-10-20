@@ -244,8 +244,9 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
         description: 'You have successfully left the club',
       })
 
-      // Redirect to home page after leaving
-      router.push('/')
+      // Redirect and refresh after leaving
+      await router.push('/')
+      router.refresh()
     } catch (error: any) {
       toast({
         title: 'Error',
