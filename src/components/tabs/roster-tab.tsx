@@ -193,9 +193,16 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>
-              {activeSubteam?.name} Roster - Division {team.division}
-            </CardTitle>
+            <div>
+              <CardTitle>
+                {activeSubteam?.name} Roster - Division {team.division}
+              </CardTitle>
+              {isCaptain && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Right-click events to assign members
+                </p>
+              )}
+            </div>
             <Badge variant="outline">
               {activeSubteamMembers.length} member{activeSubteamMembers.length !== 1 ? 's' : ''}
             </Badge>

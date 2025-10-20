@@ -611,7 +611,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                 Create Team
               </Button>
               <p className="text-sm text-muted-foreground">
-                {draggedMember ? '🎯 Drop member into a team box' : 'Drag and drop members to assign them to teams'}
+                Right-click members to assign them to teams
               </p>
             </div>
           )}
@@ -676,7 +676,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
               <CardContent>
                 <div className="space-y-2">
                   {subteam.members.slice(0, 5).map((member: any) => (
-                    <DropdownMenu key={member.id} open={contextMenuMember?.id === member.id && contextMenuOpen} onOpenChange={(open) => {
+                    <DropdownMenu key={member.id} open={contextMenuMember?.id === member.id && contextMenuOpen} onOpenChange={(open: boolean) => {
                       if (!open) setContextMenuMember(null)
                       setContextMenuOpen(open)
                     }}>
@@ -762,7 +762,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
               {unassignedMembers.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {unassignedMembers.map((member: any) => (
-                  <DropdownMenu key={member.id} open={contextMenuMember?.id === member.id && contextMenuOpen} onOpenChange={(open) => {
+                  <DropdownMenu key={member.id} open={contextMenuMember?.id === member.id && contextMenuOpen} onOpenChange={(open: boolean) => {
                     if (!open) setContextMenuMember(null)
                     setContextMenuOpen(open)
                   }}>
@@ -959,7 +959,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
           <CardHeader>
             <CardTitle>Team Members</CardTitle>
             <CardDescription>
-              {isCaptain ? 'Drag members to events below or right-click to assign them' : `${teamMembers.length} members on this team`}
+              {isCaptain ? 'Right-click members or events to assign them' : `${teamMembers.length} members on this team`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -968,7 +968,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                 const availableEvents = getAvailableEventsForMember(member)
                 
                 return (
-                  <DropdownMenu key={member.id} open={contextMenuMember?.id === member.id && contextMenuOpen} onOpenChange={(open) => {
+                  <DropdownMenu key={member.id} open={contextMenuMember?.id === member.id && contextMenuOpen} onOpenChange={(open: boolean) => {
                     if (!open) setContextMenuMember(null)
                     setContextMenuOpen(open)
                   }}>

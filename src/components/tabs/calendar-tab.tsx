@@ -467,18 +467,18 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
       <div className="border rounded-lg overflow-hidden">
         {/* Header */}
         <div className="grid grid-cols-8 gap-0">
-          <div className="bg-muted p-2 border-b border-r border-border" />
+          <div className="bg-muted p-1 border-b border-r border-border" />
           {weekDates.map((date) => {
             const isToday = isSameDay(date, today)
             return (
               <div
                 key={date.toISOString()}
-                className={`bg-muted p-2 text-center border-b border-border ${isToday ? 'bg-primary/10' : ''}`}
+                className={`bg-muted py-1 px-2 text-center border-b border-border ${isToday ? 'bg-primary/10' : ''}`}
               >
                 <div className="text-xs font-medium text-muted-foreground">
                   {date.toLocaleDateString('en-US', { weekday: 'short' })}
                 </div>
-                <div className={`text-lg font-semibold ${isToday ? 'text-primary' : ''}`}>
+                <div className={`text-base font-semibold ${isToday ? 'text-primary' : ''}`}>
                   {date.getDate()}
                 </div>
               </div>
@@ -490,7 +490,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
         <div className="max-h-[600px] overflow-y-auto">
           {hours.map((hour) => (
             <div key={hour} className="grid grid-cols-8 gap-0">
-              <div className="p-2 text-xs text-muted-foreground text-right border-r border-border">
+              <div className="py-1 px-1 text-xs text-muted-foreground text-right border-r border-border leading-tight">
                 {hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
               </div>
               {weekDates.map((date) => {
@@ -507,20 +507,20 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
                 return (
                   <div
                     key={`${date.toISOString()}-${hour}`}
-                    className="min-h-[60px] border-b border-r border-border bg-background hover:bg-muted/50 cursor-pointer transition-colors p-1"
+                    className="min-h-[35px] border-b border-r border-border bg-background hover:bg-muted/50 cursor-pointer transition-colors p-0.5"
                     onClick={() => handleDayClick(slotDate)}
                   >
                     {slotEvents.map((event) => (
                       <div
                         key={event.id}
-                        className={`text-xs p-1 rounded mb-1 ${getEventColor(event)} cursor-pointer`}
+                        className={`text-xs p-0.5 rounded mb-0.5 ${getEventColor(event)} cursor-pointer`}
                         onClick={(e) => {
                           e.stopPropagation()
                           handleEventClick(event)
                         }}
                       >
-                        <div className="font-semibold truncate">{event.title}</div>
-                        <div className="text-xs opacity-90">
+                        <div className="font-semibold truncate text-[10px] leading-tight">{event.title}</div>
+                        <div className="text-[10px] opacity-90 leading-tight">
                           {new Date(event.startUTC).toLocaleTimeString('en-US', {
                             hour: 'numeric',
                             minute: '2-digit',
