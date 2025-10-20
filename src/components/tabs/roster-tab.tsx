@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +24,7 @@ interface RosterTabProps {
 }
 
 export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps) {
+  const router = useRouter()
   const { toast } = useToast()
   const [events, setEvents] = useState<any[]>([])
   const [assignments, setAssignments] = useState<any[]>([])
@@ -46,8 +48,12 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
 
   useEffect(() => {
     fetchEvents()
-    fetchAssignments()
   }, [team.id])
+
+  // Update assignments whenever team memberships change
+  useEffect(() => {
+    fetchAssignments()
+  }, [team.memberships])
 
   const fetchEvents = async () => {
     try {
@@ -102,7 +108,8 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
       })
 
       // Refresh page to get updated data
-      window.location.reload()
+      router.refresh()
+      setAddDialogOpen(false)
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -127,7 +134,7 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
         title: 'Member removed',
       })
 
-      window.location.reload()
+      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
@@ -156,7 +163,7 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
           <div className="text-center py-8">
             <Users className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
             <p className="text-muted-foreground">
-              No subteams yet. Create subteams in the Subteams tab to manage event rosters.
+              No teams yet. Create teams in the Teams tab to manage event rosters.
             </p>
           </div>
         </CardContent>
@@ -282,7 +289,7 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
           <div className="space-y-4 py-4">
             <div>
               <Label className="text-muted-foreground">
-                Subteam: <span className="font-semibold text-foreground">{activeSubteam?.name}</span>
+                Team: <span className="font-semibold text-foreground">{activeSubteam?.name}</span>
               </Label>
             </div>
             <div>
@@ -301,7 +308,7 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
               </select>
               {activeSubteamMembers.length === 0 && (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  No members in this subteam. Assign members in the Subteams tab.
+                  No members in this team. Assign members in the Teams tab.
                 </p>
               )}
             </div>

@@ -84,3 +84,74 @@ export async function PATCH(
   }
 }
 
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { membershipId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const membership = await prisma.membership.findUnique({
+      where: { id: params.membershipId },
+      include: {
+        team: {
+          include: {
+            memberships: {
+              where: {
+                role: 'CAPTAIN',
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!membership) {
+      return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
+    }
+
+    // Check if the requester is a captain of the team
+    const requesterMembership = await prisma.membership.findUnique({
+      where: {
+        userId_teamId: {
+          userId: session.user.id,
+          teamId: membership.teamId,
+        },
+      },
+    })
+
+    if (!requesterMembership) {
+      return NextResponse.json({ error: 'You are not a member of this team' }, { status: 403 })
+    }
+
+    const isRequesterCaptain = requesterMembership.role === 'CAPTAIN'
+    const isSelfRemoval = membership.userId === session.user.id
+
+    // Only captains can remove others, or users can remove themselves
+    if (!isRequesterCaptain && !isSelfRemoval) {
+      return NextResponse.json({ error: 'Only captains can remove other members' }, { status: 403 })
+    }
+
+    // Check if this is the last captain
+    if (membership.role === 'CAPTAIN' && membership.team.memberships.length === 1) {
+      return NextResponse.json(
+        { error: 'Cannot remove the only captain. Please promote another member to captain first or delete the team.' },
+        { status: 400 }
+      )
+    }
+
+    // Delete the membership (cascade will handle related records)
+    await prisma.membership.delete({
+      where: { id: params.membershipId },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Delete membership error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+

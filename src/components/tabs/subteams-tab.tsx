@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,6 +23,7 @@ interface SubteamsTabProps {
 }
 
 export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
+  const router = useRouter()
   const { toast } = useToast()
   const [createOpen, setCreateOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
@@ -47,17 +49,17 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
       if (!response.ok) throw new Error('Failed to create subteam')
 
       toast({
-        title: 'Subteam created',
+        title: 'Team created',
         description: newSubteamName,
       })
 
       setNewSubteamName('')
       setCreateOpen(false)
-      window.location.reload()
+      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to create subteam',
+        description: 'Failed to create team',
         variant: 'destructive',
       })
     } finally {
@@ -84,7 +86,7 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
       })
 
       setAssignOpen(false)
-      window.location.reload()
+      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
@@ -112,18 +114,18 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
       if (!response.ok) throw new Error('Failed to update subteam')
 
       toast({
-        title: 'Subteam updated',
+        title: 'Team updated',
         description: editSubteamName,
       })
 
       setEditOpen(false)
       setEditingSubteam(null)
       setEditSubteamName('')
-      window.location.reload()
+      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to update subteam',
+        description: 'Failed to update team',
         variant: 'destructive',
       })
     } finally {
@@ -146,15 +148,15 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
       if (!response.ok) throw new Error('Failed to delete subteam')
 
       toast({
-        title: 'Subteam deleted',
+        title: 'Team deleted',
         description: subteam.name,
       })
 
-      window.location.reload()
+      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to delete subteam',
+        description: 'Failed to delete team',
         variant: 'destructive',
       })
     } finally {
@@ -176,7 +178,7 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
         <div className="flex gap-2">
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Create Subteam
+            Create Team
           </Button>
           <Button variant="outline" onClick={() => setAssignOpen(true)}>
             <Users className="mr-2 h-4 w-4" />
@@ -273,11 +275,11 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
         <DialogContent>
           <form onSubmit={handleCreateSubteam}>
             <DialogHeader>
-              <DialogTitle>Create Subteam</DialogTitle>
+              <DialogTitle>Create Team</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
-                <Label htmlFor="name">Subteam Name</Label>
+                <Label htmlFor="name">Team Name</Label>
                 <Input
                   id="name"
                   value={newSubteamName}
@@ -321,13 +323,13 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
               </select>
             </div>
             <div>
-              <Label>Assign to Subteam</Label>
+              <Label>Assign to Team</Label>
               <select
                 className="mt-1 w-full rounded-md border p-2"
                 value={selectedSubteam}
                 onChange={(e) => setSelectedSubteam(e.target.value)}
               >
-                <option value="">No subteam (unassign)</option>
+                <option value="">No team (unassign)</option>
                 {team.subteams.map((s: any) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -351,11 +353,11 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
         <DialogContent>
           <form onSubmit={handleEditSubteam}>
             <DialogHeader>
-              <DialogTitle>Edit Subteam</DialogTitle>
+              <DialogTitle>Edit Team</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
-                <Label htmlFor="edit-name">Subteam Name</Label>
+                <Label htmlFor="edit-name">Team Name</Label>
                 <Input
                   id="edit-name"
                   value={editSubteamName}

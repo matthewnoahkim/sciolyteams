@@ -7,8 +7,8 @@ import { Toaster } from '@/components/ui/toaster'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'SciOly Teams',
-  description: 'Science Olympiad team management platform',
+  title: 'SciOly Clubs',
+  description: 'Science Olympiad club management platform',
 }
 
 export default function RootLayout({

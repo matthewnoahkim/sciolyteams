@@ -66,9 +66,9 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Join Team</DialogTitle>
+            <DialogTitle>Join Club</DialogTitle>
             <DialogDescription>
-              Enter an invite code from your team captain to join.
+              Enter an invite code from your club captain to join.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -88,7 +88,7 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !code.trim()}>
-              {loading ? 'Joining...' : 'Join Team'}
+              {loading ? 'Joining...' : 'Join Club'}
             </Button>
           </DialogFooter>
         </form>

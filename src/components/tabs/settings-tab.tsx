@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Dialog,
   DialogContent,
@@ -16,14 +17,15 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Copy, RefreshCw, Eye, EyeOff, Trash2 } from 'lucide-react'
+import { Copy, RefreshCw, Eye, EyeOff, Trash2, UserX, X } from 'lucide-react'
 
 interface SettingsTabProps {
   team: any
+  currentMembership: any
   isCaptain: boolean
 }
 
-export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
+export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
   const [captainCode, setCaptainCode] = useState<string>('••••••••••••')
@@ -35,6 +37,50 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const [removingMember, setRemovingMember] = useState<string | null>(null)
+  const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false)
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null)
+
+  const openRemoveMemberDialog = (membershipId: string, memberName: string) => {
+    setMemberToRemove({ id: membershipId, name: memberName })
+    setRemoveMemberDialogOpen(true)
+  }
+
+  const handleRemoveMember = async () => {
+    if (!memberToRemove) return
+
+    setRemovingMember(memberToRemove.id)
+
+    try {
+      const response = await fetch(`/api/memberships/${memberToRemove.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to remove member')
+      }
+
+      toast({
+        title: 'Member removed',
+        description: `${memberToRemove.name} has been removed from the club`,
+      })
+
+      setRemoveMemberDialogOpen(false)
+      setMemberToRemove(null)
+      router.refresh()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to remove member',
+        variant: 'destructive',
+      })
+    } finally {
+      setRemovingMember(null)
+    }
+  }
 
   const fetchCodes = async () => {
     if (codesFetched) return
@@ -180,15 +226,46 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
     }
   }
 
+  const handleLeaveTeam = async () => {
+    setLeaving(true)
+
+    try {
+      const response = await fetch(`/api/memberships/${currentMembership.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to leave team')
+      }
+
+      toast({
+        title: 'Left club',
+        description: 'You have successfully left the club',
+      })
+
+      // Redirect to home page after leaving
+      router.push('/')
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to leave team',
+        variant: 'destructive',
+      })
+      setLeaving(false)
+      setLeaveDialogOpen(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Team Information</CardTitle>
+          <CardTitle>Club Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <p className="text-sm font-medium">Team Name</p>
+            <p className="text-sm font-medium">Club Name</p>
             <p className="text-lg">{team.name}</p>
           </div>
           <div>
@@ -200,11 +277,66 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
             <p className="text-lg">{team.memberships.length}</p>
           </div>
           <div>
-            <p className="text-sm font-medium">Subteams</p>
+            <p className="text-sm font-medium">Teams</p>
             <p className="text-lg">{team.subteams.length}</p>
           </div>
         </CardContent>
       </Card>
+
+      {isCaptain && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Club Members</CardTitle>
+            <CardDescription>
+              Manage members and their access to the club
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {team.memberships.map((membership: any) => (
+                <div
+                  key={membership.id}
+                  className="flex items-center justify-between p-3 rounded-lg border"
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={membership.user.image || ''} />
+                      <AvatarFallback>
+                        {membership.user.name?.charAt(0) || membership.user.email.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{membership.user.name || membership.user.email}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={membership.role === 'CAPTAIN' ? 'default' : 'secondary'} className="text-xs">
+                          {membership.role}
+                        </Badge>
+                        {membership.subteam && (
+                          <span className="text-xs text-muted-foreground">
+                            Team: {membership.subteam.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {membership.id !== currentMembership.id && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openRemoveMemberDialog(membership.id, membership.user.name || membership.user.email)}
+                      disabled={removingMember === membership.id}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isCaptain && (
         <>
@@ -299,12 +431,36 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
         </Card>
       )}
 
+      {team.memberships.length > 1 && (
+        <Card className="border-destructive/50">
+          <CardHeader>
+            <CardTitle className="text-destructive">Leave Club</CardTitle>
+            <CardDescription>
+              Remove yourself from this club
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Once you leave, you'll need an invite code to rejoin this club.
+            </p>
+            <Button
+              variant="outline"
+              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              onClick={() => setLeaveDialogOpen(true)}
+            >
+              <UserX className="mr-2 h-4 w-4" />
+              Leave Club
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {isCaptain && (
         <Card className="border-destructive">
           <CardHeader>
             <CardTitle className="text-destructive">Danger Zone</CardTitle>
             <CardDescription>
-              Permanently delete this team and all associated data
+              Permanently delete this club and all associated data
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -313,7 +469,7 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
               onClick={() => setDeleteDialogOpen(true)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Delete Team
+              Delete Club
             </Button>
           </CardContent>
         </Card>
@@ -322,9 +478,9 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Team</DialogTitle>
+            <DialogTitle>Delete Club</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete the team, all subteams, 
+              This action cannot be undone. This will permanently delete the club, all teams, 
               announcements, calendar events, roster assignments, and remove all members.
             </DialogDescription>
           </DialogHeader>
@@ -337,7 +493,7 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
                 id="delete-confirmation"
                 value={deleteConfirmation}
                 onChange={(e) => setDeleteConfirmation(e.target.value)}
-                placeholder="Enter team name"
+                placeholder="Enter club name"
               />
             </div>
           </div>
@@ -357,7 +513,68 @@ export function SettingsTab({ team, isCaptain }: SettingsTabProps) {
               onClick={handleDeleteTeam}
               disabled={deleting || deleteConfirmation !== team.name}
             >
-              {deleting ? 'Deleting...' : 'Delete Team Permanently'}
+              {deleting ? 'Deleting...' : 'Delete Club Permanently'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Leave Club</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to leave {team.name}? You will need an invite code to rejoin.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setLeaveDialogOpen(false)}
+              disabled={leaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleLeaveTeam}
+              disabled={leaving}
+            >
+              {leaving ? 'Leaving...' : 'Leave Club'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={removeMemberDialogOpen} onOpenChange={(open) => {
+        setRemoveMemberDialogOpen(open)
+        if (!open) setMemberToRemove(null)
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Member</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove <strong>{memberToRemove?.name}</strong> from {team.name}? 
+              This action cannot be undone and they will need an invite code to rejoin.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRemoveMemberDialogOpen(false)
+                setMemberToRemove(null)
+              }}
+              disabled={removingMember !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRemoveMember}
+              disabled={removingMember !== null}
+            >
+              {removingMember ? 'Removing...' : 'Remove Member'}
             </Button>
           </DialogFooter>
         </DialogContent>

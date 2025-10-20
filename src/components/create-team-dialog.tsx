@@ -44,7 +44,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
 
       const data = await response.json()
       toast({
-        title: 'Team created!',
+        title: 'Club created!',
         description: `${name} (Division ${division})`,
       })
       router.push(`/teams/${data.team.id}`)
@@ -65,14 +65,14 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Create New Team</DialogTitle>
+            <DialogTitle>Create New Club</DialogTitle>
             <DialogDescription>
-              Set up a new Science Olympiad team. You'll be the team captain.
+              Set up a new Science Olympiad club. You'll be the club captain.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Team Name</Label>
+              <Label htmlFor="name">Club Name</Label>
               <Input
                 id="name"
                 placeholder="e.g., Lincoln High School"
@@ -112,7 +112,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !name}>
-              {loading ? 'Creating...' : 'Create Team'}
+              {loading ? 'Creating...' : 'Create Club'}
             </Button>
           </DialogFooter>
         </form>

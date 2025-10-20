@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { CreateTeamDialog } from '@/components/create-team-dialog'
 import { JoinTeamDialog } from '@/components/join-team-dialog'
+import { EditUsernameDialog } from '@/components/edit-username-dialog'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { Users, Plus, LogOut } from 'lucide-react'
+import { Users, Plus, LogOut, Pencil } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 
 interface HomeClientProps {
@@ -25,6 +26,7 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
   const router = useRouter()
   const [createOpen, setCreateOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
+  const [editNameOpen, setEditNameOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark">
@@ -35,20 +37,36 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
               <Users className="h-8 w-8" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground leading-tight">SciOly Teams</h1>
+              <h1 className="text-3xl font-bold text-foreground leading-tight">SciOly Clubs</h1>
               <p className="text-base text-muted-foreground leading-relaxed">Science Olympiad Management</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
+              <Avatar 
+                className="h-10 w-10 cursor-pointer apple-transition hover:scale-105"
+                onClick={() => setEditNameOpen(true)}
+              >
                 <AvatarImage src={user.image || ''} />
                 <AvatarFallback>
                   {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-medium text-foreground">{user.name || user.email}</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-medium text-foreground">{user.name || user.email}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditNameOpen(true)
+                    }}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
             </div>
@@ -66,27 +84,27 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
 
       <main className="container mx-auto p-6">
         <div className="mb-12">
-          <h2 className="mb-4 text-5xl font-bold text-foreground leading-tight">Your Teams</h2>
+          <h2 className="mb-4 text-5xl font-bold text-foreground leading-tight">Your Clubs</h2>
           <p className="text-xl text-muted-foreground leading-relaxed">
-            Manage your Science Olympiad teams, events, and schedules
+            Manage your Science Olympiad clubs, events, and schedules
           </p>
         </div>
 
         {memberships.length === 0 ? (
           <Card className="border-dashed">
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl">No Teams Yet</CardTitle>
+              <CardTitle className="text-3xl">No Clubs Yet</CardTitle>
               <CardDescription className="text-lg">
-                Create your first team or join an existing one to get started
+                Create your first club or join an existing one to get started
               </CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center gap-6">
               <Button onClick={() => setCreateOpen(true)} size="lg">
                 <Plus className="mr-2 h-5 w-5" />
-                Create Team
+                Create Club
               </Button>
               <Button variant="outline" onClick={() => setJoinOpen(true)} size="lg">
-                Join Team
+                Join Club
               </Button>
             </CardContent>
           </Card>
@@ -95,10 +113,10 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
             <div className="mb-10 flex justify-end gap-6">
               <Button onClick={() => setCreateOpen(true)} size="lg">
                 <Plus className="mr-2 h-5 w-5" />
-                Create Team
+                Create Club
               </Button>
               <Button variant="outline" onClick={() => setJoinOpen(true)} size="lg">
-                Join Team
+                Join Club
               </Button>
             </div>
 
@@ -125,7 +143,7 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
                   <CardContent>
                     {membership.subteam && (
                       <div className="text-sm text-muted-foreground">
-                        Subteam: <span className="font-medium">{membership.subteam.name}</span>
+                        Team: <span className="font-medium">{membership.subteam.name}</span>
                       </div>
                     )}
                   </CardContent>
@@ -137,6 +155,11 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
 
         <CreateTeamDialog open={createOpen} onOpenChange={setCreateOpen} />
         <JoinTeamDialog open={joinOpen} onOpenChange={setJoinOpen} />
+        <EditUsernameDialog 
+          open={editNameOpen} 
+          onOpenChange={setEditNameOpen}
+          currentName={user.name}
+        />
       </main>
     </div>
   )

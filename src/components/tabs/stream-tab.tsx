@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDateTime } from '@/lib/utils'
-import { Plus, Send, Trash2 } from 'lucide-react'
+import { Plus, Send, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface StreamTabProps {
   teamId: string
@@ -28,6 +28,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
   const [scope, setScope] = useState<'TEAM' | 'SUBTEAM'>('TEAM')
   const [selectedSubteams, setSelectedSubteams] = useState<string[]>([])
   const [sendEmail, setSendEmail] = useState(false)
+  const [isPostSectionCollapsed, setIsPostSectionCollapsed] = useState(true)
 
   useEffect(() => {
     fetchAnnouncements()
@@ -126,13 +127,24 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            Post Announcement
+        <CardHeader 
+          className="cursor-pointer"
+          onClick={() => setIsPostSectionCollapsed(!isPostSectionCollapsed)}
+        >
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              <span className="text-base">Post Announcement</span>
+            </div>
+            {isPostSectionCollapsed ? (
+              <ChevronDown className="h-5 w-5" />
+            ) : (
+              <ChevronUp className="h-5 w-5" />
+            )}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        {!isPostSectionCollapsed && (
+          <CardContent>
           <form onSubmit={handlePost} className="space-y-4">
             <div>
               <Label htmlFor="title">Title</Label>
@@ -164,7 +176,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
                   checked={scope === 'TEAM'}
                   onChange={() => setScope('TEAM')}
                 />
-                <span className="text-sm">Entire Team</span>
+                <span className="text-sm">Entire Club</span>
               </label>
               <label className="flex items-center gap-2">
                 <input
@@ -174,12 +186,12 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
                   checked={scope === 'SUBTEAM'}
                   onChange={() => setScope('SUBTEAM')}
                 />
-                <span className="text-sm">Selected Subteams</span>
+                <span className="text-sm">Selected Teams</span>
               </label>
             </div>
             {scope === 'SUBTEAM' && (
               <div className="space-y-2">
-                <Label>Select Subteams</Label>
+                <Label>Select Teams</Label>
                 <div className="flex flex-wrap gap-2">
                   {subteams.map((subteam) => (
                     <label key={subteam.id} className="flex items-center gap-2">
@@ -218,10 +230,11 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
             </Button>
           </form>
         </CardContent>
+        )}
       </Card>
 
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Recent Announcements</h3>
+        <h3 className="text-3xl font-bold">Recent Announcements</h3>
         {loading ? (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
