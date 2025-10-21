@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { Smile } from 'lucide-react'
 
@@ -31,7 +30,6 @@ export function EmojiPicker({
   disabled = false 
 }: EmojiPickerProps) {
   const [showPicker, setShowPicker] = useState(false)
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -44,15 +42,6 @@ export function EmojiPicker({
     // Close any other open picker
     if (globalOpenPicker) {
       globalOpenPicker()
-    }
-    
-    // Calculate position
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect()
-      setDropdownPosition({
-        top: rect.bottom + window.scrollY + 8,
-        left: rect.left + window.scrollX
-      })
     }
     
     setShowPicker(true)
@@ -122,39 +111,26 @@ export function EmojiPicker({
         <Smile className="h-3 w-3" />
       </Button>
       
-      {/* Emoji picker dropdown - rendered as portal */}
-      {showPicker && createPortal(
-        <>
-          {/* Backdrop to catch clicks */}
-          <div 
-            className="fixed inset-0 z-[9998]"
-            onClick={closePicker}
-          />
-          {/* Dropdown */}
-          <div 
-            ref={dropdownRef}
-            className="fixed bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2 z-[9999]"
-            style={{
-              top: dropdownPosition.top,
-              left: dropdownPosition.left
-            }}
-          >
-            <div className="grid grid-cols-4 gap-1">
-              {POPULAR_EMOJIS.map((emoji) => (
-                <Button
-                  key={emoji}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEmojiClick(emoji)}
-                  className="h-8 w-8 p-0 text-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  {emoji}
-                </Button>
-              ))}
-            </div>
+      {/* Emoji picker dropdown */}
+      {showPicker && (
+        <div 
+          ref={dropdownRef}
+          className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2 z-[9999]"
+        >
+          <div className="grid grid-cols-4 gap-1">
+            {POPULAR_EMOJIS.map((emoji) => (
+              <Button
+                key={emoji}
+                variant="ghost"
+                size="sm"
+                onClick={() => handleEmojiClick(emoji)}
+                className="h-8 w-8 p-0 text-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                {emoji}
+              </Button>
+            ))}
           </div>
-        </>,
-        document.body
+        </div>
       )}
     </div>
   )

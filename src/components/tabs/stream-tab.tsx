@@ -211,13 +211,25 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
 
     try {
       // Check if user already reacted with this emoji
-      const currentAnnouncement = announcements.find(a => a.id === targetId)
-      const currentReply = currentAnnouncement?.replies?.find((r: any) => r.id === targetId)
-      const target = targetType === 'announcement' ? currentAnnouncement : currentReply
+      let hasReacted = false
       
-      const hasReacted = target?.reactions?.some((r: any) => 
-        r.emoji === emoji && r.user.id === user.id
-      )
+      if (targetType === 'announcement') {
+        const announcement = announcements.find(a => a.id === targetId)
+        hasReacted = announcement?.reactions?.some((r: any) => 
+          r.emoji === emoji && r.user.id === currentMembership.userId
+        )
+      } else {
+        // For replies, find the reply in any announcement
+        for (const announcement of announcements) {
+          const reply = announcement.replies?.find((r: any) => r.id === targetId)
+          if (reply) {
+            hasReacted = reply.reactions?.some((r: any) => 
+              r.emoji === emoji && r.user.id === currentMembership.userId
+            )
+            break
+          }
+        }
+      }
 
       if (hasReacted) {
         // Remove reaction
@@ -259,7 +271,9 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
         acc[reaction.emoji] = { count: 0, hasUserReacted: false }
       }
       acc[reaction.emoji].count++
-      if (reaction.user.id === user.id) {
+      // Check if current user has reacted with this emoji
+      // Use currentMembership.userId for comparison since that's the actual user ID
+      if (reaction.user.id === currentMembership.userId) {
         acc[reaction.emoji].hasUserReacted = true
       }
       return acc
