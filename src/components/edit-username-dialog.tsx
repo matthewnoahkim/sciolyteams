@@ -62,8 +62,10 @@ export function EditUsernameDialog({ open, onOpenChange, currentName, onNameUpda
       }
 
       onOpenChange(false)
-      
-      // Force a full page reload to ensure username is synchronized everywhere
+      if (onNameUpdated) {
+        onNameUpdated(name.trim())
+      }
+      // Session will now automatically refresh with latest DB data
       window.location.reload()
     } catch (error: any) {
       toast({
