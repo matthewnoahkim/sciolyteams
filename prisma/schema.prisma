@@ -25,6 +25,7 @@ model User {
   memberships   Membership[]
   teamsCreated  Team[]       @relation("TeamCreator")
   emailsReceived EmailLog[]
+  reactions     Reaction[]
 }
 
 // NextAuth models
@@ -217,6 +218,7 @@ model Announcement {
   visibilities AnnouncementVisibility[]
   emails       EmailLog[]
   replies      AnnouncementReply[]
+  reactions    Reaction[]
 
   @@index([teamId])
   @@index([authorId])
@@ -233,10 +235,36 @@ model AnnouncementReply {
 
   announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   author         Membership   @relation("AnnouncementReplies", fields: [authorId], references: [id], onDelete: Cascade)
+  reactions      Reaction[]
 
   @@index([announcementId])
   @@index([authorId])
   @@index([createdAt])
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  emoji     String   // The emoji character (e.g., "👍", "❤️", "😂")
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Polymorphic relations - can react to different content types
+  announcementId String?
+  eventId       String?
+  replyId       String?
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcement   Announcement?   @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  calendarEvent  CalendarEvent?  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  reply          AnnouncementReply? @relation(fields: [replyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, announcementId, emoji], name: "userId_announcementId_emoji")
+  @@unique([userId, eventId, emoji], name: "userId_eventId_emoji")
+  @@unique([userId, replyId, emoji], name: "userId_replyId_emoji")
+  @@index([announcementId])
+  @@index([eventId])
+  @@index([replyId])
+  @@index([userId])
 }
 
 model AnnouncementVisibility {
@@ -279,6 +307,7 @@ model CalendarEvent {
   creator      Membership    @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
   subteam      Subteam?      @relation(fields: [subteamId], references: [id], onDelete: Cascade)
   attendee     Membership?   @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
+  reactions    Reaction[]
 
   @@index([teamId])
   @@index([creatorId])

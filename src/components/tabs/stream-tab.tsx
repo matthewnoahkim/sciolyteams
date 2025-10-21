@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { formatDateTime } from '@/lib/utils'
 import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit, MessageCircle } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { EmojiPicker } from '@/components/emoji-picker'
 
 interface StreamTabProps {
   teamId: string
@@ -45,6 +46,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   const [replyContent, setReplyContent] = useState<Record<string, string>>({})
   const [postingReply, setPostingReply] = useState<Record<string, boolean>>({})
   const [showReplies, setShowReplies] = useState<Record<string, boolean>>({})
+  const [reacting, setReacting] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     fetchAnnouncements()
@@ -198,6 +200,77 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
       ...showReplies,
       [announcementId]: !showReplies[announcementId],
     })
+  }
+
+  const handleReactionToggle = async (targetType: 'announcement' | 'reply', targetId: string, emoji: string) => {
+    const key = `${targetType}-${targetId}-${emoji}`
+    setReacting({ ...reacting, [key]: true })
+
+    try {
+      // Check if user already reacted with this emoji
+      const currentAnnouncement = announcements.find(a => a.id === targetId)
+      const currentReply = currentAnnouncement?.replies?.find((r: any) => r.id === targetId)
+      const target = targetType === 'announcement' ? currentAnnouncement : currentReply
+      
+      const hasReacted = target?.reactions?.some((r: any) => 
+        r.emoji === emoji && r.user.id === user.id
+      )
+
+      if (hasReacted) {
+        // Remove reaction
+        await fetch(`/api/reactions?targetType=${targetType}&targetId=${targetId}&emoji=${encodeURIComponent(emoji)}`, {
+          method: 'DELETE',
+        })
+      } else {
+        // Add reaction
+        await fetch('/api/reactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            emoji,
+            targetType,
+            targetId,
+          }),
+        })
+      }
+
+      // Refresh announcements to get updated reactions
+      fetchAnnouncements()
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update reaction',
+        variant: 'destructive',
+      })
+    } finally {
+      setReacting({ ...reacting, [key]: false })
+    }
+  }
+
+  const getReactionSummary = (reactions: any[]) => {
+    if (!reactions || reactions.length === 0) return []
+    
+    const summary: Array<{ emoji: string; count: number; hasUserReacted: boolean }> = []
+    const grouped = reactions.reduce((acc, reaction) => {
+      if (!acc[reaction.emoji]) {
+        acc[reaction.emoji] = { count: 0, hasUserReacted: false }
+      }
+      acc[reaction.emoji].count++
+      if (reaction.user.id === user.id) {
+        acc[reaction.emoji].hasUserReacted = true
+      }
+      return acc
+    }, {} as Record<string, { count: number; hasUserReacted: boolean }>)
+
+    Object.entries(grouped).forEach(([emoji, data]) => {
+      summary.push({
+        emoji,
+        count: data.count,
+        hasUserReacted: data.hasUserReacted,
+      })
+    })
+
+    return summary.sort((a, b) => b.count - a.count)
   }
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -418,6 +491,14 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
               <CardContent>
                 <p className="whitespace-pre-wrap text-sm">{announcement.content}</p>
                 
+                {/* Reactions Section */}
+                <div className="mt-4">
+                  <EmojiPicker
+                    onReactionToggle={(emoji) => handleReactionToggle('announcement', announcement.id, emoji)}
+                    currentReactions={getReactionSummary(announcement.reactions || [])}
+                  />
+                </div>
+                
                 {/* Reply Section */}
                 <div className="mt-4 border-t pt-4">
                   <Button
@@ -460,6 +541,13 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                                 <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
                                   {reply.content}
                                 </p>
+                                {/* Reply Reactions */}
+                                <div className="mt-2">
+                                  <EmojiPicker
+                                    onReactionToggle={(emoji) => handleReactionToggle('reply', reply.id, emoji)}
+                                    currentReactions={getReactionSummary(reply.reactions || [])}
+                                  />
+                                </div>
                               </div>
                             </div>
                           ))}

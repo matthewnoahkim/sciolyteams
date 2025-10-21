@@ -264,14 +264,39 @@ export async function GET(req: NextRequest) {
                 },
               },
             },
+            reactions: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    image: true,
+                  },
+                },
+              },
+            },
           },
           orderBy: {
             createdAt: 'asc',
           },
         },
+        reactions: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             replies: true,
+            reactions: true,
           },
         },
       },
