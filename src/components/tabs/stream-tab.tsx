@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDateTime } from '@/lib/utils'
-import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit } from 'lucide-react'
+import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit, MessageCircle } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 
 interface StreamTabProps {
@@ -17,9 +17,14 @@ interface StreamTabProps {
   currentMembership: any
   subteams: any[]
   isCaptain: boolean
+  user: {
+    name?: string | null
+    email: string
+    image?: string | null
+  }
 }
 
-export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: StreamTabProps) {
+export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user }: StreamTabProps) {
   const { toast } = useToast()
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -37,6 +42,9 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
   const [isEditing, setIsEditing] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [announcementToDelete, setAnnouncementToDelete] = useState<string | null>(null)
+  const [replyContent, setReplyContent] = useState<Record<string, string>>({})
+  const [postingReply, setPostingReply] = useState<Record<string, boolean>>({})
+  const [showReplies, setShowReplies] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     fetchAnnouncements()
@@ -148,6 +156,48 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
     setEditTitle(announcement.title)
     setEditContent(announcement.content)
     setIsEditDialogOpen(true)
+  }
+
+  const handlePostReply = async (announcementId: string) => {
+    const content = replyContent[announcementId]?.trim()
+    if (!content) return
+
+    setPostingReply({ ...postingReply, [announcementId]: true })
+
+    try {
+      const response = await fetch(`/api/announcements/${announcementId}/replies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      })
+
+      if (!response.ok) throw new Error('Failed to post reply')
+
+      toast({
+        title: 'Reply posted',
+      })
+
+      // Clear the input
+      setReplyContent({ ...replyContent, [announcementId]: '' })
+      
+      // Refresh announcements to get new reply
+      fetchAnnouncements()
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to post reply',
+        variant: 'destructive',
+      })
+    } finally {
+      setPostingReply({ ...postingReply, [announcementId]: false })
+    }
+  }
+
+  const toggleReplies = (announcementId: string) => {
+    setShowReplies({
+      ...showReplies,
+      [announcementId]: !showReplies[announcementId],
+    })
   }
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -367,6 +417,96 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
               </CardHeader>
               <CardContent>
                 <p className="whitespace-pre-wrap text-sm">{announcement.content}</p>
+                
+                {/* Reply Section */}
+                <div className="mt-4 border-t pt-4">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleReplies(announcement.id)}
+                    className="mb-2"
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    {announcement.replies?.length || 0} {announcement.replies?.length === 1 ? 'Reply' : 'Replies'}
+                    {showReplies[announcement.id] ? (
+                      <ChevronUp className="ml-2 h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    )}
+                  </Button>
+
+                  {showReplies[announcement.id] && (
+                    <div className="space-y-3">
+                      {/* Existing Replies */}
+                      {announcement.replies && announcement.replies.length > 0 && (
+                        <div className="space-y-3">
+                          {announcement.replies.map((reply: any) => (
+                            <div key={reply.id} className="flex gap-3 pl-4 border-l-2 border-muted">
+                              <Avatar className="h-8 w-8 flex-shrink-0">
+                                <AvatarImage src={reply.author.user.image || ''} />
+                                <AvatarFallback>
+                                  {reply.author.user.name?.charAt(0) || 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium">
+                                    {reply.author.user.name || reply.author.user.email}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatDateTime(reply.createdAt)}
+                                  </p>
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
+                                  {reply.content}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Reply Input */}
+                      <div className="flex gap-2 mt-3 items-center">
+                        <Avatar className="h-8 w-8 flex-shrink-0">
+                          <AvatarImage src={user.image || ''} />
+                          <AvatarFallback>
+                            {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 flex gap-2 items-center">
+                          <Input
+                            placeholder="Write a reply..."
+                            value={replyContent[announcement.id] || ''}
+                            onChange={(e) =>
+                              setReplyContent({
+                                ...replyContent,
+                                [announcement.id]: e.target.value,
+                              })
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                handlePostReply(announcement.id)
+                              }
+                            }}
+                            disabled={postingReply[announcement.id]}
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handlePostReply(announcement.id)}
+                            disabled={
+                              !replyContent[announcement.id]?.trim() ||
+                              postingReply[announcement.id]
+                            }
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))

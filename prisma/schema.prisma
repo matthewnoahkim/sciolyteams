@@ -107,13 +107,14 @@ model Membership {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team              Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  subteam           Subteam?             @relation(fields: [subteamId], references: [id], onDelete: SetNull)
-  rosterAssignments RosterAssignment[]
-  announcements     Announcement[]
-  calendarEvents    CalendarEvent[]      @relation("CreatorEvents")
-  attendeeEvents    CalendarEvent[]      @relation("AttendeeEvents")
+  user                User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team                Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  subteam             Subteam?               @relation(fields: [subteamId], references: [id], onDelete: SetNull)
+  rosterAssignments   RosterAssignment[]
+  announcements       Announcement[]
+  calendarEvents      CalendarEvent[]        @relation("CreatorEvents")
+  attendeeEvents      CalendarEvent[]        @relation("AttendeeEvents")
+  announcementReplies AnnouncementReply[]    @relation("AnnouncementReplies")
 
   @@unique([userId, teamId])
   @@index([teamId])
@@ -215,8 +216,25 @@ model Announcement {
   author       Membership                @relation(fields: [authorId], references: [id], onDelete: Cascade)
   visibilities AnnouncementVisibility[]
   emails       EmailLog[]
+  replies      AnnouncementReply[]
 
   @@index([teamId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model AnnouncementReply {
+  id             String   @id @default(cuid())
+  announcementId String
+  authorId       String
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  author         Membership   @relation("AnnouncementReplies", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
   @@index([authorId])
   @@index([createdAt])
 }

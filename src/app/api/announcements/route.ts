@@ -250,6 +250,30 @@ export async function GET(req: NextRequest) {
             subteam: true,
           },
         },
+        replies: {
+          include: {
+            author: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    image: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+        _count: {
+          select: {
+            replies: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
