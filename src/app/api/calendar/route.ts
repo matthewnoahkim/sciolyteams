@@ -94,6 +94,18 @@ export async function POST(req: NextRequest) {
             },
           },
         },
+        rsvps: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
       },
     })
 
@@ -180,6 +192,18 @@ export async function GET(req: NextRequest) {
         },
         subteam: true,
         attendee: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
+        rsvps: {
           include: {
             user: {
               select: {

@@ -14,17 +14,24 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, Check, X as XIcon, User } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 interface CalendarTabProps {
   teamId: string
   currentMembership: any
   isCaptain: boolean
+  user: {
+    id: string
+    name?: string | null
+    email: string
+    image?: string | null
+  }
 }
 
 type ViewMode = 'month' | 'week'
 
-export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTabProps) {
+export function CalendarTab({ teamId, currentMembership, isCaptain, user }: CalendarTabProps) {
   const { toast } = useToast()
   const [events, setEvents] = useState<any[]>([])
   const [subteams, setSubteams] = useState<any[]>([])
@@ -37,6 +44,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
   const [eventDetailsOpen, setEventDetailsOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<any>(null)
+  const [rsvping, setRsvping] = useState(false)
   
   // Helper function to format date for datetime-local input
   const formatDateTimeLocal = (date: Date) => {
@@ -400,6 +408,117 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
     setEditOpen(true)
   }
 
+  const handleRSVP = async (eventId: string, status: 'YES' | 'NO') => {
+    setRsvping(true)
+    
+    // Optimistic update
+    const currentEvent = events.find(e => e.id === eventId)
+    if (currentEvent) {
+      const optimisticEvents = events.map(e => {
+        if (e.id === eventId) {
+          const existingRsvp = e.rsvps?.find((r: any) => r.userId === user.id)
+          const newRsvps = existingRsvp
+            ? e.rsvps.map((r: any) => r.userId === user.id ? { ...r, status } : r)
+            : [...(e.rsvps || []), { id: 'temp', userId: user.id, status, user }]
+          return { ...e, rsvps: newRsvps }
+        }
+        return e
+      })
+      setEvents(optimisticEvents)
+      
+      // Update selected event if it's the one being RSVP'd
+      if (selectedEvent?.id === eventId) {
+        const updatedEvent = optimisticEvents.find(e => e.id === eventId)
+        if (updatedEvent) setSelectedEvent(updatedEvent)
+      }
+    }
+
+    try {
+      const response = await fetch(`/api/calendar/${eventId}/rsvp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to RSVP')
+      }
+
+      // Refresh events to get accurate data
+      await fetchEvents()
+      
+      toast({
+        title: status === 'YES' ? 'RSVP: Going' : 'RSVP: Not Going',
+      })
+    } catch (error) {
+      // Revert optimistic update on error
+      await fetchEvents()
+      toast({
+        title: 'Error',
+        description: 'Failed to update RSVP',
+        variant: 'destructive',
+      })
+    } finally {
+      setRsvping(false)
+    }
+  }
+
+  const handleRemoveRSVP = async (eventId: string) => {
+    setRsvping(true)
+    
+    // Optimistic update
+    const optimisticEvents = events.map(e => {
+      if (e.id === eventId) {
+        return { ...e, rsvps: e.rsvps?.filter((r: any) => r.userId !== user.id) || [] }
+      }
+      return e
+    })
+    setEvents(optimisticEvents)
+    
+    // Update selected event if it's the one being updated
+    if (selectedEvent?.id === eventId) {
+      const updatedEvent = optimisticEvents.find(e => e.id === eventId)
+      if (updatedEvent) setSelectedEvent(updatedEvent)
+    }
+
+    try {
+      const response = await fetch(`/api/calendar/${eventId}/rsvp`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to remove RSVP')
+      }
+
+      // Refresh events to get accurate data
+      await fetchEvents()
+      
+      toast({
+        title: 'RSVP removed',
+      })
+    } catch (error) {
+      // Revert optimistic update on error
+      await fetchEvents()
+      toast({
+        title: 'Error',
+        description: 'Failed to remove RSVP',
+        variant: 'destructive',
+      })
+    } finally {
+      setRsvping(false)
+    }
+  }
+
+  const getUserRSVP = (event: any) => {
+    return event.rsvps?.find((r: any) => r.userId === user.id)
+  }
+
+  const getRSVPCounts = (event: any) => {
+    const yesCount = event.rsvps?.filter((r: any) => r.status === 'YES').length || 0
+    const noCount = event.rsvps?.filter((r: any) => r.status === 'NO').length || 0
+    return { yesCount, noCount }
+  }
+
 
   const renderMonthView = () => {
     const daysInMonth = getDaysInMonth(currentDate)
@@ -742,7 +861,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
 
       {/* Event Details Dialog */}
       <Dialog open={eventDetailsOpen} onOpenChange={setEventDetailsOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           {selectedEvent && (
             <>
               <DialogHeader>
@@ -793,6 +912,111 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
                   <p className="text-sm font-medium text-muted-foreground mb-1">Created by</p>
                   <p className="text-sm">{selectedEvent.creator?.user?.name || 'Unknown'}</p>
                 </div>
+
+                {/* RSVP Section */}
+                {selectedEvent.scope !== 'PERSONAL' && (
+                  <div className="border-t pt-4">
+                    <p className="text-sm font-medium text-muted-foreground mb-3">Your RSVP</p>
+                    <div className="flex gap-2 mb-4">
+                      {(() => {
+                        const userRsvp = getUserRSVP(selectedEvent)
+                        return (
+                          <>
+                            <Button
+                              size="sm"
+                              variant={userRsvp?.status === 'YES' ? 'default' : 'outline'}
+                              onClick={() => handleRSVP(selectedEvent.id, 'YES')}
+                              disabled={rsvping}
+                              className="flex-1"
+                            >
+                              <Check className="mr-2 h-4 w-4" />
+                              Going
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={userRsvp?.status === 'NO' ? 'default' : 'outline'}
+                              onClick={() => handleRSVP(selectedEvent.id, 'NO')}
+                              disabled={rsvping}
+                              className="flex-1"
+                            >
+                              <XIcon className="mr-2 h-4 w-4" />
+                              Not Going
+                            </Button>
+                            {userRsvp && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleRemoveRSVP(selectedEvent.id)}
+                                disabled={rsvping}
+                              >
+                                Clear
+                              </Button>
+                            )}
+                          </>
+                        )
+                      })()}
+                    </div>
+
+                    {/* RSVP Counts and Lists */}
+                    {(() => {
+                      const { yesCount, noCount } = getRSVPCounts(selectedEvent)
+                      const yesRsvps = selectedEvent.rsvps?.filter((r: any) => r.status === 'YES') || []
+                      const noRsvps = selectedEvent.rsvps?.filter((r: any) => r.status === 'NO') || []
+                      
+                      return (
+                        <div className="space-y-3">
+                          {yesCount > 0 && (
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Check className="h-4 w-4 text-green-600" />
+                                <p className="text-sm font-medium">Going ({yesCount})</p>
+                              </div>
+                              <div className="space-y-1 pl-6">
+                                {yesRsvps.map((rsvp: any) => (
+                                  <div key={rsvp.id} className="flex items-center gap-2">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={rsvp.user.image || ''} />
+                                      <AvatarFallback className="text-xs">
+                                        {rsvp.user.name?.charAt(0) || rsvp.user.email.charAt(0).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-sm">{rsvp.user.name || rsvp.user.email}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {noCount > 0 && (
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <XIcon className="h-4 w-4 text-red-600" />
+                                <p className="text-sm font-medium">Not Going ({noCount})</p>
+                              </div>
+                              <div className="space-y-1 pl-6">
+                                {noRsvps.map((rsvp: any) => (
+                                  <div key={rsvp.id} className="flex items-center gap-2">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={rsvp.user.image || ''} />
+                                      <AvatarFallback className="text-xs">
+                                        {rsvp.user.name?.charAt(0) || rsvp.user.email.charAt(0).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-sm">{rsvp.user.name || rsvp.user.email}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {yesCount === 0 && noCount === 0 && (
+                            <p className="text-sm text-muted-foreground">No RSVPs yet</p>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
               </div>
               {(canEditEvent(selectedEvent) || canDeleteEvent(selectedEvent)) && (
                 <DialogFooter className="flex gap-2">

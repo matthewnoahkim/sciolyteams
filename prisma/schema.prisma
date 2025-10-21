@@ -26,6 +26,7 @@ model User {
   teamsCreated  Team[]       @relation("TeamCreator")
   emailsReceived EmailLog[]
   reactions     Reaction[]
+  eventRSVPs    EventRSVP[]
 }
 
 // NextAuth models
@@ -288,6 +289,11 @@ enum CalendarScope {
   TEAM
 }
 
+enum RSVPStatus {
+  YES
+  NO
+}
+
 model CalendarEvent {
   id           String        @id @default(cuid())
   teamId       String
@@ -308,12 +314,29 @@ model CalendarEvent {
   subteam      Subteam?      @relation(fields: [subteamId], references: [id], onDelete: Cascade)
   attendee     Membership?   @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
   reactions    Reaction[]
+  rsvps        EventRSVP[]
 
   @@index([teamId])
   @@index([creatorId])
   @@index([subteamId])
   @@index([attendeeId])
   @@index([startUTC])
+}
+
+model EventRSVP {
+  id          String      @id @default(cuid())
+  eventId     String
+  userId      String
+  status      RSVPStatus
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  event       CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
 }
 
 // Email logging

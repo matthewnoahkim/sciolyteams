@@ -28,6 +28,7 @@ interface TeamPageProps {
   team: any
   currentMembership: any
   user: {
+    id: string
     name?: string | null
     email: string
     image?: string | null
@@ -249,6 +250,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                 teamId={team.id}
                 currentMembership={currentMembership}
                 isCaptain={isCaptain}
+                user={user}
               />
             )}
 

@@ -84,6 +84,18 @@ export async function PATCH(
           },
         },
         subteam: true,
+        rsvps: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
       },
     })
 
