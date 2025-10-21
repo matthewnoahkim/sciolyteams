@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,6 +27,12 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
   const [editNameOpen, setEditNameOpen] = useState(false)
+  const [currentUserName, setCurrentUserName] = useState(user.name)
+
+  // Sync local state when user prop changes (e.g., after navigation)
+  useEffect(() => {
+    setCurrentUserName(user.name)
+  }, [user.name])
 
   return (
     <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark">
@@ -49,12 +55,12 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
               >
                 <AvatarImage src={user.image || ''} />
                 <AvatarFallback>
-                  {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                  {currentUserName?.charAt(0) || user.email.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden text-right sm:block">
                 <div className="flex items-center gap-1">
-                  <p className="text-sm font-medium text-foreground">{user.name || user.email}</p>
+                  <p className="text-sm font-medium text-foreground">{currentUserName || user.email}</p>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -159,6 +165,7 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
           open={editNameOpen} 
           onOpenChange={setEditNameOpen}
           currentName={user.name}
+          onNameUpdated={setCurrentUserName}
         />
       </main>
     </div>

@@ -138,6 +138,11 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
     return announcement.authorId === currentMembership.id || isCaptain
   }
 
+  const canEditAnnouncement = (announcement: any) => {
+    // Can only edit if you're the author (not just any captain)
+    return announcement.authorId === currentMembership.id
+  }
+
   const handleEditClick = (announcement: any) => {
     setEditingAnnouncement(announcement)
     setEditTitle(announcement.title)
@@ -337,7 +342,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain }: St
                         </Badge>
                       ))}
                     </div>
-                    {isCaptain && (
+                    {canEditAnnouncement(announcement) && (
                       <Button
                         variant="ghost"
                         size="sm"

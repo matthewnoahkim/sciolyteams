@@ -5,13 +5,14 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, LogOut, MessageSquare, Users, Calendar, Settings } from 'lucide-react'
+import { ArrowLeft, LogOut, MessageSquare, Users, Calendar, Settings, Pencil } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { StreamTab } from '@/components/tabs/stream-tab'
 import { PeopleTab } from '@/components/tabs/people-tab'
 import { CalendarTab } from '@/components/tabs/calendar-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { EditUsernameDialog } from '@/components/edit-username-dialog'
 
 interface TeamPageProps {
   team: any
@@ -27,7 +28,14 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'stream')
+  const [editUsernameOpen, setEditUsernameOpen] = useState(false)
+  const [currentUserName, setCurrentUserName] = useState(user.name)
   const isCaptain = currentMembership.role === 'CAPTAIN'
+
+  // Sync local state when user prop changes (e.g., after navigation)
+  useEffect(() => {
+    setCurrentUserName(user.name)
+  }, [user.name])
 
   useEffect(() => {
     const tabParam = searchParams.get('tab')
@@ -66,11 +74,21 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               <Avatar className="h-10 w-10">
                 <AvatarImage src={user.image || ''} />
                 <AvatarFallback>
-                  {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                  {currentUserName?.charAt(0) || user.email.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-medium text-foreground">{user.name || user.email}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-foreground">{currentUserName || user.email}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditUsernameOpen(true)}
+                    className="h-6 w-6 p-0"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </div>
                 <Badge variant={isCaptain ? 'default' : 'secondary'} className="text-xs">
                   {currentMembership.role}
                 </Badge>
@@ -165,6 +183,13 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
           </div>
         </div>
       </main>
+
+      <EditUsernameDialog
+        open={editUsernameOpen}
+        onOpenChange={setEditUsernameOpen}
+        currentName={user.name ?? null}
+        onNameUpdated={setCurrentUserName}
+      />
     </div>
   )
 }

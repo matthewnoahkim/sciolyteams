@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, Users, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Users, Pencil, Trash2, Check } from 'lucide-react'
 
 interface SubteamsTabProps {
   team: any
@@ -36,7 +36,8 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
   const [selectedMembership, setSelectedMembership] = useState<string>('')
   const [selectedSubteam, setSelectedSubteam] = useState<string>('')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [subteamToDelete, setSubteamToDelete] = useState<any>(null)
+  const [subteamsToDelete, setSubteamsToDelete] = useState<string[]>([])
+  const [deleteMode, setDeleteMode] = useState(false)
 
   const handleCreateSubteam = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -136,39 +137,68 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
     }
   }
 
-  const handleDeleteSubteamClick = (subteam: any) => {
-    setSubteamToDelete(subteam)
+  const toggleDeleteMode = () => {
+    setDeleteMode(!deleteMode)
+    setSubteamsToDelete([])
+  }
+
+  const toggleSubteamSelection = (subteamId: string) => {
+    setSubteamsToDelete(prev => 
+      prev.includes(subteamId) 
+        ? prev.filter(id => id !== subteamId)
+        : [...prev, subteamId]
+    )
+  }
+
+  const openDeleteConfirmation = () => {
+    if (subteamsToDelete.length === 0) {
+      toast({
+        title: 'No teams selected',
+        description: 'Please select at least one team to delete',
+        variant: 'destructive',
+      })
+      return
+    }
     setDeleteDialogOpen(true)
   }
 
-  const handleDeleteSubteam = async () => {
-    if (!subteamToDelete) return
+  const handleDeleteSubteams = async () => {
+    if (subteamsToDelete.length === 0) return
 
     setLoading(true)
 
     try {
-      const response = await fetch(`/api/teams/${team.id}/subteams/${subteamToDelete.id}`, {
-        method: 'DELETE',
-      })
+      // Delete all selected teams
+      const deletePromises = subteamsToDelete.map(subteamId =>
+        fetch(`/api/teams/${team.id}/subteams/${subteamId}`, {
+          method: 'DELETE',
+        })
+      )
 
-      if (!response.ok) throw new Error('Failed to delete subteam')
+      const responses = await Promise.all(deletePromises)
+      const failedDeletes = responses.filter(r => !r.ok)
+
+      if (failedDeletes.length > 0) {
+        throw new Error(`Failed to delete ${failedDeletes.length} team(s)`)
+      }
 
       toast({
-        title: 'Team deleted',
-        description: subteamToDelete.name,
+        title: 'Teams deleted',
+        description: `Successfully deleted ${subteamsToDelete.length} team(s)`,
       })
 
+      setSubteamsToDelete([])
+      setDeleteMode(false)
       router.refresh()
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Failed to delete team',
+        description: error.message || 'Failed to delete teams',
         variant: 'destructive',
       })
     } finally {
       setLoading(false)
       setDeleteDialogOpen(false)
-      setSubteamToDelete(null)
     }
   }
 
@@ -183,74 +213,127 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
   return (
     <div className="space-y-6">
       {isCaptain && (
-        <div className="flex gap-2">
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Team
-          </Button>
-          <Button variant="outline" onClick={() => setAssignOpen(true)}>
-            <Users className="mr-2 h-4 w-4" />
-            Manage Assignments
-          </Button>
+        <div className="flex gap-2 items-center">
+          {!deleteMode ? (
+            <>
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Team
+              </Button>
+              <Button variant="outline" onClick={() => setAssignOpen(true)}>
+                <Users className="mr-2 h-4 w-4" />
+                Manage Assignments
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={toggleDeleteMode}
+                disabled={team.subteams.length === 0}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Teams
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={toggleDeleteMode}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={openDeleteConfirmation}
+                disabled={subteamsToDelete.length === 0}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Selected ({subteamsToDelete.length})
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                Click teams to select them for deletion
+              </p>
+            </>
+          )}
         </div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {team.subteams.map((subteam: any) => (
-          <Card key={subteam.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  {subteam.name}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    ({subteam.members.length} / 15)
-                  </span>
-                </CardTitle>
-                {isCaptain && (
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditDialog(subteam)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteSubteamClick(subteam)}
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+        {team.subteams.map((subteam: any) => {
+          const isSelected = subteamsToDelete.includes(subteam.id)
+          return (
+            <Card 
+              key={subteam.id}
+              className={`${deleteMode ? 'cursor-pointer' : ''} transition-all duration-200 ${
+                deleteMode 
+                  ? isSelected 
+                    ? 'ring-2 ring-destructive bg-destructive/5' 
+                    : 'hover:ring-2 hover:ring-muted-foreground/50'
+                  : ''
+              }`}
+              onClick={() => {
+                if (deleteMode) {
+                  toggleSubteamSelection(subteam.id)
+                }
+              }}
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    {deleteMode && (
+                      <div className={`flex items-center justify-center h-5 w-5 rounded border-2 ${
+                        isSelected 
+                          ? 'bg-destructive border-destructive' 
+                          : 'border-muted-foreground'
+                      }`}>
+                        {isSelected && <Check className="h-3 w-3 text-destructive-foreground" />}
+                      </div>
+                    )}
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      {subteam.name}
+                      <span className="text-sm font-normal text-muted-foreground">
+                        ({subteam.members.length} / 15)
+                      </span>
+                    </CardTitle>
                   </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {subteam.members.map((member: any) => (
-                  <div key={member.id} className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={member.user.image || ''} />
-                      <AvatarFallback>
-                        {member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 text-sm">
-                      <p className="font-medium">{member.user.name || member.user.email}</p>
-                      <p className="text-xs text-muted-foreground">{member.role}</p>
+                  {isCaptain && !deleteMode && (
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          openEditDialog(subteam)
+                        }}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </div>
-                ))}
-                {subteam.members.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No members assigned</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {subteam.members.map((member: any) => (
+                    <div key={member.id} className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={member.user.image || ''} />
+                        <AvatarFallback>
+                          {member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 text-sm">
+                        <p className="font-medium">{member.user.name || member.user.email}</p>
+                        <p className="text-xs text-muted-foreground">{member.role}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {subteam.members.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No members assigned</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {unassignedMembers.length > 0 && (
@@ -390,11 +473,23 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Team</DialogTitle>
+            <DialogTitle>Delete {subteamsToDelete.length} Team{subteamsToDelete.length !== 1 ? 's' : ''}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{subteamToDelete?.name}"? Members will be unassigned but not removed from the team.
+              Are you sure you want to delete the following team{subteamsToDelete.length !== 1 ? 's' : ''}? Members will be unassigned but not removed from the club.
             </DialogDescription>
           </DialogHeader>
+          <div className="py-4">
+            <ul className="list-disc list-inside space-y-1">
+              {subteamsToDelete.map(subteamId => {
+                const subteam = team.subteams.find((s: any) => s.id === subteamId)
+                return subteam ? (
+                  <li key={subteamId} className="text-sm font-medium">
+                    {subteam.name} ({subteam.members.length} member{subteam.members.length !== 1 ? 's' : ''})
+                  </li>
+                ) : null
+              })}
+            </ul>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
@@ -404,10 +499,10 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDeleteSubteam}
+              onClick={handleDeleteSubteams}
               disabled={loading}
             >
-              {loading ? 'Deleting...' : 'Delete'}
+              {loading ? 'Deleting...' : `Delete ${subteamsToDelete.length} Team${subteamsToDelete.length !== 1 ? 's' : ''}`}
             </Button>
           </DialogFooter>
         </DialogContent>

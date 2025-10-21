@@ -59,6 +59,8 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
   const [contextMenuOpen, setContextMenuOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [teamToDelete, setTeamToDelete] = useState<any>(null)
+  const [memberSortBy, setMemberSortBy] = useState<'alphabetical' | 'events' | 'team' | 'role'>('alphabetical')
+  const [memberSortDirection, setMemberSortDirection] = useState<'low-to-high' | 'high-to-low'>('low-to-high')
 
   useEffect(() => {
     fetchEvents()
@@ -181,7 +183,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
     }
   }
 
-  const handleDeleteTeamClick = (subteam: any) => {
+  const openDeleteDialog = (subteam: any) => {
     setTeamToDelete(subteam)
     setDeleteDialogOpen(true)
   }
@@ -196,27 +198,31 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
         method: 'DELETE',
       })
 
-      if (!response.ok) throw new Error('Failed to delete team')
+      if (!response.ok) {
+        throw new Error('Failed to delete team')
+      }
 
       toast({
         title: 'Team deleted',
-        description: teamToDelete.name,
+        description: `${teamToDelete.name} has been deleted`,
       })
 
-      if (selectedTeam?.id === teamToDelete.id) {
+      // If current selected team was deleted, go back to grid view
+      if (selectedTeam && selectedTeam.id === teamToDelete.id) {
         setSelectedTeam(null)
       }
+
+      setTeamToDelete(null)
+      setDeleteDialogOpen(false)
       router.refresh()
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Failed to delete team',
+        description: error.message || 'Failed to delete team',
         variant: 'destructive',
       })
     } finally {
       setLoading(false)
-      setDeleteDialogOpen(false)
-      setTeamToDelete(null)
     }
   }
 
@@ -369,6 +375,20 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
   }
 
   const handleAssignToTeamFromMenu = async (membershipId: string, subteamId: string | null, memberName: string) => {
+    // Check if target team is at capacity (15 members)
+    if (subteamId) {
+      const targetTeam = team.subteams.find((s: any) => s.id === subteamId)
+      if (targetTeam && targetTeam.members.length >= 15) {
+        toast({
+          title: 'Team at capacity',
+          description: `${targetTeam.name} already has 15 members`,
+          variant: 'destructive',
+        })
+        setContextMenuOpen(false)
+        return
+      }
+    }
+
     setLoading(true)
     setContextMenuOpen(false)
 
@@ -487,21 +507,73 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
   const teamMembers = selectedTeam ? team.memberships.filter((m: any) => m.subteamId === selectedTeam.id) : []
   const unassignedMembers = team.memberships.filter((m: any) => !m.subteamId)
 
-  // Team Grid View
-  if (!selectedTeam) {
-    return (
+  // Get event counts for all members
+  const getAllMemberEventCounts = () => {
+    const counts: Record<string, number> = {}
+    team.memberships.forEach((member: any) => {
+      counts[member.id] = member.rosterAssignments?.length || 0
+    })
+    return counts
+  }
+
+  // Sort all members
+  const getSortedMembers = () => {
+    const eventCounts = getAllMemberEventCounts()
+    let sorted = [...team.memberships]
+    const isReversed = memberSortDirection === 'high-to-low'
+
+    switch (memberSortBy) {
+      case 'alphabetical':
+        sorted.sort((a, b) => {
+          const nameA = (a.user.name || a.user.email).toLowerCase()
+          const nameB = (b.user.name || b.user.email).toLowerCase()
+          const result = nameA.localeCompare(nameB)
+          return isReversed ? -result : result
+        })
+        break
+      case 'events':
+        sorted.sort((a, b) => {
+          const result = (eventCounts[a.id] || 0) - (eventCounts[b.id] || 0)
+          return isReversed ? -result : result
+        })
+        break
+      case 'team':
+        // Sort by team creation order (using subteam array index as proxy for creation order)
+        sorted.sort((a, b) => {
+          const getTeamOrder = (member: any) => {
+            if (!member.subteamId) return team.subteams.length // Unassigned goes last
+            return team.subteams.findIndex((st: any) => st.id === member.subteamId)
+          }
+          const result = getTeamOrder(a) - getTeamOrder(b)
+          return isReversed ? -result : result
+        })
+        break
+      case 'role':
+        sorted.sort((a, b) => {
+          const getRoleOrder = (role: string) => {
+            const upperRole = role?.toUpperCase()
+            if (upperRole === 'CAPTAIN') return 0
+            if (upperRole === 'MEMBER') return 1
+            return 2
+          }
+          const result = getRoleOrder(a.role) - getRoleOrder(b.role)
+          return isReversed ? -result : result
+        })
+        break
+    }
+
+    return sorted
+  }
+
+  // Render Team Grid View
+  const renderGridView = () => (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           {isCaptain && (
-            <div className="flex gap-2 items-center">
-              <Button onClick={() => setCreateOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Team
-              </Button>
-              <p className="text-sm text-muted-foreground">
-                Right-click members to assign them to teams
-              </p>
-            </div>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Team
+            </Button>
           )}
           <Button variant="outline" onClick={handleExportToGoogleSheet} className="ml-auto">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
@@ -521,125 +593,92 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
               }}
             >
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    {subteam.name}
-                    <span className="text-sm font-normal text-muted-foreground">
-                      ({subteam.members.length} / 15)
-                    </span>
-                  </CardTitle>
-                  {isCaptain && (
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openEditDialog(subteam)
-                        }}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteTeamClick(subteam)
-                        }}
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  {subteam.name}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    ({subteam.members.length} / 15)
+                  </span>
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {subteam.members.slice(0, 5).map((member: any) => (
-                    <DropdownMenu key={member.id} open={contextMenuMember?.id === member.id && contextMenuOpen} onOpenChange={(open: boolean) => {
-                      if (!open) setContextMenuMember(null)
-                      setContextMenuOpen(open)
-                    }}>
-                      <DropdownMenuTrigger asChild>
-                        <div 
-                          className="flex items-center gap-2"
-                          onContextMenu={(e) => {
-                            if (isCaptain && !loading) {
-                              e.preventDefault()
-                              setContextMenuMember(member)
-                              setContextMenuOpen(true)
-                            }
-                          }}
-                        >
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={member.user.image || ''} />
-                            <AvatarFallback>
-                              {member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 text-sm">
-                            <p className="font-medium truncate">{member.user.name || member.user.email}</p>
-                          </div>
+                <CardContent>
+                  <div className="space-y-2">
+                    {subteam.members.slice(0, 5).map((member: any) => (
+                      <div key={member.id} className="flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={member.user.image || ''} />
+                          <AvatarFallback>
+                            {member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 text-sm">
+                          <p className="font-medium truncate">{member.user.name || member.user.email}</p>
                         </div>
-                      </DropdownMenuTrigger>
-                      {isCaptain && contextMenuMember?.id === member.id && (
-                        <DropdownMenuContent>
-                          <DropdownMenuLabel>Assign to Team</DropdownMenuLabel>
-                          {team.subteams.filter((s: any) => s.id !== member.subteamId).map((subteam: any) => (
-                            <DropdownMenuItem
-                              key={subteam.id}
-                              onClick={() => handleAssignToTeamFromMenu(member.id, subteam.id, member.user.name || member.user.email)}
-                            >
-                              {subteam.name}
-                            </DropdownMenuItem>
-                          ))}
-                          {member.subteamId && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleAssignToTeamFromMenu(member.id, null, member.user.name || member.user.email)}
-                              >
-                                Unassign from team
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      )}
-                    </DropdownMenu>
-                  ))}
-                  {subteam.members.length > 5 && (
-                    <p className="text-sm text-muted-foreground">
-                      +{subteam.members.length - 5} more
-                    </p>
-                  )}
-                  {subteam.members.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No members assigned</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                      </div>
+                    ))}
+                    {subteam.members.length > 5 && (
+                      <p className="text-sm text-muted-foreground">
+                        +{subteam.members.length - 5} more
+                      </p>
+                    )}
+                    {subteam.members.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No members assigned</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          }
         </div>
 
-        {unassignedMembers.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Unassigned Members</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {unassignedMembers.map((member: any) => (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CardTitle>All Club Members</CardTitle>
+                {isCaptain && (
+                  <p className="text-sm text-muted-foreground">
+                    Click members to assign them to teams
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-muted-foreground">Sort by:</Label>
+                  <select
+                    className="rounded-md border p-2 text-sm"
+                    value={memberSortBy}
+                    onChange={(e) => setMemberSortBy(e.target.value as any)}
+                  >
+                    <option value="alphabetical">Alphabetical</option>
+                    <option value="role">Role</option>
+                    <option value="team">Team</option>
+                    <option value="events">Number of Events</option>
+                  </select>
+                </div>
+                <select
+                  className="rounded-md border p-2 text-sm"
+                  value={memberSortDirection}
+                  onChange={(e) => setMemberSortDirection(e.target.value as any)}
+                >
+                  <option value="low-to-high">Low to High</option>
+                  <option value="high-to-low">High to Low</option>
+                </select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {getSortedMembers().map((member: any) => {
+                const eventCount = member.rosterAssignments?.length || 0
+                return (
                   <DropdownMenu key={member.id} open={contextMenuMember?.id === member.id && contextMenuOpen} onOpenChange={(open: boolean) => {
                     if (!open) setContextMenuMember(null)
                     setContextMenuOpen(open)
                   }}>
                     <DropdownMenuTrigger asChild>
                       <div
-                        className="flex items-center gap-2 rounded-full border px-3 py-1"
-                        onContextMenu={(e) => {
+                        className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent cursor-pointer"
+                        onClick={(e) => {
                           if (isCaptain && !loading) {
                             e.preventDefault()
                             setContextMenuMember(member)
@@ -647,99 +686,69 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                           }
                         }}
                       >
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={member.user.image || ''} />
-                          <AvatarFallback className="text-xs">
-                            {member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">{member.user.name || member.user.email}</span>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={member.user.image || ''} />
+                            <AvatarFallback>
+                              {member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{member.user.name || member.user.email}</p>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Badge variant={member.role === 'CAPTAIN' ? 'default' : 'secondary'} className="text-xs">
+                                {member.role === 'CAPTAIN' ? 'Captain' : 'Member'}
+                              </Badge>
+                              {member.subteam ? (
+                                <span>• {member.subteam.name}</span>
+                              ) : (
+                                <span>• Unassigned</span>
+                              )}
+                              <span>• {eventCount} event{eventCount !== 1 ? 's' : ''}</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </DropdownMenuTrigger>
                     {isCaptain && contextMenuMember?.id === member.id && (
                       <DropdownMenuContent>
                         <DropdownMenuLabel>Assign to Team</DropdownMenuLabel>
-                        {team.subteams.map((subteam: any) => (
-                          <DropdownMenuItem
-                            key={subteam.id}
-                            onClick={() => handleAssignToTeamFromMenu(member.id, subteam.id, member.user.name || member.user.email)}
-                          >
-                            {subteam.name}
+                        {team.subteams
+                          .filter((s: any) => s.id !== member.subteamId && s.members.length < 15)
+                          .map((subteam: any) => (
+                            <DropdownMenuItem
+                              key={subteam.id}
+                              onClick={() => handleAssignToTeamFromMenu(member.id, subteam.id, member.user.name || member.user.email)}
+                            >
+                              {subteam.name} ({subteam.members.length}/15)
+                            </DropdownMenuItem>
+                          ))
+                        }
+                        {team.subteams.filter((s: any) => s.id !== member.subteamId && s.members.length < 15).length === 0 && (
+                          <DropdownMenuItem disabled>
+                            No available teams
                           </DropdownMenuItem>
-                        ))}
+                        )}
+                        {member.subteamId && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleAssignToTeamFromMenu(member.id, null, member.user.name || member.user.email)}
+                            >
+                              Unassign from team
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     )}
                   </DropdownMenu>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Create Team Dialog */}
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogContent>
-            <form onSubmit={handleCreateTeam}>
-              <DialogHeader>
-                <DialogTitle>Create Team</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div>
-                  <Label htmlFor="name">Team Name</Label>
-                  <Input
-                    id="name"
-                    value={newTeamName}
-                    onChange={(e) => setNewTeamName(e.target.value)}
-                    placeholder="e.g., Team A"
-                    required
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading || !newTeamName}>
-                  {loading ? 'Creating...' : 'Create'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Team Dialog */}
-        <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogContent>
-            <form onSubmit={handleEditTeam}>
-              <DialogHeader>
-                <DialogTitle>Edit Team</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div>
-                  <Label htmlFor="edit-name">Team Name</Label>
-                  <Input
-                    id="edit-name"
-                    value={editTeamName}
-                    onChange={(e) => setEditTeamName(e.target.value)}
-                    placeholder="e.g., Team A"
-                    required
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading || !editTeamName}>
-                  {loading ? 'Updating...' : 'Update'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
-  }
 
   // Calculate event participation counts
   const getMemberEventCounts = () => {
@@ -777,8 +786,8 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
 
   const eventCounts = getMemberEventCounts()
 
-  // Roster View for Selected Team
-  return (
+  // Render Roster View for Selected Team
+  const renderRosterView = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -787,11 +796,31 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
             Back to People
           </Button>
           <div>
-            <h2 className="text-2xl font-bold">{selectedTeam.name} Roster</h2>
+            <h2 className="text-2xl font-bold">{selectedTeam.name}</h2>
             <p className="text-sm text-muted-foreground">
               {teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''} • Division {team.division}
             </p>
           </div>
+          {isCaptain && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openEditDialog(selectedTeam)}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit Name
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => openDeleteDialog(selectedTeam)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Team
+              </Button>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <Button
@@ -819,7 +848,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
           <CardHeader>
             <CardTitle>Team Members</CardTitle>
             <CardDescription>
-              {isCaptain ? 'Right-click members or events to assign them' : `${teamMembers.length} members on this team`}
+              {isCaptain ? 'Click members to assign them to events' : `${teamMembers.length} members on this team`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -834,8 +863,8 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                   }}>
                     <DropdownMenuTrigger asChild>
                       <div
-                        className="flex items-center gap-2 rounded-full border px-3 py-1"
-                        onContextMenu={(e) => {
+                        className="flex items-center gap-2 rounded-full border px-3 py-1 cursor-pointer hover:bg-accent"
+                        onClick={(e) => {
                           if (isCaptain && !loading) {
                             e.preventDefault()
                             setContextMenuMember(member)
@@ -1158,19 +1187,92 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
 
+  // Main return with conditional view rendering and all dialogs
+  return (
+    <>
+      {!selectedTeam ? renderGridView() : renderRosterView()}
+
+      {/* Create Team Dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <form onSubmit={handleCreateTeam}>
+            <DialogHeader>
+              <DialogTitle>Create Team</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="name">Team Name</Label>
+                <Input
+                  id="name"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  placeholder="e.g., Team A"
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading || !newTeamName}>
+                {loading ? 'Creating...' : 'Create'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Team Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <form onSubmit={handleEditTeam}>
+            <DialogHeader>
+              <DialogTitle>Edit Team</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="edit-name">Team Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editTeamName}
+                  onChange={(e) => setEditTeamName(e.target.value)}
+                  placeholder="e.g., Team A"
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading || !editTeamName}>
+                {loading ? 'Updating...' : 'Update'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Team Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Team</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{teamToDelete?.name}"? Members will be unassigned but not removed from the club.
+              Are you sure you want to delete <strong>{teamToDelete?.name}</strong>? This team has {teamToDelete?.members?.length || 0} member{teamToDelete?.members?.length !== 1 ? 's' : ''} who will be unassigned but not removed from the club.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                setTeamToDelete(null)
+              }}
             >
               Cancel
             </Button>
@@ -1179,12 +1281,12 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
               onClick={handleDeleteTeam}
               disabled={loading}
             >
-              {loading ? 'Deleting...' : 'Delete'}
+              {loading ? 'Deleting...' : 'Delete Team'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }
 

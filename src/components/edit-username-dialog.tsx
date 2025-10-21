@@ -19,9 +19,10 @@ interface EditUsernameDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentName: string | null
+  onNameUpdated?: (newName: string) => void
 }
 
-export function EditUsernameDialog({ open, onOpenChange, currentName }: EditUsernameDialogProps) {
+export function EditUsernameDialog({ open, onOpenChange, currentName, onNameUpdated }: EditUsernameDialogProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [name, setName] = useState(currentName || '')
@@ -60,13 +61,10 @@ export function EditUsernameDialog({ open, onOpenChange, currentName }: EditUser
         throw new Error(data.error || 'Failed to update name')
       }
 
-      toast({
-        title: 'Success',
-        description: 'Your name has been updated',
-      })
-
       onOpenChange(false)
-      router.refresh()
+      
+      // Force a full page reload to ensure username is synchronized everywhere
+      window.location.reload()
     } catch (error: any) {
       toast({
         title: 'Error',
