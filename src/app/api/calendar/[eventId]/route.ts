@@ -11,6 +11,7 @@ const updateEventSchema = z.object({
   startUTC: z.string().optional(),
   endUTC: z.string().optional(),
   location: z.string().optional(),
+  color: z.string().optional(),
   scope: z.enum(['PERSONAL', 'SUBTEAM', 'TEAM']).optional(),
   subteamId: z.string().nullable().optional(),
 })
@@ -71,6 +72,7 @@ export async function PATCH(
     if (validatedData.startUTC !== undefined) updateData.startUTC = new Date(validatedData.startUTC)
     if (validatedData.endUTC !== undefined) updateData.endUTC = new Date(validatedData.endUTC)
     if (validatedData.location !== undefined) updateData.location = validatedData.location
+    if (validatedData.color !== undefined) updateData.color = validatedData.color
     if (validatedData.scope !== undefined) updateData.scope = validatedData.scope
     if (validatedData.subteamId !== undefined) updateData.subteamId = validatedData.subteamId
 

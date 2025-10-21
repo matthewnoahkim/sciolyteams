@@ -14,6 +14,7 @@ const createEventSchema = z.object({
   startUTC: z.string().datetime(),
   endUTC: z.string().datetime(),
   location: z.string().optional(),
+  color: z.string().optional(),
   subteamId: z.string().optional(),
   attendeeId: z.string().optional(),
 })
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
         startUTC: new Date(validated.startUTC),
         endUTC: new Date(validated.endUTC),
         location: validated.location || undefined,
+        color: validated.color || '#3b82f6',
         subteamId: validated.subteamId || undefined,
         attendeeId: validated.attendeeId || undefined,
       },

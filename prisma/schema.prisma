@@ -304,6 +304,7 @@ model CalendarEvent {
   startUTC     DateTime
   endUTC       DateTime
   location     String?
+  color        String?       // Custom color for events
   subteamId    String?
   attendeeId   String?       // For PERSONAL scope
   createdAt    DateTime      @default(now())

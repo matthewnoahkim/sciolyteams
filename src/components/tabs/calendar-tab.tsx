@@ -74,6 +74,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       startDate: start.toISOString().split('T')[0],
       endDate: start.toISOString().split('T')[0],
       location: '',
+      color: '#3b82f6', // Default blue
       scope: 'PERSONAL' as 'PERSONAL' | 'SUBTEAM' | 'TEAM',
       subteamId: '',
       attendeeId: currentMembership.id,
@@ -142,6 +143,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         title: formData.title,
         startUTC: startISO,
         endUTC: endISO,
+        color: formData.color,
       }
 
       if (formData.description) {
@@ -219,6 +221,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         startUTC: startISO,
         endUTC: endISO,
         location: formData.location,
+        color: formData.color,
         scope: formData.scope,
       }
 
@@ -326,6 +329,11 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
   }
 
   const getEventColor = (event: any) => {
+    // Use custom color if available, otherwise fall back to scope-based colors
+    if (event.color) {
+      return ''  // We'll use inline styles instead
+    }
+    
     switch (event.scope) {
       case 'TEAM':
         return 'bg-blue-500 hover:bg-blue-600 text-white'
@@ -336,6 +344,17 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       default:
         return 'bg-gray-500 hover:bg-gray-600 text-white'
     }
+  }
+  
+  const getEventStyle = (event: any) => {
+    if (event.color) {
+      console.log('Event color:', event.color, 'for event:', event.title)
+      return {
+        backgroundColor: event.color,
+        color: '#ffffff',
+      }
+    }
+    return {}
   }
 
   // Calendar generation functions
@@ -481,6 +500,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
       location: event.location || '',
+      color: event.color || '#3b82f6', // Preserve existing color or default to blue
       scope: event.scope,
       subteamId: event.subteamId || '',
       attendeeId: event.attendeeId || currentMembership.id,
@@ -640,7 +660,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
               return (
                 <div
                   key={event.id}
-                  className={`text-xs p-1 rounded truncate ${getEventColor(event)} cursor-pointer ${
+                  className={`text-xs p-1 rounded truncate ${getEventColor(event)} ${event.color ? 'text-white' : ''} cursor-pointer ${
                     isMultiDay 
                       ? isStartDay 
                         ? 'rounded-l-md rounded-r-none' 
@@ -649,6 +669,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                           : 'rounded-none'
                       : 'rounded'
                   }`}
+                  style={getEventStyle(event)}
                   onClick={(e) => {
                     e.stopPropagation()
                     handleEventClick(event)
@@ -824,7 +845,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                       return (
                         <div
                           key={event.id}
-                          className={`text-xs p-0.5 rounded mb-0.5 ${getEventColor(event)} cursor-pointer ${
+                          className={`text-xs p-0.5 rounded mb-0.5 ${getEventColor(event)} ${event.color ? 'text-white' : ''} cursor-pointer ${
                             isMultiDay 
                               ? isStartDay 
                                 ? 'rounded-l-md rounded-r-none' 
@@ -833,6 +854,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                                   : 'rounded-none'
                               : 'rounded'
                           }`}
+                          style={getEventStyle(event)}
                           onClick={(e) => {
                             e.stopPropagation()
                             handleEventClick(event)
@@ -1042,6 +1064,30 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 />
+              </div>
+              <div>
+                <Label htmlFor="color">Event Color</Label>
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="color"
+                    id="color"
+                    value={formData.color}
+                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                    className="h-10 w-20 rounded cursor-pointer border border-input"
+                  />
+                  <div className="flex gap-2 flex-wrap">
+                    {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'].map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, color })}
+                        className={`w-8 h-8 rounded border-2 ${formData.color === color ? 'border-foreground' : 'border-transparent'}`}
+                        style={{ backgroundColor: color }}
+                        aria-label={`Select ${color}`}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
               <div>
                 <Label>Scope</Label>
@@ -1452,6 +1498,30 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 />
+              </div>
+              <div>
+                <Label htmlFor="edit-color">Event Color</Label>
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="color"
+                    id="edit-color"
+                    value={formData.color}
+                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                    className="h-10 w-20 rounded cursor-pointer border border-input"
+                  />
+                  <div className="flex gap-2 flex-wrap">
+                    {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'].map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, color })}
+                        className={`w-8 h-8 rounded border-2 ${formData.color === color ? 'border-foreground' : 'border-transparent'}`}
+                        style={{ backgroundColor: color }}
+                        aria-label={`Select ${color}`}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
               <div>
                 <Label>Scope</Label>
