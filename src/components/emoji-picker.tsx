@@ -38,26 +38,31 @@ export function EmojiPicker({
     globalOpenPicker = null
   }
 
-  const openPicker = () => {
-    // Close any other open picker
-    if (globalOpenPicker) {
-      globalOpenPicker()
+  const togglePicker = () => {
+    if (showPicker) {
+      // If picker is open, close it
+      closePicker()
+    } else {
+      // Close any other open picker first
+      if (globalOpenPicker) {
+        globalOpenPicker()
+      }
+      
+      setShowPicker(true)
+      globalOpenPicker = closePicker
     }
-    
-    setShowPicker(true)
-    globalOpenPicker = closePicker
   }
 
   // Handle click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node
-      if (
-        containerRef.current && 
-        !containerRef.current.contains(target) &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(target)
-      ) {
+      
+      // Check if click is outside both the container and the dropdown
+      const isOutsideContainer = containerRef.current && !containerRef.current.contains(target)
+      const isOutsideDropdown = dropdownRef.current && !dropdownRef.current.contains(target)
+      
+      if (isOutsideContainer && isOutsideDropdown) {
         closePicker()
       }
     }
@@ -104,7 +109,7 @@ export function EmojiPicker({
       <Button
         variant="ghost"
         size="sm"
-        onClick={openPicker}
+        onClick={togglePicker}
         disabled={disabled}
         className="h-6 w-6 p-0"
       >
