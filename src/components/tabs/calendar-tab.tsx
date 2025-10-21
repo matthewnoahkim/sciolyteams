@@ -646,8 +646,10 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
           className="min-h-[120px] border border-border bg-background hover:bg-muted/50 cursor-pointer transition-colors p-2"
           onClick={() => handleDayClick(date)}
         >
-          <div className={`text-sm font-semibold mb-1 ${isToday ? 'bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center' : ''}`}>
-            {day}
+          <div className="text-sm font-semibold mb-1">
+            <span className={`${isToday ? 'bg-primary text-primary-foreground rounded-full px-2 py-1' : ''}`}>
+              {day}
+            </span>
           </div>
           <div className="space-y-1 max-h-[100px] overflow-y-auto">
             {dayEvents.map((event) => {
