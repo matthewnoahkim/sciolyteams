@@ -774,6 +774,87 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
           })}
         </div>
 
+        {/* All-day events section */}
+        <div className="grid grid-cols-8 gap-0 border-b border-border">
+          <div className="bg-muted py-1 px-1 text-xs text-muted-foreground text-right border-r border-border">
+            All Day
+          </div>
+          {weekDates.map((date) => {
+            const allDayEvents = events.filter((event) => {
+              const eventStart = new Date(event.startUTC)
+              const eventEnd = new Date(event.endUTC)
+              
+              // Check if it's an all-day event
+              const isAllDay = eventStart.getHours() === 0 && eventStart.getMinutes() === 0 && 
+                              eventEnd.getHours() === 23 && eventEnd.getMinutes() === 59
+              
+              if (!isAllDay) return false
+              
+              // Normalize dates for comparison
+              const eventStartDate = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate())
+              const eventEndDate = new Date(eventEnd.getFullYear(), eventEnd.getMonth(), eventEnd.getDate())
+              const currentDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+              
+              // Show on all days it spans
+              return currentDate >= eventStartDate && currentDate <= eventEndDate
+            }).sort((a, b) => {
+              const aStart = new Date(a.startUTC)
+              const aEnd = new Date(a.startUTC)
+              const bStart = new Date(b.startUTC)
+              const bEnd = new Date(b.startUTC)
+              
+              // Calculate duration in days
+              const aDuration = Math.ceil((aEnd.getTime() - aStart.getTime()) / (1000 * 60 * 60 * 24))
+              const bDuration = Math.ceil((bEnd.getTime() - bStart.getTime()) / (1000 * 60 * 60 * 24))
+              
+              // Prioritize longer duration
+              if (aDuration !== bDuration) return bDuration - aDuration
+              
+              // For same duration, sort by start time
+              return aStart.getTime() - bStart.getTime()
+            })
+
+            return (
+              <div
+                key={date.toISOString()}
+                className="min-h-[40px] border-r border-border bg-background p-1"
+              >
+                <div className="space-y-1">
+                  {allDayEvents.map((event) => {
+                    const eventStart = new Date(event.startUTC)
+                    const eventEnd = new Date(event.endUTC)
+                    const isMultiDay = !isSameDay(eventStart, eventEnd)
+                    const isStartDay = isSameDay(eventStart, date)
+                    const isEndDay = isSameDay(eventEnd, date)
+                    
+                    return (
+                      <div
+                        key={event.id}
+                        className={`text-xs p-1 rounded cursor-pointer ${getEventColor(event)} ${event.color ? 'text-white' : ''} ${
+                          isMultiDay 
+                            ? isStartDay 
+                              ? 'rounded-l-md rounded-r-none' 
+                              : isEndDay 
+                                ? 'rounded-r-md rounded-l-none' 
+                                : 'rounded-none'
+                            : 'rounded'
+                        }`}
+                        style={getEventStyle(event)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleEventClick(event)
+                        }}
+                      >
+                        {event.title}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
         {/* Time slots */}
         <div className="max-h-[600px] overflow-y-auto">
           {hours.map((hour) => (
@@ -787,6 +868,11 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                 const slotEvents = events.filter((event) => {
                   const eventStart = new Date(event.startUTC)
                   const eventEnd = new Date(event.endUTC)
+                  
+                  // Exclude all-day events (they're shown in the all-day section)
+                  const isAllDay = eventStart.getHours() === 0 && eventStart.getMinutes() === 0 && 
+                                  eventEnd.getHours() === 23 && eventEnd.getMinutes() === 59
+                  if (isAllDay) return false
                   
                   // Normalize dates for comparison
                   const eventStartDate = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate())
