@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDateTime } from '@/lib/utils'
-import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit, MessageCircle } from 'lucide-react'
+import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit, MessageCircle, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { EmojiPicker } from '@/components/emoji-picker'
 
@@ -47,6 +47,9 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   const [postingReply, setPostingReply] = useState<Record<string, boolean>>({})
   const [showReplies, setShowReplies] = useState<Record<string, boolean>>({})
   const [reacting, setReacting] = useState<Record<string, boolean>>({})
+  const [deleteReplyDialogOpen, setDeleteReplyDialogOpen] = useState(false)
+  const [replyToDelete, setReplyToDelete] = useState<string | null>(null)
+  const [deletingReply, setDeletingReply] = useState(false)
 
   useEffect(() => {
     fetchAnnouncements()
@@ -271,6 +274,60 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
     })
 
     return summary.sort((a, b) => b.count - a.count)
+  }
+
+  const handleDeleteReplyClick = (replyId: string) => {
+    setReplyToDelete(replyId)
+    setDeleteReplyDialogOpen(true)
+  }
+
+  const handleDeleteReply = async () => {
+    if (!replyToDelete) return
+
+    setDeletingReply(true)
+
+    try {
+      // Find the announcement that contains this reply
+      const announcement = announcements.find(a => 
+        a.replies?.some((r: any) => r.id === replyToDelete)
+      )
+
+      if (!announcement) {
+        throw new Error('Announcement not found')
+      }
+
+      const response = await fetch(`/api/announcements/${announcement.id}/replies/${replyToDelete}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete reply')
+      }
+
+      toast({
+        title: 'Reply deleted',
+        description: 'Your reply has been deleted',
+      })
+
+      setDeleteReplyDialogOpen(false)
+      setReplyToDelete(null)
+      
+      // Refresh announcements to get updated data
+      fetchAnnouncements()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete reply',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeletingReply(false)
+    }
+  }
+
+  const canDeleteReply = (reply: any) => {
+    return reply.author.user.id === user.id
   }
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -530,13 +587,25 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <p className="text-sm font-medium">
-                                    {reply.author.user.name || reply.author.user.email}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {formatDateTime(reply.createdAt)}
-                                  </p>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium">
+                                      {reply.author.user.name || reply.author.user.email}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatDateTime(reply.createdAt)}
+                                    </p>
+                                  </div>
+                                  {canDeleteReply(reply) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteReplyClick(reply.id)}
+                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  )}
                                 </div>
                                 <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
                                   {reply.content}
@@ -666,6 +735,34 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
               onClick={handleDelete}
             >
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Reply Dialog */}
+      <Dialog open={deleteReplyDialogOpen} onOpenChange={setDeleteReplyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Reply</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this reply? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteReplyDialogOpen(false)}
+              disabled={deletingReply}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteReply}
+              disabled={deletingReply}
+            >
+              {deletingReply ? 'Deleting...' : 'Delete Reply'}
             </Button>
           </DialogFooter>
         </DialogContent>
