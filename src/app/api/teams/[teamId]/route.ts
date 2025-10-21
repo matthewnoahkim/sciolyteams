@@ -3,6 +3,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { requireMember, requireCaptain } from '@/lib/rbac'
+import { z } from 'zod'
+
+const updateTeamSchema = z.object({
+  name: z.string().min(1).max(100),
+})
 
 export async function GET(
   req: NextRequest,
@@ -66,6 +71,50 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
     console.error('Get team error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { teamId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Only captains can update teams
+    await requireCaptain(session.user.id, params.teamId)
+
+    const body = await req.json()
+    const { name } = updateTeamSchema.parse(body)
+
+    // Verify team exists
+    const existingTeam = await prisma.team.findUnique({
+      where: { id: params.teamId },
+    })
+
+    if (!existingTeam) {
+      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    }
+
+    // Update team name
+    const updatedTeam = await prisma.team.update({
+      where: { id: params.teamId },
+      data: { name },
+    })
+
+    return NextResponse.json({ team: updatedTeam })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
+    }
+    if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+    console.error('Update team error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

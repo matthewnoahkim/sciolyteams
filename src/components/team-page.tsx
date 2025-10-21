@@ -13,6 +13,16 @@ import { CalendarTab } from '@/components/tabs/calendar-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { EditUsernameDialog } from '@/components/edit-username-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { useToast } from '@/components/ui/use-toast'
 
 interface TeamPageProps {
   team: any
@@ -27,9 +37,14 @@ interface TeamPageProps {
 export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'stream')
   const [editUsernameOpen, setEditUsernameOpen] = useState(false)
   const [currentUserName, setCurrentUserName] = useState(user.name)
+  const [editClubNameOpen, setEditClubNameOpen] = useState(false)
+  const [currentClubName, setCurrentClubName] = useState(team.name)
+  const [newClubName, setNewClubName] = useState(team.name)
+  const [updatingClubName, setUpdatingClubName] = useState(false)
   const isCaptain = currentMembership.role === 'CAPTAIN'
 
   // Sync local state when user prop changes (e.g., after navigation)
@@ -51,6 +66,54 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
     router.replace(url.pathname + url.search, { scroll: false })
   }
 
+  const handleUpdateClubName = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!newClubName.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Club name cannot be empty',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setUpdatingClubName(true)
+
+    try {
+      const response = await fetch(`/api/teams/${team.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newClubName.trim() }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to update club name')
+      }
+
+      toast({
+        title: 'Club name updated',
+        description: `Club name changed to "${newClubName.trim()}"`,
+      })
+
+      // Update local state immediately
+      setCurrentClubName(newClubName.trim())
+      setEditClubNameOpen(false)
+      
+      // Refresh to get updated data
+      router.refresh()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update club name',
+        variant: 'destructive',
+      })
+    } finally {
+      setUpdatingClubName(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark">
       <header className="border-b glass-effect-light dark:glass-effect-dark">
@@ -61,7 +124,22 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
             </Button>
             <div>
               <div className="flex items-center gap-4">
-                <h1 className="text-3xl font-bold text-foreground leading-tight">{team.name}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-bold text-foreground leading-tight">{currentClubName}</h1>
+                  {isCaptain && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setNewClubName(currentClubName)
+                        setEditClubNameOpen(true)
+                      }}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
                 <Badge variant="outline">Division {team.division}</Badge>
               </div>
               <p className="text-base text-muted-foreground leading-relaxed">
@@ -190,6 +268,42 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
         currentName={user.name ?? null}
         onNameUpdated={setCurrentUserName}
       />
+
+      {/* Edit Club Name Dialog */}
+      <Dialog open={editClubNameOpen} onOpenChange={setEditClubNameOpen}>
+        <DialogContent>
+          <form onSubmit={handleUpdateClubName}>
+            <DialogHeader>
+              <DialogTitle>Edit Club Name</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="club-name">Club Name</Label>
+                <Input
+                  id="club-name"
+                  value={newClubName}
+                  onChange={(e) => setNewClubName(e.target.value)}
+                  placeholder="Enter club name"
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditClubNameOpen(false)}
+                disabled={updatingClubName}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updatingClubName || !newClubName.trim()}>
+                {updatingClubName ? 'Updating...' : 'Update'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
