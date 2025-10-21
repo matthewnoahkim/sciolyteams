@@ -14,7 +14,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { EmojiPicker } from '@/components/emoji-picker'
 import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil } from 'lucide-react'
 
 interface CalendarTabProps {
@@ -38,7 +37,6 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
   const [eventDetailsOpen, setEventDetailsOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<any>(null)
-  const [reacting, setReacting] = useState<Record<string, boolean>>({})
   
   // Helper function to format date for datetime-local input
   const formatDateTimeLocal = (date: Date) => {
@@ -402,73 +400,6 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
     setEditOpen(true)
   }
 
-  const handleReactionToggle = async (eventId: string, emoji: string) => {
-    const key = `event-${eventId}-${emoji}`
-    setReacting({ ...reacting, [key]: true })
-
-    try {
-      // Check if user already reacted with this emoji
-      const currentEvent = events.find(e => e.id === eventId)
-      const hasReacted = currentEvent?.reactions?.some((r: any) => 
-        r.emoji === emoji && r.user.id === currentMembership.userId
-      )
-
-      if (hasReacted) {
-        // Remove reaction
-        await fetch(`/api/reactions?targetType=event&targetId=${eventId}&emoji=${encodeURIComponent(emoji)}`, {
-          method: 'DELETE',
-        })
-      } else {
-        // Add reaction
-        await fetch('/api/reactions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            emoji,
-            targetType: 'event',
-            targetId: eventId,
-          }),
-        })
-      }
-
-      // Refresh events to get updated reactions
-      fetchEvents()
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update reaction',
-        variant: 'destructive',
-      })
-    } finally {
-      setReacting({ ...reacting, [key]: false })
-    }
-  }
-
-  const getReactionSummary = (reactions: any[]) => {
-    if (!reactions || reactions.length === 0) return []
-    
-    const summary: Array<{ emoji: string; count: number; hasUserReacted: boolean }> = []
-    const grouped = reactions.reduce((acc, reaction) => {
-      if (!acc[reaction.emoji]) {
-        acc[reaction.emoji] = { count: 0, hasUserReacted: false }
-      }
-      acc[reaction.emoji].count++
-      if (reaction.user.id === currentMembership.userId) {
-        acc[reaction.emoji].hasUserReacted = true
-      }
-      return acc
-    }, {} as Record<string, { count: number; hasUserReacted: boolean }>)
-
-    Object.entries(grouped).forEach(([emoji, data]) => {
-      summary.push({
-        emoji,
-        count: data.count,
-        hasUserReacted: data.hasUserReacted,
-      })
-    })
-
-    return summary.sort((a, b) => b.count - a.count)
-  }
 
   const renderMonthView = () => {
     const daysInMonth = getDaysInMonth(currentDate)
@@ -861,32 +792,6 @@ export function CalendarTab({ teamId, currentMembership, isCaptain }: CalendarTa
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Created by</p>
                   <p className="text-sm">{selectedEvent.creator?.user?.name || 'Unknown'}</p>
-                </div>
-
-                {/* Reactions Section */}
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Reactions</p>
-                  <div className="flex items-center gap-2">
-                    <EmojiPicker
-                      onReactionToggle={(emoji) => handleReactionToggle(selectedEvent.id, emoji)}
-                      currentReactions={getReactionSummary(selectedEvent.reactions || [])}
-                    />
-                    {getReactionSummary(selectedEvent.reactions || []).length > 0 && (
-                      <div className="flex gap-1 flex-wrap">
-                        {getReactionSummary(selectedEvent.reactions || []).map((reaction) => (
-                          <Button
-                            key={reaction.emoji}
-                            variant={reaction.hasUserReacted ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handleReactionToggle(selectedEvent.id, reaction.emoji)}
-                            className="h-6 px-2 text-xs"
-                          >
-                            {reaction.emoji} {reaction.count}
-                          </Button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
               {(canEditEvent(selectedEvent) || canDeleteEvent(selectedEvent)) && (
