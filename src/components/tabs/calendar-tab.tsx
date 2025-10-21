@@ -57,16 +57,22 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
   }
   
   const getInitialFormData = (prefilledDate?: Date) => {
+    const now = new Date()
+    const currentHour = now.getHours()
     const start = prefilledDate ? new Date(prefilledDate) : new Date()
-    start.setHours(9, 0, 0, 0)
+    start.setHours(currentHour, 0, 0, 0)
     const end = new Date(start)
-    end.setHours(10, 0, 0, 0)
+    end.setHours(currentHour + 1, 0, 0, 0)
     
     return {
       title: '',
       description: '',
-      startUTC: formatDateTimeLocal(start),
-      endUTC: formatDateTimeLocal(end),
+      date: start.toISOString().split('T')[0], // YYYY-MM-DD format
+      startTime: `${String(currentHour).padStart(2, '0')}:00`,
+      endTime: `${String(currentHour + 1).padStart(2, '0')}:00`,
+      isAllDay: false,
+      startDate: start.toISOString().split('T')[0],
+      endDate: start.toISOString().split('T')[0],
       location: '',
       scope: 'PERSONAL' as 'PERSONAL' | 'SUBTEAM' | 'TEAM',
       subteamId: '',
@@ -113,8 +119,22 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     setLoading(true)
 
     try {
-      const startISO = new Date(formData.startUTC).toISOString()
-      const endISO = new Date(formData.endUTC).toISOString()
+      let startISO: string
+      let endISO: string
+
+      if (formData.isAllDay) {
+        // All day event - start at 00:00, end at 23:59
+        const startDate = new Date(formData.startDate + 'T00:00:00')
+        const endDate = new Date(formData.endDate + 'T23:59:59')
+        startISO = startDate.toISOString()
+        endISO = endDate.toISOString()
+      } else {
+        // Regular event with specific time
+        const startDateTime = new Date(formData.date + 'T' + formData.startTime + ':00')
+        const endDateTime = new Date(formData.date + 'T' + formData.endTime + ':00')
+        startISO = startDateTime.toISOString()
+        endISO = endDateTime.toISOString()
+      }
 
       const payload: any = {
         teamId,
@@ -176,8 +196,22 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     setLoading(true)
 
     try {
-      const startISO = new Date(formData.startUTC).toISOString()
-      const endISO = new Date(formData.endUTC).toISOString()
+      let startISO: string
+      let endISO: string
+
+      if (formData.isAllDay) {
+        // All day event - start at 00:00, end at 23:59
+        const startDate = new Date(formData.startDate + 'T00:00:00')
+        const endDate = new Date(formData.endDate + 'T23:59:59')
+        startISO = startDate.toISOString()
+        endISO = endDate.toISOString()
+      } else {
+        // Regular event with specific time
+        const startDateTime = new Date(formData.date + 'T' + formData.startTime + ':00')
+        const endDateTime = new Date(formData.date + 'T' + formData.endTime + ':00')
+        startISO = startDateTime.toISOString()
+        endISO = endDateTime.toISOString()
+      }
 
       const payload: any = {
         title: formData.title,
@@ -354,7 +388,42 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
   const getEventsForDay = (date: Date) => {
     return events.filter((event) => {
       const eventStart = new Date(event.startUTC)
-      return isSameDay(eventStart, date)
+      const eventEnd = new Date(event.endUTC)
+      
+      // Normalize dates to just the date part (no time) for comparison
+      const eventStartDate = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate())
+      const eventEndDate = new Date(eventEnd.getFullYear(), eventEnd.getMonth(), eventEnd.getDate())
+      const currentDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+      
+      // Check if the date falls within the event's date range
+      return currentDate >= eventStartDate && currentDate <= eventEndDate
+    }).sort((a, b) => {
+      const aStart = new Date(a.startUTC)
+      const aEnd = new Date(a.endUTC)
+      const bStart = new Date(b.startUTC)
+      const bEnd = new Date(b.endUTC)
+      
+      // Check if events are all-day
+      const aIsAllDay = aStart.getHours() === 0 && aStart.getMinutes() === 0 && 
+                        aEnd.getHours() === 23 && aEnd.getMinutes() === 59
+      const bIsAllDay = bStart.getHours() === 0 && bStart.getMinutes() === 0 && 
+                        bEnd.getHours() === 23 && bEnd.getMinutes() === 59
+      
+      // Calculate duration in days
+      const aDuration = Math.ceil((aEnd.getTime() - aStart.getTime()) / (1000 * 60 * 60 * 24))
+      const bDuration = Math.ceil((bEnd.getTime() - bStart.getTime()) / (1000 * 60 * 60 * 24))
+      
+      // Prioritize all-day events
+      if (aIsAllDay && !bIsAllDay) return -1
+      if (!aIsAllDay && bIsAllDay) return 1
+      
+      // If both are all-day, prioritize longer duration
+      if (aIsAllDay && bIsAllDay) {
+        if (aDuration !== bDuration) return bDuration - aDuration
+      }
+      
+      // For regular events or same duration all-day events, sort by start time
+      return aStart.getTime() - bStart.getTime()
     })
   }
 
@@ -394,11 +463,23 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
 
   const handleEditClick = (event: any) => {
     setSelectedEvent(event)
+    
+    const startDate = new Date(event.startUTC)
+    const endDate = new Date(event.endUTC)
+    
+    // Check if it's an all-day event (starts at 00:00 and ends at 23:59)
+    const isAllDay = startDate.getHours() === 0 && startDate.getMinutes() === 0 && 
+                     endDate.getHours() === 23 && endDate.getMinutes() === 59
+    
     setFormData({
       title: event.title,
       description: event.description || '',
-      startUTC: formatDateTimeLocal(new Date(event.startUTC)),
-      endUTC: formatDateTimeLocal(new Date(event.endUTC)),
+      date: startDate.toISOString().split('T')[0],
+      startTime: isAllDay ? '09:00' : startDate.toTimeString().slice(0, 5),
+      endTime: isAllDay ? '17:00' : endDate.toTimeString().slice(0, 5),
+      isAllDay: isAllDay,
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
       location: event.location || '',
       scope: event.scope,
       subteamId: event.subteamId || '',
@@ -548,28 +629,83 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
           <div className={`text-sm font-semibold mb-1 ${isToday ? 'bg-primary text-primary-foreground rounded-full w-7 h-7 flex items-center justify-center' : ''}`}>
             {day}
           </div>
-          <div className="space-y-1">
-            {dayEvents.slice(0, 3).map((event) => (
-              <div
-                key={event.id}
-                className={`text-xs p-1 rounded truncate ${getEventColor(event)} cursor-pointer`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleEventClick(event)
-                }}
-              >
-                {new Date(event.startUTC).toLocaleTimeString('en-US', {
-                  hour: 'numeric',
-                  minute: '2-digit',
-                  hour12: true,
-                })} {event.title}
-              </div>
-            ))}
-            {dayEvents.length > 3 && (
-              <div className="text-xs text-muted-foreground px-1">
-                +{dayEvents.length - 3} more
-              </div>
-            )}
+          <div className="space-y-1 max-h-[100px] overflow-y-auto">
+            {dayEvents.map((event) => {
+              const eventStart = new Date(event.startUTC)
+              const eventEnd = new Date(event.endUTC)
+              const isMultiDay = !isSameDay(eventStart, eventEnd)
+              const isStartDay = isSameDay(eventStart, date)
+              const isEndDay = isSameDay(eventEnd, date)
+              
+              return (
+                <div
+                  key={event.id}
+                  className={`text-xs p-1 rounded truncate ${getEventColor(event)} cursor-pointer ${
+                    isMultiDay 
+                      ? isStartDay 
+                        ? 'rounded-l-md rounded-r-none' 
+                        : isEndDay 
+                          ? 'rounded-r-md rounded-l-none' 
+                          : 'rounded-none'
+                      : 'rounded'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleEventClick(event)
+                  }}
+                >
+                  {(() => {
+                    // Check if it's an all-day event
+                    const isAllDay = eventStart.getHours() === 0 && eventStart.getMinutes() === 0 && 
+                                     eventEnd.getHours() === 23 && eventEnd.getMinutes() === 59
+                    
+                    if (isAllDay) {
+                      // For all-day events, just show the title
+                      return event.title
+                    }
+                    
+                    // For regular events, show time logic
+                    if (isMultiDay) {
+                      return (
+                        <>
+                          {isStartDay && (
+                            <>
+                              {eventStart.toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
+                              })} {event.title}
+                            </>
+                          )}
+                          {!isStartDay && !isEndDay && (
+                            <>{event.title}</>
+                          )}
+                          {isEndDay && (
+                            <>
+                              {event.title} {eventEnd.toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
+                              })}
+                            </>
+                          )}
+                        </>
+                      )
+                    } else {
+                      return (
+                        <>
+                          {eventStart.toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                          })} {event.title}
+                        </>
+                      )
+                    }
+                  })()}
+                </div>
+              )
+            })}
           </div>
         </div>
       )
@@ -627,10 +763,49 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                 slotDate.setHours(hour, 0, 0, 0)
                 const slotEvents = events.filter((event) => {
                   const eventStart = new Date(event.startUTC)
-                  return (
-                    isSameDay(eventStart, date) &&
-                    eventStart.getHours() === hour
-                  )
+                  const eventEnd = new Date(event.endUTC)
+                  
+                  // Normalize dates for comparison
+                  const eventStartDate = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate())
+                  const eventEndDate = new Date(eventEnd.getFullYear(), eventEnd.getMonth(), eventEnd.getDate())
+                  const currentDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+                  
+                  // For multi-day events, show them on all days they span
+                  // For single-day events, only show them on their start day and hour
+                  if (isSameDay(eventStart, eventEnd)) {
+                    // Single day event - only show on start day and hour
+                    return isSameDay(eventStart, date) && eventStart.getHours() === hour
+                  } else {
+                    // Multi-day event - show on all days it spans
+                    return currentDate >= eventStartDate && currentDate <= eventEndDate
+                  }
+                }).sort((a, b) => {
+                  const aStart = new Date(a.startUTC)
+                  const aEnd = new Date(a.endUTC)
+                  const bStart = new Date(b.startUTC)
+                  const bEnd = new Date(b.endUTC)
+                  
+                  // Check if events are all-day
+                  const aIsAllDay = aStart.getHours() === 0 && aStart.getMinutes() === 0 && 
+                                    aEnd.getHours() === 23 && aEnd.getMinutes() === 59
+                  const bIsAllDay = bStart.getHours() === 0 && bStart.getMinutes() === 0 && 
+                                    bEnd.getHours() === 23 && bEnd.getMinutes() === 59
+                  
+                  // Calculate duration in days
+                  const aDuration = Math.ceil((aEnd.getTime() - aStart.getTime()) / (1000 * 60 * 60 * 24))
+                  const bDuration = Math.ceil((bEnd.getTime() - bStart.getTime()) / (1000 * 60 * 60 * 24))
+                  
+                  // Prioritize all-day events
+                  if (aIsAllDay && !bIsAllDay) return -1
+                  if (!aIsAllDay && bIsAllDay) return 1
+                  
+                  // If both are all-day, prioritize longer duration
+                  if (aIsAllDay && bIsAllDay) {
+                    if (aDuration !== bDuration) return bDuration - aDuration
+                  }
+                  
+                  // For regular events or same duration all-day events, sort by start time
+                  return aStart.getTime() - bStart.getTime()
                 })
 
                 return (
@@ -639,25 +814,61 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                     className="min-h-[35px] border-b border-r border-border bg-background hover:bg-muted/50 cursor-pointer transition-colors p-0.5"
                     onClick={() => handleDayClick(slotDate)}
                   >
-                    {slotEvents.map((event) => (
-                      <div
-                        key={event.id}
-                        className={`text-xs p-0.5 rounded mb-0.5 ${getEventColor(event)} cursor-pointer`}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleEventClick(event)
-                        }}
-                      >
-                        <div className="font-semibold truncate text-[10px] leading-tight">{event.title}</div>
-                        <div className="text-[10px] opacity-90 leading-tight">
-                          {new Date(event.startUTC).toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            hour12: true,
-                          })}
+                    {slotEvents.map((event) => {
+                      const eventStart = new Date(event.startUTC)
+                      const eventEnd = new Date(event.endUTC)
+                      const isMultiDay = !isSameDay(eventStart, eventEnd)
+                      const isStartDay = isSameDay(eventStart, date)
+                      const isEndDay = isSameDay(eventEnd, date)
+                      
+                      return (
+                        <div
+                          key={event.id}
+                          className={`text-xs p-0.5 rounded mb-0.5 ${getEventColor(event)} cursor-pointer ${
+                            isMultiDay 
+                              ? isStartDay 
+                                ? 'rounded-l-md rounded-r-none' 
+                                : isEndDay 
+                                  ? 'rounded-r-md rounded-l-none' 
+                                  : 'rounded-none'
+                              : 'rounded'
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEventClick(event)
+                          }}
+                        >
+                          <div className="font-semibold truncate text-[10px] leading-tight">{event.title}</div>
+                          <div className="text-[10px] opacity-90 leading-tight">
+                            {(() => {
+                              const eventStart = new Date(event.startUTC)
+                              const eventEnd = new Date(event.endUTC)
+                              
+                              // Check if it's an all-day event
+                              const isAllDay = eventStart.getHours() === 0 && eventStart.getMinutes() === 0 && 
+                                               eventEnd.getHours() === 23 && eventEnd.getMinutes() === 59
+                              
+                              if (isAllDay) {
+                                // For all-day events, don't show time
+                                return ''
+                              }
+                              
+                              // For regular events, show time logic
+                              if (isMultiDay && !isStartDay) {
+                                // For middle days of multi-day events, don't show time
+                                return ''
+                              } else {
+                                return eventStart.toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true,
+                                })
+                              }
+                            })()}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )
               })}
@@ -755,27 +966,74 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="startUTC">Start Date & Time</Label>
-                  <Input
-                    id="startUTC"
-                    type="datetime-local"
-                    value={formData.startUTC}
-                    onChange={(e) => setFormData({ ...formData, startUTC: e.target.value })}
-                    required
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isAllDay"
+                    checked={formData.isAllDay}
+                    onChange={(e) => setFormData({ ...formData, isAllDay: e.target.checked })}
                   />
+                  <Label htmlFor="isAllDay">All day event</Label>
                 </div>
-                <div>
-                  <Label htmlFor="endUTC">End Date & Time</Label>
-                  <Input
-                    id="endUTC"
-                    type="datetime-local"
-                    value={formData.endUTC}
-                    onChange={(e) => setFormData({ ...formData, endUTC: e.target.value })}
-                    required
-                  />
-                </div>
+                
+                {formData.isAllDay ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="startDate">Start Date</Label>
+                      <Input
+                        id="startDate"
+                        type="date"
+                        value={formData.startDate}
+                        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="endDate">End Date</Label>
+                      <Input
+                        id="endDate"
+                        type="date"
+                        value={formData.endDate}
+                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="date">Date</Label>
+                      <Input
+                        id="date"
+                        type="date"
+                        value={formData.date}
+                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="startTime">Start Time</Label>
+                      <Input
+                        id="startTime"
+                        type="time"
+                        value={formData.startTime}
+                        onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="endTime">End Time</Label>
+                      <Input
+                        id="endTime"
+                        type="time"
+                        value={formData.endTime}
+                        onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <Label htmlFor="location">Location (optional)</Label>
@@ -871,21 +1129,68 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">When</p>
                   <p className="text-sm">
-                    {new Date(selectedEvent.startUTC).toLocaleString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true,
-                    })}
-                    {' - '}
-                    {new Date(selectedEvent.endUTC).toLocaleString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true,
-                    })}
+                    {(() => {
+                      const start = new Date(selectedEvent.startUTC)
+                      const end = new Date(selectedEvent.endUTC)
+                      
+                      // Check if it's an all-day event
+                      const isAllDay = start.getHours() === 0 && start.getMinutes() === 0 && 
+                                       end.getHours() === 23 && end.getMinutes() === 59
+                      
+                      if (isAllDay) {
+                        // If same day, show just one day
+                        if (start.toDateString() === end.toDateString()) {
+                          return start.toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })
+                        } else {
+                          // Show day-day format with full month and year
+                          const startDay = start.getDate()
+                          const endDay = end.getDate()
+                          const startMonth = start.toLocaleDateString('en-US', { month: 'long' })
+                          const endMonth = end.toLocaleDateString('en-US', { month: 'long' })
+                          const startYear = start.getFullYear()
+                          const endYear = end.getFullYear()
+                          
+                          // If same month and year
+                          if (startMonth === endMonth && startYear === endYear) {
+                            return `${startMonth} ${startDay}-${endDay}, ${startYear}`
+                          }
+                          // If same year but different months
+                          else if (startYear === endYear) {
+                            return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${startYear}`
+                          }
+                          // Different years
+                          else {
+                            return `${startMonth} ${startDay}, ${startYear} - ${endMonth} ${endDay}, ${endYear}`
+                          }
+                        }
+                      }
+                      
+                      // For regular events, show full date and time
+                      return (
+                        <>
+                          {start.toLocaleString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                          })}
+                          {' - '}
+                          {end.toLocaleString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                          })}
+                        </>
+                      )
+                    })()}
                   </p>
                 </div>
 
@@ -1071,27 +1376,74 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="edit-startUTC">Start Date & Time</Label>
-                  <Input
-                    id="edit-startUTC"
-                    type="datetime-local"
-                    value={formData.startUTC}
-                    onChange={(e) => setFormData({ ...formData, startUTC: e.target.value })}
-                    required
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="edit-isAllDay"
+                    checked={formData.isAllDay}
+                    onChange={(e) => setFormData({ ...formData, isAllDay: e.target.checked })}
                   />
+                  <Label htmlFor="edit-isAllDay">All day event</Label>
                 </div>
-                <div>
-                  <Label htmlFor="edit-endUTC">End Date & Time</Label>
-                  <Input
-                    id="edit-endUTC"
-                    type="datetime-local"
-                    value={formData.endUTC}
-                    onChange={(e) => setFormData({ ...formData, endUTC: e.target.value })}
-                    required
-                  />
-                </div>
+                
+                {formData.isAllDay ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-startDate">Start Date</Label>
+                      <Input
+                        id="edit-startDate"
+                        type="date"
+                        value={formData.startDate}
+                        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-endDate">End Date</Label>
+                      <Input
+                        id="edit-endDate"
+                        type="date"
+                        value={formData.endDate}
+                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="edit-date">Date</Label>
+                      <Input
+                        id="edit-date"
+                        type="date"
+                        value={formData.date}
+                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-startTime">Start Time</Label>
+                      <Input
+                        id="edit-startTime"
+                        type="time"
+                        value={formData.startTime}
+                        onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-endTime">End Time</Label>
+                      <Input
+                        id="edit-endTime"
+                        type="time"
+                        value={formData.endTime}
+                        onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <Label htmlFor="edit-location">Location (optional)</Label>
