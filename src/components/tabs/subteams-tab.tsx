@@ -125,7 +125,13 @@ export function SubteamsTab({ team, isCaptain }: SubteamsTabProps) {
       setEditOpen(false)
       setEditingSubteam(null)
       setEditSubteamName('')
+      
+      // Force a more aggressive refresh
       router.refresh()
+      // Also try a hard reload after a short delay to ensure all data is fresh
+      setTimeout(() => {
+        window.location.reload()
+      }, 100)
     } catch (error) {
       toast({
         title: 'Error',

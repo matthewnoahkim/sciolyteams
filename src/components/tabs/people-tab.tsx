@@ -168,6 +168,14 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
         description: editTeamName,
       })
 
+      // Update the selectedTeam state if it's the one being edited
+      if (selectedTeam && selectedTeam.id === editingTeam.id) {
+        setSelectedTeam({
+          ...selectedTeam,
+          name: editTeamName
+        })
+      }
+
       setEditOpen(false)
       setEditingTeam(null)
       setEditTeamName('')
