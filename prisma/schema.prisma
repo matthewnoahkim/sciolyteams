@@ -206,24 +206,27 @@ enum AnnouncementScope {
 }
 
 model Announcement {
-  id           String   @id @default(cuid())
-  teamId       String
-  authorId     String
-  title        String
-  content      String   @db.Text
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  teamId          String
+  authorId        String
+  title           String
+  content         String   @db.Text
+  calendarEventId String?  @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  team         Team                      @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  author       Membership                @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  visibilities AnnouncementVisibility[]
-  emails       EmailLog[]
-  replies      AnnouncementReply[]
-  reactions    Reaction[]
+  team          Team                      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  author        Membership                @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  calendarEvent CalendarEvent?            @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  visibilities  AnnouncementVisibility[]
+  emails        EmailLog[]
+  replies       AnnouncementReply[]
+  reactions     Reaction[]
 
   @@index([teamId])
   @@index([authorId])
   @@index([createdAt])
+  @@index([calendarEventId])
 }
 
 model AnnouncementReply {
@@ -310,12 +313,13 @@ model CalendarEvent {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  team         Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  creator      Membership    @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
-  subteam      Subteam?      @relation(fields: [subteamId], references: [id], onDelete: Cascade)
-  attendee     Membership?   @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
+  team         Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator      Membership     @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
+  subteam      Subteam?       @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+  attendee     Membership?    @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
   reactions    Reaction[]
   rsvps        EventRSVP[]
+  announcement Announcement?
 
   @@index([teamId])
   @@index([creatorId])

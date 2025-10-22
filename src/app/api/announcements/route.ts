@@ -13,7 +13,8 @@ const createAnnouncementSchema = z.object({
   content: z.string().min(1),
   scope: z.enum(['TEAM', 'SUBTEAM']),
   subteamIds: z.array(z.string()).optional(),
-  sendEmail: z.boolean().default(false),
+  sendEmail: z.boolean().default(true),
+  calendarEventId: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
           authorId: membership.id,
           title: validated.title,
           content: validated.content,
+          calendarEventId: validated.calendarEventId,
         },
       })
 
@@ -90,56 +92,94 @@ export async function POST(req: NextRequest) {
         select: { name: true },
       })
 
-      // Get target users
+      // Get all team memberships with role info
+      const allMemberships = await prisma.membership.findMany({
+        where: { teamId: validated.teamId },
+        include: {
+          user: {
+            select: { id: true, email: true },
+          },
+        },
+      })
+
+      // Get the author (captain who posted)
+      const author = allMemberships.find(m => m.id === membership.id)
+      const authorEmail = author?.user.email
+
+      // Get all captains
+      const captains = allMemberships.filter(m => m.role === 'CAPTAIN')
+      const otherCaptainEmails = captains
+        .filter(c => c.id !== membership.id) // Exclude the author
+        .map(c => c.user.email)
+
+      // Get target users based on scope
       let targetUsers: { email: string; id: string }[] = []
 
       if (validated.scope === 'TEAM') {
-        const memberships = await prisma.membership.findMany({
-          where: { teamId: validated.teamId },
-          include: {
-            user: {
-              select: { id: true, email: true },
-            },
-          },
-        })
-        targetUsers = memberships.map(m => ({ email: m.user.email, id: m.user.id }))
+        // All members
+        targetUsers = allMemberships
+          .filter(m => m.role === 'MEMBER') // Only regular members (not captains)
+          .map(m => ({ email: m.user.email, id: m.user.id }))
       } else if (validated.subteamIds) {
-        const memberships = await prisma.membership.findMany({
-          where: {
-            teamId: validated.teamId,
-            subteamId: { in: validated.subteamIds },
-          },
-          include: {
-            user: {
-              select: { id: true, email: true },
-            },
-          },
-        })
-        targetUsers = memberships.map(m => ({ email: m.user.email, id: m.user.id }))
+        // Members in selected subteams
+        const subteamMemberships = allMemberships.filter(m => 
+          m.role === 'MEMBER' && m.subteamId && validated.subteamIds?.includes(m.subteamId)
+        )
+        targetUsers = subteamMemberships.map(m => ({ email: m.user.email, id: m.user.id }))
       }
 
-      // Send emails asynchronously (don't await)
-      Promise.all(
-        targetUsers.map(async (user) => {
-          const result = await sendAnnouncementEmail({
-            to: user.email,
-            teamName: team?.name || 'Team',
-            title: validated.title,
-            content: validated.content,
-            announcementId: announcement.id,
-          })
-
-          // Log email
-          await prisma.emailLog.create({
-            data: {
-              announcementId: announcement.id,
-              toUserId: user.id,
-              subject: `[Team ${team?.name}] ${validated.title}`,
-              providerMessageId: result.messageId,
-            },
-          })
+      // Get calendar event details if this announcement is linked to an event
+      let calendarEventDetails = null
+      if (validated.calendarEventId) {
+        const calEvent = await prisma.calendarEvent.findUnique({
+          where: { id: validated.calendarEventId },
+          select: {
+            startUTC: true,
+            endUTC: true,
+            location: true,
+            description: true,
+          },
         })
-      ).catch(error => console.error('Email sending error:', error))
+        if (calEvent) {
+          calendarEventDetails = calEvent
+        }
+      }
+
+      // Send one email with CC and BCC (don't await)
+      Promise.resolve().then(async () => {
+        const result = await sendAnnouncementEmail({
+          to: [authorEmail!], // Send to author as primary recipient
+          cc: otherCaptainEmails.length > 0 ? otherCaptainEmails : undefined, // CC other captains
+          bcc: targetUsers.map(u => u.email), // BCC all members
+          replyTo: authorEmail,
+          teamId: validated.teamId,
+          teamName: team?.name || 'Team',
+          title: validated.title,
+          content: validated.content,
+          announcementId: announcement.id,
+          calendarEvent: calendarEventDetails || undefined,
+        })
+
+        // Log email for all recipients
+        const allRecipients = [
+          { id: membership.userId, email: authorEmail! },
+          ...captains.filter(c => c.id !== membership.id).map(c => ({ id: c.userId, email: c.user.email })),
+          ...targetUsers,
+        ]
+
+        await Promise.all(
+          allRecipients.map(recipient =>
+            prisma.emailLog.create({
+              data: {
+                announcementId: announcement.id,
+                toUserId: recipient.id,
+                subject: `[${team?.name}] ${validated.title}`,
+                providerMessageId: result.messageId,
+              },
+            })
+          )
+        )
+      }).catch(error => console.error('Email sending error:', error))
     }
 
     const fullAnnouncement = await prisma.announcement.findUnique({
@@ -159,6 +199,23 @@ export async function POST(req: NextRequest) {
         },
         visibilities: {
           include: {
+            subteam: true,
+          },
+        },
+        calendarEvent: {
+          include: {
+            rsvps: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    image: true,
+                  },
+                },
+              },
+            },
             subteam: true,
           },
         },
@@ -297,6 +354,23 @@ export async function GET(req: NextRequest) {
           select: {
             replies: true,
             reactions: true,
+          },
+        },
+        calendarEvent: {
+          include: {
+            rsvps: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    image: true,
+                  },
+                },
+              },
+            },
+            subteam: true,
           },
         },
       },

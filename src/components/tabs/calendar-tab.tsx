@@ -16,6 +16,7 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, Check, X as XIcon, User } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { EventAnnouncementModal } from '@/components/event-announcement-modal'
 
 interface CalendarTabProps {
   teamId: string
@@ -45,6 +46,8 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<any>(null)
   const [rsvping, setRsvping] = useState(false)
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
+  const [createdEvent, setCreatedEvent] = useState<any>(null)
   
   // Helper function to format date for datetime-local input
   const formatDateTimeLocal = (date: Date) => {
@@ -202,14 +205,24 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         throw new Error(data.error || 'Failed to create event')
       }
 
+      const data = await response.json()
+      const newEvent = data.event
+
       toast({
         title: 'Event created',
         description: formData.title,
       })
 
       setCreateOpen(false)
+      const createdFormData = { ...formData }
       setFormData(getInitialFormData())
       fetchEvents()
+
+      // Show announcement modal for TEAM or SUBTEAM events created by captains
+      if (isCaptain && (createdFormData.scope === 'TEAM' || createdFormData.scope === 'SUBTEAM')) {
+        setCreatedEvent({ ...newEvent, formData: createdFormData })
+        setShowAnnouncementModal(true)
+      }
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -332,17 +345,14 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
   }
 
   const canEditEvent = (event: any) => {
-    // User can edit their own events
-    if (event.creatorId === currentMembership.id) return true
-    // Captains can edit all events except personal events made by others
-    if (isCaptain && event.scope !== 'PERSONAL') return true
-    return false
+    // Only the creator can edit their own events
+    return event.creatorId === currentMembership.id
   }
 
   const canDeleteEvent = (event: any) => {
     // User can delete their own events
     if (event.creatorId === currentMembership.id) return true
-    // Captains can delete all events except personal events made by others
+    // Captains can delete any team/club events (not personal events made by others)
     if (isCaptain && event.scope !== 'PERSONAL') return true
     return false
   }
@@ -666,6 +676,52 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     const yesCount = event.rsvps?.filter((r: any) => r.status === 'YES').length || 0
     const noCount = event.rsvps?.filter((r: any) => r.status === 'NO').length || 0
     return { yesCount, noCount }
+  }
+
+  const handleAnnouncementConfirm = async (postToStream: boolean, sendEmail: boolean) => {
+    if (!postToStream || !createdEvent) return
+
+    try {
+      // Content is just the event description - time/date/location will be pulled from calendarEvent
+      const content = createdEvent.description || 'Event details coming soon!'
+
+      // Determine scope and subteam IDs based on the event
+      const scope = createdEvent.scope === 'TEAM' ? 'TEAM' : 'SUBTEAM'
+      const subteamIds = createdEvent.scope === 'SUBTEAM' && createdEvent.subteamId 
+        ? [createdEvent.subteamId] 
+        : undefined
+
+      const response = await fetch('/api/announcements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId,
+          title: createdEvent.title,
+          content,
+          scope,
+          subteamIds,
+          sendEmail,
+          calendarEventId: createdEvent.id,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create announcement')
+      }
+
+      toast({
+        title: 'Posted to stream',
+        description: sendEmail ? 'Email notifications are being sent.' : undefined,
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to post to stream',
+        variant: 'destructive',
+      })
+    } finally {
+      setCreatedEvent(null)
+    }
   }
 
 
@@ -1836,6 +1892,18 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Event Announcement Modal */}
+      {createdEvent && (
+        <EventAnnouncementModal
+          open={showAnnouncementModal}
+          onOpenChange={setShowAnnouncementModal}
+          onConfirm={handleAnnouncementConfirm}
+          eventTitle={createdEvent.title}
+          eventScope={createdEvent.scope}
+          subteamName={createdEvent.subteam?.name}
+        />
+      )}
     </div>
   )
 }
