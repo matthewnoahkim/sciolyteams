@@ -428,20 +428,30 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       const bIsAllDay = bStart.getHours() === 0 && bStart.getMinutes() === 0 && 
                         bEnd.getHours() === 23 && bEnd.getMinutes() === 59
       
-      // Calculate duration in days
-      const aDuration = Math.ceil((aEnd.getTime() - aStart.getTime()) / (1000 * 60 * 60 * 24))
-      const bDuration = Math.ceil((bEnd.getTime() - bStart.getTime()) / (1000 * 60 * 60 * 24))
+      // Calculate duration in days (fix: use proper date difference)
+      const aDuration = Math.ceil((aEnd.getTime() - aStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      const bDuration = Math.ceil((bEnd.getTime() - bStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
       
-      // Prioritize all-day events
-      if (aIsAllDay && !bIsAllDay) return -1
-      if (!aIsAllDay && bIsAllDay) return 1
+      // Check if events are multi-day
+      const aIsMultiDay = aDuration > 1
+      const bIsMultiDay = bDuration > 1
       
-      // If both are all-day, prioritize longer duration
-      if (aIsAllDay && bIsAllDay) {
-        if (aDuration !== bDuration) return bDuration - aDuration
+      // Prioritize multi-day events over single-day events
+      if (aIsMultiDay && !bIsMultiDay) return -1
+      if (!aIsMultiDay && bIsMultiDay) return 1
+      
+      // If both are multi-day, prioritize longer duration
+      if (aIsMultiDay && bIsMultiDay && aDuration !== bDuration) {
+        return bDuration - aDuration
       }
       
-      // For regular events or same duration all-day events, sort by start time
+      // If both are single-day, prioritize all-day events
+      if (!aIsMultiDay && !bIsMultiDay) {
+        if (aIsAllDay && !bIsAllDay) return -1
+        if (!aIsAllDay && bIsAllDay) return 1
+      }
+      
+      // For same duration or same type, sort by start time
       return aStart.getTime() - bStart.getTime()
     })
   }
@@ -799,18 +809,28 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
               return currentDate >= eventStartDate && currentDate <= eventEndDate
             }).sort((a, b) => {
               const aStart = new Date(a.startUTC)
-              const aEnd = new Date(a.startUTC)
+              const aEnd = new Date(a.endUTC)
               const bStart = new Date(b.startUTC)
-              const bEnd = new Date(b.startUTC)
+              const bEnd = new Date(b.endUTC)
               
-              // Calculate duration in days
-              const aDuration = Math.ceil((aEnd.getTime() - aStart.getTime()) / (1000 * 60 * 60 * 24))
-              const bDuration = Math.ceil((bEnd.getTime() - bStart.getTime()) / (1000 * 60 * 60 * 24))
+              // Calculate duration in days (fix: use proper end date and add 1)
+              const aDuration = Math.ceil((aEnd.getTime() - aStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+              const bDuration = Math.ceil((bEnd.getTime() - bStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
               
-              // Prioritize longer duration
-              if (aDuration !== bDuration) return bDuration - aDuration
+              // Check if events are multi-day
+              const aIsMultiDay = aDuration > 1
+              const bIsMultiDay = bDuration > 1
               
-              // For same duration, sort by start time
+              // Prioritize multi-day events over single-day events
+              if (aIsMultiDay && !bIsMultiDay) return -1
+              if (!aIsMultiDay && bIsMultiDay) return 1
+              
+              // If both are multi-day, prioritize longer duration
+              if (aIsMultiDay && bIsMultiDay && aDuration !== bDuration) {
+                return bDuration - aDuration
+              }
+              
+              // For same duration or same type, sort by start time
               return aStart.getTime() - bStart.getTime()
             })
 
