@@ -63,11 +63,28 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     // Use prefilled date if provided, otherwise use today's date
     const start = prefilledDate ? new Date(prefilledDate) : new Date(now.getFullYear(), now.getMonth(), now.getDate())
     
-    // Suggest the next complete hour (if it's 7:30, suggest 8:00-9:00)
-    const nextHour = currentHour + 1
-    start.setHours(nextHour, 0, 0, 0)
+    // If a specific time was clicked (prefilledDate has a specific hour), use that time
+    // Otherwise suggest the next complete hour
+    let suggestedHour: number
+    if (prefilledDate) {
+      // Use the clicked hour (including 0 for 12 AM)
+      suggestedHour = prefilledDate.getHours()
+    } else {
+      // Suggest the next complete hour (if it's 7:30, suggest 8:00-9:00)
+      suggestedHour = currentHour + 1
+    }
+    
+    start.setHours(suggestedHour, 0, 0, 0)
     const end = new Date(start)
-    end.setHours(nextHour + 1, 0, 0, 0)
+    
+    // Handle hour overflow (23:00 -> 00:00 next day)
+    const endHour = suggestedHour + 1
+    if (endHour >= 24) {
+      end.setDate(end.getDate() + 1)
+      end.setHours(endHour - 24, 0, 0, 0)
+    } else {
+      end.setHours(endHour, 0, 0, 0)
+    }
     
     // Helper function to format date as YYYY-MM-DD in local timezone
     const formatDateLocal = (date: Date) => {
@@ -81,11 +98,11 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       title: '',
       description: '',
       date: formatDateLocal(start), // YYYY-MM-DD format in local timezone
-      startTime: `${String(nextHour).padStart(2, '0')}:00`,
-      endTime: `${String(nextHour + 1).padStart(2, '0')}:00`,
+      startTime: `${String(suggestedHour).padStart(2, '0')}:00`,
+      endTime: `${String(endHour >= 24 ? endHour - 24 : endHour).padStart(2, '0')}:00`,
       isAllDay: false,
       startDate: formatDateLocal(start),
-      endDate: formatDateLocal(start),
+      endDate: formatDateLocal(end),
       location: '',
       color: '#3b82f6', // Default blue
       scope: 'PERSONAL' as 'PERSONAL' | 'SUBTEAM' | 'TEAM',
