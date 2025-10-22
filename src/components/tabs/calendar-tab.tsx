@@ -166,12 +166,24 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         // All day event - start at 00:00, end at 23:59
         const startDate = new Date(formData.startDate + 'T00:00:00')
         const endDate = new Date(formData.endDate + 'T23:59:59')
+        
+        // Validate that end date is not before start date
+        if (endDate < startDate) {
+          throw new Error('End date cannot be before start date')
+        }
+        
         startISO = startDate.toISOString()
         endISO = endDate.toISOString()
       } else {
         // Regular event with specific time
         const startDateTime = new Date(formData.date + 'T' + formData.startTime + ':00')
         const endDateTime = new Date(formData.date + 'T' + formData.endTime + ':00')
+        
+        // Validate that end time is not before start time
+        if (endDateTime <= startDateTime) {
+          throw new Error('End time must be after start time')
+        }
+        
         startISO = startDateTime.toISOString()
         endISO = endDateTime.toISOString()
       }
@@ -254,12 +266,24 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         // All day event - start at 00:00, end at 23:59
         const startDate = new Date(formData.startDate + 'T00:00:00')
         const endDate = new Date(formData.endDate + 'T23:59:59')
+        
+        // Validate that end date is not before start date
+        if (endDate < startDate) {
+          throw new Error('End date cannot be before start date')
+        }
+        
         startISO = startDate.toISOString()
         endISO = endDate.toISOString()
       } else {
         // Regular event with specific time
         const startDateTime = new Date(formData.date + 'T' + formData.startTime + ':00')
         const endDateTime = new Date(formData.date + 'T' + formData.endTime + ':00')
+        
+        // Validate that end time is not before start time
+        if (endDateTime <= startDateTime) {
+          throw new Error('End time must be after start time')
+        }
+        
         startISO = startDateTime.toISOString()
         endISO = endDateTime.toISOString()
       }
@@ -772,13 +796,13 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
               return (
                 <div
                   key={event.id}
-                  className={`text-xs p-1 rounded truncate ${getEventColor(event)} ${event.color ? 'text-white' : ''} cursor-pointer ${
+                  className={`text-xs p-1 rounded truncate relative ${getEventColor(event)} ${event.color ? 'text-white' : ''} cursor-pointer ${
                     isMultiDay 
                       ? isStartDay 
-                        ? 'rounded-l-md rounded-r-none' 
+                        ? 'rounded-l-md rounded-r-none border-r-2 border-r-white/30' 
                         : isEndDay 
-                          ? 'rounded-r-md rounded-l-none' 
-                          : 'rounded-none'
+                          ? 'rounded-r-md rounded-l-none border-l-2 border-l-white/30' 
+                          : 'rounded-none border-x-2 border-x-white/30'
                       : 'rounded'
                   }`}
                   style={getEventStyle(event)}
@@ -793,36 +817,46 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                                      eventEnd.getHours() === 23 && eventEnd.getMinutes() === 59
                     
                     if (isAllDay) {
-                      // For all-day events, just show the title
-                      return event.title
+                      // For all-day events, just show the title with continuation indicators
+                      return (
+                        <div className="flex items-center justify-between">
+                          {!isStartDay && <span className="mr-1">←</span>}
+                          <span className="truncate flex-1">{event.title}</span>
+                          {!isEndDay && <span className="ml-1">→</span>}
+                        </div>
+                      )
                     }
                     
                     // For regular events, show time logic
                     if (isMultiDay) {
                       return (
-                        <>
-                          {isStartDay && (
-                            <>
-                              {eventStart.toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                hour12: true,
-                              })} {event.title}
-                            </>
-                          )}
-                          {!isStartDay && !isEndDay && (
-                            <>{event.title}</>
-                          )}
-                          {isEndDay && (
-                            <>
-                              {event.title} {eventEnd.toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                hour12: true,
-                              })}
-                            </>
-                          )}
-                        </>
+                        <div className="flex items-center justify-between">
+                          {!isStartDay && <span className="mr-1">←</span>}
+                          <span className="truncate flex-1">
+                            {isStartDay && (
+                              <>
+                                {eventStart.toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true,
+                                })} {event.title}
+                              </>
+                            )}
+                            {!isStartDay && !isEndDay && (
+                              <>{event.title}</>
+                            )}
+                            {isEndDay && (
+                              <>
+                                {event.title} {eventEnd.toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true,
+                                })}
+                              </>
+                            )}
+                          </span>
+                          {!isEndDay && <span className="ml-1">→</span>}
+                        </div>
                       )
                     } else {
                       return (
@@ -864,8 +898,8 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     return (
       <div className="border rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-8 gap-0">
-          <div className="bg-muted p-1 border-b border-r border-border" />
+        <div className="grid grid-cols-8 gap-0 pr-[15px]">
+          <div className="bg-muted py-1 px-1 border-b border-r border-border" />
           {weekDates.map((date) => {
             const isToday = isSameDay(date, today)
             return (
@@ -885,8 +919,8 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         </div>
 
         {/* All-day events section */}
-        <div className="grid grid-cols-8 gap-0 border-b border-border">
-          <div className="py-1 px-1 text-xs text-muted-foreground text-right border-r border-border">
+        <div className="grid grid-cols-8 gap-0 border-b border-border pr-[15px]">
+          <div className="py-1 px-1 text-xs text-muted-foreground text-right border-r border-border leading-tight flex items-center justify-end">
             All Day
           </div>
           {weekDates.map((date) => {
@@ -956,13 +990,13 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                     return (
                       <div
                         key={event.id}
-                        className={`text-xs p-1 rounded cursor-pointer ${getEventColor(event)} ${event.color ? 'text-white' : ''} ${
+                        className={`text-xs p-1 rounded cursor-pointer relative ${getEventColor(event)} ${event.color ? 'text-white' : ''} ${
                           isMultiDay 
                             ? isStartDay 
-                              ? 'rounded-l-md rounded-r-none' 
+                              ? 'rounded-l-md rounded-r-none border-r-2 border-r-white/30' 
                               : isEndDay 
-                                ? 'rounded-r-md rounded-l-none' 
-                                : 'rounded-none'
+                                ? 'rounded-r-md rounded-l-none border-l-2 border-l-white/30' 
+                                : 'rounded-none border-x-2 border-x-white/30'
                             : 'rounded'
                         }`}
                         style={getEventStyle(event)}
@@ -971,7 +1005,11 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                           handleEventClick(event)
                         }}
                       >
-                        {event.title}
+                        <div className="flex items-center justify-between">
+                          {isMultiDay && !isStartDay && <span className="mr-1">←</span>}
+                          <span className="truncate flex-1">{event.title}</span>
+                          {isMultiDay && !isEndDay && <span className="ml-1">→</span>}
+                        </div>
                       </div>
                     )
                   })}
@@ -985,7 +1023,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         <div className="max-h-[600px] overflow-y-auto">
           {hours.map((hour) => (
             <div key={hour} className="grid grid-cols-8 gap-0">
-              <div className="py-1 px-1 text-xs text-muted-foreground text-right border-r border-border leading-tight">
+              <div className="py-1 px-1 text-xs text-muted-foreground text-right border-r border-border leading-tight flex items-center justify-end">
                 {hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
               </div>
               {weekDates.map((date) => {
@@ -1090,13 +1128,13 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                       return (
                         <div
                           key={event.id}
-                          className={`p-0.5 rounded mb-0.5 ${getEventColor(event)} ${event.color ? 'text-white' : ''} cursor-pointer ${
+                          className={`p-0.5 rounded mb-0.5 relative ${getEventColor(event)} ${event.color ? 'text-white' : ''} cursor-pointer ${
                             isMultiDay 
                               ? isStartDay 
-                                ? 'rounded-l-md rounded-r-none' 
+                                ? 'rounded-l-md rounded-r-none border-r-2 border-r-white/30' 
                                 : isEndDay 
-                                  ? 'rounded-r-md rounded-l-none' 
-                                  : 'rounded-none'
+                                  ? 'rounded-r-md rounded-l-none border-l-2 border-l-white/30' 
+                                  : 'rounded-none border-x-2 border-x-white/30'
                               : 'rounded'
                           }`}
                           style={{
@@ -1125,7 +1163,11 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                             if (isAllDay) {
                               // For all-day events, just show title
                               return (
-                                <div className={`font-semibold truncate ${fontSize} leading-tight`}>{event.title}</div>
+                                <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center`}>
+                                  {isMultiDay && !isStartDay && <span className="mr-1">←</span>}
+                                  <span className="truncate">{event.title}</span>
+                                  {isMultiDay && !isEndDay && <span className="ml-1">→</span>}
+                                </div>
                               )
                             }
                             
@@ -1133,7 +1175,11 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                             if (isMultiDay && !isStartDay) {
                               // For middle days of multi-day events, don't show time
                               return (
-                                <div className={`font-semibold truncate ${fontSize} leading-tight`}>{event.title}</div>
+                                <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center`}>
+                                  <span className="mr-1">←</span>
+                                  <span className="truncate">{event.title}</span>
+                                  {!isEndDay && <span className="ml-1">→</span>}
+                                </div>
                               )
                             } else {
                               // Show start - end time format
@@ -1151,8 +1197,9 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                               if (layout === 'minimal') {
                                 // For very short events, show only title
                                 return (
-                                  <div className={`font-semibold truncate ${fontSize} leading-tight`} title={event.title}>
-                                    {event.title}
+                                  <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center`} title={event.title}>
+                                    <span className="truncate">{event.title}</span>
+                                    {isMultiDay && !isEndDay && <span className="ml-1">→</span>}
                                   </div>
                                 )
                               } else {
@@ -1165,6 +1212,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                                     <span className="opacity-90 whitespace-nowrap flex-shrink-0" title={`${startTime} - ${endTime}`}>
                                       {startTime} - {endTime}
                                     </span>
+                                    {isMultiDay && !isEndDay && <span className="ml-1">→</span>}
                                   </div>
                                 )
                               }

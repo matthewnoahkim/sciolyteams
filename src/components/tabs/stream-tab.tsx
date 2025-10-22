@@ -636,7 +636,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
           </Card>
         ) : (
           announcements.map((announcement) => (
-            <Card key={announcement.id}>
+            <Card key={announcement.id} className="relative">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
