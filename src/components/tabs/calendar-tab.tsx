@@ -938,9 +938,9 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                   const currentDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
                   
                   // For multi-day events, show them on all days they span
-                  // For single-day events, only show them on their start day and hour
+                  // For single-day events, only show in the start hour slot (will span with CSS)
                   if (isSameDay(eventStart, eventEnd)) {
-                    // Single day event - only show on start day and hour
+                    // Single day event - only show in start hour slot
                     return isSameDay(eventStart, date) && eventStart.getHours() === hour
                   } else {
                     // Multi-day event - show on all days it spans
@@ -978,7 +978,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                 return (
                   <div
                     key={`${date.toISOString()}-${hour}`}
-                    className="min-h-[35px] border-b border-r border-border bg-background hover:bg-muted/50 cursor-pointer transition-colors p-0.5"
+                    className="min-h-[35px] border-b border-r border-border bg-background hover:bg-muted/50 cursor-pointer transition-colors p-0.5 relative"
                     onClick={() => handleDayClick(slotDate)}
                   >
                     {slotEvents.map((event) => {
@@ -988,10 +988,41 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                       const isStartDay = isSameDay(eventStart, date)
                       const isEndDay = isSameDay(eventEnd, date)
                       
+                      // Calculate event duration in minutes for single-day events
+                      const eventDurationMinutes = isSameDay(eventStart, eventEnd) 
+                        ? (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60) // Convert to minutes
+                        : 60 // Default to 1 hour for multi-day events
+                      
+                      // Calculate precise height based on actual duration (35px per hour)
+                      // Use much smaller minimum for very short events
+                      let eventHeight: number
+                      if (eventDurationMinutes < 5) {
+                        eventHeight = 8 // Very thin line for 1-4 minute events
+                      } else if (eventDurationMinutes < 15) {
+                        eventHeight = 12 // Small line for 5-14 minute events
+                      } else {
+                        eventHeight = Math.max((eventDurationMinutes / 60) * 35, 16) // Proportional for longer events
+                      }
+                      
+                      // Determine font size and layout based on height
+                      let fontSize: string
+                      let layout: 'compact' | 'normal' | 'minimal'
+                      
+                      if (eventHeight < 15) {
+                        fontSize = 'text-[7px]'
+                        layout = 'minimal'
+                      } else if (eventHeight < 25) {
+                        fontSize = 'text-[8px]'
+                        layout = 'compact'
+                      } else {
+                        fontSize = 'text-[10px]'
+                        layout = 'normal'
+                      }
+                      
                       return (
                         <div
                           key={event.id}
-                          className={`text-xs p-0.5 rounded mb-0.5 ${getEventColor(event)} ${event.color ? 'text-white' : ''} cursor-pointer ${
+                          className={`p-0.5 rounded mb-0.5 ${getEventColor(event)} ${event.color ? 'text-white' : ''} cursor-pointer ${
                             isMultiDay 
                               ? isStartDay 
                                 ? 'rounded-l-md rounded-r-none' 
@@ -1000,40 +1031,77 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                                   : 'rounded-none'
                               : 'rounded'
                           }`}
-                          style={getEventStyle(event)}
+                          style={{
+                            ...getEventStyle(event),
+                            height: `${eventHeight}px`,
+                            minHeight: `${eventHeight}px`,
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            zIndex: 10 + (slotEvents.indexOf(event)) // Layer overlapping events
+                          }}
                           onClick={(e) => {
                             e.stopPropagation()
                             handleEventClick(event)
                           }}
                         >
-                          <div className="font-semibold truncate text-[10px] leading-tight">{event.title}</div>
-                          <div className="text-[10px] opacity-90 leading-tight">
-                            {(() => {
-                              const eventStart = new Date(event.startUTC)
-                              const eventEnd = new Date(event.endUTC)
+                          {(() => {
+                            const eventStart = new Date(event.startUTC)
+                            const eventEnd = new Date(event.endUTC)
+                            
+                            // Check if it's an all-day event
+                            const isAllDay = eventStart.getHours() === 0 && eventStart.getMinutes() === 0 && 
+                                             eventEnd.getHours() === 23 && eventEnd.getMinutes() === 59
+                            
+                            if (isAllDay) {
+                              // For all-day events, just show title
+                              return (
+                                <div className={`font-semibold truncate ${fontSize} leading-tight`}>{event.title}</div>
+                              )
+                            }
+                            
+                            // For regular events, show time logic
+                            if (isMultiDay && !isStartDay) {
+                              // For middle days of multi-day events, don't show time
+                              return (
+                                <div className={`font-semibold truncate ${fontSize} leading-tight`}>{event.title}</div>
+                              )
+                            } else {
+                              // Show start - end time format
+                              const startTime = eventStart.toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
+                              })
+                              const endTime = eventEnd.toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
+                              })
                               
-                              // Check if it's an all-day event
-                              const isAllDay = eventStart.getHours() === 0 && eventStart.getMinutes() === 0 && 
-                                               eventEnd.getHours() === 23 && eventEnd.getMinutes() === 59
-                              
-                              if (isAllDay) {
-                                // For all-day events, don't show time
-                                return ''
-                              }
-                              
-                              // For regular events, show time logic
-                              if (isMultiDay && !isStartDay) {
-                                // For middle days of multi-day events, don't show time
-                                return ''
+                              if (layout === 'minimal') {
+                                // For very short events, show only title
+                                return (
+                                  <div className={`font-semibold truncate ${fontSize} leading-tight`} title={event.title}>
+                                    {event.title}
+                                  </div>
+                                )
                               } else {
-                                return eventStart.toLocaleTimeString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true,
-                                })
+                                // For all other events, put title and time on same line
+                                return (
+                                  <div className={`${fontSize} leading-tight flex items-center gap-1 overflow-hidden`}>
+                                    <span className="font-semibold truncate flex-shrink min-w-0" title={event.title}>
+                                      {event.title}
+                                    </span>
+                                    <span className="opacity-90 whitespace-nowrap flex-shrink-0" title={`${startTime} - ${endTime}`}>
+                                      {startTime} - {endTime}
+                                    </span>
+                                  </div>
+                                )
                               }
-                            })()}
-                          </div>
+                            }
+                          })()}
                         </div>
                       )
                     })}
