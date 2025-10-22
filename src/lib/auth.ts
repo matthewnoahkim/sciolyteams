@@ -16,6 +16,26 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
   },
   callbacks: {
+    async signIn({ user, account, profile }) {
+      // Ensure user exists in database when signing in with JWT strategy
+      if (user.id && user.email) {
+        const existingUser = await prisma.user.findUnique({
+          where: { id: user.id },
+        })
+
+        if (!existingUser) {
+          await prisma.user.create({
+            data: {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              image: user.image,
+            },
+          })
+        }
+      }
+      return true
+    },
     async session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub
@@ -39,7 +59,7 @@ export const authOptions: NextAuthOptions = {
       }
       return session
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.sub = user.id
       }

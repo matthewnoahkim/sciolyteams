@@ -18,6 +18,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Ensure user exists in database (fix for JWT session strategy)
+    console.log('[Team Create] Session user ID:', session.user.id)
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    })
+
+    if (!user) {
+      console.log('[Team Create] User not found in database, creating...')
+      // Create the user if they don't exist (shouldn't happen with proper OAuth, but safeguard)
+      try {
+        await prisma.user.create({
+          data: {
+            id: session.user.id,
+            email: session.user.email!,
+            name: session.user.name,
+            image: session.user.image,
+          },
+        })
+        console.log('[Team Create] User created successfully')
+      } catch (createError) {
+        console.error('[Team Create] Error creating user:', createError)
+        throw createError
+      }
+    } else {
+      console.log('[Team Create] User found in database:', user.email)
+    }
+
     const body = await req.json()
     const validated = createTeamSchema.parse(body)
 

@@ -76,29 +76,42 @@ export async function PATCH(
     if (validatedData.scope !== undefined) updateData.scope = validatedData.scope
     if (validatedData.subteamId !== undefined) updateData.subteamId = validatedData.subteamId
 
-    const updatedEvent = await prisma.calendarEvent.update({
-      where: { id: params.eventId },
-      data: updateData,
-      include: {
-        creator: {
-          include: {
-            user: true,
+    const updatedEvent = await prisma.$transaction(async (tx) => {
+      const updated = await tx.calendarEvent.update({
+        where: { id: params.eventId },
+        data: updateData,
+        include: {
+          creator: {
+            include: {
+              user: true,
+            },
           },
-        },
-        subteam: true,
-        rsvps: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                image: true,
+          subteam: true,
+          rsvps: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  image: true,
+                },
               },
             },
           },
+          announcement: true,
         },
-      },
+      })
+
+      // If event has a linked announcement and title is being updated, sync the announcement title
+      if (updated.announcement && validatedData.title) {
+        await tx.announcement.update({
+          where: { id: updated.announcement.id },
+          data: { title: validatedData.title },
+        })
+      }
+
+      return updated
     })
 
     return NextResponse.json({ event: updatedEvent })
@@ -130,6 +143,7 @@ export async function DELETE(
             user: true,
           },
         },
+        announcement: true,
       },
     })
 
@@ -157,8 +171,19 @@ export async function DELETE(
       )
     }
 
-    await prisma.calendarEvent.delete({
-      where: { id: params.eventId },
+    // Delete event and linked announcement in transaction
+    await prisma.$transaction(async (tx) => {
+      // If there's a linked announcement, delete it first
+      if (event.announcement) {
+        await tx.announcement.delete({
+          where: { id: event.announcement.id },
+        })
+      }
+
+      // Delete the calendar event
+      await tx.calendarEvent.delete({
+        where: { id: params.eventId },
+      })
     })
 
     return NextResponse.json({ success: true })

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDateTime } from '@/lib/utils'
-import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit, MessageCircle, X } from 'lucide-react'
+import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit, MessageCircle, X, Calendar, MapPin, Check, X as XIcon } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { EmojiPicker } from '@/components/emoji-picker'
 
@@ -34,7 +34,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   const [content, setContent] = useState('')
   const [scope, setScope] = useState<'TEAM' | 'SUBTEAM'>('TEAM')
   const [selectedSubteams, setSelectedSubteams] = useState<string[]>([])
-  const [sendEmail, setSendEmail] = useState(false)
+  const [sendEmail, setSendEmail] = useState(true)
   const [isPostSectionCollapsed, setIsPostSectionCollapsed] = useState(true)
   const [editingAnnouncement, setEditingAnnouncement] = useState<any | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -50,6 +50,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   const [deleteReplyDialogOpen, setDeleteReplyDialogOpen] = useState(false)
   const [replyToDelete, setReplyToDelete] = useState<string | null>(null)
   const [deletingReply, setDeletingReply] = useState(false)
+  const [rsvping, setRsvping] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     fetchAnnouncements()
@@ -97,7 +98,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
 
       setTitle('')
       setContent('')
-      setSendEmail(false)
+      setSendEmail(true)
       fetchAnnouncements()
     } catch (error) {
       toast({
@@ -341,7 +342,132 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   }
 
   const canDeleteReply = (reply: any) => {
-    return reply.author.user.id === user.id
+    // Members can delete their own replies
+    if (reply.author.user.id === user.id) return true
+    // Captains can delete any reply
+    if (isCaptain) return true
+    return false
+  }
+
+  const handleRSVP = async (eventId: string, status: 'YES' | 'NO') => {
+    setRsvping({ ...rsvping, [eventId]: true })
+
+    try {
+      const response = await fetch(`/api/calendar/${eventId}/rsvp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to RSVP')
+      }
+
+      toast({
+        title: status === 'YES' ? 'RSVP: Going' : 'RSVP: Not Going',
+      })
+
+      // Refresh announcements to get updated RSVP data
+      await fetchAnnouncements()
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update RSVP',
+        variant: 'destructive',
+      })
+    } finally {
+      setRsvping({ ...rsvping, [eventId]: false })
+    }
+  }
+
+  const handleRemoveRSVP = async (eventId: string) => {
+    setRsvping({ ...rsvping, [eventId]: true })
+
+    try {
+      const response = await fetch(`/api/calendar/${eventId}/rsvp`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to remove RSVP')
+      }
+
+      toast({
+        title: 'RSVP removed',
+      })
+
+      // Refresh announcements to get updated RSVP data
+      await fetchAnnouncements()
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to remove RSVP',
+        variant: 'destructive',
+      })
+    } finally {
+      setRsvping({ ...rsvping, [eventId]: false })
+    }
+  }
+
+  const getUserRSVP = (event: any) => {
+    if (!event?.rsvps) return null
+    return event.rsvps.find((r: any) => r.userId === user.id)
+  }
+
+  const getRSVPCounts = (event: any) => {
+    if (!event?.rsvps) return { yesCount: 0, noCount: 0 }
+    const yesCount = event.rsvps.filter((r: any) => r.status === 'YES').length
+    const noCount = event.rsvps.filter((r: any) => r.status === 'NO').length
+    return { yesCount, noCount }
+  }
+
+  const formatEventTime = (event: any) => {
+    const startDate = new Date(event.startUTC)
+    const endDate = new Date(event.endUTC)
+    
+    // Check if it's an all-day event
+    const isAllDay = startDate.getHours() === 0 && startDate.getMinutes() === 0 && 
+                     endDate.getHours() === 23 && endDate.getMinutes() === 59
+    
+    if (isAllDay) {
+      if (startDate.toDateString() === endDate.toDateString()) {
+        return startDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      } else {
+        const startDay = startDate.getDate()
+        const endDay = endDate.getDate()
+        const startMonth = startDate.toLocaleDateString('en-US', { month: 'long' })
+        const endMonth = endDate.toLocaleDateString('en-US', { month: 'long' })
+        const startYear = startDate.getFullYear()
+        const endYear = endDate.getFullYear()
+        
+        if (startMonth === endMonth && startYear === endYear) {
+          return `${startMonth} ${startDay}-${endDay}, ${startYear}`
+        } else if (startYear === endYear) {
+          return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${startYear}`
+        } else {
+          return `${startMonth} ${startDay}, ${startYear} - ${endMonth} ${endDay}, ${endYear}`
+        }
+      }
+    } else {
+      return `${startDate.toLocaleString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })} - ${endDate.toLocaleString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })}`
+    }
   }
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -525,6 +651,9 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                       <p className="text-xs text-muted-foreground">
                         by {announcement.author.user.name || announcement.author.user.email} •{' '}
                         {formatDateTime(announcement.createdAt)}
+                        {announcement.updatedAt && new Date(announcement.updatedAt).getTime() !== new Date(announcement.createdAt).getTime() && (
+                          <span className="ml-1 text-muted-foreground italic">(edited)</span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -560,7 +689,133 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="whitespace-pre-wrap text-sm">{announcement.content}</p>
+                {/* For event announcements, show subtitle format */}
+                {announcement.calendarEvent ? (
+                  <div className="space-y-4">
+                    {/* Subtitle: Time, Date, Location */}
+                    <div className="space-y-1 pb-3 border-b">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        <p className="text-sm font-medium">{formatEventTime(announcement.calendarEvent)}</p>
+                      </div>
+                      {announcement.calendarEvent.location && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <MapPin className="h-4 w-4" />
+                          <p className="text-sm">{announcement.calendarEvent.location}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Event Details/Description */}
+                    {announcement.calendarEvent.description && (
+                      <p className="whitespace-pre-wrap text-sm">{announcement.calendarEvent.description}</p>
+                    )}
+                    
+                    {/* RSVP Section */}
+                    <div className="pt-3 border-t">
+                          <p className="text-sm font-medium mb-2">Your RSVP</p>
+                          <div className="flex gap-2 mb-3">
+                            {(() => {
+                              const userRsvp = getUserRSVP(announcement.calendarEvent)
+                              return (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant={userRsvp?.status === 'YES' ? 'default' : 'outline'}
+                                    onClick={() => handleRSVP(announcement.calendarEvent.id, 'YES')}
+                                    disabled={rsvping[announcement.calendarEvent.id]}
+                                  >
+                                    <Check className="mr-2 h-4 w-4" />
+                                    Going
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={userRsvp?.status === 'NO' ? 'default' : 'outline'}
+                                    onClick={() => handleRSVP(announcement.calendarEvent.id, 'NO')}
+                                    disabled={rsvping[announcement.calendarEvent.id]}
+                                  >
+                                    <XIcon className="mr-2 h-4 w-4" />
+                                    Not Going
+                                  </Button>
+                                  {userRsvp && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleRemoveRSVP(announcement.calendarEvent.id)}
+                                      disabled={rsvping[announcement.calendarEvent.id]}
+                                    >
+                                      Clear
+                                    </Button>
+                                  )}
+                                </>
+                              )
+                            })()}
+                          </div>
+
+                          {/* RSVP Counts and Lists */}
+                          {(() => {
+                            const { yesCount, noCount } = getRSVPCounts(announcement.calendarEvent)
+                            const yesRsvps = announcement.calendarEvent.rsvps?.filter((r: any) => r.status === 'YES') || []
+                            const noRsvps = announcement.calendarEvent.rsvps?.filter((r: any) => r.status === 'NO') || []
+                            
+                            return (
+                              <div className="space-y-3 text-sm">
+                                {yesCount > 0 && (
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Check className="h-4 w-4 text-green-600" />
+                                      <p className="font-medium">Going ({yesCount})</p>
+                                    </div>
+                                    <div className="space-y-1 pl-6">
+                                      {yesRsvps.map((rsvp: any) => (
+                                        <div key={rsvp.id} className="flex items-center gap-2">
+                                          <Avatar className="h-6 w-6">
+                                            <AvatarImage src={rsvp.user.image || ''} />
+                                            <AvatarFallback className="text-xs">
+                                              {rsvp.user.name?.charAt(0) || rsvp.user.email.charAt(0).toUpperCase()}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <span className="text-sm">{rsvp.user.name || rsvp.user.email}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {noCount > 0 && (
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <XIcon className="h-4 w-4 text-red-600" />
+                                      <p className="font-medium">Not Going ({noCount})</p>
+                                    </div>
+                                    <div className="space-y-1 pl-6">
+                                      {noRsvps.map((rsvp: any) => (
+                                        <div key={rsvp.id} className="flex items-center gap-2">
+                                          <Avatar className="h-6 w-6">
+                                            <AvatarImage src={rsvp.user.image || ''} />
+                                            <AvatarFallback className="text-xs">
+                                              {rsvp.user.name?.charAt(0) || rsvp.user.email.charAt(0).toUpperCase()}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <span className="text-sm">{rsvp.user.name || rsvp.user.email}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {yesCount === 0 && noCount === 0 && (
+                                  <p className="text-muted-foreground">No RSVPs yet</p>
+                                )}
+                              </div>
+                            )
+                          })()}
+                    </div>
+                  </div>
+                ) : (
+                  /* Regular announcement without calendar event */
+                  <p className="whitespace-pre-wrap text-sm">{announcement.content}</p>
+                )}
                 
                 {/* Reactions Section */}
                 <div className="mt-4">
