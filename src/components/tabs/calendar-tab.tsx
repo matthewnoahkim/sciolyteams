@@ -59,20 +59,33 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
   const getInitialFormData = (prefilledDate?: Date) => {
     const now = new Date()
     const currentHour = now.getHours()
-    const start = prefilledDate ? new Date(prefilledDate) : new Date()
-    start.setHours(currentHour, 0, 0, 0)
-    const end = new Date(start)
-    end.setHours(currentHour + 1, 0, 0, 0)
     
+    // Use prefilled date if provided, otherwise use today's date
+    const start = prefilledDate ? new Date(prefilledDate) : new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    
+    // Suggest the next complete hour (if it's 7:30, suggest 8:00-9:00)
+    const nextHour = currentHour + 1
+    start.setHours(nextHour, 0, 0, 0)
+    const end = new Date(start)
+    end.setHours(nextHour + 1, 0, 0, 0)
+    
+    // Helper function to format date as YYYY-MM-DD in local timezone
+    const formatDateLocal = (date: Date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
     return {
       title: '',
       description: '',
-      date: start.toISOString().split('T')[0], // YYYY-MM-DD format
-      startTime: `${String(currentHour).padStart(2, '0')}:00`,
-      endTime: `${String(currentHour + 1).padStart(2, '0')}:00`,
+      date: formatDateLocal(start), // YYYY-MM-DD format in local timezone
+      startTime: `${String(nextHour).padStart(2, '0')}:00`,
+      endTime: `${String(nextHour + 1).padStart(2, '0')}:00`,
       isAllDay: false,
-      startDate: start.toISOString().split('T')[0],
-      endDate: start.toISOString().split('T')[0],
+      startDate: formatDateLocal(start),
+      endDate: formatDateLocal(start),
       location: '',
       color: '#3b82f6', // Default blue
       scope: 'PERSONAL' as 'PERSONAL' | 'SUBTEAM' | 'TEAM',
@@ -500,15 +513,23 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     const isAllDay = startDate.getHours() === 0 && startDate.getMinutes() === 0 && 
                      endDate.getHours() === 23 && endDate.getMinutes() === 59
     
+    // Helper function to format date as YYYY-MM-DD in local timezone
+    const formatDateLocal = (date: Date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
     setFormData({
       title: event.title,
       description: event.description || '',
-      date: startDate.toISOString().split('T')[0],
+      date: formatDateLocal(startDate),
       startTime: isAllDay ? '09:00' : startDate.toTimeString().slice(0, 5),
       endTime: isAllDay ? '17:00' : endDate.toTimeString().slice(0, 5),
       isAllDay: isAllDay,
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
+      startDate: formatDateLocal(startDate),
+      endDate: formatDateLocal(endDate),
       location: event.location || '',
       color: event.color || '#3b82f6', // Preserve existing color or default to blue
       scope: event.scope,
@@ -786,7 +807,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
 
         {/* All-day events section */}
         <div className="grid grid-cols-8 gap-0 border-b border-border">
-          <div className="bg-muted py-1 px-1 text-xs text-muted-foreground text-right border-r border-border">
+          <div className="py-1 px-1 text-xs text-muted-foreground text-right border-r border-border">
             All Day
           </div>
           {weekDates.map((date) => {
