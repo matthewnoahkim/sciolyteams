@@ -59,22 +59,28 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     return `${year}-${month}-${day}T${hours}:${minutes}`
   }
   
-  const getInitialFormData = (prefilledDate?: Date) => {
+  const getInitialFormData = (prefilledDate?: Date, isAllDay: boolean = false) => {
     const now = new Date()
     const currentHour = now.getHours()
+    const currentMinutes = now.getMinutes()
     
     // Use prefilled date if provided, otherwise use today's date
     const start = prefilledDate ? new Date(prefilledDate) : new Date(now.getFullYear(), now.getMonth(), now.getDate())
     
-    // If a specific time was clicked (prefilledDate has a specific hour), use that time
-    // Otherwise suggest the next complete hour
+    // Determine suggested hour
     let suggestedHour: number
-    if (prefilledDate) {
-      // Use the clicked hour (including 0 for 12 AM)
+    if (prefilledDate && prefilledDate.getHours() !== 0) {
+      // If a specific time was clicked (with non-zero hour), use that exact time
       suggestedHour = prefilledDate.getHours()
     } else {
-      // Suggest the next complete hour (if it's 7:30, suggest 8:00-9:00)
-      suggestedHour = currentHour + 1
+      // For "New Event" button or month view day clicks, suggest the next complete hour
+      // If it's 7:30, suggest 8:00-9:00
+      if (currentMinutes > 0) {
+        suggestedHour = currentHour + 1
+      } else {
+        // If exactly on the hour (7:00), suggest current hour
+        suggestedHour = currentHour
+      }
     }
     
     start.setHours(suggestedHour, 0, 0, 0)
@@ -103,7 +109,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       date: formatDateLocal(start), // YYYY-MM-DD format in local timezone
       startTime: `${String(suggestedHour).padStart(2, '0')}:00`,
       endTime: `${String(endHour >= 24 ? endHour - 24 : endHour).padStart(2, '0')}:00`,
-      isAllDay: false,
+      isAllDay: isAllDay,
       startDate: formatDateLocal(start),
       endDate: formatDateLocal(end),
       location: '',
@@ -931,7 +937,13 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
             return (
               <div
                 key={date.toISOString()}
-                className="min-h-[40px] border-r border-border bg-background p-1"
+                className="min-h-[40px] border-r border-border bg-background hover:bg-muted/50 cursor-pointer transition-colors p-1"
+                onClick={() => {
+                  const allDayDate = new Date(date)
+                  allDayDate.setHours(0, 0, 0, 0)
+                  setFormData(getInitialFormData(allDayDate, true))
+                  setCreateOpen(true)
+                }}
               >
                 <div className="space-y-1">
                   {allDayEvents.map((event) => {
