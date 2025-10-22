@@ -890,6 +890,99 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     )
   }
 
+  // Helper function to calculate overlapping event layouts (Google Calendar style)
+  const calculateEventLayout = (events: any[]) => {
+    if (events.length === 0) return []
+    
+    // Convert events to intervals with start/end times in minutes
+    const intervals = events.map(event => {
+      const start = new Date(event.startUTC)
+      const end = new Date(event.endUTC)
+      return {
+        event,
+        startMinutes: start.getHours() * 60 + start.getMinutes(),
+        endMinutes: end.getHours() * 60 + end.getMinutes()
+      }
+    })
+    
+    // Sort by start time, then by duration (longer first)
+    intervals.sort((a, b) => {
+      if (a.startMinutes !== b.startMinutes) {
+        return a.startMinutes - b.startMinutes
+      }
+      return (b.endMinutes - b.startMinutes) - (a.endMinutes - a.startMinutes)
+    })
+    
+    // Calculate columns for overlapping events
+    const columns: any[][] = []
+    const eventLayouts: Map<string, { column: number, totalColumns: number }> = new Map()
+    
+    intervals.forEach(interval => {
+      // Find the first column where this event fits
+      let placed = false
+      for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+        const column = columns[colIndex]
+        const lastEvent = column[column.length - 1]
+        
+        // Check if this event starts after the last event in this column ends
+        if (interval.startMinutes >= lastEvent.endMinutes) {
+          column.push(interval)
+          placed = true
+          break
+        }
+      }
+      
+      // If no suitable column found, create a new one
+      if (!placed) {
+        columns.push([interval])
+      }
+    })
+    
+    // Calculate the total number of overlapping columns for each event
+    intervals.forEach(interval => {
+      let maxOverlap = 1
+      
+      // Find all events that overlap with this one
+      intervals.forEach(other => {
+        if (other.event.id === interval.event.id) return
+        
+        // Check if they overlap
+        if (interval.startMinutes < other.endMinutes && interval.endMinutes > other.startMinutes) {
+          // Find which column the other event is in
+          for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+            if (columns[colIndex].some(e => e.event.id === other.event.id)) {
+              maxOverlap = Math.max(maxOverlap, colIndex + 2) // +2 because we need both columns
+              break
+            }
+          }
+        }
+      })
+      
+      // Find which column this event is in
+      let eventColumn = 0
+      for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+        if (columns[colIndex].some(e => e.event.id === interval.event.id)) {
+          eventColumn = colIndex
+          break
+        }
+      }
+      
+      eventLayouts.set(interval.event.id, {
+        column: eventColumn,
+        totalColumns: maxOverlap
+      })
+    })
+    
+    return events.map(event => {
+      const layout = eventLayouts.get(event.id) || { column: 0, totalColumns: 1 }
+      return {
+        event,
+        column: layout.column,
+        totalColumns: layout.totalColumns
+      }
+    })
+  }
+
   const renderWeekView = () => {
     const weekDates = getWeekDates(currentDate)
     const today = new Date()
@@ -1081,13 +1174,17 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                   return aStart.getTime() - bStart.getTime()
                 })
 
+                // Calculate event layouts for overlapping events
+                const eventLayouts = calculateEventLayout(slotEvents)
+                
                 return (
                   <div
                     key={`${date.toISOString()}-${hour}`}
-                    className="min-h-[35px] border-b border-r border-border bg-background hover:bg-muted/50 cursor-pointer transition-colors p-0.5 relative"
+                    className="min-h-[35px] border-b border-r border-border bg-background hover:bg-muted/50 cursor-pointer transition-colors relative"
+                    style={{ padding: 0 }}
                     onClick={() => handleDayClick(slotDate)}
                   >
-                    {slotEvents.map((event) => {
+                    {eventLayouts.map(({ event, column, totalColumns }) => {
                       const eventStart = new Date(event.startUTC)
                       const eventEnd = new Date(event.endUTC)
                       const isMultiDay = !isSameDay(eventStart, eventEnd)
@@ -1125,27 +1222,39 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                         layout = 'normal'
                       }
                       
+                      // Calculate equal division of space - perfectly flush events
+                      // Each event gets equal width: 100% / totalColumns
+                      // Event 1: 0% to 50% (if 2 events)
+                      // Event 2: 50% to 100% (if 2 events)
+                      // Event 1: 0% to 33%, Event 2: 33% to 66%, Event 3: 66% to 100% (if 3 events)
+                      const widthPercent = 100 / totalColumns
+                      const leftPercent = (column * 100) / totalColumns
+                      
                       return (
                         <div
                           key={event.id}
-                          className={`p-0.5 rounded mb-0.5 relative ${getEventColor(event)} ${event.color ? 'text-white' : ''} cursor-pointer ${
+                          className={`relative ${getEventColor(event)} ${event.color ? 'text-white' : ''} cursor-pointer overflow-hidden ${
                             isMultiDay 
                               ? isStartDay 
-                                ? 'rounded-l-md rounded-r-none border-r-2 border-r-white/30' 
+                                ? 'rounded-l-md rounded-r-none' 
                                 : isEndDay 
-                                  ? 'rounded-r-md rounded-l-none border-l-2 border-l-white/30' 
-                                  : 'rounded-none border-x-2 border-x-white/30'
-                              : 'rounded'
+                                  ? 'rounded-r-md rounded-l-none' 
+                                  : ''
+                              : totalColumns === 1 ? 'rounded' : column === 0 ? 'rounded-l' : column === totalColumns - 1 ? 'rounded-r' : ''
                           }`}
                           style={{
                             ...getEventStyle(event),
                             height: `${eventHeight}px`,
                             minHeight: `${eventHeight}px`,
                             position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            zIndex: 10 + (slotEvents.indexOf(event)) // Layer overlapping events
+                            top: '0',
+                            left: `${leftPercent}%`,
+                            width: `${widthPercent}%`,
+                            zIndex: 10 + column,
+                            padding: '2px 4px',
+                            margin: 0,
+                            border: 'none',
+                            boxShadow: totalColumns > 1 && column < totalColumns - 1 ? 'inset -1px 0 0 rgba(255,255,255,0.3)' : 'none'
                           }}
                           onClick={(e) => {
                             e.stopPropagation()
