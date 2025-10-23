@@ -5,11 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, LogOut, MessageSquare, Users, Calendar, Settings, Pencil } from 'lucide-react'
+import { ArrowLeft, LogOut, MessageSquare, Users, Calendar, Settings, Pencil, ClipboardCheck } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { StreamTab } from '@/components/tabs/stream-tab'
 import { PeopleTab } from '@/components/tabs/people-tab'
 import { CalendarTab } from '@/components/tabs/calendar-tab'
+import { AttendanceTab } from '@/components/tabs/attendance-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { EditUsernameDialog } from '@/components/edit-username-dialog'
@@ -215,6 +216,14 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                 Calendar
               </Button>
               <Button
+                variant={activeTab === 'attendance' ? 'default' : 'ghost'}
+                className="w-full justify-start"
+                onClick={() => handleTabChange('attendance')}
+              >
+                <ClipboardCheck className="mr-2 h-4 w-4" />
+                Attendance
+              </Button>
+              <Button
                 variant={activeTab === 'settings' ? 'default' : 'ghost'}
                 className="w-full justify-start"
                 onClick={() => handleTabChange('settings')}
@@ -249,6 +258,14 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               <CalendarTab
                 teamId={team.id}
                 currentMembership={currentMembership}
+                isCaptain={isCaptain}
+                user={user}
+              />
+            )}
+
+            {activeTab === 'attendance' && (
+              <AttendanceTab
+                teamId={team.id}
                 isCaptain={isCaptain}
                 user={user}
               />

@@ -117,6 +117,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       scope: 'PERSONAL' as 'PERSONAL' | 'SUBTEAM' | 'TEAM',
       subteamId: '',
       attendeeId: currentMembership.id,
+      rsvpEnabled: true, // Default to enabled
     }
   }
   
@@ -195,6 +196,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         startUTC: startISO,
         endUTC: endISO,
         color: formData.color,
+        rsvpEnabled: formData.rsvpEnabled,
       }
 
       if (formData.description) {
@@ -295,6 +297,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         endUTC: endISO,
         location: formData.location,
         color: formData.color,
+        rsvpEnabled: formData.rsvpEnabled,
         scope: formData.scope,
       }
 
@@ -589,6 +592,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       endDate: formatDateLocal(endDate),
       location: event.location || '',
       color: event.color || '#3b82f6', // Preserve existing color or default to blue
+      rsvpEnabled: event.rsvpEnabled !== undefined ? event.rsvpEnabled : true,
       scope: event.scope,
       subteamId: event.subteamId || '',
       attendeeId: event.attendeeId || currentMembership.id,
@@ -1585,6 +1589,18 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                     </select>
                   </div>
                 )}
+                {(formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') && (
+                  <div className="mt-3">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.rsvpEnabled}
+                        onChange={(e) => setFormData({ ...formData, rsvpEnabled: e.target.checked })}
+                      />
+                      <span className="text-sm">Enable RSVP for this event</span>
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter>
@@ -1704,7 +1720,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                 </div>
 
                 {/* RSVP Section */}
-                {selectedEvent.scope !== 'PERSONAL' && (
+                {selectedEvent.scope !== 'PERSONAL' && selectedEvent.rsvpEnabled && (
                   <div className="border-t pt-4">
                     <p className="text-sm font-medium text-muted-foreground mb-3">Your RSVP</p>
                     <div className="flex gap-2 mb-4">
@@ -2017,6 +2033,18 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                         </option>
                       ))}
                     </select>
+                  </div>
+                )}
+                {(formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') && (
+                  <div className="mt-3">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.rsvpEnabled}
+                        onChange={(e) => setFormData({ ...formData, rsvpEnabled: e.target.checked })}
+                      />
+                      <span className="text-sm">Enable RSVP for this event</span>
+                    </label>
                   </div>
                 )}
               </div>

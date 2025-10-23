@@ -27,6 +27,7 @@ model User {
   emailsReceived EmailLog[]
   reactions     Reaction[]
   eventRSVPs    EventRSVP[]
+  attendanceCheckIns AttendanceCheckIn[]
 }
 
 // NextAuth models
@@ -117,6 +118,7 @@ model Membership {
   calendarEvents      CalendarEvent[]        @relation("CreatorEvents")
   attendeeEvents      CalendarEvent[]        @relation("AttendeeEvents")
   announcementReplies AnnouncementReply[]    @relation("AnnouncementReplies")
+  attendanceCheckIns  AttendanceCheckIn[]
 
   @@unique([userId, teamId])
   @@index([teamId])
@@ -308,6 +310,7 @@ model CalendarEvent {
   endUTC       DateTime
   location     String?
   color        String?       // Custom color for events
+  rsvpEnabled  Boolean       @default(true) // Whether RSVP is enabled for this event
   subteamId    String?
   attendeeId   String?       // For PERSONAL scope
   createdAt    DateTime      @default(now())
@@ -320,6 +323,7 @@ model CalendarEvent {
   reactions    Reaction[]
   rsvps        EventRSVP[]
   announcement Announcement?
+  attendance   Attendance?
 
   @@index([teamId])
   @@index([creatorId])
@@ -358,5 +362,72 @@ model EmailLog {
 
   @@index([announcementId])
   @@index([toUserId])
+}
+
+// Attendance System
+enum AttendanceStatus {
+  UPCOMING
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum CheckInSource {
+  CODE
+  MANUAL
+}
+
+model Attendance {
+  id              String            @id @default(cuid())
+  calendarEventId String            @unique
+  teamId          String
+  codeHash        String            // bcrypt hash of the current code
+  graceMinutes    Int               @default(0) // Grace period in minutes (before & after event)
+  status          AttendanceStatus  @default(UPCOMING)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  calendarEvent   CalendarEvent     @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  checkIns        AttendanceCheckIn[]
+  codeAttempts    AttendanceCodeAttempt[]
+
+  @@index([teamId])
+  @@index([calendarEventId])
+  @@index([status])
+}
+
+model AttendanceCheckIn {
+  id            String        @id @default(cuid())
+  attendanceId  String
+  userId        String
+  membershipId  String
+  source        CheckInSource
+  reason        String?       // For manual check-ins, reason for adding
+  checkedInAt   DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+
+  attendance    Attendance    @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membership    Membership    @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([attendanceId, userId])
+  @@index([attendanceId])
+  @@index([userId])
+  @@index([membershipId])
+}
+
+// Rate limiting for code attempts
+model AttendanceCodeAttempt {
+  id            String     @id @default(cuid())
+  attendanceId  String
+  userId        String?    // Nullable to track by IP for unauthenticated attempts
+  ipAddress     String
+  attemptedAt   DateTime   @default(now())
+  success       Boolean
+
+  attendance    Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  @@index([attendanceId, userId, attemptedAt])
+  @@index([attendanceId, ipAddress, attemptedAt])
 }
 

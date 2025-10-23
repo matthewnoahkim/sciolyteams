@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { requireMember, getUserMembership, isCaptain } from '@/lib/rbac'
+import { generateAttendanceCode, hashAttendanceCode } from '@/lib/attendance'
 import { z } from 'zod'
 import { CalendarScope } from '@prisma/client'
 
@@ -15,6 +16,7 @@ const createEventSchema = z.object({
   endUTC: z.string().datetime(),
   location: z.string().optional(),
   color: z.string().optional(),
+  rsvpEnabled: z.boolean().optional(),
   subteamId: z.string().optional(),
   attendeeId: z.string().optional(),
 })
@@ -67,6 +69,7 @@ export async function POST(req: NextRequest) {
         endUTC: new Date(validated.endUTC),
         location: validated.location || undefined,
         color: validated.color || '#3b82f6',
+        rsvpEnabled: validated.rsvpEnabled !== undefined ? validated.rsvpEnabled : true,
         subteamId: validated.subteamId || undefined,
         attendeeId: validated.attendeeId || undefined,
       },
@@ -110,6 +113,22 @@ export async function POST(req: NextRequest) {
         },
       },
     })
+
+    // Automatically create attendance record for TEAM and SUBTEAM events
+    if (validated.scope === 'TEAM' || validated.scope === 'SUBTEAM') {
+      const initialCode = generateAttendanceCode()
+      const codeHash = await hashAttendanceCode(initialCode)
+
+      await prisma.attendance.create({
+        data: {
+          calendarEventId: event.id,
+          teamId: validated.teamId,
+          codeHash: codeHash,
+          graceMinutes: 0, // Default grace period, can be customized later
+          status: 'UPCOMING',
+        },
+      })
+    }
 
     return NextResponse.json({ event })
   } catch (error) {
