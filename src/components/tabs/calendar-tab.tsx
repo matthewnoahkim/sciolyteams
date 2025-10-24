@@ -439,6 +439,26 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     }
   }
   
+  const getContrastingColor = (hexColor: string) => {
+    // Convert hex to RGB
+    const r = parseInt(hexColor.slice(1, 3), 16)
+    const g = parseInt(hexColor.slice(3, 5), 16)
+    const b = parseInt(hexColor.slice(5, 7), 16)
+    
+    // Calculate relative luminance
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    
+    // If the color is dark (low luminance), use a light contrasting color
+    // If the color is light (high luminance), use a dark contrasting color
+    if (luminance < 0.5) {
+      // Dark colors - use yellow for high contrast
+      return '#eab308' // yellow-500
+    } else {
+      // Light colors - use red for high contrast
+      return '#ef4444' // red-500
+    }
+  }
+  
   const getEventStyle = (event: any) => {
     const style: any = {}
     if (event.color) {
@@ -447,10 +467,24 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       style.color = '#ffffff'
     }
     if (event.important) {
-      style.border = '2px solid #ef4444'
+      // Use contrasting color based on the event's background color
+      const contrastingColor = getContrastingColor(event.color || '#3b82f6')
+      style.border = `2px solid ${contrastingColor}`
       style.borderRadius = '4px'
     }
     return style
+  }
+  
+  const getImportantBorderColor = (event: any) => {
+    if (!event.color) return 'border-red-500'
+    
+    const contrastingColor = getContrastingColor(event.color)
+    // Convert hex to Tailwind class
+    if (contrastingColor === '#eab308') {
+      return 'border-yellow-500'
+    } else {
+      return 'border-red-500'
+    }
   }
 
   // Calendar generation functions
@@ -1665,7 +1699,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
 
       {/* Event Details Dialog */}
       <Dialog open={eventDetailsOpen} onOpenChange={setEventDetailsOpen}>
-        <DialogContent className={`max-w-md max-h-[90vh] overflow-y-auto ${selectedEvent?.important ? 'border-2 border-red-500' : ''}`}>
+        <DialogContent className={`max-w-md max-h-[90vh] overflow-y-auto ${selectedEvent?.important ? `border-2 ${getImportantBorderColor(selectedEvent)}` : ''}`}>
           {selectedEvent && (
             <>
               <DialogHeader>
