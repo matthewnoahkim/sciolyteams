@@ -10,6 +10,7 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
     }),
   ],
   session: {
@@ -18,20 +19,60 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       // Ensure user exists in database when signing in with JWT strategy
-      if (user.id && user.email) {
-        const existingUser = await prisma.user.findUnique({
-          where: { id: user.id },
-        })
-
-        if (!existingUser) {
-          await prisma.user.create({
-            data: {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              image: user.image,
-            },
+      if (user.email) {
+        try {
+          const existingUser = await prisma.user.findUnique({
+            where: { email: user.email },
           })
+
+          if (!existingUser && user.id) {
+            // Create new user
+            await prisma.user.create({
+              data: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                image: user.image,
+              },
+            })
+          } else if (existingUser && account) {
+            // Check if account is already linked
+            const existingAccount = await prisma.account.findUnique({
+              where: {
+                provider_providerAccountId: {
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                },
+              },
+            })
+
+            // If account doesn't exist, create it and link to existing user
+            if (!existingAccount) {
+              await prisma.account.create({
+                data: {
+                  userId: existingUser.id,
+                  type: account.type,
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                  refresh_token: account.refresh_token,
+                  access_token: account.access_token,
+                  expires_at: account.expires_at,
+                  token_type: account.token_type,
+                  scope: account.scope,
+                  id_token: account.id_token,
+                  session_state: account.session_state,
+                },
+              })
+            }
+
+            // Update user ID in token if needed
+            if (user.id !== existingUser.id) {
+              user.id = existingUser.id
+            }
+          }
+        } catch (error) {
+          console.error('Sign in callback error:', error)
+          return false
         }
       }
       return true
