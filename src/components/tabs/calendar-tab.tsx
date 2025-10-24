@@ -81,6 +81,13 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         // If exactly on the hour (7:00), suggest current hour
         suggestedHour = currentHour
       }
+      
+      // Handle hour overflow: if it's 11 PM (23), suggest 12 AM (0) next day
+      if (suggestedHour >= 24) {
+        suggestedHour = 0
+        // Move to next day for start time
+        start.setDate(start.getDate() + 1)
+      }
     }
     
     start.setHours(suggestedHour, 0, 0, 0)
