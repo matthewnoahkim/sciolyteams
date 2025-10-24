@@ -1149,7 +1149,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                               : isEndDay 
                                 ? 'rounded-r-md rounded-l-none border-l-2 border-l-white/30' 
                                 : 'rounded-none border-x-2 border-x-white/30'
-                            : 'rounded'
+                            : ''
                         }`}
                         style={getEventStyle(event)}
                         onClick={(e) => {
@@ -1315,7 +1315,6 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                             zIndex: 10 + column,
                             padding: '2px 4px',
                             margin: 0,
-                            border: 'none',
                             boxShadow: totalColumns > 1 && column < totalColumns - 1 ? 'inset -1px 0 0 rgba(255,255,255,0.3)' : 'none'
                           }}
                           onClick={(e) => {
