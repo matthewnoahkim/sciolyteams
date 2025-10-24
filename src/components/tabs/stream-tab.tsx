@@ -53,6 +53,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   const [replyToDelete, setReplyToDelete] = useState<string | null>(null)
   const [deletingReply, setDeletingReply] = useState(false)
   const [rsvping, setRsvping] = useState<Record<string, boolean>>({})
+  const [showImportantOnly, setShowImportantOnly] = useState(false)
 
   useEffect(() => {
     fetchAnnouncements()
@@ -638,21 +639,35 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
       )}
 
       <div className="space-y-4">
-        <h3 className="text-3xl font-bold">Recent Announcements</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-3xl font-bold">Recent Announcements</h3>
+          <Button
+            variant={showImportantOnly ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowImportantOnly(!showImportantOnly)}
+          >
+            {showImportantOnly ? '🔕' : '🔔'} Important Only
+          </Button>
+        </div>
         {loading ? (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
               Loading...
             </CardContent>
           </Card>
-        ) : announcements.length === 0 ? (
-          <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">
-              No announcements yet
-            </CardContent>
-          </Card>
-        ) : (
-          announcements.map((announcement) => (
+        ) : (() => {
+          const filteredAnnouncements = showImportantOnly 
+            ? announcements.filter(a => a.important)
+            : announcements
+          
+          return filteredAnnouncements.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 text-center text-muted-foreground">
+                {showImportantOnly ? 'No important announcements' : 'No announcements yet'}
+              </CardContent>
+            </Card>
+          ) : (
+            filteredAnnouncements.map((announcement) => (
             <Card key={announcement.id} className={`relative ${announcement.important ? 'border-2 border-red-500' : ''}`}>
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -665,9 +680,9 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                     </Avatar>
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold">{announcement.important && <span className="text-red-500">⚠️ </span>}{announcement.title}</p>
+                        <p className="font-semibold">{announcement.title}</p>
                         {announcement.important && (
-                          <Badge variant="destructive" className="text-xs">IMPORTANT</Badge>
+                          <Badge variant="destructive" className="text-xs">⚠️ IMPORTANT</Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -960,7 +975,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
               </CardContent>
             </Card>
           ))
-        )}
+          )
+        })()}
       </div>
 
       {/* Edit Announcement Dialog */}
