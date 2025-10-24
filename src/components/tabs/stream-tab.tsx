@@ -711,7 +711,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                       <p className="whitespace-pre-wrap text-sm">{announcement.calendarEvent.description}</p>
                     )}
                     
-                    {/* RSVP Section */}
+                    {/* RSVP Section - Only show if RSVP is enabled */}
+                    {announcement.calendarEvent.rsvpEnabled && (
                     <div className="pt-3 border-t">
                           <p className="text-sm font-medium mb-2">Your RSVP</p>
                           <div className="flex gap-2 mb-3">
@@ -811,6 +812,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                             )
                           })()}
                     </div>
+                    )}
                   </div>
                 ) : (
                   /* Regular announcement without calendar event */

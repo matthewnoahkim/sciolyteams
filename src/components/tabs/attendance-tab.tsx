@@ -59,6 +59,9 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
   const [selectedUserId, setSelectedUserId] = useState('')
   const [addingManual, setAddingManual] = useState(false)
   const [deletingCheckInId, setDeletingCheckInId] = useState<string | null>(null)
+  const [deleteEventDialogOpen, setDeleteEventDialogOpen] = useState(false)
+  const [eventToDelete, setEventToDelete] = useState<any>(null)
+  const [deletingEvent, setDeletingEvent] = useState(false)
 
   useEffect(() => {
     fetchAttendances()
@@ -327,6 +330,46 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
     return isCaptain && (attendance.status === 'UPCOMING' || attendance.status === 'ACTIVE')
   }
 
+  const handleDeleteEventClick = (attendance: any) => {
+    setEventToDelete(attendance)
+    setDeleteEventDialogOpen(true)
+  }
+
+  const handleDeleteEvent = async () => {
+    if (!eventToDelete) return
+
+    setDeletingEvent(true)
+    try {
+      const response = await fetch(`/api/calendar/${eventToDelete.calendarEvent.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete event')
+      }
+
+      toast({
+        title: 'Event deleted',
+        description: 'The event has been removed from calendar, attendance, and stream',
+      })
+
+      setDeleteEventDialogOpen(false)
+      setDetailsOpen(false)
+      setEventToDelete(null)
+      setSelectedAttendance(null)
+      await fetchAttendances()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete event',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeletingEvent(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -571,6 +614,21 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
                         Export CSV
                       </Button>
                     </div>
+
+                    {/* Delete Event Button */}
+                    <div className="mt-3 pt-3 border-t">
+                      <Button
+                        variant="destructive"
+                        onClick={() => handleDeleteEventClick(selectedAttendance)}
+                        className="w-full"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Event
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        This will delete the event from calendar, attendance, and stream
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -695,6 +753,43 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Event Dialog */}
+      <Dialog open={deleteEventDialogOpen} onOpenChange={setDeleteEventDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Event</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this event? This will remove:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>The event from the calendar</li>
+                <li>All attendance records and check-ins</li>
+                <li>The announcement from the stream (if posted)</li>
+              </ul>
+              <p className="mt-2 font-semibold">This action cannot be undone.</p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteEventDialogOpen(false)
+                setEventToDelete(null)
+              }}
+              disabled={deletingEvent}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteEvent}
+              disabled={deletingEvent}
+            >
+              {deletingEvent ? 'Deleting...' : 'Delete Event'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

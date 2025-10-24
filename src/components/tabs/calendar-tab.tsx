@@ -196,7 +196,11 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         startUTC: startISO,
         endUTC: endISO,
         color: formData.color,
-        rsvpEnabled: formData.rsvpEnabled,
+      }
+
+      // Only include rsvpEnabled for TEAM and SUBTEAM events
+      if (formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') {
+        payload.rsvpEnabled = formData.rsvpEnabled
       }
 
       if (formData.description) {
@@ -222,7 +226,9 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || 'Failed to create event')
+        const errorMsg = data.message || data.error || 'Failed to create event'
+        console.error('Event creation error:', data)
+        throw new Error(errorMsg)
       }
 
       const data = await response.json()
@@ -297,8 +303,12 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         endUTC: endISO,
         location: formData.location,
         color: formData.color,
-        rsvpEnabled: formData.rsvpEnabled,
         scope: formData.scope,
+      }
+
+      // Only include rsvpEnabled for TEAM and SUBTEAM events
+      if (formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') {
+        payload.rsvpEnabled = formData.rsvpEnabled
       }
 
       if (formData.scope === 'SUBTEAM') {

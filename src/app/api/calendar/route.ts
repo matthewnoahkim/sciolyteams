@@ -58,21 +58,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Attendee ID required for PERSONAL scope' }, { status: 400 })
     }
 
+    // For PERSONAL events, RSVP should not be enabled
+    const rsvpEnabled = validated.scope === 'PERSONAL' 
+      ? false 
+      : (validated.rsvpEnabled !== undefined ? validated.rsvpEnabled : true)
+
+    // Build the event data object
+    const eventData: any = {
+      teamId: validated.teamId,
+      creatorId: membership.id,
+      scope: validated.scope as CalendarScope,
+      title: validated.title,
+      startUTC: new Date(validated.startUTC),
+      endUTC: new Date(validated.endUTC),
+      color: validated.color || '#3b82f6',
+      rsvpEnabled,
+    }
+
+    // Only add optional fields if they have values
+    if (validated.description) {
+      eventData.description = validated.description
+    }
+    if (validated.location) {
+      eventData.location = validated.location
+    }
+    if (validated.subteamId) {
+      eventData.subteamId = validated.subteamId
+    }
+    if (validated.attendeeId) {
+      eventData.attendeeId = validated.attendeeId
+    }
+
     const event = await prisma.calendarEvent.create({
-      data: {
-        teamId: validated.teamId,
-        creatorId: membership.id,
-        scope: validated.scope as CalendarScope,
-        title: validated.title,
-        description: validated.description || undefined,
-        startUTC: new Date(validated.startUTC),
-        endUTC: new Date(validated.endUTC),
-        location: validated.location || undefined,
-        color: validated.color || '#3b82f6',
-        rsvpEnabled: validated.rsvpEnabled !== undefined ? validated.rsvpEnabled : true,
-        subteamId: validated.subteamId || undefined,
-        attendeeId: validated.attendeeId || undefined,
-      },
+      data: eventData,
       include: {
         creator: {
           include: {
@@ -116,18 +134,25 @@ export async function POST(req: NextRequest) {
 
     // Automatically create attendance record for TEAM and SUBTEAM events
     if (validated.scope === 'TEAM' || validated.scope === 'SUBTEAM') {
-      const initialCode = generateAttendanceCode()
-      const codeHash = await hashAttendanceCode(initialCode)
+      try {
+        const initialCode = generateAttendanceCode()
+        const codeHash = await hashAttendanceCode(initialCode)
 
-      await prisma.attendance.create({
-        data: {
-          calendarEventId: event.id,
-          teamId: validated.teamId,
-          codeHash: codeHash,
-          graceMinutes: 0, // Default grace period, can be customized later
-          status: 'UPCOMING',
-        },
-      })
+        await prisma.attendance.create({
+          data: {
+            calendarEventId: event.id,
+            teamId: validated.teamId,
+            codeHash: codeHash,
+            graceMinutes: 0, // Default grace period, can be customized later
+            status: 'UPCOMING',
+          },
+        })
+      } catch (attendanceError) {
+        console.error('Failed to create attendance record:', attendanceError)
+        // Delete the event we just created since attendance creation failed
+        await prisma.calendarEvent.delete({ where: { id: event.id } })
+        throw new Error('Failed to create attendance record: ' + (attendanceError instanceof Error ? attendanceError.message : 'Unknown error'))
+      }
     }
 
     return NextResponse.json({ event })
@@ -139,7 +164,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
     console.error('Create calendar event error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    // Return more detailed error information
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      message: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? String(error) : undefined 
+    }, { status: 500 })
   }
 }
 

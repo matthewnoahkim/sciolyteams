@@ -106,18 +106,16 @@ export async function POST(req: NextRequest) {
       const author = allMemberships.find(m => m.id === membership.id)
       const authorEmail = author?.user.email
 
-      // Get all captains
+      // Get all captains (will be CC'd)
       const captains = allMemberships.filter(m => m.role === 'CAPTAIN')
-      const otherCaptainEmails = captains
-        .filter(c => c.id !== membership.id) // Exclude the author
-        .map(c => c.user.email)
+      const captainEmails = captains.map(c => c.user.email)
 
-      // Get target users based on scope
-      let targetUsers: { email: string; id: string }[] = []
+      // Get target members based on scope (will be BCC'd)
+      let targetMembers: { email: string; id: string }[] = []
 
       if (validated.scope === 'TEAM') {
         // All members
-        targetUsers = allMemberships
+        targetMembers = allMemberships
           .filter(m => m.role === 'MEMBER') // Only regular members (not captains)
           .map(m => ({ email: m.user.email, id: m.user.id }))
       } else if (validated.subteamIds) {
@@ -125,7 +123,7 @@ export async function POST(req: NextRequest) {
         const subteamMemberships = allMemberships.filter(m => 
           m.role === 'MEMBER' && m.subteamId && validated.subteamIds?.includes(m.subteamId)
         )
-        targetUsers = subteamMemberships.map(m => ({ email: m.user.email, id: m.user.id }))
+        targetMembers = subteamMemberships.map(m => ({ email: m.user.email, id: m.user.id }))
       }
 
       // Get calendar event details if this announcement is linked to an event
@@ -138,6 +136,7 @@ export async function POST(req: NextRequest) {
             endUTC: true,
             location: true,
             description: true,
+            rsvpEnabled: true,
           },
         })
         if (calEvent) {
@@ -149,8 +148,8 @@ export async function POST(req: NextRequest) {
       Promise.resolve().then(async () => {
         const result = await sendAnnouncementEmail({
           to: [authorEmail!], // Send to author as primary recipient
-          cc: otherCaptainEmails.length > 0 ? otherCaptainEmails : undefined, // CC other captains
-          bcc: targetUsers.map(u => u.email), // BCC all members
+          cc: captainEmails.length > 0 ? captainEmails : undefined, // CC all captains
+          bcc: targetMembers.map(u => u.email), // BCC all members
           replyTo: authorEmail,
           teamId: validated.teamId,
           teamName: team?.name || 'Team',
@@ -162,9 +161,8 @@ export async function POST(req: NextRequest) {
 
         // Log email for all recipients
         const allRecipients = [
-          { id: membership.userId, email: authorEmail! },
-          ...captains.filter(c => c.id !== membership.id).map(c => ({ id: c.userId, email: c.user.email })),
-          ...targetUsers,
+          ...captains.map(c => ({ id: c.userId, email: c.user.email })),
+          ...targetMembers,
         ]
 
         await Promise.all(

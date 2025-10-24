@@ -17,7 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, Users, Pencil, Trash2, ArrowLeft, X, Grid3x3, Layers, MoreVertical, FileSpreadsheet } from 'lucide-react'
+import { Plus, Users, Pencil, Trash2, ArrowLeft, X, Grid3x3, Layers, MoreVertical, FileSpreadsheet, Mail } from 'lucide-react'
 import { groupEventsByCategory, categoryOrder, type EventCategory } from '@/lib/event-categories'
 import {
   DropdownMenu,
@@ -573,17 +573,35 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
     return sorted
   }
 
+  const handleEmailAll = () => {
+    const allMembers = team.memberships
+    const captains = allMembers.filter((m: any) => m.role === 'CAPTAIN')
+    const regularMembers = allMembers.filter((m: any) => m.role === 'MEMBER')
+    
+    const bccEmails = regularMembers.map((m: any) => m.user.email).join(',')
+    const ccEmails = captains.map((m: any) => m.user.email).join(',')
+    
+    const mailtoLink = `mailto:?bcc=${encodeURIComponent(bccEmails)}&cc=${encodeURIComponent(ccEmails)}&subject=${encodeURIComponent(`${team.name} Team Communication`)}`
+    window.location.href = mailtoLink
+  }
+
   // Render Team Grid View
   const renderGridView = () => (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          {isCaptain && (
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Team
+          <div className="flex gap-2">
+            {isCaptain && (
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Team
+              </Button>
+            )}
+            <Button variant="outline" onClick={handleEmailAll}>
+              <Mail className="mr-2 h-4 w-4" />
+              Email All
             </Button>
-          )}
-          <Button variant="outline" onClick={handleExportToGoogleSheet} className="ml-auto">
+          </div>
+          <Button variant="outline" onClick={handleExportToGoogleSheet}>
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Export to CSV
           </Button>
@@ -694,7 +712,7 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                           }
                         }}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1">
                           <Avatar className="h-10 w-10">
                             <AvatarImage src={member.user.image || ''} />
                             <AvatarFallback>
@@ -716,6 +734,16 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
                             </div>
                           </div>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            window.location.href = `mailto:${member.user.email}`
+                          }}
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
                       </div>
                     </DropdownMenuTrigger>
                     {isCaptain && contextMenuMember?.id === member.id && (
@@ -794,6 +822,19 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
 
   const eventCounts = getMemberEventCounts()
 
+  const handleEmailTeam = () => {
+    if (!selectedTeam) return
+    
+    const teamMembersForEmail = team.memberships.filter((m: any) => m.subteamId === selectedTeam.id)
+    const allCaptains = team.memberships.filter((m: any) => m.role === 'CAPTAIN')
+    
+    const bccEmails = teamMembersForEmail.map((m: any) => m.user.email).join(',')
+    const ccEmails = allCaptains.map((m: any) => m.user.email).join(',')
+    
+    const mailtoLink = `mailto:?bcc=${encodeURIComponent(bccEmails)}&cc=${encodeURIComponent(ccEmails)}&subject=${encodeURIComponent(`${selectedTeam.name} Team Communication`)}`
+    window.location.href = mailtoLink
+  }
+
   // Render Roster View for Selected Team
   const renderRosterView = () => (
     <div className="space-y-6">
@@ -830,6 +871,10 @@ export function PeopleTab({ team, currentMembership, isCaptain }: PeopleTabProps
             </div>
           )}
         </div>
+        <Button variant="outline" onClick={handleEmailTeam}>
+          <Mail className="mr-2 h-4 w-4" />
+          Email Team
+        </Button>
         <div className="flex gap-2">
           <Button
             variant={sortBy === 'category' ? 'default' : 'outline'}

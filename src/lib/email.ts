@@ -7,6 +7,7 @@ export interface CalendarEventDetails {
   endUTC: Date
   location?: string
   description?: string
+  rsvpEnabled?: boolean
 }
 
 export interface SendAnnouncementEmailParams {
@@ -105,11 +106,13 @@ export async function sendAnnouncementEmail({
             <p style="margin: 8px 0;"><strong>When:</strong> ${formattedTime}</p>
             ${calendarEvent.location ? `<p style="margin: 8px 0;"><strong>Where:</strong> ${calendarEvent.location}</p>` : ''}
           </div>
+          ${calendarEvent.rsvpEnabled ? `
           <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #d1d5db;">
             <p style="color: #6b7280; font-size: 13px; margin: 0;">
               💬 <strong>Please RSVP on the team stream</strong> to let us know if you're coming!
             </p>
           </div>
+          ` : ''}
         </div>
       `
     }

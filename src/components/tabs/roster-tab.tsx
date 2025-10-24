@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, X, Users } from 'lucide-react'
+import { Plus, X, Users, Mail } from 'lucide-react'
 
 interface RosterTabProps {
   team: any
@@ -154,6 +154,19 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
   const activeSubteam = team.subteams.find((s: any) => s.id === activeSubteamId)
   const activeSubteamMembers = team.memberships.filter((m: any) => m.subteamId === activeSubteamId)
 
+  const handleEmailTeam = () => {
+    if (!activeSubteamId) return
+    
+    const teamMembersForEmail = team.memberships.filter((m: any) => m.subteamId === activeSubteamId)
+    const allCaptains = team.memberships.filter((m: any) => m.role === 'CAPTAIN')
+    
+    const bccEmails = teamMembersForEmail.map((m: any) => m.user.email).join(',')
+    const ccEmails = allCaptains.map((m: any) => m.user.email).join(',')
+    
+    const mailtoLink = `mailto:?bcc=${encodeURIComponent(bccEmails)}&cc=${encodeURIComponent(ccEmails)}&subject=${encodeURIComponent(`${activeSubteam?.name || 'Team'} Team Communication`)}`
+    window.location.href = mailtoLink
+  }
+
   if (team.subteams.length === 0) {
     return (
       <Card>
@@ -203,9 +216,15 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
                 </p>
               )}
             </div>
-            <Badge variant="outline">
-              {activeSubteamMembers.length} member{activeSubteamMembers.length !== 1 ? 's' : ''}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <Badge variant="outline">
+                {activeSubteamMembers.length} member{activeSubteamMembers.length !== 1 ? 's' : ''}
+              </Badge>
+              <Button variant="outline" size="sm" onClick={handleEmailTeam}>
+                <Mail className="mr-2 h-4 w-4" />
+                Email Team
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

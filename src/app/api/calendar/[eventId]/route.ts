@@ -74,9 +74,16 @@ export async function PATCH(
     if (validatedData.endUTC !== undefined) updateData.endUTC = new Date(validatedData.endUTC)
     if (validatedData.location !== undefined) updateData.location = validatedData.location
     if (validatedData.color !== undefined) updateData.color = validatedData.color
-    if (validatedData.rsvpEnabled !== undefined) updateData.rsvpEnabled = validatedData.rsvpEnabled
     if (validatedData.scope !== undefined) updateData.scope = validatedData.scope
     if (validatedData.subteamId !== undefined) updateData.subteamId = validatedData.subteamId
+    
+    // For PERSONAL events, RSVP should always be disabled
+    // For other events, use the provided value
+    if (validatedData.scope === 'PERSONAL') {
+      updateData.rsvpEnabled = false
+    } else if (validatedData.rsvpEnabled !== undefined) {
+      updateData.rsvpEnabled = validatedData.rsvpEnabled
+    }
 
     const updatedEvent = await prisma.$transaction(async (tx) => {
       const updated = await tx.calendarEvent.update({
