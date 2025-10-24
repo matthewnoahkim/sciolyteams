@@ -17,6 +17,7 @@ const createEventSchema = z.object({
   location: z.string().optional(),
   color: z.string().optional(),
   rsvpEnabled: z.boolean().optional(),
+  important: z.boolean().optional(),
   subteamId: z.string().optional(),
   attendeeId: z.string().optional(),
 })
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
       endUTC: new Date(validated.endUTC),
       color: validated.color || '#3b82f6',
       rsvpEnabled,
+      important: validated.important || false,
     }
 
     // Only add optional fields if they have values

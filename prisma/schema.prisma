@@ -214,6 +214,7 @@ model Announcement {
   title           String
   content         String   @db.Text
   calendarEventId String?  @unique
+  important       Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -311,6 +312,7 @@ model CalendarEvent {
   location     String?
   color        String?       // Custom color for events
   rsvpEnabled  Boolean       @default(true) // Whether RSVP is enabled for this event
+  important    Boolean       @default(false)
   subteamId    String?
   attendeeId   String?       // For PERSONAL scope
   createdAt    DateTime      @default(now())

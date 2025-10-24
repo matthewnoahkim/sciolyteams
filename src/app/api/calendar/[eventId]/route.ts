@@ -13,6 +13,7 @@ const updateEventSchema = z.object({
   location: z.string().optional(),
   color: z.string().optional(),
   rsvpEnabled: z.boolean().optional(),
+  important: z.boolean().optional(),
   scope: z.enum(['PERSONAL', 'SUBTEAM', 'TEAM']).optional(),
   subteamId: z.string().nullable().optional(),
 })
@@ -76,6 +77,7 @@ export async function PATCH(
     if (validatedData.color !== undefined) updateData.color = validatedData.color
     if (validatedData.scope !== undefined) updateData.scope = validatedData.scope
     if (validatedData.subteamId !== undefined) updateData.subteamId = validatedData.subteamId
+    if (validatedData.important !== undefined) updateData.important = validatedData.important
     
     // For PERSONAL events, RSVP should always be disabled
     // For other events, use the provided value
@@ -112,12 +114,18 @@ export async function PATCH(
         },
       })
 
-      // If event has a linked announcement and title is being updated, sync the announcement title
-      if (updated.announcement && validatedData.title) {
-        await tx.announcement.update({
-          where: { id: updated.announcement.id },
-          data: { title: validatedData.title },
-        })
+      // If event has a linked announcement, sync title and important field
+      if (updated.announcement) {
+        const updateData: any = {}
+        if (validatedData.title) updateData.title = validatedData.title
+        if (validatedData.important !== undefined) updateData.important = validatedData.important
+        
+        if (Object.keys(updateData).length > 0) {
+          await tx.announcement.update({
+            where: { id: updated.announcement.id },
+            data: updateData,
+          })
+        }
       }
 
       return updated

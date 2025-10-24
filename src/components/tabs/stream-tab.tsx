@@ -35,10 +35,12 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   const [scope, setScope] = useState<'TEAM' | 'SUBTEAM'>('TEAM')
   const [selectedSubteams, setSelectedSubteams] = useState<string[]>([])
   const [sendEmail, setSendEmail] = useState(true)
+  const [important, setImportant] = useState(false)
   const [isPostSectionCollapsed, setIsPostSectionCollapsed] = useState(true)
   const [editingAnnouncement, setEditingAnnouncement] = useState<any | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editContent, setEditContent] = useState('')
+  const [editImportant, setEditImportant] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -86,6 +88,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
           scope,
           subteamIds: scope === 'SUBTEAM' ? selectedSubteams : undefined,
           sendEmail,
+          important,
         }),
       })
 
@@ -99,6 +102,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
       setTitle('')
       setContent('')
       setSendEmail(true)
+      setImportant(false)
       fetchAnnouncements()
     } catch (error) {
       toast({
@@ -161,6 +165,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
     setEditingAnnouncement(announcement)
     setEditTitle(announcement.title)
     setEditContent(announcement.content)
+    setEditImportant(announcement.important || false)
     setIsEditDialogOpen(true)
   }
 
@@ -481,6 +486,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
         body: JSON.stringify({
           title: editTitle,
           content: editContent,
+          important: editImportant,
         }),
       })
 
@@ -610,6 +616,17 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                 Send email notification to recipients
               </Label>
             </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="important"
+                checked={important}
+                onChange={(e) => setImportant(e.target.checked)}
+              />
+              <Label htmlFor="important" className="cursor-pointer">
+                Mark as important
+              </Label>
+            </div>
             <Button type="submit" disabled={posting}>
               <Send className="mr-2 h-4 w-4" />
               {posting ? 'Posting...' : 'Post Announcement'}
@@ -636,7 +653,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
           </Card>
         ) : (
           announcements.map((announcement) => (
-            <Card key={announcement.id} className="relative">
+            <Card key={announcement.id} className={`relative ${announcement.important ? 'border-2 border-red-500' : ''}`}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -647,7 +664,12 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-semibold">{announcement.title}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{announcement.important && <span className="text-red-500">⚠️ </span>}{announcement.title}</p>
+                        {announcement.important && (
+                          <Badge variant="destructive" className="text-xs">IMPORTANT</Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         by {announcement.author.user.name || announcement.author.user.email} •{' '}
                         {formatDateTime(announcement.createdAt)}
@@ -968,6 +990,17 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                 className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 required
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="edit-important"
+                checked={editImportant}
+                onChange={(e) => setEditImportant(e.target.checked)}
+              />
+              <Label htmlFor="edit-important" className="cursor-pointer">
+                Mark as important
+              </Label>
             </div>
             <div className="flex justify-end gap-2">
               <Button

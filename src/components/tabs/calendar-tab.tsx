@@ -125,6 +125,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       subteamId: '',
       attendeeId: currentMembership.id,
       rsvpEnabled: true, // Default to enabled
+      important: false,
     }
   }
   
@@ -203,6 +204,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         startUTC: startISO,
         endUTC: endISO,
         color: formData.color,
+        important: formData.important,
       }
 
       // Only include rsvpEnabled for TEAM and SUBTEAM events
@@ -311,6 +313,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         location: formData.location,
         color: formData.color,
         scope: formData.scope,
+        important: formData.important,
       }
 
       // Only include rsvpEnabled for TEAM and SUBTEAM events
@@ -437,14 +440,17 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
   }
   
   const getEventStyle = (event: any) => {
+    const style: any = {}
     if (event.color) {
       console.log('Event color:', event.color, 'for event:', event.title)
-      return {
-        backgroundColor: event.color,
-        color: '#ffffff',
-      }
+      style.backgroundColor = event.color
+      style.color = '#ffffff'
     }
-    return {}
+    if (event.important) {
+      style.border = '2px solid #ef4444'
+      style.borderRadius = '4px'
+    }
+    return style
   }
 
   // Calendar generation functions
@@ -610,6 +616,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       location: event.location || '',
       color: event.color || '#3b82f6', // Preserve existing color or default to blue
       rsvpEnabled: event.rsvpEnabled !== undefined ? event.rsvpEnabled : true,
+      important: event.important || false,
       scope: event.scope,
       subteamId: event.subteamId || '',
       attendeeId: event.attendeeId || currentMembership.id,
@@ -753,6 +760,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
           subteamIds,
           sendEmail,
           calendarEventId: createdEvent.id,
+          important: createdEvent.important || false,
         }),
       })
 
@@ -842,7 +850,10 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                       return (
                         <div className="flex items-center justify-between">
                           {!isStartDay && <span className="mr-1">←</span>}
-                          <span className="truncate flex-1">{event.title}</span>
+                          <span className="truncate flex-1">
+                            {event.important && <span className="text-red-500 font-bold">⚠️ </span>}
+                            {event.title}
+                          </span>
                           {!isEndDay && <span className="ml-1">→</span>}
                         </div>
                       )
@@ -860,15 +871,15 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                                   hour: 'numeric',
                                   minute: '2-digit',
                                   hour12: true,
-                                })} {event.title}
+                                })} {event.important && <span className="text-red-500 font-bold">⚠️ </span>}{event.title}
                               </>
                             )}
                             {!isStartDay && !isEndDay && (
-                              <>{event.title}</>
+                              <>{event.important && <span className="text-red-500 font-bold">⚠️ </span>}{event.title}</>
                             )}
                             {isEndDay && (
                               <>
-                                {event.title} {eventEnd.toLocaleTimeString('en-US', {
+                                {event.important && <span className="text-red-500 font-bold">⚠️ </span>}{event.title} {eventEnd.toLocaleTimeString('en-US', {
                                   hour: 'numeric',
                                   minute: '2-digit',
                                   hour12: true,
@@ -886,7 +897,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                             hour: 'numeric',
                             minute: '2-digit',
                             hour12: true,
-                          })} {event.title}
+                          })} {event.important && <span className="text-red-500 font-bold">⚠️ </span>}{event.title}
                         </>
                       )
                     }
@@ -1114,7 +1125,10 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                       >
                         <div className="flex items-center justify-between">
                           {isMultiDay && !isStartDay && <span className="mr-1">←</span>}
-                          <span className="truncate flex-1">{event.title}</span>
+                          <span className="truncate flex-1">
+                            {event.important && <span className="text-red-500 font-bold">⚠️ </span>}
+                            {event.title}
+                          </span>
                           {isMultiDay && !isEndDay && <span className="ml-1">→</span>}
                         </div>
                       </div>
@@ -1288,7 +1302,10 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                               return (
                                 <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center`}>
                                   {isMultiDay && !isStartDay && <span className="mr-1">←</span>}
-                                  <span className="truncate">{event.title}</span>
+                                  <span className="truncate">
+                                    {event.important && <span className="text-red-500 font-bold">⚠️ </span>}
+                                    {event.title}
+                                  </span>
                                   {isMultiDay && !isEndDay && <span className="ml-1">→</span>}
                                 </div>
                               )
@@ -1300,7 +1317,10 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                               return (
                                 <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center`}>
                                   <span className="mr-1">←</span>
-                                  <span className="truncate">{event.title}</span>
+                                  <span className="truncate">
+                                    {event.important && <span className="text-red-500 font-bold">⚠️ </span>}
+                                    {event.title}
+                                  </span>
                                   {!isEndDay && <span className="ml-1">→</span>}
                                 </div>
                               )
@@ -1321,7 +1341,10 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                                 // For very short events, show only title
                                 return (
                                   <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center`} title={event.title}>
-                                    <span className="truncate">{event.title}</span>
+                                    <span className="truncate">
+                                      {event.important && <span className="text-red-500 font-bold">⚠️ </span>}
+                                      {event.title}
+                                    </span>
                                     {isMultiDay && !isEndDay && <span className="ml-1">→</span>}
                                   </div>
                                 )
@@ -1330,6 +1353,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                                 return (
                                   <div className={`${fontSize} leading-tight flex items-center gap-1 overflow-hidden`}>
                                     <span className="font-semibold truncate flex-shrink min-w-0" title={event.title}>
+                                      {event.important && <span className="text-red-500 font-bold">⚠️ </span>}
                                       {event.title}
                                     </span>
                                     <span className="opacity-90 whitespace-nowrap flex-shrink-0" title={`${startTime} - ${endTime}`}>
@@ -1542,6 +1566,17 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                   </div>
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="important"
+                  checked={formData.important}
+                  onChange={(e) => setFormData({ ...formData, important: e.target.checked })}
+                />
+                <Label htmlFor="important" className="cursor-pointer">
+                  Mark as important
+                </Label>
+              </div>
               <div>
                 <Label>Scope</Label>
                 <div className="mt-2 space-y-2">
@@ -1630,11 +1665,14 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
 
       {/* Event Details Dialog */}
       <Dialog open={eventDetailsOpen} onOpenChange={setEventDetailsOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className={`max-w-md max-h-[90vh] overflow-y-auto ${selectedEvent?.important ? 'border-2 border-red-500' : ''}`}>
           {selectedEvent && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-xl">{selectedEvent.title}</DialogTitle>
+                <DialogTitle className="text-xl">
+                  {selectedEvent.important && <span className="text-red-500">⚠️ </span>}
+                  {selectedEvent.title}
+                </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div>
@@ -1721,7 +1759,12 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
 
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Type</p>
-                  {getScopeBadge(selectedEvent)}
+                  <div className="flex items-center gap-2">
+                    {getScopeBadge(selectedEvent)}
+                    {selectedEvent.important && (
+                      <Badge variant="destructive" className="text-xs">⚠️ IMPORTANT</Badge>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -1987,6 +2030,17 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                     ))}
                   </div>
                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="edit-important"
+                  checked={formData.important}
+                  onChange={(e) => setFormData({ ...formData, important: e.target.checked })}
+                />
+                <Label htmlFor="edit-important" className="cursor-pointer">
+                  Mark as important
+                </Label>
               </div>
               <div>
                 <Label>Scope</Label>

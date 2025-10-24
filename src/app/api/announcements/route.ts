@@ -15,6 +15,7 @@ const createAnnouncementSchema = z.object({
   subteamIds: z.array(z.string()).optional(),
   sendEmail: z.boolean().default(true),
   calendarEventId: z.string().optional(),
+  important: z.boolean().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
           title: validated.title,
           content: validated.content,
           calendarEventId: validated.calendarEventId,
+          important: validated.important || false,
         },
       })
 

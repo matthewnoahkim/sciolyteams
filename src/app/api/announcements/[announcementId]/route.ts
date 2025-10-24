@@ -8,6 +8,7 @@ import { z } from 'zod'
 const updateAnnouncementSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   content: z.string().min(1).optional(),
+  important: z.boolean().optional(),
 })
 
 export async function PATCH(
@@ -61,6 +62,7 @@ export async function PATCH(
         data: {
           ...(validated.title && { title: validated.title }),
           ...(validated.content && { content: validated.content }),
+          ...(validated.important !== undefined && { important: validated.important }),
         },
         include: {
           author: {
@@ -84,12 +86,18 @@ export async function PATCH(
         },
       })
 
-      // If announcement is linked to a calendar event and title is being updated, sync the event title
-      if (updated.calendarEventId && validated.title) {
-        await tx.calendarEvent.update({
-          where: { id: updated.calendarEventId },
-          data: { title: validated.title },
-        })
+      // If announcement is linked to a calendar event, sync title and important field
+      if (updated.calendarEventId) {
+        const updateData: any = {}
+        if (validated.title) updateData.title = validated.title
+        if (validated.important !== undefined) updateData.important = validated.important
+        
+        if (Object.keys(updateData).length > 0) {
+          await tx.calendarEvent.update({
+            where: { id: updated.calendarEventId },
+            data: updateData,
+          })
+        }
       }
 
       return updated
