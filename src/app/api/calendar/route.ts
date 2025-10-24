@@ -269,6 +269,18 @@ export async function GET(req: NextRequest) {
             },
           },
         },
+        attachments: {
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         startUTC: 'asc',

@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDateTime } from '@/lib/utils'
-import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit, MessageCircle, X, Calendar, MapPin, Check, X as XIcon } from 'lucide-react'
+import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit, MessageCircle, X, Calendar, MapPin, Check, X as XIcon, Paperclip } from 'lucide-react'
+import { AttachmentDisplay } from '@/components/ui/attachment-display'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { EmojiPicker } from '@/components/emoji-picker'
 
@@ -54,6 +55,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   const [deletingReply, setDeletingReply] = useState(false)
   const [rsvping, setRsvping] = useState<Record<string, boolean>>({})
   const [showImportantOnly, setShowImportantOnly] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [uploadingFiles, setUploadingFiles] = useState(false)
 
   useEffect(() => {
     fetchAnnouncements()
@@ -95,6 +98,41 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
 
       if (!response.ok) throw new Error('Failed to post announcement')
 
+      const data = await response.json()
+      const announcementId = data.announcement?.id
+
+      // Upload files if any
+      if (selectedFiles.length > 0 && announcementId) {
+        setUploadingFiles(true)
+        try {
+          await Promise.all(
+            selectedFiles.map(async (file) => {
+              const formData = new FormData()
+              formData.append('file', file)
+              formData.append('announcementId', announcementId)
+
+              const uploadResponse = await fetch('/api/attachments/upload', {
+                method: 'POST',
+                body: formData,
+              })
+
+              if (!uploadResponse.ok) {
+                throw new Error(`Failed to upload ${file.name}`)
+              }
+            })
+          )
+        } catch (error) {
+          console.error('File upload error:', error)
+          toast({
+            title: 'Warning',
+            description: 'Announcement posted but some files failed to upload',
+            variant: 'destructive',
+          })
+        } finally {
+          setUploadingFiles(false)
+        }
+      }
+
       toast({
         title: 'Announcement posted',
         description: sendEmail ? 'Emails are being sent.' : undefined,
@@ -104,6 +142,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
       setContent('')
       setSendEmail(true)
       setImportant(false)
+      setSelectedFiles([])
       fetchAnnouncements()
     } catch (error) {
       toast({
@@ -628,9 +667,45 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                 Mark as important
               </Label>
             </div>
-            <Button type="submit" disabled={posting}>
+            <div>
+              <Label htmlFor="files" className="flex items-center gap-2 cursor-pointer">
+                <Paperclip className="h-4 w-4" />
+                Attach Files
+              </Label>
+              <Input
+                id="files"
+                type="file"
+                multiple
+                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || [])
+                  setSelectedFiles([...selectedFiles, ...files])
+                }}
+                className="mt-2"
+              />
+              {selectedFiles.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center gap-2 text-sm">
+                      <Paperclip className="h-3 w-3" />
+                      <span className="truncate">{file.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => setSelectedFiles(selectedFiles.filter((_, i) => i !== index))}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button type="submit" disabled={posting || uploadingFiles}>
               <Send className="mr-2 h-4 w-4" />
-              {posting ? 'Posting...' : 'Post Announcement'}
+              {uploadingFiles ? 'Uploading...' : posting ? 'Posting...' : 'Post Announcement'}
             </Button>
           </form>
         </CardContent>
@@ -854,6 +929,28 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                 ) : (
                   /* Regular announcement without calendar event */
                   <p className="whitespace-pre-wrap text-sm">{announcement.content}</p>
+                )}
+                
+                {/* Attachments Section */}
+                {announcement.attachments && announcement.attachments.length > 0 && (
+                  <div className="mt-4">
+                    <AttachmentDisplay
+                      attachments={announcement.attachments}
+                      canDelete={canEditAnnouncement(announcement)}
+                      onDelete={async (attachmentId) => {
+                        try {
+                          const response = await fetch(`/api/attachments/upload?id=${attachmentId}`, {
+                            method: 'DELETE',
+                          })
+                          if (response.ok) {
+                            fetchAnnouncements()
+                          }
+                        } catch (error) {
+                          console.error('Failed to delete attachment:', error)
+                        }
+                      }}
+                    />
+                  </div>
                 )}
                 
                 {/* Reactions Section */}

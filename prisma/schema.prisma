@@ -28,6 +28,7 @@ model User {
   reactions     Reaction[]
   eventRSVPs    EventRSVP[]
   attendanceCheckIns AttendanceCheckIn[]
+  attachments   Attachment[]
 }
 
 // NextAuth models
@@ -225,6 +226,7 @@ model Announcement {
   emails        EmailLog[]
   replies       AnnouncementReply[]
   reactions     Reaction[]
+  attachments   Attachment[]
 
   @@index([teamId])
   @@index([authorId])
@@ -326,6 +328,7 @@ model CalendarEvent {
   rsvps        EventRSVP[]
   announcement Announcement?
   attendance   Attendance?
+  attachments  Attachment[]
 
   @@index([teamId])
   @@index([creatorId])
@@ -433,3 +436,24 @@ model AttendanceCodeAttempt {
   @@index([attendanceId, ipAddress, attemptedAt])
 }
 
+// Attachments
+model Attachment {
+  id               String   @id @default(cuid())
+  filename         String
+  originalFilename String
+  fileSize         Int      // Size in bytes
+  mimeType         String
+  filePath         String   // Path to the file in storage
+  announcementId   String?
+  calendarEventId  String?
+  uploadedById     String
+  createdAt        DateTime @default(now())
+
+  announcement     Announcement? @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  calendarEvent    CalendarEvent? @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  uploadedBy       User           @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@index([calendarEventId])
+  @@index([uploadedById])
+}

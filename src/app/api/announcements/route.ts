@@ -373,6 +373,18 @@ export async function GET(req: NextRequest) {
             subteam: true,
           },
         },
+        attachments: {
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
