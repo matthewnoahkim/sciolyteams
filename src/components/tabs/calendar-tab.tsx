@@ -954,24 +954,6 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     
     // Calculate the total number of overlapping columns for each event
     intervals.forEach(interval => {
-      let maxOverlap = 1
-      
-      // Find all events that overlap with this one
-      intervals.forEach(other => {
-        if (other.event.id === interval.event.id) return
-        
-        // Check if they overlap
-        if (interval.startMinutes < other.endMinutes && interval.endMinutes > other.startMinutes) {
-          // Find which column the other event is in
-          for (let colIndex = 0; colIndex < columns.length; colIndex++) {
-            if (columns[colIndex].some(e => e.event.id === other.event.id)) {
-              maxOverlap = Math.max(maxOverlap, colIndex + 2) // +2 because we need both columns
-              break
-            }
-          }
-        }
-      })
-      
       // Find which column this event is in
       let eventColumn = 0
       for (let colIndex = 0; colIndex < columns.length; colIndex++) {
@@ -980,6 +962,17 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
           break
         }
       }
+      
+      // Count how many events overlap with this one at any point in time
+      let maxOverlap = 1
+      intervals.forEach(other => {
+        if (other.event.id === interval.event.id) return
+        
+        // Check if they overlap
+        if (interval.startMinutes < other.endMinutes && interval.endMinutes > other.startMinutes) {
+          maxOverlap++
+        }
+      })
       
       eventLayouts.set(interval.event.id, {
         column: eventColumn,
