@@ -136,7 +136,13 @@ export async function POST(req: NextRequest) {
       }
 
       // Get calendar event details if this announcement is linked to an event
-      let calendarEventDetails = null
+      let calendarEventDetails: {
+        startUTC: Date
+        endUTC: Date
+        location?: string
+        description?: string
+        rsvpEnabled?: boolean
+      } | null = null
       if (validated.calendarEventId) {
         const calEvent = await prisma.calendarEvent.findUnique({
           where: { id: validated.calendarEventId },
@@ -149,7 +155,13 @@ export async function POST(req: NextRequest) {
           },
         })
         if (calEvent) {
-          calendarEventDetails = calEvent
+          calendarEventDetails = {
+            startUTC: calEvent.startUTC,
+            endUTC: calEvent.endUTC,
+            location: calEvent.location ?? undefined,
+            description: calEvent.description ?? undefined,
+            rsvpEnabled: calEvent.rsvpEnabled,
+          }
         }
       }
 
