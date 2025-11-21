@@ -464,7 +464,7 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Once you leave, you'll need an invite code to rejoin this club.
+              Once you leave, you&apos;ll need an invite code to rejoin this club.
             </p>
             <Button
               variant="outline"

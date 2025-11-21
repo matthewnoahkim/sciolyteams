@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Download, X, File, Image as ImageIcon } from 'lucide-react'
+import Image from 'next/image'
+import { Download, X, File } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -28,6 +29,7 @@ interface AttachmentDisplayProps {
 
 export function AttachmentDisplay({ attachments, canDelete = false, onDelete }: AttachmentDisplayProps) {
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({})
 
   if (!attachments || attachments.length === 0) return null
 
@@ -54,21 +56,28 @@ export function AttachmentDisplay({ attachments, canDelete = false, onDelete }: 
     <div className="space-y-2">
       {attachments.map((attachment) => {
         const isImageFile = isImage(attachment.mimeType)
+        const showAsImage = isImageFile && !failedImages[attachment.id]
         
         return (
           <div key={attachment.id}>
-            {isImageFile ? (
+            {showAsImage ? (
               // Image display with preview
               <div className="border rounded-md overflow-hidden hover:bg-muted/50 transition-colors">
                 <div className="relative group">
-                  <img
+                  <Image
                     src={attachment.filePath}
                     alt={attachment.originalFilename}
-                    className="w-full max-h-96 object-contain"
-                    onError={(e) => {
-                      // Fallback if image fails to load
-                      e.currentTarget.style.display = 'none'
-                    }}
+                    width={1200}
+                    height={900}
+                    className="h-auto max-h-96 w-full object-contain"
+                    sizes="(max-width: 768px) 100vw, 700px"
+                    onError={() =>
+                      setFailedImages((prev) => ({
+                        ...prev,
+                        [attachment.id]: true,
+                      }))
+                    }
+                    unoptimized
                   />
                   {/* Overlay with actions */}
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

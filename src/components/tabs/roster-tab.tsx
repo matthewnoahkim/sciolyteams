@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -46,17 +46,7 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
     setSelectedMember('')
   }, [activeSubteamId])
 
-  useEffect(() => {
-    fetchEvents()
-  }, [team.id])
-
-  // Update assignments whenever team memberships change
-  useEffect(() => {
-    fetchAssignments()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [team.memberships])
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       const response = await fetch(`/api/events?division=${team.division}`)
       if (response.ok) {
@@ -66,10 +56,13 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
     } catch (error) {
       console.error('Failed to fetch events:', error)
     }
-  }
+  }, [team.division, team.id])
 
-  const fetchAssignments = async () => {
-    // Get all assignments from memberships
+  useEffect(() => {
+    fetchEvents()
+  }, [fetchEvents])
+
+  const syncAssignments = useCallback(() => {
     const allAssignments: any[] = []
     team.memberships.forEach((m: any) => {
       m.rosterAssignments.forEach((a: any) => {
@@ -80,7 +73,11 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
       })
     })
     setAssignments(allAssignments)
-  }
+  }, [team.memberships])
+
+  useEffect(() => {
+    syncAssignments()
+  }, [syncAssignments])
 
   const handleAddMember = async () => {
     if (!selectedEvent || !activeSubteamId || !selectedMember) return

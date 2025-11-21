@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -58,11 +58,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [uploadingFiles, setUploadingFiles] = useState(false)
 
-  useEffect(() => {
-    fetchAnnouncements()
-  }, [teamId])
-
-  const fetchAnnouncements = async () => {
+  const fetchAnnouncements = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/announcements?teamId=${teamId}`)
@@ -75,7 +71,11 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
     } finally {
       setLoading(false)
     }
-  }
+  }, [teamId])
+
+  useEffect(() => {
+    fetchAnnouncements()
+  }, [fetchAnnouncements])
 
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault()

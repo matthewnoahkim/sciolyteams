@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -66,11 +66,7 @@ export default function TestsTab({ teamId, isCaptain, currentMembershipId }: Tes
   const [testToDelete, setTestToDelete] = useState<Test | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  useEffect(() => {
-    fetchTests()
-  }, [teamId])
-
-  const fetchTests = async () => {
+  const fetchTests = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/tests?teamId=${teamId}`)
@@ -90,7 +86,11 @@ export default function TestsTab({ teamId, isCaptain, currentMembershipId }: Tes
     } finally {
       setLoading(false)
     }
-  }
+  }, [teamId, toast])
+
+  useEffect(() => {
+    fetchTests()
+  }, [fetchTests])
 
   const handleCreateTest = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -374,7 +374,7 @@ export default function TestsTab({ teamId, isCaptain, currentMembershipId }: Tes
             <DialogHeader>
               <DialogTitle>Create Test</DialogTitle>
               <DialogDescription>
-                Create a new test for your team. You'll be able to add questions after creation.
+                Create a new test for your team. You&apos;ll be able to add questions after creation.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -496,7 +496,7 @@ export default function TestsTab({ teamId, isCaptain, currentMembershipId }: Tes
                   placeholder="Password to edit this test"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  You'll need this password to edit the test later
+                  You&apos;ll need this password to edit the test later
                 </p>
               </div>
             </div>
@@ -518,7 +518,7 @@ export default function TestsTab({ teamId, isCaptain, currentMembershipId }: Tes
           <DialogHeader>
             <DialogTitle>Delete Test</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{testToDelete?.name}"? This will also delete all attempts 
+              Are you sure you want to delete &quot;{testToDelete?.name}&quot;? This will also delete all attempts 
               and cannot be undone.
             </DialogDescription>
           </DialogHeader>
