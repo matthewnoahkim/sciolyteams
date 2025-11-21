@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -35,6 +35,16 @@ type ApiErrorResponse = {
   message?: string
 }
 
+async function performRequest(url: string, options: RequestInit = {}, fallbackMessage: string) {
+  const response = await fetch(url, options)
+  if (!response.ok) {
+    const errorData = (await response.json().catch(() => ({}))) as ApiErrorResponse
+    const detailedMessage = [errorData.error, errorData.message].filter(Boolean).join(': ')
+    throw new Error(detailedMessage || fallbackMessage)
+  }
+  return response
+}
+
 export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user }: StreamTabProps) {
   const { toast } = useToast()
   const [announcements, setAnnouncements] = useState<any[]>([])
@@ -67,14 +77,40 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [uploadingFiles, setUploadingFiles] = useState(false)
 
+  const memberUserId = currentMembership?.userId as string | undefined
+  const announcementMap = useMemo(() => {
+    const map = new Map<string, any>()
+    announcements.forEach((announcement) => {
+      map.set(announcement.id, announcement)
+    })
+    return map
+  }, [announcements])
+
+  const replyMap = useMemo(() => {
+    const map = new Map<string, { reply: any; announcementId: string }>()
+    announcements.forEach((announcement) => {
+      announcement.replies?.forEach((reply: any) => {
+        map.set(reply.id, { reply, announcementId: announcement.id })
+      })
+    })
+    return map
+  }, [announcements])
+
+  const filteredAnnouncements = useMemo(
+    () => (showImportantOnly ? announcements.filter((a) => a.important) : announcements),
+    [announcements, showImportantOnly],
+  )
+
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/announcements?teamId=${teamId}`)
-      if (response.ok) {
-        const data = (await response.json()) as AnnouncementsResponse
-        setAnnouncements(data.announcements)
-      }
+      const response = await performRequest(
+        `/api/announcements?teamId=${teamId}`,
+        {},
+        'Failed to fetch announcements',
+      )
+      const data = (await response.json()) as AnnouncementsResponse
+      setAnnouncements(data.announcements)
     } catch (error) {
       console.error('Failed to fetch announcements:', error)
     } finally {
