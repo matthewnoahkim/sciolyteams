@@ -67,7 +67,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
           <DialogHeader>
             <DialogTitle>Create New Club</DialogTitle>
             <DialogDescription>
-              Set up a new Science Olympiad club. You'll be the club captain.
+              Set up a new Science Olympiad club. You&apos;ll be the club captain.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

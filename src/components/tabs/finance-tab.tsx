@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -112,11 +112,7 @@ export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: F
   })
   const [submittingReview, setSubmittingReview] = useState(false)
 
-  useEffect(() => {
-    fetchData()
-  }, [teamId])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const [expensesRes, requestsRes] = await Promise.all([
@@ -143,7 +139,11 @@ export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: F
     } finally {
       setLoading(false)
     }
-  }
+  }, [teamId, toast])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -582,7 +582,7 @@ export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: F
           <form onSubmit={handleAddExpense}>
             <DialogHeader>
               <DialogTitle>Add Expense</DialogTitle>
-              <DialogDescription>Add a new expense to the team's finance spreadsheet</DialogDescription>
+              <DialogDescription>Add a new expense to the team&apos;s finance spreadsheet</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>

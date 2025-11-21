@@ -56,7 +56,7 @@ export function RosterTab({ team, currentMembership, isCaptain }: RosterTabProps
     } catch (error) {
       console.error('Failed to fetch events:', error)
     }
-  }, [team.division, team.id])
+  }, [team.division])
 
   useEffect(() => {
     fetchEvents()

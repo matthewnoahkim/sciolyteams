@@ -55,7 +55,7 @@ export function EventAnnouncementModal({
         <DialogHeader>
           <DialogTitle>Post Event to Stream?</DialogTitle>
           <DialogDescription>
-            You've created "{eventTitle}" for the {scopeText}.
+            You&apos;ve created &ldquo;{eventTitle}&rdquo; for the {scopeText}.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">

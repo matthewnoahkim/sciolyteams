@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -63,11 +63,7 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
   const [eventToDelete, setEventToDelete] = useState<any>(null)
   const [deletingEvent, setDeletingEvent] = useState(false)
 
-  useEffect(() => {
-    fetchAttendances()
-  }, [teamId])
-
-  const fetchAttendances = async () => {
+  const fetchAttendances = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/attendance?teamId=${teamId}`)
@@ -87,7 +83,11 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [teamId, toast])
+
+  useEffect(() => {
+    fetchAttendances()
+  }, [fetchAttendances])
 
   const fetchRoster = async (attendanceId: string) => {
     if (!isCaptain) return
@@ -800,7 +800,7 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
             <DialogHeader>
               <DialogTitle>Manual Check-In</DialogTitle>
               <DialogDescription>
-                Add a check-in for a team member who was present but couldn't use the code.
+                Add a check-in for a team member who was present but couldn&apos;t use the code.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">

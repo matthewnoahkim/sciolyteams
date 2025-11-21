@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -132,12 +132,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
   
   const [formData, setFormData] = useState(getInitialFormData())
 
-  useEffect(() => {
-    fetchEvents()
-    fetchSubteams()
-  }, [teamId])
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/calendar?teamId=${teamId}`)
@@ -150,9 +145,9 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     } finally {
       setLoading(false)
     }
-  }
+  }, [teamId])
 
-  const fetchSubteams = async () => {
+  const fetchSubteams = useCallback(async () => {
     try {
       const response = await fetch(`/api/teams/${teamId}/subteams`)
       if (response.ok) {
@@ -162,7 +157,12 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     } catch (error) {
       console.error('Failed to fetch subteams:', error)
     }
-  }
+  }, [teamId])
+
+  useEffect(() => {
+    fetchEvents()
+    fetchSubteams()
+  }, [fetchEvents, fetchSubteams])
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
