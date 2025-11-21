@@ -316,7 +316,6 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               <TestsTab
                 teamId={team.id}
                 isCaptain={isCaptain}
-                currentMembershipId={currentMembership.id}
               />
             )}
 

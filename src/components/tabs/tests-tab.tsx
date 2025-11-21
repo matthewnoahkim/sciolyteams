@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -13,7 +12,6 @@ import { Plus, Clock, Users, FileText, AlertCircle, Play, Eye, Trash2, Lock } fr
 interface TestsTabProps {
   teamId: string
   isCaptain: boolean
-  currentMembershipId: string
 }
 
 interface Test {
@@ -34,32 +32,11 @@ interface Test {
   }
 }
 
-export default function TestsTab({ teamId, isCaptain, currentMembershipId }: TestsTabProps) {
+export default function TestsTab({ teamId, isCaptain }: TestsTabProps) {
   const { toast } = useToast()
+  const router = useRouter()
   const [tests, setTests] = useState<Test[]>([])
   const [loading, setLoading] = useState(true)
-
-  // Create Test Dialog
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [createForm, setCreateForm] = useState({
-    name: '',
-    description: '',
-    instructions: '',
-    durationMinutes: '60',
-    startAt: '',
-    endAt: '',
-    randomizeQuestionOrder: true,
-    randomizeOptionOrder: true,
-    requireFullscreen: true,
-    adminPassword: '',
-  })
-  const [creating, setCreating] = useState(false)
-
-  // Password Dialog (for editing)
-  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
-  const [passwordInput, setPasswordInput] = useState('')
-  const [selectedTest, setSelectedTest] = useState<Test | null>(null)
-  const [verifyingPassword, setVerifyingPassword] = useState(false)
 
   // Delete Dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -91,64 +68,6 @@ export default function TestsTab({ teamId, isCaptain, currentMembershipId }: Tes
   useEffect(() => {
     fetchTests()
   }, [fetchTests])
-
-  const handleCreateTest = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setCreating(true)
-
-    try {
-      const response = await fetch('/api/tests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teamId,
-          name: createForm.name,
-          description: createForm.description || undefined,
-          instructions: createForm.instructions || undefined,
-          durationMinutes: parseInt(createForm.durationMinutes),
-          startAt: createForm.startAt ? new Date(createForm.startAt).toISOString() : undefined,
-          endAt: createForm.endAt ? new Date(createForm.endAt).toISOString() : undefined,
-          randomizeQuestionOrder: createForm.randomizeQuestionOrder,
-          randomizeOptionOrder: createForm.randomizeOptionOrder,
-          requireFullscreen: createForm.requireFullscreen,
-          adminPassword: createForm.adminPassword || undefined,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to create test')
-      }
-
-      toast({
-        title: 'Test Created',
-        description: 'Your test has been created successfully',
-      })
-
-      setCreateForm({
-        name: '',
-        description: '',
-        instructions: '',
-        durationMinutes: '60',
-        startAt: '',
-        endAt: '',
-        randomizeQuestionOrder: true,
-        randomizeOptionOrder: true,
-        requireFullscreen: true,
-        adminPassword: '',
-      })
-      setCreateDialogOpen(false)
-      await fetchTests()
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to create test',
-        variant: 'destructive',
-      })
-    } finally {
-      setCreating(false)
-    }
-  }
 
   const handleDeleteClick = (test: Test) => {
     setTestToDelete(test)
@@ -252,7 +171,7 @@ export default function TestsTab({ teamId, isCaptain, currentMembershipId }: Tes
           </p>
         </div>
         {isCaptain && (
-          <Button onClick={() => setCreateDialogOpen(true)}>
+          <Button onClick={() => router.push(`/teams/${teamId}/tests/new`)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Test
           </Button>
@@ -366,151 +285,6 @@ export default function TestsTab({ teamId, isCaptain, currentMembershipId }: Tes
           ))
         )}
       </div>
-
-      {/* Create Test Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <form onSubmit={handleCreateTest}>
-            <DialogHeader>
-              <DialogTitle>Create Test</DialogTitle>
-              <DialogDescription>
-                Create a new test for your team. You&apos;ll be able to add questions after creation.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div>
-                <Label htmlFor="name">Test Name *</Label>
-                <Input
-                  id="name"
-                  value={createForm.name}
-                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                  required
-                  maxLength={200}
-                  placeholder="e.g., Chemistry Quiz #1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Input
-                  id="description"
-                  value={createForm.description}
-                  onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                  placeholder="Brief description of the test"
-                />
-              </div>
-              <div>
-                <Label htmlFor="instructions">Instructions (Markdown supported)</Label>
-                <textarea
-                  id="instructions"
-                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={createForm.instructions}
-                  onChange={(e) => setCreateForm({ ...createForm, instructions: e.target.value })}
-                  placeholder="Instructions for students..."
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="duration">Duration (minutes) *</Label>
-                  <Input
-                    id="duration"
-                    type="number"
-                    min="1"
-                    max="720"
-                    value={createForm.durationMinutes}
-                    onChange={(e) => setCreateForm({ ...createForm, durationMinutes: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="startAt">Start Date/Time</Label>
-                  <Input
-                    id="startAt"
-                    type="datetime-local"
-                    value={createForm.startAt}
-                    onChange={(e) => setCreateForm({ ...createForm, startAt: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="endAt">End Date/Time</Label>
-                  <Input
-                    id="endAt"
-                    type="datetime-local"
-                    value={createForm.endAt}
-                    onChange={(e) => setCreateForm({ ...createForm, endAt: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="randomizeQuestions"
-                    checked={createForm.randomizeQuestionOrder}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, randomizeQuestionOrder: e.target.checked })
-                    }
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor="randomizeQuestions" className="cursor-pointer">
-                    Randomize question order (per student)
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="randomizeOptions"
-                    checked={createForm.randomizeOptionOrder}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, randomizeOptionOrder: e.target.checked })
-                    }
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor="randomizeOptions" className="cursor-pointer">
-                    Randomize option order (per student)
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="requireFullscreen"
-                    checked={createForm.requireFullscreen}
-                    onChange={(e) =>
-                      setCreateForm({ ...createForm, requireFullscreen: e.target.checked })
-                    }
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor="requireFullscreen" className="cursor-pointer">
-                    Require fullscreen lockdown
-                  </Label>
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="adminPassword">Admin Password *</Label>
-                <Input
-                  id="adminPassword"
-                  type="password"
-                  value={createForm.adminPassword}
-                  onChange={(e) => setCreateForm({ ...createForm, adminPassword: e.target.value })}
-                  required
-                  minLength={6}
-                  placeholder="Password to edit this test"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  You&apos;ll need this password to edit the test later
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={creating}>
-                {creating ? 'Creating...' : 'Create Test'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
