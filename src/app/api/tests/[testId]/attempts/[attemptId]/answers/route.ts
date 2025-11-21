@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 
 const saveAnswerSchema = z.object({
   questionId: z.string(),
@@ -59,6 +60,11 @@ export async function PATCH(
     // Upsert answers
     const operations = answers.map((answer: any) => {
       const validated = saveAnswerSchema.parse(answer)
+      const selectedOptionValue =
+        validated.selectedOptionIds !== undefined
+          ? validated.selectedOptionIds
+          : Prisma.JsonNull
+
       return prisma.attemptAnswer.upsert({
         where: {
           attemptId_questionId: {
@@ -70,12 +76,12 @@ export async function PATCH(
           attemptId: params.attemptId,
           questionId: validated.questionId,
           answerText: validated.answerText,
-          selectedOptionIds: validated.selectedOptionIds || null,
+          selectedOptionIds: selectedOptionValue,
           numericAnswer: validated.numericAnswer,
         },
         update: {
           answerText: validated.answerText,
-          selectedOptionIds: validated.selectedOptionIds || null,
+          selectedOptionIds: selectedOptionValue,
           numericAnswer: validated.numericAnswer,
         },
       })
