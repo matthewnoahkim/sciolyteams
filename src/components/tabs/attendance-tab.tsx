@@ -340,18 +340,18 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
 
     setDeletingEvent(true)
     try {
-      const response = await fetch(`/api/calendar/${eventToDelete.calendarEvent.id}`, {
+      const response = await fetch(`/api/attendance/${eventToDelete.id}`, {
         method: 'DELETE',
       })
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || 'Failed to delete event')
+        throw new Error(data.error || 'Failed to delete attendance')
       }
 
       toast({
-        title: 'Event deleted',
-        description: 'The event has been removed from calendar, attendance, and stream',
+        title: 'Attendance Removed',
+        description: 'The attendance has been removed. Calendar event and announcements remain.',
       })
 
       setDeleteEventDialogOpen(false)
@@ -623,10 +623,10 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
                         className="w-full"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Event
+                        Delete Attendance
                       </Button>
                       <p className="text-xs text-muted-foreground mt-2 text-center">
-                        This will delete the event from calendar, attendance, and stream
+                        This will remove attendance tracking only. Calendar event and announcements remain.
                       </p>
                     </div>
                   </div>
@@ -756,18 +756,17 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Event Dialog */}
+      {/* Delete Attendance Dialog */}
       <Dialog open={deleteEventDialogOpen} onOpenChange={setDeleteEventDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Event</DialogTitle>
+            <DialogTitle>Delete Attendance</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this event? This will remove:
+              Are you sure you want to delete this attendance? This will remove:
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>The event from the calendar</li>
                 <li>All attendance records and check-ins</li>
-                <li>The announcement from the stream (if posted)</li>
               </ul>
+              <p className="mt-2">The calendar event and announcements will remain unchanged.</p>
               <p className="mt-2 font-semibold">This action cannot be undone.</p>
             </DialogDescription>
           </DialogHeader>
@@ -787,7 +786,7 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
               onClick={handleDeleteEvent}
               disabled={deletingEvent}
             >
-              {deletingEvent ? 'Deleting...' : 'Delete Event'}
+              {deletingEvent ? 'Deleting...' : 'Delete Attendance'}
             </Button>
           </DialogFooter>
         </DialogContent>

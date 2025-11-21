@@ -5,13 +5,15 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, LogOut, MessageSquare, Users, Calendar, Settings, Pencil, ClipboardCheck } from 'lucide-react'
+import { ArrowLeft, LogOut, MessageSquare, Users, Calendar, Settings, Pencil, ClipboardCheck, DollarSign, FileText } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { StreamTab } from '@/components/tabs/stream-tab'
 import { PeopleTab } from '@/components/tabs/people-tab'
 import { CalendarTab } from '@/components/tabs/calendar-tab'
 import { AttendanceTab } from '@/components/tabs/attendance-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
+import FinanceTab from '@/components/tabs/finance-tab'
+import TestsTab from '@/components/tabs/tests-tab'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { EditUsernameDialog } from '@/components/edit-username-dialog'
 import {
@@ -66,6 +68,21 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
     const url = new URL(window.location.href)
     url.searchParams.set('tab', newTab)
     router.replace(url.pathname + url.search, { scroll: false })
+  }
+
+  const handleSignOut = async () => {
+    try {
+      const response = await signOut({
+        callbackUrl: '/auth/signin',
+        redirect: false,
+      })
+
+      const targetUrl = response?.url ?? '/auth/signin'
+      router.push(targetUrl)
+      router.refresh()
+    } catch (error) {
+      console.error('Sign out error', error)
+    }
   }
 
   const handleUpdateClubName = async (e: React.FormEvent) => {
@@ -178,7 +195,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+              onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -222,6 +239,22 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               >
                 <ClipboardCheck className="mr-2 h-4 w-4" />
                 Attendance
+              </Button>
+              <Button
+                variant={activeTab === 'finance' ? 'default' : 'ghost'}
+                className="w-full justify-start"
+                onClick={() => handleTabChange('finance')}
+              >
+                <DollarSign className="mr-2 h-4 w-4" />
+                Finance
+              </Button>
+              <Button
+                variant={activeTab === 'tests' ? 'default' : 'ghost'}
+                className="w-full justify-start"
+                onClick={() => handleTabChange('tests')}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Tests
               </Button>
               <Button
                 variant={activeTab === 'settings' ? 'default' : 'ghost'}
@@ -268,6 +301,22 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                 teamId={team.id}
                 isCaptain={isCaptain}
                 user={user}
+              />
+            )}
+
+            {activeTab === 'finance' && (
+              <FinanceTab
+                teamId={team.id}
+                isCaptain={isCaptain}
+                currentMembershipId={currentMembership.id}
+              />
+            )}
+
+            {activeTab === 'tests' && (
+              <TestsTab
+                teamId={team.id}
+                isCaptain={isCaptain}
+                currentMembershipId={currentMembership.id}
               />
             )}
 

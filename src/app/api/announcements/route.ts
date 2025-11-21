@@ -108,24 +108,31 @@ export async function POST(req: NextRequest) {
       const author = allMemberships.find(m => m.id === membership.id)
       const authorEmail = author?.user.email
 
-      // Get all captains (will be CC'd)
-      const captains = allMemberships.filter(m => m.role === 'CAPTAIN')
-      const captainEmails = captains.map(c => c.user.email)
+      if (!authorEmail) {
+        console.error('Author email not found for announcement', announcement.id)
+      }
+
+      // Get all captains (will be CC'd) - exclude the author
+      const captains = allMemberships.filter(m => m.role === 'CAPTAIN' && m.id !== membership.id)
+      const captainEmails = captains.map(c => c.user.email).filter(Boolean)
 
       // Get target members based on scope (will be BCC'd)
       let targetMembers: { email: string; id: string }[] = []
 
       if (validated.scope === 'TEAM') {
-        // All members
+        // All members (exclude captains and author)
         targetMembers = allMemberships
-          .filter(m => m.role === 'MEMBER') // Only regular members (not captains)
+          .filter(m => m.role === 'MEMBER')
           .map(m => ({ email: m.user.email, id: m.user.id }))
+          .filter(m => m.email)
       } else if (validated.subteamIds) {
         // Members in selected subteams
         const subteamMemberships = allMemberships.filter(m => 
           m.role === 'MEMBER' && m.subteamId && validated.subteamIds?.includes(m.subteamId)
         )
-        targetMembers = subteamMemberships.map(m => ({ email: m.user.email, id: m.user.id }))
+        targetMembers = subteamMemberships
+          .map(m => ({ email: m.user.email, id: m.user.id }))
+          .filter(m => m.email)
       }
 
       // Get calendar event details if this announcement is linked to an event
@@ -146,40 +153,62 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Send one email with CC and BCC (don't await)
-      Promise.resolve().then(async () => {
-        const result = await sendAnnouncementEmail({
-          to: [authorEmail!], // Send to author as primary recipient
-          cc: captainEmails.length > 0 ? captainEmails : undefined, // CC all captains
-          bcc: targetMembers.map(u => u.email), // BCC all members
-          replyTo: authorEmail,
-          teamId: validated.teamId,
-          teamName: team?.name || 'Team',
-          title: validated.title,
-          content: validated.content,
-          announcementId: announcement.id,
-          calendarEvent: calendarEventDetails || undefined,
-        })
+      // Debug logging
+      console.log('Email sending debug:', {
+        authorEmail,
+        captainCount: captainEmails.length,
+        memberCount: targetMembers.length,
+        scope: validated.scope,
+        subteamIds: validated.subteamIds,
+      })
 
-        // Log email for all recipients
-        const allRecipients = [
-          ...captains.map(c => ({ id: c.userId, email: c.user.email })),
-          ...targetMembers,
-        ]
-
-        await Promise.all(
-          allRecipients.map(recipient =>
-            prisma.emailLog.create({
-              data: {
-                announcementId: announcement.id,
-                toUserId: recipient.id,
-                subject: `[${team?.name}] ${validated.title}`,
-                providerMessageId: result.messageId,
-              },
+      // Only send email if we have valid recipients
+      if (authorEmail && (captainEmails.length > 0 || targetMembers.length > 0)) {
+        // Send one email with CC and BCC (don't await to not block response)
+        Promise.resolve().then(async () => {
+          try {
+            const result = await sendAnnouncementEmail({
+              to: [authorEmail], // Send to author as primary recipient
+              cc: captainEmails.length > 0 ? captainEmails : undefined, // CC all other captains
+              bcc: targetMembers.length > 0 ? targetMembers.map(u => u.email) : undefined, // BCC all members
+              replyTo: authorEmail,
+              teamId: validated.teamId,
+              teamName: team?.name || 'Team',
+              title: validated.title,
+              content: validated.content,
+              announcementId: announcement.id,
+              calendarEvent: calendarEventDetails || undefined,
             })
-          )
-        )
-      }).catch(error => console.error('Email sending error:', error))
+
+            console.log('Email sent successfully:', result)
+
+            // Log email for all recipients (captains + members, not the author)
+            const allRecipients = [
+              ...captains.map(c => ({ id: c.userId, email: c.user.email })),
+              ...targetMembers,
+            ].filter(r => r.email && r.id)
+
+            if (allRecipients.length > 0) {
+              await Promise.all(
+                allRecipients.map(recipient =>
+                  prisma.emailLog.create({
+                    data: {
+                      announcementId: announcement.id,
+                      toUserId: recipient.id,
+                      subject: `[${team?.name}] ${validated.title}`,
+                      providerMessageId: result.messageId,
+                    },
+                  }).catch(err => console.error('Failed to log email for', recipient.email, err))
+                )
+              )
+            }
+          } catch (emailError) {
+            console.error('Email sending failed:', emailError)
+          }
+        }).catch(error => console.error('Email sending promise error:', error))
+      } else {
+        console.warn('No valid email recipients found, skipping email send')
+      }
     }
 
     const fullAnnouncement = await prisma.announcement.findUnique({
@@ -225,13 +254,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ announcement: fullAnnouncement })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 })
+      console.error('Announcement validation error:', error.errors)
+      return NextResponse.json({ 
+        error: 'Invalid announcement data', 
+        message: 'Please check all required fields',
+        details: error.errors 
+      }, { status: 400 })
     }
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return NextResponse.json({ error: 'You do not have permission to post announcements' }, { status: 403 })
     }
+    
     console.error('Create announcement error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    
+    // Make Prisma errors more readable
+    let userFriendlyMessage = 'Failed to post announcement'
+    if (error instanceof Error) {
+      if (error.message.includes('Unknown argument')) {
+        userFriendlyMessage = 'Invalid data submitted'
+      } else if (error.message.includes('Foreign key constraint')) {
+        userFriendlyMessage = 'Invalid team or subteam selected'
+      } else if (error.message.includes('Unique constraint')) {
+        userFriendlyMessage = 'This announcement conflicts with an existing record'
+      }
+    }
+    
+    return NextResponse.json({ 
+      error: userFriendlyMessage,
+      message: process.env.NODE_ENV === 'development' 
+        ? (error instanceof Error ? error.message : String(error))
+        : 'An error occurred while posting the announcement'
+    }, { status: 500 })
   }
 }
 

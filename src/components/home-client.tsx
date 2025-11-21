@@ -34,6 +34,21 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
     setCurrentUserName(user.name)
   }, [user.name])
 
+  const handleSignOut = async () => {
+    try {
+      const response = await signOut({
+        callbackUrl: '/auth/signin',
+        redirect: false,
+      })
+
+      const targetUrl = response?.url ?? '/auth/signin'
+      router.push(targetUrl)
+      router.refresh()
+    } catch (error) {
+      console.error('Sign out error', error)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark">
       <header className="border-b glass-effect-light dark:glass-effect-dark">
@@ -80,7 +95,7 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+              onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
             </Button>

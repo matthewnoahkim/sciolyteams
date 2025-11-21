@@ -3,12 +3,18 @@
 import { signIn } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 
-export function SignInButton() {
+type SignInButtonProps = {
+  callbackUrl?: string
+}
+
+export function SignInButton({ callbackUrl = '/' }: SignInButtonProps) {
+  const handleSignIn = () =>
+    signIn('google', {
+      callbackUrl,
+    })
+
   return (
-    <Button
-      className="w-full"
-      onClick={() => signIn('google', { callbackUrl: '/' })}
-    >
+    <Button className="w-full" onClick={handleSignIn}>
       <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
         <path
           fill="currentColor"

@@ -5,11 +5,41 @@ import { SignInButton } from '@/components/signin-button'
 import { SignInThemeToggle } from '@/components/signin-theme-toggle'
 import { Users } from 'lucide-react'
 
-export default async function SignInPage() {
+type SignInPageProps = {
+  searchParams?: {
+    callbackUrl?: string
+  }
+}
+
+const DEFAULT_CALLBACK_URL = '/'
+
+function resolveCallbackUrl(rawCallbackUrl?: string) {
+  if (!rawCallbackUrl) {
+    return DEFAULT_CALLBACK_URL
+  }
+
+  if (rawCallbackUrl.startsWith('/')) {
+    return rawCallbackUrl
+  }
+
+  try {
+    const url = new URL(rawCallbackUrl)
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return url.toString()
+    }
+  } catch {
+    // Ignore parsing errors and fallback to default
+  }
+
+  return DEFAULT_CALLBACK_URL
+}
+
+export default async function SignInPage({ searchParams }: SignInPageProps) {
   const session = await getServerSession(authOptions)
+  const callbackUrl = resolveCallbackUrl(searchParams?.callbackUrl)
 
   if (session?.user) {
-    redirect('/')
+    redirect(callbackUrl)
   }
 
   return (
@@ -30,7 +60,7 @@ export default async function SignInPage() {
 
         <div className="mt-8 space-y-6">
           <div className="space-y-4">
-            <SignInButton />
+            <SignInButton callbackUrl={callbackUrl} />
           </div>
 
           <div className="text-center text-xs text-muted-foreground">

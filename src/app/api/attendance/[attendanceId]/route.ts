@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember } from '@/lib/rbac'
+import { requireMember, isCaptain } from '@/lib/rbac'
 
 // GET /api/attendance/[attendanceId]
 // Get single attendance record details
@@ -68,6 +68,56 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
     console.error('Get attendance detail error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// DELETE /api/attendance/[attendanceId]
+// Delete attendance record only (keeps calendar event and announcement)
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { attendanceId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { attendanceId } = params
+
+    // Get the attendance record first to check permissions
+    const attendance = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      include: {
+        calendarEvent: true,
+      },
+    })
+
+    if (!attendance) {
+      return NextResponse.json({ error: 'Attendance not found' }, { status: 404 })
+    }
+
+    // Check if user is a captain
+    const isCpt = await isCaptain(session.user.id, attendance.teamId)
+    if (!isCpt) {
+      return NextResponse.json(
+        { error: 'Only captains can delete attendance records' },
+        { status: 403 }
+      )
+    }
+
+    // Delete only the attendance record (calendar event and announcement remain)
+    await prisma.attendance.delete({
+      where: { id: attendanceId },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+    console.error('Delete attendance error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

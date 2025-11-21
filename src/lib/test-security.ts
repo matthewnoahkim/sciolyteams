@@ -1,0 +1,239 @@
+import argon2 from 'argon2'
+import crypto from 'crypto'
+
+/**
+ * Hash a test admin password using Argon2id
+ */
+export async function hashTestPassword(password: string): Promise<string> {
+  return argon2.hash(password, {
+    type: argon2.argon2id,
+    memoryCost: 65536, // 64 MB
+    timeCost: 3,
+    parallelism: 4,
+  })
+}
+
+/**
+ * Verify a test admin password against a hash
+ */
+export async function verifyTestPassword(
+  hash: string,
+  password: string
+): Promise<boolean> {
+  try {
+    return await argon2.verify(hash, password)
+  } catch (error) {
+    return false
+  }
+}
+
+/**
+ * Generate a client fingerprint hash from browser data
+ */
+export function generateClientFingerprint(data: {
+  userAgent: string
+  timezone?: string
+  platform?: string
+  language?: string
+}): string {
+  const fingerprint = JSON.stringify(data)
+  return crypto.createHash('sha256').update(fingerprint).digest('hex')
+}
+
+/**
+ * Generate a seeded random number for question/option shuffling
+ * Uses attemptId as seed for deterministic randomization
+ */
+export function seededRandom(seed: string, index: number): number {
+  const hash = crypto
+    .createHash('sha256')
+    .update(seed + index.toString())
+    .digest()
+  return hash.readUInt32BE(0) / 0xffffffff
+}
+
+/**
+ * Shuffle an array using a seed for deterministic randomization
+ */
+export function seededShuffle<T>(array: T[], seed: string): T[] {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom(seed, i) * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+/**
+ * Calculate proctoring risk score from events
+ * Returns 0-100, higher = more suspicious
+ */
+export function calculateProctoringScore(events: Array<{ kind: string }>): number {
+  const weights: Record<string, number> = {
+    EXIT_FULLSCREEN: 15,
+    TAB_SWITCH: 10,
+    VISIBILITY_HIDDEN: 8,
+    DEVTOOLS_OPEN: 20,
+    BLUR: 5,
+    COPY: 10,
+    PASTE: 8,
+    CONTEXTMENU: 3,
+    RESIZE: 2,
+    NETWORK_OFFLINE: 5,
+    MULTI_MONITOR_HINT: 12,
+  }
+
+  let score = 0
+  const eventCounts: Record<string, number> = {}
+
+  events.forEach((event) => {
+    const kind = event.kind
+    eventCounts[kind] = (eventCounts[kind] || 0) + 1
+    const weight = weights[kind] || 1
+    
+    // Apply diminishing returns for repeated events
+    const count = eventCounts[kind]
+    const diminished = weight * Math.log(count + 1)
+    score += diminished
+  })
+
+  // Cap at 100
+  return Math.min(Math.round(score), 100)
+}
+
+/**
+ * Check if a test is currently available for taking
+ */
+export function isTestAvailable(test: {
+  status: string
+  startAt: Date | null
+  endAt: Date | null
+  allowLateUntil: Date | null
+}): { available: boolean; reason?: string } {
+  if (test.status !== 'PUBLISHED') {
+    return { available: false, reason: 'Test is not published' }
+  }
+
+  const now = new Date()
+
+  if (test.startAt && now < test.startAt) {
+    return { available: false, reason: 'Test has not started yet' }
+  }
+
+  if (test.endAt) {
+    const deadline = test.allowLateUntil || test.endAt
+    if (now > deadline) {
+      return { available: false, reason: 'Test deadline has passed' }
+    }
+  }
+
+  return { available: true }
+}
+
+/**
+ * Get IP address from request headers
+ */
+export function getClientIp(headers: Headers): string | null {
+  return (
+    headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+    headers.get('x-real-ip') ||
+    null
+  )
+}
+
+/**
+ * Auto-grade a question answer
+ */
+export function autoGradeQuestion(question: {
+  type: string
+  points: number
+  numericTolerance?: number | null
+  options?: Array<{ id: string; isCorrect: boolean }>
+}, answer: {
+  selectedOptionIds?: string[]
+  numericAnswer?: number | null
+}): { pointsAwarded: number; isCorrect: boolean } {
+  const points = Number(question.points)
+
+  if (question.type === 'MCQ_SINGLE') {
+    const correctOption = question.options?.find((o) => o.isCorrect)
+    const selectedId = answer.selectedOptionIds?.[0]
+    const isCorrect = selectedId === correctOption?.id
+    return { pointsAwarded: isCorrect ? points : 0, isCorrect }
+  }
+
+  if (question.type === 'MCQ_MULTI') {
+    const correctIds = new Set(
+      question.options?.filter((o) => o.isCorrect).map((o) => o.id) || []
+    )
+    const selectedIds = new Set(answer.selectedOptionIds || [])
+    
+    // All correct answers must be selected, no incorrect ones
+    const allCorrectSelected = [...correctIds].every((id) => selectedIds.has(id))
+    const noIncorrectSelected = [...selectedIds].every((id) => correctIds.has(id))
+    const isCorrect = allCorrectSelected && noIncorrectSelected
+    
+    return { pointsAwarded: isCorrect ? points : 0, isCorrect }
+  }
+
+  if (question.type === 'NUMERIC' && answer.numericAnswer !== null && answer.numericAnswer !== undefined) {
+    // Assuming the first option's label contains the correct answer
+    const correctAnswer = question.options?.[0]?.isCorrect
+      ? parseFloat(question.options[0].id) // Storing answer in ID for numeric
+      : null
+    
+    if (correctAnswer === null) {
+      return { pointsAwarded: 0, isCorrect: false }
+    }
+
+    const tolerance = Number(question.numericTolerance) || 0
+    const studentAnswer = Number(answer.numericAnswer)
+    const isCorrect = Math.abs(studentAnswer - correctAnswer) <= tolerance
+    
+    return { pointsAwarded: isCorrect ? points : 0, isCorrect }
+  }
+
+  // Text questions require manual grading
+  return { pointsAwarded: 0, isCorrect: false }
+}
+
+/**
+ * Rate limiting check for test operations
+ * Simple in-memory implementation (should use Redis in production)
+ */
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
+
+export function checkRateLimit(
+  key: string,
+  maxRequests: number,
+  windowMs: number
+): { allowed: boolean; remaining: number; resetAt: number } {
+  const now = Date.now()
+  const record = rateLimitStore.get(key)
+
+  if (!record || now > record.resetAt) {
+    const resetAt = now + windowMs
+    rateLimitStore.set(key, { count: 1, resetAt })
+    return { allowed: true, remaining: maxRequests - 1, resetAt }
+  }
+
+  if (record.count >= maxRequests) {
+    return { allowed: false, remaining: 0, resetAt: record.resetAt }
+  }
+
+  record.count++
+  return { allowed: true, remaining: maxRequests - record.count, resetAt: record.resetAt }
+}
+
+// Cleanup old rate limit entries every hour
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now()
+    for (const [key, record] of rateLimitStore.entries()) {
+      if (now > record.resetAt) {
+        rateLimitStore.delete(key)
+      }
+    }
+  }, 60 * 60 * 1000)
+}
+

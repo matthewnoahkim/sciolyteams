@@ -93,11 +93,14 @@ model Team {
   createdAt                 DateTime       @default(now())
   updatedAt                 DateTime       @updatedAt
 
-  createdBy      User              @relation("TeamCreator", fields: [createdById], references: [id])
-  memberships    Membership[]
-  subteams       Subteam[]
-  announcements  Announcement[]
-  calendarEvents CalendarEvent[]
+  createdBy        User              @relation("TeamCreator", fields: [createdById], references: [id])
+  memberships      Membership[]
+  subteams         Subteam[]
+  announcements    Announcement[]
+  calendarEvents   CalendarEvent[]
+  expenses         Expense[]
+  purchaseRequests PurchaseRequest[]
+  tests            Test[]
 
   @@index([createdById])
 }
@@ -138,6 +141,7 @@ model Subteam {
   rosterAssignments         RosterAssignment[]
   announcementVisibilities  AnnouncementVisibility[]
   calendarEvents            CalendarEvent[]
+  testAssignments           TestAssignment[]
 
   @@index([teamId])
 }
@@ -456,4 +460,299 @@ model Attachment {
   @@index([announcementId])
   @@index([calendarEventId])
   @@index([uploadedById])
+}
+
+// Finance System
+enum PurchaseRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  COMPLETED
+}
+
+model Expense {
+  id                String   @id @default(cuid())
+  teamId            String
+  description       String
+  category          String?  // e.g., "Equipment", "Travel", "Materials", etc.
+  amount            Float    // Amount in dollars
+  date              DateTime // Date of purchase/expense
+  notes             String?  @db.Text
+  purchaseRequestId String?  @unique // Link to purchase request if applicable
+  addedById         String   // Membership ID of who added this
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  team              Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  purchaseRequest   PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id], onDelete: SetNull)
+
+  @@index([teamId])
+  @@index([date])
+  @@index([addedById])
+}
+
+model PurchaseRequest {
+  id              String                 @id @default(cuid())
+  teamId          String
+  requesterId     String                 // Membership ID of requester
+  description     String
+  category        String?
+  estimatedAmount Float                  // Estimated cost in dollars
+  justification   String?                @db.Text // Why this purchase is needed
+  status          PurchaseRequestStatus  @default(PENDING)
+  reviewedById    String?                // Membership ID of captain who reviewed
+  reviewNote      String?                @db.Text
+  reviewedAt      DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  team            Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  expense         Expense?               // If approved and added to expenses
+
+  @@index([teamId])
+  @@index([requesterId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Testing System
+enum TestStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum QuestionType {
+  MCQ_SINGLE
+  MCQ_MULTI
+  SHORT_TEXT
+  LONG_TEXT
+  NUMERIC
+}
+
+enum TestAssignmentScope {
+  TEAM
+  SUBTEAM
+  PERSONAL
+}
+
+enum AttemptStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  GRADED
+  INVALIDATED
+}
+
+enum ProctorEventKind {
+  BLUR
+  VISIBILITY_HIDDEN
+  EXIT_FULLSCREEN
+  DEVTOOLS_OPEN
+  PASTE
+  COPY
+  CONTEXTMENU
+  TAB_SWITCH
+  RESIZE
+  NETWORK_OFFLINE
+  NETWORK_ONLINE
+  MULTI_MONITOR_HINT
+}
+
+enum TestAuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  PUBLISH
+  CLOSE
+  RESET_PASSWORD
+  MANUAL_GRADE
+  INVALIDATE_ATTEMPT
+}
+
+model Test {
+  id                      String      @id @default(cuid())
+  teamId                  String
+  name                    String
+  description             String?     @db.Text
+  instructions            String?     @db.Text // Markdown
+  status                  TestStatus  @default(DRAFT)
+  durationMinutes         Int
+  startAt                 DateTime?
+  endAt                   DateTime?
+  allowLateUntil          DateTime?
+  randomizeQuestionOrder  Boolean     @default(false)
+  randomizeOptionOrder    Boolean     @default(false)
+  requireFullscreen       Boolean     @default(true)
+  requirePasswordToEdit   Boolean     @default(true)
+  adminPasswordHash       String?
+  releaseScoresAt         DateTime?   // When to show scores to students
+  createdByMembershipId   String
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  team                    Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sections                TestSection[]
+  questions               Question[]
+  assignments             TestAssignment[]
+  attempts                TestAttempt[]
+  audits                  TestAudit[]
+
+  @@index([teamId])
+  @@index([status])
+  @@index([createdByMembershipId])
+}
+
+model TestSection {
+  id        String     @id @default(cuid())
+  testId    String
+  title     String?
+  order     Int        @default(0)
+  createdAt DateTime   @default(now())
+
+  test      Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@index([testId])
+}
+
+model Question {
+  id                String       @id @default(cuid())
+  testId            String
+  sectionId         String?
+  type              QuestionType
+  promptMd          String       @db.Text
+  explanation       String?      @db.Text // Shown after grading
+  points            Decimal      @db.Decimal(5, 2)
+  order             Int          @default(0)
+  shuffleOptions    Boolean      @default(false)
+  numericTolerance  Decimal?     @db.Decimal(8, 3)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  test              Test         @relation(fields: [testId], references: [id], onDelete: Cascade)
+  section           TestSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  options           QuestionOption[]
+  answers           AttemptAnswer[]
+
+  @@index([testId])
+  @@index([sectionId])
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  label      String   @db.Text
+  isCorrect  Boolean  @default(false)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+}
+
+model TestAssignment {
+  id                  String              @id @default(cuid())
+  testId              String
+  assignedScope       TestAssignmentScope
+  subteamId           String?
+  targetMembershipId  String?             // For PERSONAL scope
+  createdAt           DateTime            @default(now())
+
+  test                Test                @relation(fields: [testId], references: [id], onDelete: Cascade)
+  subteam             Subteam?            @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+
+  @@index([testId])
+  @@index([subteamId])
+  @@index([targetMembershipId])
+}
+
+model TestAttempt {
+  id                    String        @id @default(cuid())
+  testId                String
+  membershipId          String
+  status                AttemptStatus @default(NOT_STARTED)
+  startedAt             DateTime?
+  submittedAt           DateTime?
+  gradeEarned           Decimal?      @db.Decimal(6, 2)
+  proctoringScore       Int?          // 0-100, higher = more risk
+  clientFingerprintHash String?
+  ipAtStart             String?
+  ipAtSubmit            String?
+  userAgentAtStart      String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  test                  Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
+  answers               AttemptAnswer[]
+  proctorEvents         ProctorEvent[]
+  gradeAdjustments      GradeAdjustment[]
+
+  @@unique([membershipId, testId])
+  @@index([testId])
+  @@index([membershipId])
+  @@index([status])
+}
+
+model AttemptAnswer {
+  id                String    @id @default(cuid())
+  attemptId         String
+  questionId        String
+  answerText        String?   @db.Text
+  selectedOptionIds Json?     // string[] for MCQ
+  numericAnswer     Decimal?  @db.Decimal(16, 6)
+  pointsAwarded     Decimal?  @db.Decimal(5, 2)
+  gradedAt          DateTime?
+  graderNote        String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  attempt           TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question          Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@index([questionId])
+}
+
+model ProctorEvent {
+  id         String           @id @default(cuid())
+  attemptId  String
+  kind       ProctorEventKind
+  ts         DateTime         @default(now())
+  meta       Json?            // Additional context
+
+  attempt    TestAttempt      @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@index([ts])
+}
+
+model GradeAdjustment {
+  id                  String      @id @default(cuid())
+  attemptId           String
+  graderMembershipId  String
+  deltaPoints         Decimal     @db.Decimal(6, 2)
+  reason              String      @db.Text
+  createdAt           DateTime    @default(now())
+
+  attempt             TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+}
+
+model TestAudit {
+  id                String          @id @default(cuid())
+  testId            String
+  actorMembershipId String
+  action            TestAuditAction
+  details           Json?
+  createdAt         DateTime        @default(now())
+
+  test              Test            @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@index([testId])
+  @@index([actorMembershipId])
+  @@index([createdAt])
 }

@@ -156,19 +156,10 @@ export async function DELETE(
       )
     }
 
-    // Delete announcement and linked calendar event in transaction
-    await prisma.$transaction(async (tx) => {
-      // Delete the announcement first (this will set calendarEventId to null due to cascade)
-      await tx.announcement.delete({
-        where: { id: params.announcementId },
-      })
-
-      // If there's a linked calendar event, delete it too
-      if (announcement.calendarEventId) {
-        await tx.calendarEvent.delete({
-          where: { id: announcement.calendarEventId },
-        })
-      }
+    // Delete announcement only (keep calendar event and attendance if they exist)
+    // The calendar event remains in the calendar and attendance tabs
+    await prisma.announcement.delete({
+      where: { id: params.announcementId },
     })
 
     return NextResponse.json({ success: true })

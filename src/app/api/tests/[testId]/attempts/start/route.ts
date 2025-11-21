@@ -1,0 +1,111 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { getUserMembership } from '@/lib/rbac'
+import { isTestAvailable, getClientIp, generateClientFingerprint } from '@/lib/test-security'
+
+// POST /api/tests/[testId]/attempts/start
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { testId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const { fingerprint } = body
+
+    const test = await prisma.test.findUnique({
+      where: { id: params.testId },
+      include: {
+        assignments: true,
+      },
+    })
+
+    if (!test) {
+      return NextResponse.json({ error: 'Test not found' }, { status: 404 })
+    }
+
+    const membership = await getUserMembership(session.user.id, test.teamId)
+    if (!membership) {
+      return NextResponse.json({ error: 'Not a team member' }, { status: 403 })
+    }
+
+    // Check if test is available
+    const availability = isTestAvailable(test)
+    if (!availability.available) {
+      return NextResponse.json(
+        { error: availability.reason },
+        { status: 403 }
+      )
+    }
+
+    // Check assignment
+    const hasAccess = test.assignments.some(
+      (a) =>
+        a.assignedScope === 'TEAM' ||
+        a.subteamId === membership.subteamId ||
+        a.targetMembershipId === membership.id
+    )
+
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Test not assigned to you' },
+        { status: 403 }
+      )
+    }
+
+    // Check for existing attempt
+    let attempt = await prisma.testAttempt.findUnique({
+      where: {
+        membershipId_testId: {
+          membershipId: membership.id,
+          testId: params.testId,
+        },
+      },
+    })
+
+    if (attempt) {
+      if (attempt.status === 'SUBMITTED' || attempt.status === 'GRADED') {
+        return NextResponse.json(
+          { error: 'You have already completed this test' },
+          { status: 400 }
+        )
+      }
+      if (attempt.status === 'INVALIDATED') {
+        return NextResponse.json(
+          { error: 'Your attempt has been invalidated' },
+          { status: 403 }
+        )
+      }
+      // Resume existing attempt
+      return NextResponse.json({ attempt })
+    }
+
+    // Create new attempt
+    const ipAddress = getClientIp(req.headers)
+    const userAgent = req.headers.get('user-agent')
+
+    attempt = await prisma.testAttempt.create({
+      data: {
+        testId: params.testId,
+        membershipId: membership.id,
+        status: 'IN_PROGRESS',
+        startedAt: new Date(),
+        clientFingerprintHash: fingerprint || null,
+        ipAtStart: ipAddress,
+        userAgentAtStart: userAgent,
+      },
+    })
+
+    return NextResponse.json({ attempt }, { status: 201 })
+  } catch (error) {
+    console.error('Start attempt error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+

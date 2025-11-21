@@ -14,10 +14,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, Check, X as XIcon, User, Paperclip } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, Check, X as XIcon, User } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { EventAnnouncementModal } from '@/components/event-announcement-modal'
-import { AttachmentDisplay } from '@/components/ui/attachment-display'
 
 interface CalendarTabProps {
   teamId: string
@@ -50,8 +49,6 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
   const [createdEvent, setCreatedEvent] = useState<any>(null)
   const [showImportantOnly, setShowImportantOnly] = useState(false)
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
-  const [uploadingFiles, setUploadingFiles] = useState(false)
   
   // Helper function to format date for datetime-local input
   const formatDateTimeLocal = (date: Date) => {
@@ -239,45 +236,16 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
 
       if (!response.ok) {
         const data = await response.json()
-        const errorMsg = data.message || data.error || 'Failed to create event'
+        const errorMsg = data.error || 'Failed to create event'
+        const detailMsg = data.message || ''
         console.error('Event creation error:', data)
-        throw new Error(errorMsg)
+        
+        // Show user-friendly error message
+        throw new Error(detailMsg ? `${errorMsg}: ${detailMsg}` : errorMsg)
       }
 
       const data = await response.json()
       const newEvent = data.event
-
-      // Upload files if any
-      if (selectedFiles.length > 0) {
-        setUploadingFiles(true)
-        try {
-          await Promise.all(
-            selectedFiles.map(async (file) => {
-              const formData = new FormData()
-              formData.append('file', file)
-              formData.append('calendarEventId', newEvent.id)
-
-              const uploadResponse = await fetch('/api/attachments/upload', {
-                method: 'POST',
-                body: formData,
-              })
-
-              if (!uploadResponse.ok) {
-                throw new Error(`Failed to upload ${file.name}`)
-              }
-            })
-          )
-        } catch (error) {
-          console.error('File upload error:', error)
-          toast({
-            title: 'Warning',
-            description: 'Event created but some files failed to upload',
-            variant: 'destructive',
-          })
-        } finally {
-          setUploadingFiles(false)
-        }
-      }
 
       toast({
         title: 'Event created',
@@ -287,7 +255,6 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       setCreateOpen(false)
       const createdFormData = { ...formData }
       setFormData(getInitialFormData())
-      setSelectedFiles([])
       fetchEvents()
 
       // Show announcement modal for TEAM or SUBTEAM events created by captains
@@ -1733,53 +1700,16 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                   </div>
                 )}
               </div>
-              <div>
-                <Label htmlFor="event-files" className="flex items-center gap-2">
-                  <Paperclip className="h-4 w-4" />
-                  Attach Files
-                </Label>
-                <Input
-                  id="event-files"
-                  type="file"
-                  multiple
-                  accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || [])
-                    setSelectedFiles([...selectedFiles, ...files])
-                  }}
-                  className="mt-2"
-                />
-                {selectedFiles.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm">
-                        <Paperclip className="h-3 w-3" />
-                        <span className="truncate">{file.name}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => setSelectedFiles(selectedFiles.filter((_, i) => i !== index))}
-                        >
-                          <XIcon className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => {
                 setCreateOpen(false)
                 setFormData(getInitialFormData())
-                setSelectedFiles([])
               }}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || uploadingFiles}>
-                {uploadingFiles ? 'Uploading...' : loading ? 'Creating...' : 'Create Event'}
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Creating...' : 'Create Event'}
               </Button>
             </DialogFooter>
           </form>
@@ -1876,31 +1806,6 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-1">Description</p>
                     <p className="text-sm">{selectedEvent.description}</p>
-                  </div>
-                )}
-
-                {selectedEvent.attachments && selectedEvent.attachments.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-2">Attachments</p>
-                    <AttachmentDisplay
-                      attachments={selectedEvent.attachments}
-                      canDelete={canEditEvent(selectedEvent)}
-                      onDelete={async (attachmentId) => {
-                        try {
-                          const response = await fetch(`/api/attachments/upload?id=${attachmentId}`, {
-                            method: 'DELETE',
-                          })
-                          if (response.ok) {
-                            await fetchEvents()
-                            // Update selected event if it's the one being edited
-                            const updatedEvent = events.find(e => e.id === selectedEvent.id)
-                            if (updatedEvent) setSelectedEvent(updatedEvent)
-                          }
-                        } catch (error) {
-                          console.error('Failed to delete attachment:', error)
-                        }
-                      }}
-                    />
                   </div>
                 )}
 

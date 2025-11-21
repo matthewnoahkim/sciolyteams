@@ -91,6 +91,18 @@ export async function sendAnnouncementEmail({
   calendarEvent,
 }: SendAnnouncementEmailParams): Promise<{ messageId: string | null }> {
   try {
+    // Validate we have the API key
+    if (!process.env.RESEND_API_KEY) {
+      console.error('RESEND_API_KEY is not configured')
+      return { messageId: null }
+    }
+
+    // Validate we have at least one recipient
+    if (!to || to.length === 0) {
+      console.error('No primary recipients provided')
+      return { messageId: null }
+    }
+
     // Build the team stream URL
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
     const teamStreamUrl = `${baseUrl}/teams/${teamId}?tab=stream`
@@ -116,6 +128,13 @@ export async function sendAnnouncementEmail({
         </div>
       `
     }
+
+    console.log('Sending email via Resend:', {
+      to: to.length,
+      cc: cc?.length || 0,
+      bcc: bcc?.length || 0,
+      subject: `[${teamName}] ${title}`,
+    })
 
     const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || 'SciOly Teams <noreply@sciolyteams.com>',
@@ -158,10 +177,11 @@ export async function sendAnnouncementEmail({
     })
 
     if (error) {
-      console.error('Failed to send email:', error)
+      console.error('Resend API error:', error)
       return { messageId: null }
     }
 
+    console.log('Email sent successfully, message ID:', data?.id)
     return { messageId: data?.id || null }
   } catch (error) {
     console.error('Email service error:', error)

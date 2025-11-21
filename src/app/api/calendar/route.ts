@@ -160,18 +160,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ event })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 })
+      return NextResponse.json({ 
+        error: 'Invalid event data', 
+        message: 'Please check all required fields',
+        details: error.errors 
+      }, { status: 400 })
     }
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return NextResponse.json({ error: 'You do not have permission to perform this action' }, { status: 403 })
     }
+    
     console.error('Create calendar event error:', error)
-    // Return more detailed error information
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
+    
+    // Make Prisma errors more readable
+    let userFriendlyMessage = 'Failed to create event'
+    if (error instanceof Error) {
+      if (error.message.includes('Unknown argument')) {
+        userFriendlyMessage = 'Invalid event data submitted'
+      } else if (error.message.includes('Foreign key constraint')) {
+        userFriendlyMessage = 'Invalid team or subteam selected'
+      } else if (error.message.includes('Unique constraint')) {
+        userFriendlyMessage = 'This event conflicts with an existing record'
+      } else if (error.message.includes('attendance')) {
+        userFriendlyMessage = 'Failed to create attendance tracking for this event'
+      }
+    }
+    
     return NextResponse.json({ 
-      error: 'Internal server error', 
-      message: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? String(error) : undefined 
+      error: userFriendlyMessage,
+      message: process.env.NODE_ENV === 'development' 
+        ? (error instanceof Error ? error.message : String(error))
+        : 'An error occurred while creating the event'
     }, { status: 500 })
   }
 }

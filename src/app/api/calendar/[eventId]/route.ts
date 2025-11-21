@@ -88,6 +88,25 @@ export async function PATCH(
     }
 
     const updatedEvent = await prisma.$transaction(async (tx) => {
+      // Check if there's a linked announcement that needs to be deleted
+      // This happens when changing from TEAM/SUBTEAM to PERSONAL
+      const existingEvent = await tx.calendarEvent.findUnique({
+        where: { id: params.eventId },
+        include: { announcement: true },
+      })
+
+      const shouldDeleteAnnouncement = 
+        existingEvent?.announcement && 
+        validatedData.scope === 'PERSONAL' && 
+        (existingEvent.scope === 'TEAM' || existingEvent.scope === 'SUBTEAM')
+
+      // If changing to PERSONAL scope, delete the linked announcement
+      if (shouldDeleteAnnouncement && existingEvent?.announcement) {
+        await tx.announcement.delete({
+          where: { id: existingEvent.announcement.id },
+        })
+      }
+
       const updated = await tx.calendarEvent.update({
         where: { id: params.eventId },
         data: updateData,
@@ -114,16 +133,16 @@ export async function PATCH(
         },
       })
 
-      // If event has a linked announcement, sync title and important field
-      if (updated.announcement) {
-        const updateData: any = {}
-        if (validatedData.title) updateData.title = validatedData.title
-        if (validatedData.important !== undefined) updateData.important = validatedData.important
+      // If event has a linked announcement (and wasn't deleted above), sync title and important field
+      if (updated.announcement && !shouldDeleteAnnouncement) {
+        const announcementUpdateData: any = {}
+        if (validatedData.title) announcementUpdateData.title = validatedData.title
+        if (validatedData.important !== undefined) announcementUpdateData.important = validatedData.important
         
-        if (Object.keys(updateData).length > 0) {
+        if (Object.keys(announcementUpdateData).length > 0) {
           await tx.announcement.update({
             where: { id: updated.announcement.id },
-            data: updateData,
+            data: announcementUpdateData,
           })
         }
       }

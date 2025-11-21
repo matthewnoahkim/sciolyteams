@@ -96,7 +96,13 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
         }),
       })
 
-      if (!response.ok) throw new Error('Failed to post announcement')
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Announcement post error:', errorData)
+        const errorMsg = errorData.error || 'Failed to post announcement'
+        const detailMsg = errorData.message || ''
+        throw new Error(detailMsg ? `${errorMsg}: ${detailMsg}` : errorMsg)
+      }
 
       const data = await response.json()
       const announcementId = data.announcement?.id
@@ -144,10 +150,11 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
       setImportant(false)
       setSelectedFiles([])
       fetchAnnouncements()
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Post announcement error:', error)
       toast({
         title: 'Error',
-        description: 'Failed to post announcement',
+        description: error.message || 'Failed to post announcement',
         variant: 'destructive',
       })
     } finally {
@@ -197,6 +204,10 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   }
 
   const canEditAnnouncement = (announcement: any) => {
+    // Cannot edit announcements linked to calendar events (only delete them)
+    if (announcement.calendarEvent) {
+      return false
+    }
     // Can only edit if you're the author (not just any captain)
     return announcement.authorId === currentMembership.id
   }
