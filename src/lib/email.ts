@@ -141,7 +141,7 @@ export async function sendAnnouncementEmail({
       to,
       cc,
       bcc,
-      replyTo,
+    reply_to: replyTo,
       subject: `[${teamName}] ${title}`,
       html: `
         <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">

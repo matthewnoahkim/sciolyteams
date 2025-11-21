@@ -26,6 +26,15 @@ interface StreamTabProps {
   }
 }
 
+type AnnouncementsResponse = {
+  announcements: any[]
+}
+
+type ApiErrorResponse = {
+  error?: string
+  message?: string
+}
+
 export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user }: StreamTabProps) {
   const { toast } = useToast()
   const [announcements, setAnnouncements] = useState<any[]>([])
@@ -63,7 +72,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
     try {
       const response = await fetch(`/api/announcements?teamId=${teamId}`)
       if (response.ok) {
-        const data = await response.json()
+        const data = (await response.json()) as AnnouncementsResponse
         setAnnouncements(data.announcements)
       }
     } catch (error) {
@@ -97,15 +106,25 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = (await response.json().catch(() => ({}))) as ApiErrorResponse
         console.error('Announcement post error:', errorData)
         const errorMsg = errorData.error || 'Failed to post announcement'
         const detailMsg = errorData.message || ''
         throw new Error(detailMsg ? `${errorMsg}: ${detailMsg}` : errorMsg)
       }
 
-      const data = await response.json()
-      const announcementId = data.announcement?.id
+      const rawData: unknown = await response.json().catch(() => null)
+      let announcementId: string | undefined
+      if (
+        rawData &&
+        typeof rawData === 'object' &&
+        'announcement' in rawData &&
+        rawData.announcement &&
+        typeof rawData.announcement === 'object' &&
+        'id' in rawData.announcement
+      ) {
+        announcementId = (rawData.announcement as { id?: string }).id
+      }
 
       // Upload files if any
       if (selectedFiles.length > 0 && announcementId) {
@@ -176,8 +195,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to delete announcement')
+        const errorData = (await response.json().catch(() => ({}))) as ApiErrorResponse
+        throw new Error(errorData.error || 'Failed to delete announcement')
       }
 
       toast({
@@ -224,7 +243,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
     const content = replyContent[announcementId]?.trim()
     if (!content) return
 
-    setPostingReply({ ...postingReply, [announcementId]: true })
+    setPostingReply((prev) => ({ ...prev, [announcementId]: true }))
 
     try {
       const response = await fetch(`/api/announcements/${announcementId}/replies`, {
@@ -240,7 +259,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
       })
 
       // Clear the input
-      setReplyContent({ ...replyContent, [announcementId]: '' })
+      setReplyContent((prev) => ({ ...prev, [announcementId]: '' }))
       
       // Refresh announcements to get new reply
       fetchAnnouncements()
@@ -251,20 +270,20 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
         variant: 'destructive',
       })
     } finally {
-      setPostingReply({ ...postingReply, [announcementId]: false })
+      setPostingReply((prev) => ({ ...prev, [announcementId]: false }))
     }
   }
 
   const toggleReplies = (announcementId: string) => {
-    setShowReplies({
-      ...showReplies,
-      [announcementId]: !showReplies[announcementId],
-    })
+    setShowReplies((prev) => ({
+      ...prev,
+      [announcementId]: !prev[announcementId],
+    }))
   }
 
   const handleReactionToggle = async (targetType: 'announcement' | 'reply', targetId: string, emoji: string) => {
     const key = `${targetType}-${targetId}-${emoji}`
-    setReacting({ ...reacting, [key]: true })
+    setReacting((prev) => ({ ...prev, [key]: true }))
 
     try {
       // Check if user already reacted with this emoji
@@ -315,7 +334,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
         variant: 'destructive',
       })
     } finally {
-      setReacting({ ...reacting, [key]: false })
+      setReacting((prev) => ({ ...prev, [key]: false }))
     }
   }
 
@@ -336,11 +355,12 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
       return acc
     }, {} as Record<string, { count: number; hasUserReacted: boolean }>)
 
-    Object.entries(grouped).forEach(([emoji, data]) => {
+    Object.keys(grouped).forEach((emoji) => {
+      const info = grouped[emoji]
       summary.push({
         emoji,
-        count: data.count,
-        hasUserReacted: data.hasUserReacted,
+        count: info.count,
+        hasUserReacted: info.hasUserReacted,
       })
     })
 
@@ -372,8 +392,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to delete reply')
+        const errorData = (await response.json().catch(() => ({}))) as ApiErrorResponse
+        throw new Error(errorData.error || 'Failed to delete reply')
       }
 
       toast({
@@ -399,14 +419,14 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
 
   const canDeleteReply = (reply: any) => {
     // Members can delete their own replies
-    if (reply.author.user.id === user.id) return true
+    if (reply.author.user.id === currentMembership.userId) return true
     // Captains can delete any reply
     if (isCaptain) return true
     return false
   }
 
   const handleRSVP = async (eventId: string, status: 'YES' | 'NO') => {
-    setRsvping({ ...rsvping, [eventId]: true })
+    setRsvping((prev) => ({ ...prev, [eventId]: true }))
 
     try {
       const response = await fetch(`/api/calendar/${eventId}/rsvp`, {
@@ -432,12 +452,12 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
         variant: 'destructive',
       })
     } finally {
-      setRsvping({ ...rsvping, [eventId]: false })
+      setRsvping((prev) => ({ ...prev, [eventId]: false }))
     }
   }
 
   const handleRemoveRSVP = async (eventId: string) => {
-    setRsvping({ ...rsvping, [eventId]: true })
+    setRsvping((prev) => ({ ...prev, [eventId]: true }))
 
     try {
       const response = await fetch(`/api/calendar/${eventId}/rsvp`, {
@@ -461,13 +481,13 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
         variant: 'destructive',
       })
     } finally {
-      setRsvping({ ...rsvping, [eventId]: false })
+      setRsvping((prev) => ({ ...prev, [eventId]: false }))
     }
   }
 
   const getUserRSVP = (event: any) => {
     if (!event?.rsvps) return null
-    return event.rsvps.find((r: any) => r.userId === user.id)
+    return event.rsvps.find((r: any) => r.userId === currentMembership.userId)
   }
 
   const getRSVPCounts = (event: any) => {
@@ -542,8 +562,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to update announcement')
+        const errorData = (await response.json().catch(() => ({}))) as ApiErrorResponse
+        throw new Error(errorData.error || 'Failed to update announcement')
       }
 
       toast({
@@ -643,11 +663,11 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                         value={subteam.id}
                         checked={selectedSubteams.includes(subteam.id)}
                         onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedSubteams([...selectedSubteams, subteam.id])
-                          } else {
-                            setSelectedSubteams(selectedSubteams.filter((id) => id !== subteam.id))
-                          }
+                          setSelectedSubteams((prev) =>
+                            e.target.checked
+                              ? [...prev, subteam.id]
+                              : prev.filter((id) => id !== subteam.id)
+                          )
                         }}
                       />
                       <span className="text-sm">{subteam.name}</span>
@@ -690,14 +710,18 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                 accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
                 onChange={(e) => {
                   const files = Array.from(e.target.files || [])
-                  setSelectedFiles([...selectedFiles, ...files])
+                  if (files.length > 0) {
+                    setSelectedFiles((prev) => [...prev, ...files])
+                  }
                 }}
                 className="mt-2"
               />
               {selectedFiles.length > 0 && (
                 <div className="mt-2 space-y-1">
-                  {selectedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center gap-2 text-sm">
+                  {selectedFiles.map((file, index) => {
+                    const key = file.name ? `${file.name}-${index}` : `file-${index}`
+                    return (
+                    <div key={key} className="flex items-center gap-2 text-sm">
                       <Paperclip className="h-3 w-3" />
                       <span className="truncate">{file.name}</span>
                       <Button
@@ -705,12 +729,15 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0"
-                        onClick={() => setSelectedFiles(selectedFiles.filter((_, i) => i !== index))}
+                        onClick={() =>
+                          setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
+                        }
                       >
                         <X className="h-3 w-3" />
                       </Button>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -967,6 +994,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                 {/* Reactions Section */}
                 <div className="mt-4">
                   <EmojiPicker
+                    onEmojiSelect={(emoji) => handleReactionToggle('announcement', announcement.id, emoji)}
                     onReactionToggle={(emoji) => handleReactionToggle('announcement', announcement.id, emoji)}
                     currentReactions={getReactionSummary(announcement.reactions || [])}
                   />
@@ -1029,6 +1057,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                                 {/* Reply Reactions */}
                                 <div className="mt-2">
                                   <EmojiPicker
+                                    onEmojiSelect={(emoji) => handleReactionToggle('reply', reply.id, emoji)}
                                     onReactionToggle={(emoji) => handleReactionToggle('reply', reply.id, emoji)}
                                     currentReactions={getReactionSummary(reply.reactions || [])}
                                   />
@@ -1052,10 +1081,10 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                             placeholder="Write a reply..."
                             value={replyContent[announcement.id] || ''}
                             onChange={(e) =>
-                              setReplyContent({
-                                ...replyContent,
+                              setReplyContent((prev) => ({
+                                ...prev,
                                 [announcement.id]: e.target.value,
-                              })
+                              }))
                             }
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && !e.shiftKey) {
