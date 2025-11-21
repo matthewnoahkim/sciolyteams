@@ -3,7 +3,6 @@
   "framework": "nextjs",
   "installCommand": "npm install",
   "env": {
-    "NEXTAUTH_SECRET": "@nextauth_secret",
     "NEXTAUTH_URL": "@nextauth_url",
     "GOOGLE_CLIENT_ID": "@google_client_id",
     "GOOGLE_CLIENT_SECRET": "@google_client_secret",
