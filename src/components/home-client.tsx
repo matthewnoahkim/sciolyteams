@@ -179,7 +179,7 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
         <EditUsernameDialog 
           open={editNameOpen} 
           onOpenChange={setEditNameOpen}
-          currentName={user.name}
+          currentName={user.name ?? null}
           onNameUpdated={setCurrentUserName}
         />
       </main>
