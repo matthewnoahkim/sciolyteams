@@ -66,15 +66,10 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
     name: '',
     description: '',
     instructions: '',
-    adminPassword: '',
-    adminPasswordConfirm: '',
     durationMinutes: '60',
-    startAt: '',
-    endAt: '',
     randomizeQuestionOrder: false,
     randomizeOptionOrder: false,
     requireFullscreen: true,
-    releaseScoresAt: '',
   })
 
   const [questions, setQuestions] = useState<QuestionDraft[]>([])
@@ -102,6 +97,22 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
     }
 
     setQuestions((prev) => [...prev, newQuestion])
+  }
+
+  const addRecommendedOptions = (questionId: string) => {
+    updateQuestion(questionId, (prev) => {
+      if (prev.options.length >= 4) return prev
+      const needed = 4 - prev.options.length
+      const newOptions = Array.from({ length: needed }, () => ({
+        id: nanoid(),
+        label: '',
+        isCorrect: false,
+      }))
+      return {
+        ...prev,
+        options: [...prev.options, ...newOptions],
+      }
+    })
   }
 
   const updateQuestion = (id: string, updater: (question: QuestionDraft) => QuestionDraft) => {
@@ -200,13 +211,6 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
       errors.push('Select at least one subteam or assign to the entire team.')
     }
 
-    if (details.adminPassword.length < 6) {
-      errors.push('Admin password must be at least 6 characters.')
-    }
-
-    if (details.adminPassword !== details.adminPasswordConfirm) {
-      errors.push('Admin password confirmation does not match.')
-    }
 
     if (questions.length === 0) {
       errors.push('Add at least one question before saving.')
@@ -223,16 +227,14 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
       }
 
       if (question.type !== 'LONG_TEXT') {
-        if (question.options.length < 2) {
-          errors.push(`Question ${index + 1} needs at least two options.`)
+        // Filter out empty options for validation
+        const filledOptions = question.options.filter((option) => option.label.trim())
+        
+        if (filledOptions.length < 1) {
+          errors.push(`Question ${index + 1} needs at least one filled answer choice.`)
         }
 
-        const blankOption = question.options.some((option) => !option.label.trim())
-        if (blankOption) {
-          errors.push(`Question ${index + 1} has a blank answer choice.`)
-        }
-
-        const correctCount = question.options.filter((option) => option.isCorrect).length
+        const correctCount = filledOptions.filter((option) => option.isCorrect).length
         if (correctCount === 0) {
           errors.push(`Question ${index + 1} needs at least one correct answer.`)
         }
@@ -284,15 +286,9 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
       description: details.description.trim() || undefined,
       instructions: details.instructions.trim() || undefined,
       durationMinutes: validationSummary.durationValue,
-      startAt: details.startAt ? new Date(details.startAt).toISOString() : undefined,
-      endAt: details.endAt ? new Date(details.endAt).toISOString() : undefined,
       randomizeQuestionOrder: details.randomizeQuestionOrder,
       randomizeOptionOrder: details.randomizeOptionOrder,
       requireFullscreen: details.requireFullscreen,
-      adminPassword: details.adminPassword,
-      releaseScoresAt: details.releaseScoresAt
-        ? new Date(details.releaseScoresAt).toISOString()
-        : undefined,
       assignments,
       questions: questions.map((question, index) => ({
         type: question.type,
@@ -304,11 +300,13 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
         options:
           question.type === 'LONG_TEXT'
             ? undefined
-            : question.options.map((option, optIndex) => ({
-                label: option.label.trim(),
-                isCorrect: option.isCorrect,
-                order: optIndex,
-              })),
+            : question.options
+                .filter((option) => option.label.trim()) // Filter out empty options
+                .map((option, optIndex) => ({
+                  label: option.label.trim(),
+                  isCorrect: option.isCorrect,
+                  order: optIndex,
+                })),
       })),
     }
 
@@ -449,84 +447,25 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
                   mark correct answers for automatic grading.
                 </div>
               )}
-              {questions.map((question, index) => (
-                <QuestionCard
-                  key={question.id}
-                  index={index}
-                  total={questions.length}
-                  question={question}
-                  onChange={(updater) => updateQuestion(question.id, updater)}
-                  onRemove={() => removeQuestion(question.id)}
-                  onMoveUp={() => moveQuestion(question.id, -1)}
-                  onMoveDown={() => moveQuestion(question.id, 1)}
-                  onImageUpload={(field, file) => handleImageEmbed(question.id, field, file)}
-                />
-              ))}
+          {questions.map((question, index) => (
+            <QuestionCard
+              key={question.id}
+              index={index}
+              total={questions.length}
+              question={question}
+              onChange={(updater) => updateQuestion(question.id, updater)}
+              onRemove={() => removeQuestion(question.id)}
+              onMoveUp={() => moveQuestion(question.id, -1)}
+              onMoveDown={() => moveQuestion(question.id, 1)}
+              onImageUpload={(field, file) => handleImageEmbed(question.id, field, file)}
+              onAddRecommendedOptions={() => addRecommendedOptions(question.id)}
+            />
+          ))}
             </CardContent>
           </Card>
         </div>
 
         <div className="lg:w-[320px] space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Play className="h-4 w-4" />
-                Scheduling
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="startAt">Opens *</Label>
-                <Input
-                  id="startAt"
-                  type="datetime-local"
-                  value={details.startAt}
-                  onChange={(event) =>
-                    setDetails((prev) => ({ ...prev, startAt: event.target.value }))
-                  }
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="endAt">Closes *</Label>
-                <Input
-                  id="endAt"
-                  type="datetime-local"
-                  value={details.endAt}
-                  onChange={(event) =>
-                    setDetails((prev) => ({ ...prev, endAt: event.target.value }))
-                  }
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="duration">Allotted time (minutes) *</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  min="1"
-                  max="720"
-                  value={details.durationMinutes}
-                  onChange={(event) =>
-                    setDetails((prev) => ({ ...prev, durationMinutes: event.target.value }))
-                  }
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="releaseScoresAt">Release scores (optional)</Label>
-                <Input
-                  id="releaseScoresAt"
-                  type="datetime-local"
-                  value={details.releaseScoresAt}
-                  onChange={(event) =>
-                    setDetails((prev) => ({ ...prev, releaseScoresAt: event.target.value }))
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -605,26 +544,15 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="adminPassword">Admin password *</Label>
+                <Label htmlFor="duration">Allotted time (minutes) *</Label>
                 <Input
-                  id="adminPassword"
-                  type="password"
-                  value={details.adminPassword}
+                  id="duration"
+                  type="number"
+                  min="1"
+                  max="720"
+                  value={details.durationMinutes}
                   onChange={(event) =>
-                    setDetails((prev) => ({ ...prev, adminPassword: event.target.value }))
-                  }
-                  placeholder="Required to edit or publish"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="adminPasswordConfirm">Confirm password *</Label>
-                <Input
-                  id="adminPasswordConfirm"
-                  type="password"
-                  value={details.adminPasswordConfirm}
-                  onChange={(event) =>
-                    setDetails((prev) => ({ ...prev, adminPasswordConfirm: event.target.value }))
+                    setDetails((prev) => ({ ...prev, durationMinutes: event.target.value }))
                   }
                   required
                 />
@@ -706,6 +634,7 @@ interface QuestionCardProps {
   onMoveUp: () => void
   onMoveDown: () => void
   onImageUpload: (field: 'context' | 'prompt', file: File) => void
+  onAddRecommendedOptions: () => void
 }
 
 function QuestionCard({
@@ -717,6 +646,7 @@ function QuestionCard({
   onMoveUp,
   onMoveDown,
   onImageUpload,
+  onAddRecommendedOptions,
 }: QuestionCardProps) {
   const contextInputRef = useRef<HTMLInputElement>(null)
   const promptInputRef = useRef<HTMLInputElement>(null)
@@ -862,11 +792,29 @@ function QuestionCard({
         {question.type !== 'LONG_TEXT' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Answer choices *</Label>
-              <Button type="button" size="sm" variant="outline" onClick={addOption}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add choice
-              </Button>
+              <div>
+                <Label className="text-sm font-medium">Answer choices *</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  At least one filled choice required. 4 recommended for multiple choice.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {question.options.length < 4 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={onAddRecommendedOptions}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add to 4
+                  </Button>
+                )}
+                <Button type="button" size="sm" variant="outline" onClick={addOption}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add choice
+                </Button>
+              </div>
             </div>
             <div className="space-y-2">
               {question.options.map((option, optionIndex) => (
@@ -915,7 +863,7 @@ function QuestionCard({
                     variant="ghost"
                     size="icon"
                     onClick={() => removeOption(option.id)}
-                    disabled={question.options.length <= 2}
+                    disabled={question.options.length <= 1}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

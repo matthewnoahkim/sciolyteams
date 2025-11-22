@@ -626,8 +626,7 @@ model Test {
   randomizeQuestionOrder Boolean    @default(false)
   randomizeOptionOrder   Boolean    @default(false)
   requireFullscreen      Boolean    @default(true)
-  requirePasswordToEdit  Boolean    @default(true)
-  adminPasswordHash      String?
+  testPasswordHash       String?    // Password required to take the test
   releaseScoresAt        DateTime? // When to show scores to students
   createdByMembershipId  String
   createdAt              DateTime   @default(now())

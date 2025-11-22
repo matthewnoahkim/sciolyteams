@@ -23,7 +23,9 @@ import {
   Shuffle,
   ShieldAlert,
   FileText,
+  Edit,
 } from 'lucide-react'
+import { PublishTestButton } from '@/components/tests/publish-test-button'
 
 const STATUS_CONFIG: Record<
   'DRAFT' | 'PUBLISHED' | 'CLOSED',
@@ -139,10 +141,25 @@ export default async function TeamTestDetailPage({
             <p className="text-muted-foreground">{test.description}</p>
           )}
         </div>
+        {test.status === 'DRAFT' && (
+          <div className="flex gap-2">
+            <Link href={`/teams/${params.teamId}/tests/${test.id}/edit`}>
+              <Button>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Test
+              </Button>
+            </Link>
+            <PublishTestButton
+              testId={test.id}
+              teamId={params.teamId}
+              currentStatus={test.status}
+              questionCount={test.questions.length}
+            />
+          </div>
+        )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-        <div className="space-y-6">
+      <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -287,48 +304,6 @@ export default async function TeamTestDetailPage({
               ))}
             </CardContent>
           </Card>
-        </div>
-
-        <aside className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Security notes</CardTitle>
-              <CardDescription>
-                Editing requires the admin password set during creation.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <p>
-                Share the password only with admins who should manage this assessment.
-                Admins will be prompted for it when editing, publishing, or adding
-                questions through the API.
-              </p>
-              <p>
-                Lockdown events (tab changes, leaving fullscreen, dev tools) are still
-                logged for proctor review. Encourage proctors to monitor attempts in
-                real time for high-stakes tests.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Next steps</CardTitle>
-              <CardDescription>Need to make changes or publish?</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>
-                Use the existing API endpoints or forthcoming editor to update questions,
-                adjust timing, or publish when you are ready. Admins will be asked for
-                the admin password before critical changes.
-              </p>
-              <p>
-                Students can access this test from the team portal once it is published
-                and assigned to them.
-              </p>
-            </CardContent>
-          </Card>
-        </aside>
       </div>
     </div>
   )

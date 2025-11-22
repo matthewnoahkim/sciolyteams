@@ -3,11 +3,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { isAdmin, getUserMembership } from '@/lib/rbac'
-import { verifyTestPassword } from '@/lib/test-security'
+import { hashTestPassword } from '@/lib/test-security'
 import { z } from 'zod'
 
 const publishSchema = z.object({
-  adminPassword: z.string().min(6),
+  startAt: z.string().datetime(),
+  endAt: z.string().datetime(),
+  testPassword: z.string().min(6).optional(),
+  releaseScoresAt: z.string().datetime().optional(),
   sendEmails: z.boolean().optional(),
 })
 
@@ -45,20 +48,6 @@ export async function POST(
       )
     }
 
-    // Verify admin password
-    if (test.requirePasswordToEdit && test.adminPasswordHash) {
-      const isValid = await verifyTestPassword(
-        test.adminPasswordHash,
-        validatedData.adminPassword
-      )
-      if (!isValid) {
-        return NextResponse.json(
-          { error: 'NEED_ADMIN_PASSWORD', message: 'Invalid admin password' },
-          { status: 401 }
-        )
-      }
-    }
-
     // Check if test has questions
     if (test.questions.length === 0) {
       return NextResponse.json(
@@ -67,16 +56,39 @@ export async function POST(
       )
     }
 
+    // Validate dates
+    const startAt = new Date(validatedData.startAt)
+    const endAt = new Date(validatedData.endAt)
+    if (endAt <= startAt) {
+      return NextResponse.json(
+        { error: 'End time must be after start time' },
+        { status: 400 }
+      )
+    }
+
+    // Hash test password if provided
+    const testPasswordHash = validatedData.testPassword
+      ? await hashTestPassword(validatedData.testPassword)
+      : null
+
     // Get membership for audit
     const membership = await getUserMembership(session.user.id, test.teamId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    // Update test status
+    // Update test status, scheduling, password, and score release
     const updatedTest = await prisma.test.update({
       where: { id: params.testId },
-      data: { status: 'PUBLISHED' },
+      data: {
+        status: 'PUBLISHED',
+        startAt,
+        endAt,
+        testPasswordHash,
+        releaseScoresAt: validatedData.releaseScoresAt
+          ? new Date(validatedData.releaseScoresAt)
+          : null,
+      },
     })
 
     // Create audit log

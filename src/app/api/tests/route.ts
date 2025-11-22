@@ -57,14 +57,9 @@ const createTestSchema = z.object({
   description: z.string().optional(),
   instructions: z.string().optional(),
   durationMinutes: z.number().int().min(1).max(720),
-  startAt: z.string().datetime().optional(),
-  endAt: z.string().datetime().optional(),
-  allowLateUntil: z.string().datetime().optional(),
   randomizeQuestionOrder: z.boolean().optional(),
   randomizeOptionOrder: z.boolean().optional(),
   requireFullscreen: z.boolean().optional(),
-  requirePasswordToEdit: z.boolean().optional(),
-  adminPassword: z.string().min(6).optional(),
   releaseScoresAt: z.string().datetime().optional(),
   assignments: z.array(assignmentSchema).optional(),
   questions: z.array(questionSchema).optional(),
@@ -180,23 +175,16 @@ export async function POST(req: NextRequest) {
     const {
       assignments,
       questions,
-      adminPassword,
       teamId,
       name,
       description,
       instructions,
       durationMinutes,
-      startAt,
-      endAt,
-      allowLateUntil,
       randomizeQuestionOrder,
       randomizeOptionOrder,
       requireFullscreen,
-      requirePasswordToEdit,
       releaseScoresAt,
     } = validatedData
-
-    const adminPasswordHash = adminPassword ? await hashTestPassword(adminPassword) : null
 
     const createdTest = await prisma.$transaction(async (tx) => {
       const baseTest = await tx.test.create({
@@ -207,14 +195,9 @@ export async function POST(req: NextRequest) {
           instructions,
           status: 'DRAFT',
           durationMinutes,
-          startAt: startAt ? new Date(startAt) : null,
-          endAt: endAt ? new Date(endAt) : null,
-          allowLateUntil: allowLateUntil ? new Date(allowLateUntil) : null,
           randomizeQuestionOrder: randomizeQuestionOrder ?? false,
           randomizeOptionOrder: randomizeOptionOrder ?? false,
           requireFullscreen: requireFullscreen ?? true,
-          requirePasswordToEdit: requirePasswordToEdit ?? true,
-          adminPasswordHash,
           releaseScoresAt: releaseScoresAt ? new Date(releaseScoresAt) : null,
           createdByMembershipId: membership.id,
         },

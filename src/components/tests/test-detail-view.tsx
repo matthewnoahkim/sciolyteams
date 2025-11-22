@@ -278,31 +278,16 @@ export function TestDetailView({ teamId, test }: TestDetailViewProps) {
             <CardContent className="space-y-3 text-sm text-muted-foreground">
               <p>
                 Share the password only with admins who should manage this assessment.
-                Admins will be prompted for it when editing, publishing, or adding
-                questions through the API.
+                {test.status === 'DRAFT' ? (
+                  <> Draft tests can be edited without a password.</>
+                ) : (
+                  <> Admins will be prompted for it when editing published tests.</>
+                )}
               </p>
               <p>
                 Lockdown events (tab changes, leaving fullscreen, dev tools) are still
                 logged for proctor review. Encourage proctors to monitor attempts in
                 real time for high-stakes tests.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Next steps</CardTitle>
-              <CardDescription>Need to make changes or publish?</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>
-                Use the existing API endpoints or forthcoming editor to update questions,
-                adjust timing, or publish when you are ready. Admins will be asked for
-                the admin password before critical changes.
-              </p>
-              <p>
-                Students can access this test from the team portal once it is published
-                and assigned to them.
               </p>
             </CardContent>
           </Card>
