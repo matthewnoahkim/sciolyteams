@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { PublishTestButton } from '@/components/tests/publish-test-button'
 import { PasswordCopyButton } from '@/components/tests/password-copy-button'
+import { EditTestSchedule } from '@/components/tests/edit-test-schedule'
 
 const STATUS_CONFIG: Record<
   'DRAFT' | 'PUBLISHED' | 'CLOSED',
@@ -181,10 +182,19 @@ export default async function TeamTestDetailPage({
       <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                Overview
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  Overview
+                </CardTitle>
+                {test.status === 'PUBLISHED' && (
+                  <EditTestSchedule
+                    testId={test.id}
+                    currentStartAt={test.startAt ? new Date(test.startAt) : null}
+                    currentEndAt={test.endAt ? new Date(test.endAt) : null}
+                  />
+                )}
+              </div>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <InfoItem

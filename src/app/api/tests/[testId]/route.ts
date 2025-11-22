@@ -155,10 +155,30 @@ export async function PATCH(
       updateData.instructions = validatedData.instructions
     if (validatedData.durationMinutes !== undefined)
       updateData.durationMinutes = validatedData.durationMinutes
+    
+    // Handle start/end time updates with validation
+    const currentStartAt = test.startAt ? new Date(test.startAt) : null
+    const currentEndAt = test.endAt ? new Date(test.endAt) : null
+    
+    const newStartAt = validatedData.startAt !== undefined
+      ? (validatedData.startAt ? new Date(validatedData.startAt) : null)
+      : currentStartAt
+    const newEndAt = validatedData.endAt !== undefined
+      ? (validatedData.endAt ? new Date(validatedData.endAt) : null)
+      : currentEndAt
+    
+    // Validate that end time is after start time if both are set
+    if (newStartAt && newEndAt && newEndAt <= newStartAt) {
+      return NextResponse.json(
+        { error: 'End time must be after start time' },
+        { status: 400 }
+      )
+    }
+    
     if (validatedData.startAt !== undefined)
-      updateData.startAt = validatedData.startAt ? new Date(validatedData.startAt) : null
+      updateData.startAt = newStartAt
     if (validatedData.endAt !== undefined)
-      updateData.endAt = validatedData.endAt ? new Date(validatedData.endAt) : null
+      updateData.endAt = newEndAt
     if (validatedData.allowLateUntil !== undefined)
       updateData.allowLateUntil = validatedData.allowLateUntil
         ? new Date(validatedData.allowLateUntil)
