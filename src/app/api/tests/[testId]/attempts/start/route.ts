@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getUserMembership } from '@/lib/rbac'
-import { isTestAvailable, getClientIp, generateClientFingerprint } from '@/lib/test-security'
+import { getUserMembership, isAdmin } from '@/lib/rbac'
+import { isTestAvailable, getClientIp, generateClientFingerprint, verifyTestPassword } from '@/lib/test-security'
 
 // POST /api/tests/[testId]/attempts/start
 export async function POST(
@@ -17,7 +17,7 @@ export async function POST(
     }
 
     const body = await req.json()
-    const { fingerprint } = body
+    const { fingerprint, testPassword } = body
 
     const test = await prisma.test.findUnique({
       where: { id: params.testId },
@@ -33,6 +33,29 @@ export async function POST(
     const membership = await getUserMembership(session.user.id, test.teamId)
     if (!membership) {
       return NextResponse.json({ error: 'Not a team member' }, { status: 403 })
+    }
+
+    // Check if user is admin (admins bypass password)
+    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+
+    // Verify test password if required (non-admins only)
+    if (!isAdminUser && test.testPasswordHash) {
+      if (!testPassword) {
+        return NextResponse.json(
+          { error: 'NEED_TEST_PASSWORD', message: 'Test password required' },
+          { status: 401 }
+        )
+      }
+      const isValid = await verifyTestPassword(
+        test.testPasswordHash,
+        testPassword
+      )
+      if (!isValid) {
+        return NextResponse.json(
+          { error: 'NEED_TEST_PASSWORD', message: 'Invalid test password' },
+          { status: 401 }
+        )
+      }
     }
 
     // Check if test is available

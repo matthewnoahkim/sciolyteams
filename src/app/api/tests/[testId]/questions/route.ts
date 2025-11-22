@@ -20,7 +20,6 @@ const createQuestionSchema = z.object({
     isCorrect: z.boolean(),
     order: z.number().int().min(0),
   })).optional(),
-  adminPassword: z.string().min(6),
 })
 
 // POST /api/tests/[testId]/questions
@@ -54,19 +53,6 @@ export async function POST(
       )
     }
 
-    // Verify admin password
-    if (test.requirePasswordToEdit && test.adminPasswordHash) {
-      const isValid = await verifyTestPassword(
-        test.adminPasswordHash,
-        validatedData.adminPassword
-      )
-      if (!isValid) {
-        return NextResponse.json(
-          { error: 'NEED_ADMIN_PASSWORD', message: 'Invalid admin password' },
-          { status: 401 }
-        )
-      }
-    }
 
     // Create question with options in a transaction
     const question = await prisma.$transaction(async (tx) => {

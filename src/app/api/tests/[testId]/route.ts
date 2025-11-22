@@ -18,7 +18,6 @@ const updateTestSchema = z.object({
   randomizeOptionOrder: z.boolean().optional(),
   requireFullscreen: z.boolean().optional(),
   releaseScoresAt: z.string().datetime().optional().nullable(),
-  adminPassword: z.string().min(6),
 })
 
 // GET /api/tests/[testId]
@@ -140,19 +139,6 @@ export async function PATCH(
       )
     }
 
-    // Verify admin password
-    if (test.requirePasswordToEdit && test.adminPasswordHash) {
-      const isValid = await verifyTestPassword(
-        test.adminPasswordHash,
-        validatedData.adminPassword
-      )
-      if (!isValid) {
-        return NextResponse.json(
-          { error: 'NEED_ADMIN_PASSWORD', message: 'Invalid admin password' },
-          { status: 401 }
-        )
-      }
-    }
 
     // Get membership for audit
     const membership = await getUserMembership(session.user.id, test.teamId)
