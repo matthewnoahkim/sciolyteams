@@ -16,6 +16,7 @@ import { signOut } from 'next-auth/react'
 interface HomeClientProps {
   memberships: any[]
   user: {
+    id: string
     name?: string | null
     email: string
     image?: string | null
@@ -28,6 +29,112 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
   const [joinOpen, setJoinOpen] = useState(false)
   const [editNameOpen, setEditNameOpen] = useState(false)
   const [currentUserName, setCurrentUserName] = useState(user.name)
+  const [teamNotifications, setTeamNotifications] = useState<Record<string, boolean>>({})
+
+  // Get last cleared time for a team from localStorage
+  const getLastClearedTime = (teamId: string): Date => {
+    if (typeof window === 'undefined') return new Date(0)
+    const key = `lastCleared_team_${teamId}_${user.id}`
+    const stored = localStorage.getItem(key)
+    return stored ? new Date(stored) : new Date(0)
+  }
+
+  // Clear notification for a team when it's clicked
+  const clearTeamNotification = (teamId: string) => {
+    if (typeof window === 'undefined') return
+    const key = `lastCleared_team_${teamId}_${user.id}`
+    localStorage.setItem(key, new Date().toISOString())
+    setTeamNotifications(prev => ({ ...prev, [teamId]: false }))
+  }
+
+  // Check for new content in each team
+  useEffect(() => {
+    const checkForNewContent = async () => {
+      const notifications: Record<string, boolean> = {}
+
+      for (const membership of memberships) {
+        const teamId = membership.team.id
+        const lastCleared = getLastClearedTime(teamId)
+        let hasNew = false
+
+        try {
+          // Check announcements
+          const streamResponse = await fetch(`/api/announcements?teamId=${teamId}`)
+          if (streamResponse.ok) {
+            const streamData = await streamResponse.json()
+            const hasNewAnnouncement = streamData.announcements?.some((announcement: any) => {
+              const isNew = new Date(announcement.createdAt) > lastCleared
+              const isFromOtherUser = announcement.author?.user?.id !== user.id
+              return isNew && isFromOtherUser
+            })
+            if (hasNewAnnouncement) hasNew = true
+          }
+
+          // Check calendar events
+          const calendarResponse = await fetch(`/api/calendar?teamId=${teamId}`)
+          if (calendarResponse.ok) {
+            const calendarData = await calendarResponse.json()
+            const events = calendarData.events || []
+            const hasNewEvent = events.some((event: any) => {
+              const isNew = new Date(event.createdAt) > lastCleared
+              const isFromOtherUser = event.creator?.user?.id !== user.id
+              return isNew && isFromOtherUser
+            })
+            if (hasNewEvent) hasNew = true
+          }
+
+          // Check purchase requests
+          const financeResponse = await fetch(`/api/purchase-requests?teamId=${teamId}`)
+          if (financeResponse.ok) {
+            const financeData = await financeResponse.json()
+            const purchaseRequests = financeData.purchaseRequests || []
+            const hasNewRequest = purchaseRequests.some((item: any) => {
+              const isNew = new Date(item.createdAt) > lastCleared
+              const isFromOtherUser = item.requesterId !== membership.id
+              return isNew && isFromOtherUser
+            })
+            if (hasNewRequest) hasNew = true
+          }
+
+          // Check expenses
+          const expensesResponse = await fetch(`/api/expenses?teamId=${teamId}`)
+          if (expensesResponse.ok) {
+            const expensesData = await expensesResponse.json()
+            const expenses = expensesData.expenses || []
+            const hasNewExpense = expenses.some((item: any) => {
+              const isNew = new Date(item.createdAt) > lastCleared
+              const isFromOtherUser = item.addedById !== membership.id
+              return isNew && isFromOtherUser
+            })
+            if (hasNewExpense) hasNew = true
+          }
+
+          // Check tests
+          const testsResponse = await fetch(`/api/tests?teamId=${teamId}`)
+          if (testsResponse.ok) {
+            const testsData = await testsResponse.json()
+            const hasNewTest = testsData.tests?.some((test: any) => {
+              const isNew = new Date(test.createdAt) > lastCleared
+              const isFromOtherUser = test.createdById !== membership.id
+              return isNew && isFromOtherUser
+            })
+            if (hasNewTest) hasNew = true
+          }
+
+          notifications[teamId] = hasNew
+        } catch (error) {
+          console.error(`Failed to check notifications for team ${teamId}:`, error)
+        }
+      }
+
+      setTeamNotifications(notifications)
+    }
+
+    checkForNewContent()
+    // Poll every 30 seconds for new content
+    const interval = setInterval(checkForNewContent, 30000)
+    return () => clearInterval(interval)
+  }, [memberships, user.id])
 
   // Sync local state when user prop changes (e.g., after navigation)
   useEffect(() => {
@@ -145,9 +252,15 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
               {memberships.map((membership) => (
                 <Card
                   key={membership.id}
-                  className="cursor-pointer apple-hover group"
-                  onClick={() => router.push(`/teams/${membership.team.id}`)}
+                  className="cursor-pointer apple-hover group relative"
+                  onClick={() => {
+                    clearTeamNotification(membership.team.id)
+                    router.push(`/teams/${membership.team.id}`)
+                  }}
                 >
+                  {teamNotifications[membership.team.id] && (
+                    <span className="absolute right-4 top-4 h-2 w-2 rounded-full bg-red-500 z-10"></span>
+                  )}
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div>
