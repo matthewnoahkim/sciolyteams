@@ -12,6 +12,7 @@ import { EditUsernameDialog } from '@/components/edit-username-dialog'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Users, Plus, LogOut, Pencil } from 'lucide-react'
 import { signOut } from 'next-auth/react'
+import { useFaviconBadge } from '@/hooks/use-favicon-badge'
 
 interface HomeClientProps {
   memberships: any[]
@@ -30,6 +31,10 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
   const [editNameOpen, setEditNameOpen] = useState(false)
   const [currentUserName, setCurrentUserName] = useState(user.name)
   const [teamNotifications, setTeamNotifications] = useState<Record<string, boolean>>({})
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0)
+
+  // Update favicon badge with total unread count
+  useFaviconBadge(totalUnreadCount)
 
   // Get last cleared time for a team from localStorage
   const getLastClearedTime = (teamId: string): Date => {
@@ -44,30 +49,41 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
     if (typeof window === 'undefined') return
     const key = `lastCleared_team_${teamId}_${user.id}`
     localStorage.setItem(key, new Date().toISOString())
-    setTeamNotifications(prev => ({ ...prev, [teamId]: false }))
+    setTeamNotifications(prev => {
+      const updated = { ...prev, [teamId]: false }
+      // Recalculate total count
+      const newCount = Object.values(updated).filter(Boolean).length
+      setTotalUnreadCount(newCount)
+      return updated
+    })
   }
 
   // Check for new content in each team
   useEffect(() => {
     const checkForNewContent = async () => {
       const notifications: Record<string, boolean> = {}
+      let totalUnreadItems = 0
 
       for (const membership of memberships) {
         const teamId = membership.team.id
         const lastCleared = getLastClearedTime(teamId)
         let hasNew = false
+        let teamUnreadCount = 0
 
         try {
           // Check announcements
           const streamResponse = await fetch(`/api/announcements?teamId=${teamId}`)
           if (streamResponse.ok) {
             const streamData = await streamResponse.json()
-            const hasNewAnnouncement = streamData.announcements?.some((announcement: any) => {
+            const newAnnouncements = streamData.announcements?.filter((announcement: any) => {
               const isNew = new Date(announcement.createdAt) > lastCleared
               const isFromOtherUser = announcement.author?.user?.id !== user.id
               return isNew && isFromOtherUser
-            })
-            if (hasNewAnnouncement) hasNew = true
+            }) || []
+            if (newAnnouncements.length > 0) {
+              hasNew = true
+              teamUnreadCount += newAnnouncements.length
+            }
           }
 
           // Check calendar events
@@ -75,12 +91,15 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
           if (calendarResponse.ok) {
             const calendarData = await calendarResponse.json()
             const events = calendarData.events || []
-            const hasNewEvent = events.some((event: any) => {
+            const newEvents = events.filter((event: any) => {
               const isNew = new Date(event.createdAt) > lastCleared
               const isFromOtherUser = event.creator?.user?.id !== user.id
               return isNew && isFromOtherUser
             })
-            if (hasNewEvent) hasNew = true
+            if (newEvents.length > 0) {
+              hasNew = true
+              teamUnreadCount += newEvents.length
+            }
           }
 
           // Check purchase requests
@@ -88,12 +107,15 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
           if (financeResponse.ok) {
             const financeData = await financeResponse.json()
             const purchaseRequests = financeData.purchaseRequests || []
-            const hasNewRequest = purchaseRequests.some((item: any) => {
+            const newRequests = purchaseRequests.filter((item: any) => {
               const isNew = new Date(item.createdAt) > lastCleared
               const isFromOtherUser = item.requesterId !== membership.id
               return isNew && isFromOtherUser
             })
-            if (hasNewRequest) hasNew = true
+            if (newRequests.length > 0) {
+              hasNew = true
+              teamUnreadCount += newRequests.length
+            }
           }
 
           // Check expenses
@@ -101,33 +123,42 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
           if (expensesResponse.ok) {
             const expensesData = await expensesResponse.json()
             const expenses = expensesData.expenses || []
-            const hasNewExpense = expenses.some((item: any) => {
+            const newExpenses = expenses.filter((item: any) => {
               const isNew = new Date(item.createdAt) > lastCleared
               const isFromOtherUser = item.addedById !== membership.id
               return isNew && isFromOtherUser
             })
-            if (hasNewExpense) hasNew = true
+            if (newExpenses.length > 0) {
+              hasNew = true
+              teamUnreadCount += newExpenses.length
+            }
           }
 
           // Check tests
           const testsResponse = await fetch(`/api/tests?teamId=${teamId}`)
           if (testsResponse.ok) {
             const testsData = await testsResponse.json()
-            const hasNewTest = testsData.tests?.some((test: any) => {
+            const newTests = testsData.tests?.filter((test: any) => {
               const isNew = new Date(test.createdAt) > lastCleared
               const isFromOtherUser = test.createdById !== membership.id
               return isNew && isFromOtherUser
-            })
-            if (hasNewTest) hasNew = true
+            }) || []
+            if (newTests.length > 0) {
+              hasNew = true
+              teamUnreadCount += newTests.length
+            }
           }
 
           notifications[teamId] = hasNew
+          totalUnreadItems += teamUnreadCount
         } catch (error) {
           console.error(`Failed to check notifications for team ${teamId}:`, error)
         }
       }
 
       setTeamNotifications(notifications)
+      setTotalUnreadCount(totalUnreadItems)
+      console.log('Total unread count:', totalUnreadItems, 'Team notifications:', notifications)
     }
 
     checkForNewContent()

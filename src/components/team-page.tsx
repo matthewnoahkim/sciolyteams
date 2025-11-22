@@ -26,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
+import { useFaviconBadge } from '@/hooks/use-favicon-badge'
 
 interface TeamPageProps {
   team: any
@@ -50,7 +51,11 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const [newClubName, setNewClubName] = useState(team.name)
   const [updatingClubName, setUpdatingClubName] = useState(false)
   const [tabNotifications, setTabNotifications] = useState<Record<string, boolean>>({})
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0)
   const isAdmin = currentMembership.role === 'ADMIN'
+
+  // Update favicon badge with total unread count across all tabs
+  useFaviconBadge(totalUnreadCount)
 
   // Get last cleared time for a tab from localStorage
   const getLastClearedTime = (tab: string): Date => {
@@ -65,7 +70,13 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
     if (typeof window === 'undefined') return
     const key = `lastCleared_${team.id}_${tab}_${user.id}`
     localStorage.setItem(key, new Date().toISOString())
-    setTabNotifications(prev => ({ ...prev, [tab]: false }))
+    setTabNotifications(prev => {
+      const updated = { ...prev, [tab]: false }
+      // Recalculate total count
+      const totalCount = Object.values(updated).filter(Boolean).length
+      setTotalUnreadCount(totalCount)
+      return updated
+    })
   }
 
   // Check for new content in each tab (from anyone, not just other users)
@@ -269,7 +280,13 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
         }
       }
 
-      setTabNotifications(prev => ({ ...prev, ...notifications }))
+      setTabNotifications(prev => {
+        const updated = { ...prev, ...notifications }
+        // Calculate total unread count across all tabs
+        const totalCount = Object.values(updated).filter(Boolean).length
+        setTotalUnreadCount(totalCount)
+        return updated
+      })
     }
 
     checkForNewContent()
