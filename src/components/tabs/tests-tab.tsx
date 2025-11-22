@@ -43,6 +43,24 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
   const [testToDelete, setTestToDelete] = useState<Test | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Warning Banner Dismissal
+  const [warningDismissed, setWarningDismissed] = useState(false)
+  
+  useEffect(() => {
+    // Check if warning was dismissed forever
+    const dismissedForever = localStorage.getItem('test-lockdown-warning-dismissed')
+    if (dismissedForever === 'true') {
+      setWarningDismissed(true)
+    }
+  }, [])
+
+  const handleDismissWarning = (forever: boolean) => {
+    setWarningDismissed(true)
+    if (forever) {
+      localStorage.setItem('test-lockdown-warning-dismissed', 'true')
+    }
+  }
+
   const fetchTests = useCallback(async () => {
     setLoading(true)
     try {
@@ -178,24 +196,44 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
         )}
       </div>
 
-      {/* Warning Banner */}
-      <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
-        <CardContent className="pt-6">
-          <div className="flex gap-3">
-            <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
-                Browser Lockdown Limitations
-              </p>
-              <p className="text-sm text-orange-800 dark:text-orange-200">
-                The test lockdown is <strong>best-effort</strong> and cannot prevent all cheating methods 
-                (secondary devices, physical notes, screen sharing). For high-stakes tests, combine with 
-                live proctoring or supervised testing environments.
-              </p>
+      {/* Warning Banner - Admin Only */}
+      {isAdmin && !warningDismissed && (
+        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
+          <CardContent className="pt-6">
+            <div className="flex gap-3">
+              <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-1">
+                <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                  Browser Lockdown Limitations
+                </p>
+                <p className="text-sm text-orange-800 dark:text-orange-200">
+                  The test lockdown is <strong>best-effort</strong> and cannot prevent all cheating methods 
+                  (secondary devices, physical notes, screen sharing). For high-stakes tests, combine with 
+                  live proctoring or supervised testing environments.
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDismissWarning(false)}
+                    className="h-7 text-xs text-orange-800 dark:text-orange-200 hover:text-orange-900 dark:hover:text-orange-100"
+                  >
+                    Dismiss
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDismissWarning(true)}
+                    className="h-7 text-xs text-orange-800 dark:text-orange-200 hover:text-orange-900 dark:hover:text-orange-100"
+                  >
+                    Don't show again
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tests List */}
       <div className="grid gap-4">
