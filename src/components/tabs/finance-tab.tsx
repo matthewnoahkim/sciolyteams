@@ -40,6 +40,14 @@ interface Expense {
     requesterId: string
     description: string
   }
+  addedBy?: {
+    id: string
+    subteamId: string | null
+    subteam: {
+      id: string
+      name: string
+    } | null
+  } | null
 }
 
 interface PurchaseRequest {
@@ -609,6 +617,44 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0)
 
+  // Calculate subteam expenses based on purchaser's subteam
+  const subteamExpenses = expenses.reduce((acc, exp) => {
+    const purchaserSubteam = exp.addedBy?.subteam
+    const subteamId = purchaserSubteam?.id || 'team-wide'
+    const subteamName = purchaserSubteam?.name || 'Team-wide'
+    
+    if (!acc[subteamId]) {
+      acc[subteamId] = {
+        id: subteamId,
+        name: subteamName,
+        total: 0,
+      }
+    }
+    acc[subteamId].total += exp.amount
+    return acc
+  }, {} as Record<string, { id: string; name: string; total: number }>)
+
+  // Debug: Log expenses to verify grouping
+  useEffect(() => {
+    if (expenses.length > 0) {
+      console.log('Expenses with purchaser info:', expenses.map(exp => ({
+        id: exp.id,
+        description: exp.description,
+        amount: exp.amount,
+        purchaserSubteam: exp.addedBy?.subteam?.name || 'Team-wide',
+        fromPurchaseRequest: !!exp.purchaseRequest,
+      })))
+      console.log('Subteam expenses breakdown:', subteamExpenses)
+    }
+  }, [expenses, subteamExpenses])
+
+  const subteamExpensesList = Object.values(subteamExpenses).sort((a, b) => {
+    // Put "Team-wide" at the end
+    if (a.id === 'team-wide') return 1
+    if (b.id === 'team-wide') return -1
+    return a.name.localeCompare(b.name)
+  })
+
   const handleExportCSV = () => {
     // Create CSV header
     const headers = ['Date', 'Description', 'Category', 'Amount', 'Notes']
@@ -656,13 +702,10 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
 
   return (
     <div className="space-y-6">
-      {/* Header with Total */}
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Finance</h2>
-          <p className="text-muted-foreground">
-            Total Expenses: <span className="text-xl font-semibold">${totalExpenses.toFixed(2)}</span>
-          </p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setRequestPurchaseOpen(true)}>
@@ -677,6 +720,45 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
           )}
         </div>
       </div>
+
+      {/* Expense Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Expense Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Total Team Expense */}
+          <div className="p-4 border rounded-lg bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Team Expense</p>
+                <p className="text-2xl font-bold mt-1">${totalExpenses.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Subteam Expenses */}
+          {subteamExpensesList.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Subteam Expenses</p>
+              <div className="grid gap-2">
+                {subteamExpensesList.map((subteamExp) => (
+                  <div
+                    key={subteamExp.id}
+                    className="p-3 border rounded-lg flex items-center justify-between"
+                  >
+                    <span className="font-medium">{subteamExp.name}</span>
+                    <span className="text-lg font-semibold">${subteamExp.total.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Event Budgets Section */}
       <Card>
@@ -907,6 +989,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                   <th className="text-left p-3 font-medium">Description</th>
                   <th className="text-left p-3 font-medium">Event</th>
                   <th className="text-left p-3 font-medium">Category</th>
+                  <th className="text-left p-3 font-medium">Subteam</th>
                   <th className="text-right p-3 font-medium">Amount</th>
                   {isAdmin && <th className="text-right p-3 font-medium">Actions</th>}
                 </tr>
@@ -914,7 +997,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
               <tbody>
                 {expenses.length === 0 ? (
                   <tr>
-                    <td colSpan={isAdmin ? 6 : 5} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={isAdmin ? 7 : 6} className="p-8 text-center text-muted-foreground">
                       No expenses recorded yet
                     </td>
                   </tr>
@@ -932,6 +1015,15 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                       </td>
                       <td className="p-3">{expense.event?.name || '-'}</td>
                       <td className="p-3">{expense.category || '-'}</td>
+                      <td className="p-3">
+                        {expense.addedBy?.subteam ? (
+                          <Badge variant="outline" className="text-xs">
+                            {expense.addedBy.subteam.name}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">Team-wide</span>
+                        )}
+                      </td>
                       <td className="p-3 text-right font-medium">${expense.amount.toFixed(2)}</td>
                       {isAdmin && (
                         <td className="p-3 text-right">

@@ -53,7 +53,63 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ expenses })
+    // Get memberships for all addedById values (reviewers/admins who added expenses)
+    const addedByIds = [...new Set(expenses.map((e) => e.addedById))]
+    const addedByMemberships = await prisma.membership.findMany({
+      where: {
+        id: { in: addedByIds },
+      },
+      include: {
+        subteam: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    })
+
+    // Get memberships for all requesterIds (people who requested purchases)
+    const requesterIds = expenses
+      .map((e) => e.purchaseRequest?.requesterId)
+      .filter((id): id is string => id !== undefined && id !== null)
+    const requesterMemberships = await prisma.membership.findMany({
+      where: {
+        id: { in: requesterIds },
+      },
+      include: {
+        subteam: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    })
+
+    const addedByMap = new Map(addedByMemberships.map((m) => [m.id, m]))
+    const requesterMap = new Map(requesterMemberships.map((m) => [m.id, m]))
+
+    // Attach membership/subteam info to each expense
+    // For expenses from purchase requests, use the requester's subteam
+    // For direct expenses, use the addedBy's subteam
+    const expensesWithPurchaser = expenses.map((expense) => {
+      // If expense comes from a purchase request, use requester's subteam
+      if (expense.purchaseRequest?.requesterId) {
+        const requesterMembership = requesterMap.get(expense.purchaseRequest.requesterId)
+        return {
+          ...expense,
+          addedBy: requesterMembership || null,
+        }
+      }
+      // Otherwise, use the person who added the expense
+      return {
+        ...expense,
+        addedBy: addedByMap.get(expense.addedById) || null,
+      }
+    })
+
+    return NextResponse.json({ expenses: expensesWithPurchaser })
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
