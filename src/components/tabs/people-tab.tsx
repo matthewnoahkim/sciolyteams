@@ -820,7 +820,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
               })}
               {teamMembers.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No members in this team yet. Assign members using the dropdown in the "All Club Members" section below.
+                  No members in this team yet. Assign members using the dropdown in the &quot;All Club Members&quot; section below.
                 </p>
               )}
             </div>
