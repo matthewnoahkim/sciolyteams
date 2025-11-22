@@ -10,6 +10,7 @@ const createEventBudgetSchema = z.object({
   eventId: z.string(),
   subteamId: z.string().optional().nullable(),
   maxBudget: z.number().min(0),
+  budgetId: z.string().optional(), // For editing existing budgets
 })
 
 // GET /api/event-budgets?teamId=xxx
@@ -184,53 +185,56 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Upsert budget (create or update if exists)
-    // Note: Prisma's unique constraint with nullable fields requires a workaround
-    // We'll use findFirst + create/update instead of upsert
-    const whereClause: any = {
-      teamId: validatedData.teamId,
-      eventId: validatedData.eventId,
-    }
-    
-    // Handle subteamId - if provided, filter by it; if null, filter for null values
-    if (validatedData.subteamId) {
-      whereClause.subteamId = validatedData.subteamId
-    } else {
-      whereClause.subteamId = null
-    }
-    
-    const existingBudget = await prisma.eventBudget.findFirst({
-      where: whereClause,
-    })
-
     let budget
-    if (existingBudget) {
-      budget = await prisma.eventBudget.update({
-        where: { id: existingBudget.id },
-        data: {
-          maxBudget: validatedData.maxBudget,
-        },
-        include: {
-          event: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              division: true,
-            },
-          },
-          subteam: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
+
+    // If budgetId is provided, we're editing an existing budget
+    if (validatedData.budgetId) {
+      const existingBudget = await prisma.eventBudget.findUnique({
+        where: { id: validatedData.budgetId },
+      })
+
+      if (!existingBudget) {
+        return NextResponse.json({ error: 'Budget not found' }, { status: 404 })
+      }
+
+      // Verify the budget belongs to the team
+      if (existingBudget.teamId !== validatedData.teamId) {
+        return NextResponse.json(
+          { error: 'Budget does not belong to this team' },
+          { status: 403 }
+        )
+      }
+
+      // Check if changing eventId/subteamId would create a duplicate
+      const whereClause: any = {
+        teamId: validatedData.teamId,
+        eventId: validatedData.eventId,
+      }
+      
+      if (validatedData.subteamId) {
+        whereClause.subteamId = validatedData.subteamId
+      } else {
+        whereClause.subteamId = null
+      }
+
+      const conflictingBudget = await prisma.eventBudget.findFirst({
+        where: {
+          ...whereClause,
+          id: { not: validatedData.budgetId }, // Exclude the current budget
         },
       })
-    } else {
-      budget = await prisma.eventBudget.create({
+
+      if (conflictingBudget) {
+        return NextResponse.json(
+          { error: 'A budget already exists for this event and subteam combination' },
+          { status: 400 }
+        )
+      }
+
+      // Update the budget with all fields
+      budget = await prisma.eventBudget.update({
+        where: { id: validatedData.budgetId },
         data: {
-          teamId: validatedData.teamId,
           eventId: validatedData.eventId,
           subteamId: validatedData.subteamId || null,
           maxBudget: validatedData.maxBudget,
@@ -252,6 +256,74 @@ export async function POST(req: NextRequest) {
           },
         },
       })
+    } else {
+      // Creating a new budget - check if one already exists for this combination
+      const whereClause: any = {
+        teamId: validatedData.teamId,
+        eventId: validatedData.eventId,
+      }
+      
+      if (validatedData.subteamId) {
+        whereClause.subteamId = validatedData.subteamId
+      } else {
+        whereClause.subteamId = null
+      }
+      
+      const existingBudget = await prisma.eventBudget.findFirst({
+        where: whereClause,
+      })
+
+      if (existingBudget) {
+        // Update existing budget instead of creating duplicate
+        budget = await prisma.eventBudget.update({
+          where: { id: existingBudget.id },
+          data: {
+            maxBudget: validatedData.maxBudget,
+          },
+          include: {
+            event: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                division: true,
+              },
+            },
+            subteam: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        })
+      } else {
+        // Create new budget
+        budget = await prisma.eventBudget.create({
+          data: {
+            teamId: validatedData.teamId,
+            eventId: validatedData.eventId,
+            subteamId: validatedData.subteamId || null,
+            maxBudget: validatedData.maxBudget,
+          },
+          include: {
+            event: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                division: true,
+              },
+            },
+            subteam: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        })
+      }
     }
 
     // Calculate remaining budget and requested amounts (same logic as GET)
