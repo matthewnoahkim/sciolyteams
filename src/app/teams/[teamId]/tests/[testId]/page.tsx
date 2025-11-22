@@ -25,10 +25,12 @@ import {
   FileText,
   Edit,
   Key,
+  Copy,
 } from 'lucide-react'
 import { PublishTestButton } from '@/components/tests/publish-test-button'
 import { PasswordCopyButton } from '@/components/tests/password-copy-button'
 import { EditTestSchedule } from '@/components/tests/edit-test-schedule'
+import { DuplicateTestButton } from '@/components/tests/duplicate-test-button'
 
 const STATUS_CONFIG: Record<
   'DRAFT' | 'PUBLISHED' | 'CLOSED',
@@ -161,22 +163,29 @@ export default async function TeamTestDetailPage({
             <p className="text-muted-foreground">{test.description}</p>
           )}
         </div>
-        {test.status === 'DRAFT' && (
-          <div className="flex gap-2">
-            <Link href={`/teams/${params.teamId}/tests/${test.id}/edit`}>
-              <Button>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Test
-              </Button>
-            </Link>
-            <PublishTestButton
-              testId={test.id}
-              teamId={params.teamId}
-              currentStatus={test.status}
-              questionCount={test.questions.length}
-            />
-          </div>
-        )}
+        <div className="flex gap-2">
+          {test.status === 'DRAFT' && (
+            <>
+              <Link href={`/teams/${params.teamId}/tests/${test.id}/edit`}>
+                <Button>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Test
+                </Button>
+              </Link>
+              <PublishTestButton
+                testId={test.id}
+                teamId={params.teamId}
+                currentStatus={test.status}
+                questionCount={test.questions.length}
+              />
+            </>
+          )}
+          <DuplicateTestButton
+            testId={test.id}
+            testName={test.name}
+            teamId={params.teamId}
+          />
+        </div>
       </div>
 
       <div className="space-y-6">
