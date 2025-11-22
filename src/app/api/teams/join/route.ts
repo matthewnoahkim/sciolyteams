@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { verifyInviteCode } from '@/lib/invite-codes'
+import { logActivity } from '@/lib/activity-log'
 import { z } from 'zod'
 import { Role } from '@prisma/client'
 
@@ -83,6 +84,19 @@ export async function POST(req: NextRequest) {
             image: true,
           },
         },
+      },
+    })
+
+    // Log the team join
+    await logActivity({
+      action: 'USER_JOINED_TEAM',
+      description: `${membership.user.name || membership.user.email} joined team "${matchedTeam.name}" as ${role}`,
+      userId: session.user.id,
+      metadata: {
+        teamId: matchedTeam.id,
+        teamName: matchedTeam.name,
+        role,
+        membershipId: membership.id,
       },
     })
 

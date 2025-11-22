@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { createInviteCodes } from '@/lib/invite-codes'
+import { logActivity } from '@/lib/activity-log'
 import { z } from 'zod'
 import { Division, Role } from '@prisma/client'
 
@@ -74,6 +75,18 @@ export async function POST(req: NextRequest) {
       })
 
       return { team, membership, adminCode, memberCode }
+    })
+
+    // Log the team creation
+    await logActivity({
+      action: 'TEAM_CREATED',
+      description: `Team "${result.team.name}" (${result.team.division}) was created`,
+      userId: session.user.id,
+      metadata: {
+        teamId: result.team.id,
+        teamName: result.team.name,
+        division: result.team.division,
+      },
     })
 
     return NextResponse.json({

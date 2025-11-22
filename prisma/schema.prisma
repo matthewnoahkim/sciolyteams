@@ -29,6 +29,7 @@ model User {
   eventRSVPs         EventRSVP[]
   attendanceCheckIns AttendanceCheckIn[]
   attachments        Attachment[]
+  activityLogs       ActivityLog[]
 }
 
 // NextAuth models
@@ -796,4 +797,20 @@ model TestAudit {
   @@index([testId])
   @@index([actorMembershipId])
   @@index([createdAt])
+}
+
+// Activity Logging System
+model ActivityLog {
+  id          String   @id @default(cuid())
+  action      String // Type of action (e.g., "USER_CREATED", "TEAM_CREATED", "USER_DELETED")
+  description String   @db.Text // Human-readable description
+  userId      String? // User who performed the action (nullable for system actions)
+  metadata    Json? // Additional data about the action
+  timestamp   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([timestamp])
+  @@index([action])
 }
