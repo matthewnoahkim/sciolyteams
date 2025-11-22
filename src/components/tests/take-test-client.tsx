@@ -45,12 +45,12 @@ export function TakeTestClient({
       if (!isVisible) {
         // Page became hidden - start tracking time off page
         setOffPageStartTime(Date.now())
-        setTabSwitchCount((prev) => prev + 1)
+        setTabSwitchCount((prev: number) => prev + 1)
       } else {
         // Page became visible - stop tracking and update total time
         if (offPageStartTime) {
           const timeOff = Math.floor((Date.now() - offPageStartTime) / 1000)
-          setTimeOffPageSeconds((prev) => prev + timeOff)
+          setTimeOffPageSeconds((prev: number) => prev + timeOff)
           setOffPageStartTime(null)
         }
       }
@@ -59,14 +59,14 @@ export function TakeTestClient({
     const handleBlur = () => {
       if (document.hidden) {
         setOffPageStartTime(Date.now())
-        setTabSwitchCount((prev) => prev + 1)
+        setTabSwitchCount((prev: number) => prev + 1)
       }
     }
 
     const handleFocus = () => {
       if (offPageStartTime) {
         const timeOff = Math.floor((Date.now() - offPageStartTime) / 1000)
-        setTimeOffPageSeconds((prev) => prev + timeOff)
+        setTimeOffPageSeconds((prev: number) => prev + timeOff)
         setOffPageStartTime(null)
       }
     }
