@@ -4,9 +4,7 @@
  */
 
 export function updateFaviconBadge(count: number) {
-  console.log('Updating favicon badge with count:', count)
-  
-  // Always create the favicon with the "T" logo
+  // Always create the favicon with the logo
   // Create canvas to draw the badge - use larger size for better quality
   const canvas = document.createElement('canvas')
   canvas.width = 64
@@ -14,13 +12,30 @@ export function updateFaviconBadge(count: number) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  // Draw the base favicon background
-  ctx.fillStyle = '#3b82f6' // Blue background
-  ctx.fillRect(0, 0, 64, 64)
+  // Draw gradient background (blue to purple)
+  const gradient = ctx.createLinearGradient(0, 0, 64, 64)
+  gradient.addColorStop(0, '#3b82f6') // Blue
+  gradient.addColorStop(1, '#9333ea') // Purple
+  ctx.fillStyle = gradient
   
-  // Draw a simple "T" for Teamy
+  // Draw rounded rectangle background
+  const radius = 12
+  ctx.beginPath()
+  ctx.moveTo(radius, 0)
+  ctx.lineTo(64 - radius, 0)
+  ctx.quadraticCurveTo(64, 0, 64, radius)
+  ctx.lineTo(64, 64 - radius)
+  ctx.quadraticCurveTo(64, 64, 64 - radius, 64)
+  ctx.lineTo(radius, 64)
+  ctx.quadraticCurveTo(0, 64, 0, 64 - radius)
+  ctx.lineTo(0, radius)
+  ctx.quadraticCurveTo(0, 0, radius, 0)
+  ctx.closePath()
+  ctx.fill()
+  
+  // Draw "T" letter for Teamy
   ctx.fillStyle = '#ffffff'
-  ctx.font = 'bold 40px Arial'
+  ctx.font = 'bold 36px Arial'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText('T', 32, 32)
@@ -76,7 +91,7 @@ export function updateFaviconBadge(count: number) {
  * Loads the actual favicon image and draws a badge on it
  * This is more accurate than drawing from scratch
  */
-export async function updateFaviconBadgeWithImage(count: number, faviconUrl: string = '/favicon.ico') {
+export async function updateFaviconBadgeWithImage(count: number, faviconUrl: string = '/favicon.svg') {
   try {
     // Load the favicon image
     const img = new Image()
@@ -85,7 +100,7 @@ export async function updateFaviconBadgeWithImage(count: number, faviconUrl: str
     await new Promise((resolve, reject) => {
       img.onload = resolve
       img.onerror = () => {
-        // If favicon doesn't exist, use fallback with "T" logo
+        // If favicon doesn't exist, use fallback with logo
         updateFaviconBadge(count)
         reject(new Error('Favicon not found'))
       }

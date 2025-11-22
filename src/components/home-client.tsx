@@ -11,6 +11,7 @@ import { JoinTeamDialog } from '@/components/join-team-dialog'
 import { EditUsernameDialog } from '@/components/edit-username-dialog'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Users, Plus, LogOut, Pencil } from 'lucide-react'
+import { Logo } from '@/components/logo'
 import { signOut } from 'next-auth/react'
 import { useFaviconBadge } from '@/hooks/use-favicon-badge'
 
@@ -158,7 +159,6 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
 
       setTeamNotifications(notifications)
       setTotalUnreadCount(totalUnreadItems)
-      console.log('Total unread count:', totalUnreadItems, 'Team notifications:', notifications)
     }
 
     checkForNewContent()
@@ -192,11 +192,8 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
       <header className="border-b glass-effect-light dark:glass-effect-dark">
         <div className="container mx-auto flex items-center justify-between p-6">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-primary-light dark:bg-gradient-primary-dark text-white shadow-xl apple-transition">
-              <Users className="h-8 w-8" />
-            </div>
+            <Logo size="lg" />
             <div>
-              <h1 className="text-3xl font-bold text-foreground leading-tight">Teamy</h1>
               <p className="text-base text-muted-foreground leading-relaxed">Team Management Platform</p>
             </div>
           </div>

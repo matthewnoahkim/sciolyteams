@@ -5,6 +5,7 @@ import { SignInButton } from '@/components/signin-button'
 import { SignInThemeToggle } from '@/components/signin-theme-toggle'
 import { Users, Calendar, Users2, ClipboardCheck, DollarSign, FileText, Sparkles, MessageSquare, Shield, Zap, BarChart3, Mail, HelpCircle } from 'lucide-react'
 import Link from 'next/link'
+import { Logo } from '@/components/logo'
 
 type SignInPageProps = {
   searchParams?: {
@@ -121,12 +122,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       {/* Header */}
       <header className="relative z-10 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-              <Sparkles className="h-6 w-6" />
-            </div>
-            <span className="text-xl font-bold text-gray-900 dark:text-white">Teamy</span>
-          </div>
+          <Logo size="md" />
           <SignInThemeToggle />
         </div>
       </header>
@@ -137,11 +133,14 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           {/* Left side - Hero content */}
           <div className="text-center lg:text-left space-y-8">
             <div className="space-y-4">
-              <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white leading-tight">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
-                  Teamy
-                </span>
-              </h1>
+              <div className="flex items-center gap-4">
+                <Logo size="lg" showText={false} />
+                <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white leading-tight">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+                    Teamy
+                  </span>
+                </h1>
+              </div>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-lg">
                 The all-in-one platform for managing your team. Streamline communication, track events, manage rosters, and more.
               </p>
@@ -375,7 +374,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-white">
                     <Sparkles className="h-5 w-5" />
                   </div>
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">Teamy</span>
+                  <Logo size="sm" />
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   The all-in-one platform for team management.
