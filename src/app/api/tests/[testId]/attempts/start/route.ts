@@ -98,6 +98,7 @@ export async function POST(
           { error: 'You have already completed this test' },
           { status: 400 }
         )
+
       }
       if (attempt.status === 'INVALIDATED') {
         return NextResponse.json(
@@ -131,4 +132,5 @@ export async function POST(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
 
