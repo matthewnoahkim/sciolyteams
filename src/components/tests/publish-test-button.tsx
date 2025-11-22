@@ -71,41 +71,62 @@ export function PublishTestButton({
       return
     }
 
-    if (formData.testPassword && formData.testPassword.length < 6) {
-      toast({
-        title: 'Error',
-        description: 'Test password must be at least 6 characters',
-        variant: 'destructive',
-      })
-      return
-    }
+    if (formData.testPassword) {
+      if (formData.testPassword.length < 6) {
+        toast({
+          title: 'Error',
+          description: 'Test password must be at least 6 characters',
+          variant: 'destructive',
+        })
+        return
+      }
 
-    if (formData.testPassword !== formData.testPasswordConfirm) {
-      toast({
-        title: 'Error',
-        description: 'Test passwords do not match',
-        variant: 'destructive',
-      })
-      return
+      if (!formData.testPasswordConfirm) {
+        toast({
+          title: 'Error',
+          description: 'Please confirm the password',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      if (formData.testPassword !== formData.testPasswordConfirm) {
+        toast({
+          title: 'Error',
+          description: 'Passwords do not match',
+          variant: 'destructive',
+        })
+        return
+      }
     }
 
     setPublishing(true)
     try {
+      // Convert datetime-local format to ISO string
+      const startAtISO = formData.startAt ? new Date(formData.startAt).toISOString() : undefined
+      const endAtISO = formData.endAt ? new Date(formData.endAt).toISOString() : undefined
+      const releaseScoresAtISO = formData.releaseScoresAt && formData.releaseScoresAt.trim() 
+        ? new Date(formData.releaseScoresAt).toISOString() 
+        : undefined
+
       const response = await fetch(`/api/tests/${testId}/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          startAt: formData.startAt,
-          endAt: formData.endAt,
+          startAt: startAtISO,
+          endAt: endAtISO,
           testPassword: formData.testPassword || undefined,
-          releaseScoresAt: formData.releaseScoresAt || undefined,
+          releaseScoresAt: releaseScoresAtISO,
         }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to publish test')
+        const errorMsg = data.message 
+          ? `${data.error}: ${data.message}` 
+          : data.error || 'Failed to publish test'
+        throw new Error(errorMsg)
       }
 
       toast({

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -157,7 +157,9 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
   }
 
   const getTestTimeInfo = (test: Test): string => {
-    if (!test.startAt) return 'No start time set'
+    if (!test.startAt) {
+      return test.status === 'DRAFT' ? 'Set start time when publishing' : 'No start time set'
+    }
     const start = new Date(test.startAt)
     const end = test.endAt ? new Date(test.endAt) : null
     const now = new Date()
@@ -173,6 +175,112 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
     }
     return 'Available now'
   }
+
+  // Categorize tests into sections
+  const { drafts, scheduled, opened } = useMemo(() => {
+    const now = new Date()
+    const draftsList: Test[] = []
+    const scheduledList: Test[] = []
+    const openedList: Test[] = []
+
+    tests.forEach((test) => {
+      if (test.status === 'DRAFT') {
+        draftsList.push(test)
+      } else if (test.status === 'PUBLISHED') {
+        const startAt = test.startAt ? new Date(test.startAt) : null
+        const endAt = test.endAt ? new Date(test.endAt) : null
+        
+        if (startAt && now < startAt) {
+          // Test hasn't started yet - Scheduled
+          scheduledList.push(test)
+        } else {
+          // Test has started (or no startAt) - check if it's still open
+          if (!endAt || now <= endAt) {
+            // Test is currently open
+            openedList.push(test)
+          }
+          // If test has ended, we don't show it in any section for members
+          // Admins might want to see closed tests, but for now we'll only show active ones
+        }
+      }
+    })
+
+    return { drafts: draftsList, scheduled: scheduledList, opened: openedList }
+  }, [tests])
+
+  const renderTestCard = (test: Test) => (
+    <Card key={test.id}>
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <CardTitle>{test.name}</CardTitle>
+              {getStatusBadge(test.status)}
+              {test.requireFullscreen && (
+                <Badge variant="outline" className="gap-1">
+                  <Lock className="h-3 w-3" />
+                  Lockdown
+                </Badge>
+              )}
+            </div>
+            {test.description && (
+              <CardDescription>{test.description}</CardDescription>
+            )}
+          </div>
+          {isAdmin && (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleViewTest(test)}
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                View
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleDeleteClick(test)}
+                className="text-red-600 hover:text-red-700"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div className="flex items-center gap-2 text-sm">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <span>{test.durationMinutes} minutes</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span>{test._count.questions} questions</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span>{test._count.attempts} attempts</span>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {getTestTimeInfo(test)}
+          </div>
+        </div>
+
+        {!isAdmin && test.status === 'PUBLISHED' && (
+          <Button
+            onClick={() => handleTakeTest(test)}
+            disabled={!isTestAvailable(test)}
+            className="w-full"
+          >
+            <Play className="h-4 w-4 mr-2" />
+            {isTestAvailable(test) ? 'Take Test' : 'Not Available'}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  )
 
   if (loading) {
     return <div className="p-4">Loading tests...</div>
@@ -235,94 +343,81 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
         </Card>
       )}
 
-      {/* Tests List */}
-      <div className="grid gap-4">
-        {tests.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-lg font-medium">No tests yet</p>
-              <p className="text-sm text-muted-foreground">
-                {isAdmin ? 'Create your first test to get started' : 'Check back later for available tests'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          tests.map((test) => (
-            <Card key={test.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CardTitle>{test.name}</CardTitle>
-                      {getStatusBadge(test.status)}
-                      {test.requireFullscreen && (
-                        <Badge variant="outline" className="gap-1">
-                          <Lock className="h-3 w-3" />
-                          Lockdown
-                        </Badge>
-                      )}
-                    </div>
-                    {test.description && (
-                      <CardDescription>{test.description}</CardDescription>
-                    )}
-                  </div>
-                  {isAdmin && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleViewTest(test)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteClick(test)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{test.durationMinutes} minutes</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span>{test._count.questions} questions</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span>{test._count.attempts} attempts</span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {getTestTimeInfo(test)}
-                  </div>
-                </div>
+      {/* Tests List - Organized by Sections */}
+      {tests.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-medium">No tests yet</p>
+            <p className="text-sm text-muted-foreground">
+              {isAdmin ? 'Create your first test to get started' : 'Check back later for available tests'}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-10">
+          {/* Drafts Section - Admin Only */}
+          {isAdmin && drafts.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 pb-2 border-b border-border">
+                <div className="h-1 w-1 rounded-full bg-muted-foreground" />
+                <h3 className="text-xl font-bold">Drafts</h3>
+                <Badge variant="secondary" className="ml-auto">
+                  {drafts.length}
+                </Badge>
+              </div>
+              <div className="grid gap-4">
+                {drafts.map(renderTestCard)}
+              </div>
+            </div>
+          )}
 
-                {!isAdmin && test.status === 'PUBLISHED' && (
-                  <Button
-                    onClick={() => handleTakeTest(test)}
-                    disabled={!isTestAvailable(test)}
-                    className="w-full"
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    {isTestAvailable(test) ? 'Take Test' : 'Not Available'}
-                  </Button>
-                )}
+          {/* Scheduled Section */}
+          {scheduled.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 pb-2 border-b border-border">
+                <div className="h-1 w-1 rounded-full bg-blue-500" />
+                <h3 className="text-xl font-bold">Scheduled</h3>
+                <Badge variant="secondary" className="ml-auto">
+                  {scheduled.length}
+                </Badge>
+              </div>
+              <div className="grid gap-4">
+                {scheduled.map(renderTestCard)}
+              </div>
+            </div>
+          )}
+
+          {/* Opened Section */}
+          {opened.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 pb-2 border-b border-border">
+                <div className="h-1 w-1 rounded-full bg-green-500" />
+                <h3 className="text-xl font-bold">Opened</h3>
+                <Badge variant="secondary" className="ml-auto">
+                  {opened.length}
+                </Badge>
+              </div>
+              <div className="grid gap-4">
+                {opened.map(renderTestCard)}
+              </div>
+            </div>
+          )}
+
+          {/* Empty State if no tests in visible sections */}
+          {(!isAdmin || drafts.length === 0) && scheduled.length === 0 && opened.length === 0 && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium">No tests available</p>
+                <p className="text-sm text-muted-foreground">
+                  {isAdmin ? 'Create your first test to get started' : 'Check back later for available tests'}
+                </p>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -185,23 +185,6 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
       errors.push('Test name is required.')
     }
 
-    if (!details.startAt) {
-      errors.push('Test start date and time is required.')
-    }
-    if (!details.endAt) {
-      errors.push('Test end date and time is required.')
-    }
-
-    if (details.startAt && details.endAt) {
-      const start = new Date(details.startAt)
-      const end = new Date(details.endAt)
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-        errors.push('Invalid date or time selection.')
-      } else if (end <= start) {
-        errors.push('End time must be after the start time.')
-      }
-    }
-
     const durationValue = parseInt(details.durationMinutes, 10)
     if (!Number.isFinite(durationValue) || durationValue <= 0) {
       errors.push('Duration must be a positive number of minutes.')

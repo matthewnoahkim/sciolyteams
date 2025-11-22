@@ -24,8 +24,10 @@ import {
   ShieldAlert,
   FileText,
   Edit,
+  Key,
 } from 'lucide-react'
 import { PublishTestButton } from '@/components/tests/publish-test-button'
+import { PasswordCopyButton } from '@/components/tests/password-copy-button'
 
 const STATUS_CONFIG: Record<
   'DRAFT' | 'PUBLISHED' | 'CLOSED',
@@ -74,7 +76,24 @@ export default async function TeamTestDetailPage({
       id: params.testId,
       teamId: params.teamId,
     },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      instructions: true,
+      status: true,
+      durationMinutes: true,
+      startAt: true,
+      endAt: true,
+      allowLateUntil: true,
+      randomizeQuestionOrder: true,
+      randomizeOptionOrder: true,
+      requireFullscreen: true,
+      releaseScoresAt: true,
+      testPasswordHash: true,
+      testPasswordPlaintext: true, // Admin-only plaintext password for viewing
+      createdAt: true,
+      updatedAt: true,
       assignments: {
         include: {
           subteam: {
@@ -188,6 +207,35 @@ export default async function TeamTestDetailPage({
                 label="Assigned to"
                 value={assignmentSummary}
               />
+              {test.status === 'PUBLISHED' && test.testPasswordHash && (
+                <div className="flex gap-3 sm:col-span-2">
+                  <div className="mt-1">
+                    <Key className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground/70">
+                      Test Password
+                    </p>
+                    {test.testPasswordPlaintext ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="flex-1 px-3 py-2 bg-muted border border-border rounded-md text-sm font-mono">
+                          {test.testPasswordPlaintext}
+                        </code>
+                        <PasswordCopyButton password={test.testPasswordPlaintext} />
+                      </div>
+                    ) : (
+                      <div className="mt-1 space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Password is set, but original password is not available. This test was likely published before password viewing was enabled.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          To view the password, you can update it in the test settings or republish the test with a new password.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -344,4 +392,5 @@ function SettingToggle({
     </div>
   )
 }
+
 

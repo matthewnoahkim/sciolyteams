@@ -70,6 +70,7 @@ export async function POST(
     const testPasswordHash = validatedData.testPassword
       ? await hashTestPassword(validatedData.testPassword)
       : null
+    const testPasswordPlaintext = validatedData.testPassword || null
 
     // Get membership for audit
     const membership = await getUserMembership(session.user.id, test.teamId)
@@ -85,6 +86,7 @@ export async function POST(
         startAt,
         endAt,
         testPasswordHash,
+        testPasswordPlaintext,
         releaseScoresAt: validatedData.releaseScoresAt
           ? new Date(validatedData.releaseScoresAt)
           : null,
@@ -116,7 +118,11 @@ export async function POST(
       )
     }
     console.error('Publish test error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json(
+      { error: 'Internal server error', message: errorMessage },
+      { status: 500 }
+    )
   }
 }
 
