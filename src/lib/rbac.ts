@@ -21,11 +21,11 @@ export async function getUserMembership(userId: string, teamId: string) {
 }
 
 /**
- * Check if user is a captain of a team
+ * Check if user is an admin of a team
  */
-export async function isCaptain(userId: string, teamId: string): Promise<boolean> {
+export async function isAdmin(userId: string, teamId: string): Promise<boolean> {
   const membership = await getUserMembership(userId, teamId)
-  return membership?.role === Role.CAPTAIN
+  return membership?.role === Role.ADMIN
 }
 
 /**
@@ -37,12 +37,12 @@ export async function isMember(userId: string, teamId: string): Promise<boolean>
 }
 
 /**
- * Require captain role, throw if not authorized
+ * Require admin role, throw if not authorized
  */
-export async function requireCaptain(userId: string, teamId: string) {
-  const isAuth = await isCaptain(userId, teamId)
+export async function requireAdmin(userId: string, teamId: string) {
+  const isAuth = await isAdmin(userId, teamId)
   if (!isAuth) {
-    throw new Error('UNAUTHORIZED: Captain role required')
+    throw new Error('UNAUTHORIZED: Admin role required')
   }
 }
 

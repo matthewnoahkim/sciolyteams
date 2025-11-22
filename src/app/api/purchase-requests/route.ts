@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember, isCaptain, getUserMembership } from '@/lib/rbac'
+import { requireMember, getUserMembership } from '@/lib/rbac'
 import { z } from 'zod'
 
 const createPurchaseRequestSchema = z.object({

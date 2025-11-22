@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireCaptain } from '@/lib/rbac'
+import { requireAdmin } from '@/lib/rbac'
 
 // DELETE /api/attendance/[attendanceId]/checkin/[checkInId]
-// Delete a check-in (captains only)
+// Delete a check-in (admins only)
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { attendanceId: string; checkInId: string } }
@@ -27,8 +27,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Attendance not found' }, { status: 404 })
     }
 
-    // Only captains can delete check-ins
-    await requireCaptain(session.user.id, attendance.teamId)
+    // Only admins can delete check-ins
+    await requireAdmin(session.user.id, attendance.teamId)
 
     // Verify the check-in belongs to this attendance
     const checkIn = await prisma.attendanceCheckIn.findUnique({

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getUserMembership, isCaptain } from '@/lib/rbac'
+import { getUserMembership, isAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const updateEventSchema = z.object({
@@ -51,11 +51,11 @@ export async function PATCH(
 
     // Check permissions
     const isCreator = event.creatorId === membership.id
-    const isCpt = await isCaptain(session.user.id, event.teamId)
+    const isAdminUser = await isAdmin(session.user.id, event.teamId)
 
-    // Captains can edit all events EXCEPT personal events made by other members
+    // Admins can edit all events EXCEPT personal events made by other members
     // Members can only edit their own events
-    const canEdit = isCreator || (isCpt && event.scope !== 'PERSONAL')
+    const canEdit = isCreator || (isAdminUser && event.scope !== 'PERSONAL')
 
     if (!canEdit) {
       return NextResponse.json(
@@ -194,11 +194,11 @@ export async function DELETE(
 
     // Check permissions
     const isCreator = event.creatorId === membership.id
-    const isCpt = await isCaptain(session.user.id, event.teamId)
+    const isAdminUser = await isAdmin(session.user.id, event.teamId)
 
-    // Captains can delete all events EXCEPT personal events made by other members
+    // Admins can delete all events EXCEPT personal events made by other members
     // Members can only delete their own events
-    const canDelete = isCreator || (isCpt && event.scope !== 'PERSONAL')
+    const canDelete = isCreator || (isAdminUser && event.scope !== 'PERSONAL')
 
     if (!canDelete) {
       return NextResponse.json(

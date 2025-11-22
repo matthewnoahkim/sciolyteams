@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireCaptain } from '@/lib/rbac'
+import { requireAdmin } from '@/lib/rbac'
 import { isWithinMeetingWindow, generateAttendanceCode, hashAttendanceCode } from '@/lib/attendance'
 
 // GET /api/attendance/[attendanceId]/code
-// Reveal the attendance code (captains only, during meeting window)
+// Reveal the attendance code (admins only, during meeting window)
 export async function GET(
   req: NextRequest,
   { params }: { params: { attendanceId: string } }
@@ -30,8 +30,8 @@ export async function GET(
       return NextResponse.json({ error: 'Attendance not found' }, { status: 404 })
     }
 
-    // Only captains can reveal codes
-    await requireCaptain(session.user.id, attendance.teamId)
+    // Only admins can reveal codes
+    await requireAdmin(session.user.id, attendance.teamId)
 
     // Check if within meeting window
     const inWindow = isWithinMeetingWindow(

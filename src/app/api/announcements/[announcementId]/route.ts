@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getUserMembership, isCaptain } from '@/lib/rbac'
+import { getUserMembership, isAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const updateAnnouncementSchema = z.object({
@@ -45,12 +45,12 @@ export async function PATCH(
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    // Check permissions: must be a captain (captains can edit all announcements)
-    const isCpt = await isCaptain(session.user.id, announcement.teamId)
+    // Check permissions: must be an admin (admins can edit all announcements)
+    const isAdminUser = await isAdmin(session.user.id, announcement.teamId)
 
-    if (!isCpt) {
+    if (!isAdminUser) {
       return NextResponse.json(
-        { error: 'Only team captains can edit announcements' },
+        { error: 'Only team admins can edit announcements' },
         { status: 403 }
       )
     }
@@ -145,13 +145,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    // Check permissions: must be author or captain
+    // Check permissions: must be author or admin
     const isAuthor = announcement.authorId === membership.id
-    const isCpt = await isCaptain(session.user.id, announcement.teamId)
+    const isAdminUser = await isAdmin(session.user.id, announcement.teamId)
 
-    if (!isAuthor && !isCpt) {
+    if (!isAuthor && !isAdminUser) {
       return NextResponse.json(
-        { error: 'Only the author or team captain can delete this announcement' },
+        { error: 'Only the author or team admin can delete this announcement' },
         { status: 403 }
       )
     }

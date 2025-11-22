@@ -21,7 +21,7 @@ import { EventAnnouncementModal } from '@/components/event-announcement-modal'
 interface CalendarTabProps {
   teamId: string
   currentMembership: any
-  isCaptain: boolean
+  isAdmin: boolean
   user: {
     id: string
     name?: string | null
@@ -32,7 +32,7 @@ interface CalendarTabProps {
 
 type ViewMode = 'month' | 'week'
 
-export function CalendarTab({ teamId, currentMembership, isCaptain, user }: CalendarTabProps) {
+export function CalendarTab({ teamId, currentMembership, isAdmin, user }: CalendarTabProps) {
   const { toast } = useToast()
   const [events, setEvents] = useState<any[]>([])
   const [subteams, setSubteams] = useState<any[]>([])
@@ -257,8 +257,8 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
       setFormData(getInitialFormData())
       fetchEvents()
 
-      // Show announcement modal for TEAM or SUBTEAM events created by captains
-      if (isCaptain && (createdFormData.scope === 'TEAM' || createdFormData.scope === 'SUBTEAM')) {
+      // Show announcement modal for TEAM or SUBTEAM events created by admins
+      if (isAdmin && (createdFormData.scope === 'TEAM' || createdFormData.scope === 'SUBTEAM')) {
         setCreatedEvent({ ...newEvent, formData: createdFormData })
         setShowAnnouncementModal(true)
       }
@@ -409,8 +409,8 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
   const canDeleteEvent = (event: any) => {
     // User can delete their own events
     if (event.creatorId === currentMembership.id) return true
-    // Captains can delete any team/club events (not personal events made by others)
-    if (isCaptain && event.scope !== 'PERSONAL') return true
+    // Admins can delete any team/club events (not personal events made by others)
+    if (isAdmin && event.scope !== 'PERSONAL') return true
     return false
   }
 
@@ -1058,7 +1058,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
     return (
       <div className="border rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-8 gap-0 pr-[15px]">
+        <div className="grid grid-cols-8 gap-0">
           <div className="bg-muted py-1 px-1 border-b border-r border-border" />
           {weekDates.map((date) => {
             const isToday = isSameDay(date, today)
@@ -1079,7 +1079,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         </div>
 
         {/* All-day events section */}
-        <div className="grid grid-cols-8 gap-0 border-b border-border pr-[15px]">
+        <div className="grid grid-cols-8 gap-0 border-b border-border">
           <div className="py-1 px-1 text-xs text-muted-foreground text-right border-r border-border leading-tight flex items-center justify-end">
             All Day
           </div>
@@ -1187,7 +1187,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
         </div>
 
         {/* Time slots */}
-        <div className="max-h-[600px] overflow-y-auto">
+        <div>
           {hours.map((hour) => (
             <div key={hour} className="grid grid-cols-8 gap-0">
               <div className="py-1 px-1 text-xs text-muted-foreground text-right border-r border-border leading-tight flex items-center justify-end">
@@ -1445,7 +1445,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
           <div className="flex border rounded-lg overflow-hidden">
             <Button
               variant={viewMode === 'month' ? 'default' : 'ghost'}
@@ -1469,7 +1469,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
             size="sm"
             onClick={() => setShowImportantOnly(!showImportantOnly)}
           >
-            {showImportantOnly ? '🔕' : '🔔'} Important Only
+            Important Only
           </Button>
           <Button onClick={() => {
             setFormData(getInitialFormData())
@@ -1643,7 +1643,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                     />
                     <span className="text-sm">Personal event</span>
                   </label>
-                  {isCaptain && (
+                  {isAdmin && (
                     <>
                       <label className="flex items-center gap-2">
                         <input
@@ -2107,7 +2107,7 @@ export function CalendarTab({ teamId, currentMembership, isCaptain, user }: Cale
                     />
                     <span className="text-sm">Personal event</span>
                   </label>
-                  {isCaptain && (
+                  {isAdmin && (
                     <>
                       <label className="flex items-center gap-2">
                         <input

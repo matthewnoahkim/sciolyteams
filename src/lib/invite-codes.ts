@@ -58,31 +58,31 @@ export function decryptInviteCode(encrypted: string): string {
 }
 
 /**
- * Creates both captain and member invite codes
+ * Creates both admin and member invite codes
  */
 export async function createInviteCodes(): Promise<{
-  captainCode: string
-  captainHash: string
-  captainEncrypted: string
+  adminCode: string
+  adminHash: string
+  adminEncrypted: string
   memberCode: string
   memberHash: string
   memberEncrypted: string
 }> {
-  const captainCode = generateInviteCode()
+  const adminCode = generateInviteCode()
   const memberCode = generateInviteCode()
   
-  const [captainHash, memberHash] = await Promise.all([
-    hashInviteCode(captainCode),
+  const [adminHash, memberHash] = await Promise.all([
+    hashInviteCode(adminCode),
     hashInviteCode(memberCode),
   ])
 
-  const captainEncrypted = encryptInviteCode(captainCode)
+  const adminEncrypted = encryptInviteCode(adminCode)
   const memberEncrypted = encryptInviteCode(memberCode)
   
   return {
-    captainCode,
-    captainHash,
-    captainEncrypted,
+    adminCode,
+    adminHash,
+    adminEncrypted,
     memberCode,
     memberHash,
     memberEncrypted,

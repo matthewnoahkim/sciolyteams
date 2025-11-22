@@ -397,7 +397,7 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
                   onChange={(event) =>
                     setDetails((prev) => ({ ...prev, description: event.target.value }))
                   }
-                  placeholder="Share a one-line summary for captains and competitors."
+                  placeholder="Share a one-line summary for admins and competitors."
                 />
               </div>
               <div>
@@ -534,7 +534,7 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
                 Assignments
               </CardTitle>
               <CardDescription>
-                Choose who should receive the test. Captains can always preview drafts.
+                Choose who should receive the test. Admins can always preview drafts.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

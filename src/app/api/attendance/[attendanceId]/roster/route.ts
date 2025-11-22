@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireCaptain } from '@/lib/rbac'
+import { requireAdmin } from '@/lib/rbac'
 
 // GET /api/attendance/[attendanceId]/roster
-// Get full attendance roster (captains only)
+// Get full attendance roster (admins only)
 export async function GET(
   req: NextRequest,
   { params }: { params: { attendanceId: string } }
@@ -29,8 +29,8 @@ export async function GET(
       return NextResponse.json({ error: 'Attendance not found' }, { status: 404 })
     }
 
-    // Only captains can view full roster
-    await requireCaptain(session.user.id, attendance.teamId)
+    // Only admins can view full roster
+    await requireAdmin(session.user.id, attendance.teamId)
 
     // Get all check-ins with user details
     const checkIns = await prisma.attendanceCheckIn.findMany({

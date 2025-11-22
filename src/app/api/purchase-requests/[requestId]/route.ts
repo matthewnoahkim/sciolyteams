@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { isCaptain, getUserMembership } from '@/lib/rbac'
+import { isAdmin, getUserMembership } from '@/lib/rbac'
 import { z } from 'zod'
 
 const reviewPurchaseRequestSchema = z.object({
@@ -38,11 +38,11 @@ export async function PATCH(
       return NextResponse.json({ error: 'Purchase request not found' }, { status: 404 })
     }
 
-    // Check if user is a captain
-    const isCpt = await isCaptain(session.user.id, purchaseRequest.teamId)
-    if (!isCpt) {
+    // Check if user is an admin
+    const isAdminUser = await isAdmin(session.user.id, purchaseRequest.teamId)
+    if (!isAdminUser) {
       return NextResponse.json(
-        { error: 'Only captains can review purchase requests' },
+        { error: 'Only admins can review purchase requests' },
         { status: 403 }
       )
     }
@@ -139,13 +139,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    // Only the requester or a captain can delete
-    const isCpt = await isCaptain(session.user.id, purchaseRequest.teamId)
+    // Only the requester or an admin can delete
+    const isAdminUser = await isAdmin(session.user.id, purchaseRequest.teamId)
     const isRequester = purchaseRequest.requesterId === membership.id
 
-    if (!isCpt && !isRequester) {
+    if (!isAdminUser && !isRequester) {
       return NextResponse.json(
-        { error: 'Only the requester or a captain can delete this request' },
+        { error: 'Only the requester or an admin can delete this request' },
         { status: 403 }
       )
     }

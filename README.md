@@ -10,12 +10,12 @@ A comprehensive Science Olympiad team management platform built with Next.js 14,
 
 ### Team Management
 - **Create teams** for Division B (Grades 6-9) or Division C (Grades 9-12)
-- **Dual role system**: Captains and Members
-- **Invite codes**: Separate rotating codes for captains and members
+- **Dual role system**: Admins and Members
+- **Invite codes**: Separate rotating codes for admins and members
 - **Team size cap**: Maximum 15 users per team
 
 ### Subteams
-- Captains can create multiple subteams within a team
+- Admins can create multiple subteams within a team
 - Assign members to subteams
 - Track subteam composition and events
 
@@ -32,10 +32,9 @@ A comprehensive Science Olympiad team management platform built with Next.js 14,
 - Filter by visibility scope
 - Email delivery logging
 
-### Calendar
 - **Scoped events**: Personal, Subteam, or Team-wide
 - Members can create personal events
-- Captains can create team/subteam events
+- Admins can create team/subteam events
 - Visual scope badges for easy identification
 
 ## Tech Stack
@@ -148,16 +147,16 @@ A comprehensive Science Olympiad team management platform built with Next.js 14,
 - `GET /api/teams` - List user's teams
 - `GET /api/teams/[teamId]` - Get team details
 - `POST /api/teams/join` - Join team with invite code
-- `POST /api/teams/[teamId]/invite/regenerate` - Regenerate invite codes (Captain only)
+- `POST /api/teams/[teamId]/invite/regenerate` - Regenerate invite codes (Admin only)
 
 ### Subteams
-- `POST /api/teams/[teamId]/subteams` - Create subteam (Captain only)
+- `POST /api/teams/[teamId]/subteams` - Create subteam (Admin only)
 - `GET /api/teams/[teamId]/subteams` - List subteams
-- `PATCH /api/memberships/[membershipId]` - Update member's subteam (Captain only)
+- `PATCH /api/memberships/[membershipId]` - Update member's subteam (Admin only)
 
 ### Roster
-- `POST /api/roster` - Assign member to event (Captain only)
-- `DELETE /api/roster/[assignmentId]` - Remove assignment (Captain only)
+- `POST /api/roster` - Assign member to event (Admin only)
+- `DELETE /api/roster/[assignmentId]` - Remove assignment (Admin only)
 
 ### Events
 - `GET /api/events?division=B|C` - List events for division
@@ -199,7 +198,7 @@ Members cannot be assigned to multiple events in the same conflict group.
 - **Exceptions**: Codebusters and Experimental Design allow 3 competitors
 
 ### Access Control
-- **Captains can**:
+- **Admins can**:
   - Create subteams
   - Assign members to subteams
   - Manage event roster

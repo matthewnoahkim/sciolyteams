@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { isCaptain, getUserMembership } from '@/lib/rbac'
+import { isAdmin, getUserMembership } from '@/lib/rbac'
 import { hashTestPassword } from '@/lib/test-security'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
@@ -90,27 +90,37 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Not a team member' }, { status: 403 })
     }
 
-    const isCpt = await isCaptain(session.user.id, teamId)
+    const isAdminUser = await isAdmin(session.user.id, teamId)
 
-    // Captains see all tests; members see only published tests they're assigned to
+    const where: Prisma.TestWhereInput = {
+      teamId,
+    }
+
+    if (!isAdminUser) {
+      where.status = 'PUBLISHED'
+      where.OR = [
+        {
+          assignments: {
+            some: {
+              OR: [
+                { assignedScope: 'TEAM' },
+                { subteamId: membership.subteamId },
+                { targetMembershipId: membership.id },
+              ],
+            },
+          },
+        },
+        {
+          assignments: {
+            none: {},
+          },
+        },
+      ]
+    }
+
+    // Admins see all tests; members see published tests for them or unassigned ones
     const tests = await prisma.test.findMany({
-      where: {
-        teamId,
-        ...(isCpt
-          ? {}
-          : {
-              status: 'PUBLISHED',
-              assignments: {
-                some: {
-                  OR: [
-                    { assignedScope: 'TEAM' },
-                    { subteamId: membership.subteamId },
-                    { targetMembershipId: membership.id },
-                  ],
-                },
-              },
-            }),
-      },
+      where,
       select: {
         id: true,
         name: true,
@@ -152,11 +162,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validatedData = createTestSchema.parse(body)
 
-    // Check if user is a captain
-    const isCpt = await isCaptain(session.user.id, validatedData.teamId)
-    if (!isCpt) {
+    // Check if user is an admin
+    const isAdminUser = await isAdmin(session.user.id, validatedData.teamId)
+    if (!isAdminUser) {
       return NextResponse.json(
-        { error: 'Only captains can create tests' },
+        { error: 'Only admins can create tests' },
         { status: 403 }
       )
     }

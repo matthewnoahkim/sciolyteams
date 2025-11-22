@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { isCaptain } from '@/lib/rbac'
+import { isAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const updateExpenseSchema = z.object({
@@ -36,11 +36,11 @@ export async function PATCH(
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
     }
 
-    // Check if user is a captain
-    const isCpt = await isCaptain(session.user.id, expense.teamId)
-    if (!isCpt) {
+    // Check if user is an admin
+    const isAdminUser = await isAdmin(session.user.id, expense.teamId)
+    if (!isAdminUser) {
       return NextResponse.json(
-        { error: 'Only captains can edit expenses' },
+        { error: 'Only admins can edit expenses' },
         { status: 403 }
       )
     }
@@ -99,17 +99,25 @@ export async function DELETE(
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
     }
 
-    // Check if user is a captain
-    const isCpt = await isCaptain(session.user.id, expense.teamId)
-    if (!isCpt) {
+    // Check if user is an admin
+    const isAdminUser = await isAdmin(session.user.id, expense.teamId)
+    if (!isAdminUser) {
       return NextResponse.json(
-        { error: 'Only captains can delete expenses' },
+        { error: 'Only admins can delete expenses' },
         { status: 403 }
       )
     }
 
-    await prisma.expense.delete({
-      where: { id: params.expenseId },
+    await prisma.$transaction(async (tx) => {
+      await tx.expense.delete({
+        where: { id: params.expenseId },
+      })
+
+      if (expense.purchaseRequestId) {
+        await tx.purchaseRequest.delete({
+          where: { id: expense.purchaseRequestId },
+        })
+      }
     })
 
     return NextResponse.json({ success: true })

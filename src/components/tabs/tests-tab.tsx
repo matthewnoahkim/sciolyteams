@@ -11,7 +11,7 @@ import { Plus, Clock, Users, FileText, AlertCircle, Play, Eye, Trash2, Lock } fr
 
 interface TestsTabProps {
   teamId: string
-  isCaptain: boolean
+  isAdmin: boolean
 }
 
 interface Test {
@@ -32,7 +32,7 @@ interface Test {
   }
 }
 
-export default function TestsTab({ teamId, isCaptain }: TestsTabProps) {
+export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
   const [tests, setTests] = useState<Test[]>([])
@@ -167,10 +167,10 @@ export default function TestsTab({ teamId, isCaptain }: TestsTabProps) {
         <div>
           <h2 className="text-2xl font-bold">Tests</h2>
           <p className="text-muted-foreground">
-            {isCaptain ? 'Create and manage tests for your team' : 'View and take available tests'}
+            {isAdmin ? 'Create and manage tests for your team' : 'View and take available tests'}
           </p>
         </div>
-        {isCaptain && (
+        {isAdmin && (
           <Button onClick={() => router.push(`/teams/${teamId}/tests/new`)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Test
@@ -205,7 +205,7 @@ export default function TestsTab({ teamId, isCaptain }: TestsTabProps) {
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-lg font-medium">No tests yet</p>
               <p className="text-sm text-muted-foreground">
-                {isCaptain ? 'Create your first test to get started' : 'Check back later for available tests'}
+                {isAdmin ? 'Create your first test to get started' : 'Check back later for available tests'}
               </p>
             </CardContent>
           </Card>
@@ -229,7 +229,7 @@ export default function TestsTab({ teamId, isCaptain }: TestsTabProps) {
                       <CardDescription>{test.description}</CardDescription>
                     )}
                   </div>
-                  {isCaptain && (
+                  {isAdmin && (
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -270,7 +270,7 @@ export default function TestsTab({ teamId, isCaptain }: TestsTabProps) {
                   </div>
                 </div>
 
-                {!isCaptain && test.status === 'PUBLISHED' && (
+                {!isAdmin && test.status === 'PUBLISHED' && (
                   <Button
                     onClick={() => handleTakeTest(test)}
                     disabled={!isTestAvailable(test)}

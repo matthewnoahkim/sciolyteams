@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireCaptain } from '@/lib/rbac'
+import { requireAdmin } from '@/lib/rbac'
 import { isWithinMeetingWindow, generateAttendanceCode, hashAttendanceCode } from '@/lib/attendance'
 
 // POST /api/attendance/[attendanceId]/code/regenerate
-// Regenerate the attendance code (captains only, during meeting window)
+// Regenerate the attendance code (admins only, during meeting window)
 export async function POST(
   req: NextRequest,
   { params }: { params: { attendanceId: string } }
@@ -30,10 +30,10 @@ export async function POST(
       return NextResponse.json({ error: 'Attendance not found' }, { status: 404 })
     }
 
-    // Only captains can regenerate codes
-    await requireCaptain(session.user.id, attendance.teamId)
+    // Only admins can regenerate codes
+    await requireAdmin(session.user.id, attendance.teamId)
 
-    // Captains can generate codes anytime (not just during meeting window)
+    // Admins can generate codes anytime (not just during meeting window)
     // This allows pre-meeting preparation
 
     // Generate new code

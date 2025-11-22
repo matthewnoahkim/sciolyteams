@@ -49,7 +49,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const [currentClubName, setCurrentClubName] = useState(team.name)
   const [newClubName, setNewClubName] = useState(team.name)
   const [updatingClubName, setUpdatingClubName] = useState(false)
-  const isCaptain = currentMembership.role === 'CAPTAIN'
+  const isAdmin = currentMembership.role === 'ADMIN'
 
   // Sync local state when user prop changes (e.g., after navigation)
   useEffect(() => {
@@ -145,7 +145,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <h1 className="text-3xl font-bold text-foreground leading-tight">{currentClubName}</h1>
-                  {isCaptain && (
+                  {isAdmin && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -186,9 +186,17 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                     <Pencil className="h-3 w-3" />
                   </Button>
                 </div>
-                <Badge variant={isCaptain ? 'default' : 'secondary'} className="text-xs">
-                  {currentMembership.role}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {currentMembership.role === 'ADMIN' && (
+                    <Badge variant="outline" className="text-[10px] uppercase">Admin</Badge>
+                  )}
+                  {Array.isArray(currentMembership.roles) && currentMembership.roles.includes('COACH') && (
+                    <Badge variant="outline" className="text-[10px] uppercase">Coach</Badge>
+                  )}
+                  {Array.isArray(currentMembership.roles) && currentMembership.roles.includes('CAPTAIN') && (
+                    <Badge variant="outline" className="text-[10px] uppercase">Captain</Badge>
+                  )}
+                </div>
               </div>
             </div>
             <ThemeToggle />
@@ -274,7 +282,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                 teamId={team.id}
                 currentMembership={currentMembership}
                 subteams={team.subteams}
-                isCaptain={isCaptain}
+                isAdmin={isAdmin}
                 user={user}
               />
             )}
@@ -283,7 +291,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               <PeopleTab
                 team={team}
                 currentMembership={currentMembership}
-                isCaptain={isCaptain}
+                isAdmin={isAdmin}
               />
             )}
 
@@ -291,7 +299,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               <CalendarTab
                 teamId={team.id}
                 currentMembership={currentMembership}
-                isCaptain={isCaptain}
+                isAdmin={isAdmin}
                 user={user}
               />
             )}
@@ -299,7 +307,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
             {activeTab === 'attendance' && (
               <AttendanceTab
                 teamId={team.id}
-                isCaptain={isCaptain}
+                isAdmin={isAdmin}
                 user={user}
               />
             )}
@@ -307,7 +315,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
             {activeTab === 'finance' && (
               <FinanceTab
                 teamId={team.id}
-                isCaptain={isCaptain}
+                isAdmin={isAdmin}
                 currentMembershipId={currentMembership.id}
               />
             )}
@@ -315,7 +323,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
             {activeTab === 'tests' && (
               <TestsTab
                 teamId={team.id}
-                isCaptain={isCaptain}
+                isAdmin={isAdmin}
               />
             )}
 
@@ -323,7 +331,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               <SettingsTab
                 team={team}
                 currentMembership={currentMembership}
-                isCaptain={isCaptain}
+                isAdmin={isAdmin}
               />
             )}
           </div>

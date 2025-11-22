@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireCaptain, getUserMembership } from '@/lib/rbac'
+import { requireAdmin, getUserMembership } from '@/lib/rbac'
 import { z } from 'zod'
 import { CheckInSource } from '@prisma/client'
 
@@ -11,7 +11,7 @@ const manualCheckInSchema = z.object({
 })
 
 // POST /api/attendance/[attendanceId]/manual-checkin
-// Manually add a check-in (captains only)
+// Manually add a check-in (admins only)
 export async function POST(
   req: NextRequest,
   { params }: { params: { attendanceId: string } }
@@ -37,8 +37,8 @@ export async function POST(
       return NextResponse.json({ error: 'Attendance not found' }, { status: 404 })
     }
 
-    // Only captains can manually add check-ins
-    await requireCaptain(session.user.id, attendance.teamId)
+    // Only admins can manually add check-ins
+    await requireAdmin(session.user.id, attendance.teamId)
 
     // Verify the user being checked in is a member of the team
     const targetMembership = await getUserMembership(validated.userId, attendance.teamId)

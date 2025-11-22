@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireCaptain } from '@/lib/rbac'
+import { requireAdmin } from '@/lib/rbac'
 import { validateRosterAssignment } from '@/lib/conflicts'
 import { z } from 'zod'
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Subteam not found' }, { status: 404 })
     }
 
-    await requireCaptain(session.user.id, subteam.teamId)
+    await requireAdmin(session.user.id, subteam.teamId)
 
     // Validate the assignment
     const validation = await validateRosterAssignment(

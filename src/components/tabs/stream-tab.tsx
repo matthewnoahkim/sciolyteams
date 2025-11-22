@@ -18,7 +18,7 @@ interface StreamTabProps {
   teamId: string
   currentMembership: any
   subteams: any[]
-  isCaptain: boolean
+  isAdmin: boolean
   user: {
     name?: string | null
     email: string
@@ -45,7 +45,7 @@ async function performRequest(url: string, options: RequestInit = {}, fallbackMe
   return response
 }
 
-export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user }: StreamTabProps) {
+export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }: StreamTabProps) {
   const { toast } = useToast()
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -254,8 +254,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   }
 
   const canDeleteAnnouncement = (announcement: any) => {
-    // Can delete if you're the author or a captain
-    return announcement.authorId === currentMembership.id || isCaptain
+    // Can delete if you're the author or an admin
+    return announcement.authorId === currentMembership.id || isAdmin
   }
 
   const canEditAnnouncement = (announcement: any) => {
@@ -263,7 +263,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
     if (announcement.calendarEvent) {
       return false
     }
-    // Can only edit if you're the author (not just any captain)
+    // Can only edit if you're the author (not just any admin)
     return announcement.authorId === currentMembership.id
   }
 
@@ -456,8 +456,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
   const canDeleteReply = (reply: any) => {
     // Members can delete their own replies
     if (reply.author.user.id === currentMembership.userId) return true
-    // Captains can delete any reply
-    if (isCaptain) return true
+    // Admins can delete any reply
+    if (isAdmin) return true
     return false
   }
 
@@ -623,8 +623,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
 
   return (
     <div className="space-y-6">
-      {/* Only show post announcement section to captains */}
-      {isCaptain && (
+      {/* Only show post announcement section to admins */}
+      {isAdmin && (
       <Card>
         <CardHeader 
           className="cursor-pointer"
@@ -795,7 +795,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
             size="sm"
             onClick={() => setShowImportantOnly(!showImportantOnly)}
           >
-            {showImportantOnly ? '🔕' : '🔔'} Important Only
+            Important Only
           </Button>
         </div>
         {loading ? (
@@ -817,7 +817,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
             </Card>
           ) : (
             filteredAnnouncements.map((announcement) => (
-            <Card key={announcement.id} className={`relative ${announcement.important ? 'border-2 border-red-500' : ''}`}>
+            <Card key={announcement.id} className="relative">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -831,7 +831,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isCaptain, user
                       <div className="flex items-center gap-2">
                         <p className="font-semibold">{announcement.title}</p>
                         {announcement.important && (
-                          <Badge variant="destructive" className="text-xs">⚠️ IMPORTANT</Badge>
+                          <Badge variant="destructive" className="text-xs">IMPORTANT</Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">

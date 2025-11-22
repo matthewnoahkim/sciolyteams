@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember, isCaptain } from '@/lib/rbac'
+import { requireMember, isAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const createExpenseSchema = z.object({
@@ -66,11 +66,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validatedData = createExpenseSchema.parse(body)
 
-    // Check if user is a captain
-    const isCpt = await isCaptain(session.user.id, validatedData.teamId)
-    if (!isCpt) {
+    // Check if user is an admin
+    const isAdminUser = await isAdmin(session.user.id, validatedData.teamId)
+      if (!isAdminUser) {
       return NextResponse.json(
-        { error: 'Only captains can add expenses' },
+        { error: 'Only admins can add expenses' },
         { status: 403 }
       )
     }

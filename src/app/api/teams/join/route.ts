@@ -27,10 +27,10 @@ export async function POST(req: NextRequest) {
     let role: Role | null = null
 
     for (const team of teams) {
-      const isCaptainCode = await verifyInviteCode(code, team.captainInviteCodeHash)
-      if (isCaptainCode) {
+      const isAdminCode = await verifyInviteCode(code, team.adminInviteCodeHash)
+      if (isAdminCode) {
         matchedTeam = team
-        role = Role.CAPTAIN
+        role = Role.ADMIN
         break
       }
 

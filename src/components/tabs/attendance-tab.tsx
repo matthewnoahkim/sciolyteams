@@ -33,7 +33,7 @@ import {
 
 interface AttendanceTabProps {
   teamId: string
-  isCaptain: boolean
+  isAdmin: boolean
   user: {
     id: string
     name?: string | null
@@ -42,7 +42,7 @@ interface AttendanceTabProps {
   }
 }
 
-export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
+export function AttendanceTab({ teamId, isAdmin, user }: AttendanceTabProps) {
   const { toast } = useToast()
   const [attendances, setAttendances] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -90,7 +90,7 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
   }, [fetchAttendances])
 
   const fetchRoster = async (attendanceId: string) => {
-    if (!isCaptain) return
+    if (!isAdmin) return
 
     setLoadingRoster(true)
     try {
@@ -283,7 +283,7 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
   const handleViewDetails = async (attendance: any) => {
     setSelectedAttendance(attendance)
     setRevealedCode(null)
-    if (isCaptain) {
+    if (isAdmin) {
       await fetchRoster(attendance.id)
     }
     setDetailsOpen(true)
@@ -326,8 +326,8 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
   }
 
   const canRevealCode = (attendance: any) => {
-    // Captains can generate codes for upcoming and active events
-    return isCaptain && (attendance.status === 'UPCOMING' || attendance.status === 'ACTIVE')
+    // Admins can generate codes for upcoming and active events
+    return isAdmin && (attendance.status === 'UPCOMING' || attendance.status === 'ACTIVE')
   }
 
   const handleDeleteEventClick = (attendance: any) => {
@@ -486,7 +486,7 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
             <DialogHeader>
               <DialogTitle>Check In</DialogTitle>
               <DialogDescription>
-                Enter the attendance code provided by your captain during the meeting.
+                Enter the attendance code provided by your admin during the meeting.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -562,10 +562,10 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
                   )}
                 </div>
 
-                {/* Captain Controls */}
-                {isCaptain && (
+                {/* Admin Controls */}
+                {isAdmin && (
                   <div className="border-t pt-4 space-y-4">
-                    <h3 className="font-semibold">Captain Controls</h3>
+                    <h3 className="font-semibold">Admin Controls</h3>
 
                     {canRevealCode(selectedAttendance) && (
                       <div className="space-y-3">
@@ -633,7 +633,7 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
                 )}
 
                 {/* Attendance Roster */}
-                {isCaptain && rosterData && (
+                {isAdmin && rosterData && (
                   <div className="border-t pt-4">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold">Attendance Roster</h3>
@@ -718,7 +718,7 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
                 )}
 
                 {/* Member View */}
-                {!isCaptain && (
+                {!isAdmin && (
                   <div className="border-t pt-4">
                     {getUserCheckInStatus(selectedAttendance) ? (
                       <div className="flex items-center gap-2 text-green-600">
@@ -793,7 +793,7 @@ export function AttendanceTab({ teamId, isCaptain, user }: AttendanceTabProps) {
       </Dialog>
 
       {/* Manual Check-In Dialog */}
-      {isCaptain && (
+      {isAdmin && (
         <Dialog open={manualCheckInOpen} onOpenChange={setManualCheckInOpen}>
           <DialogContent>
             <form onSubmit={handleManualCheckIn}>

@@ -77,7 +77,7 @@ enum Division {
 }
 
 enum Role {
-  CAPTAIN
+  ADMIN
   MEMBER
 }
 
@@ -86,9 +86,9 @@ model Team {
   name                      String
   division                  Division
   createdById               String
-  captainInviteCodeHash     String
+  adminInviteCodeHash       String
   memberInviteCodeHash      String
-  captainInviteCodeEncrypted String
+  adminInviteCodeEncrypted  String
   memberInviteCodeEncrypted  String
   createdAt                 DateTime       @default(now())
   updatedAt                 DateTime       @updatedAt
@@ -110,6 +110,7 @@ model Membership {
   userId    String
   teamId    String
   role      Role
+  roles     String[] @default([])
   subteamId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -500,7 +501,7 @@ model PurchaseRequest {
   estimatedAmount Float                  // Estimated cost in dollars
   justification   String?                @db.Text // Why this purchase is needed
   status          PurchaseRequestStatus  @default(PENDING)
-  reviewedById    String?                // Membership ID of captain who reviewed
+  reviewedById    String?                // Membership ID of admin who reviewed
   reviewNote      String?                @db.Text
   reviewedAt      DateTime?
   createdAt       DateTime               @default(now())

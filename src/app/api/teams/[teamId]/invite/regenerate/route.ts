@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireCaptain } from '@/lib/rbac'
+import { requireAdmin } from '@/lib/rbac'
 import { generateInviteCode, hashInviteCode, encryptInviteCode } from '@/lib/invite-codes'
 import { z } from 'zod'
 
 const regenerateSchema = z.object({
-  type: z.enum(['captain', 'member']),
+  type: z.enum(['admin', 'member']),
 })
 
 export async function POST(
@@ -20,7 +20,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await requireCaptain(session.user.id, params.teamId)
+    await requireAdmin(session.user.id, params.teamId)
 
     const body = await req.json()
     const { type } = regenerateSchema.parse(body)
@@ -29,10 +29,10 @@ export async function POST(
     const newHash = await hashInviteCode(newCode)
     const newEncrypted = encryptInviteCode(newCode)
 
-    const updateData = type === 'captain' 
+    const updateData = type === 'admin' 
       ? { 
-          captainInviteCodeHash: newHash,
-          captainInviteCodeEncrypted: newEncrypted 
+          adminInviteCodeHash: newHash,
+          adminInviteCodeEncrypted: newEncrypted 
         }
       : { 
           memberInviteCodeHash: newHash,

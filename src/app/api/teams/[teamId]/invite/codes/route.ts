@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireCaptain } from '@/lib/rbac'
+import { requireAdmin } from '@/lib/rbac'
 import { decryptInviteCode } from '@/lib/invite-codes'
 
 export async function GET(
@@ -15,12 +15,12 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await requireCaptain(session.user.id, params.teamId)
+    await requireAdmin(session.user.id, params.teamId)
 
     const team = await prisma.team.findUnique({
       where: { id: params.teamId },
       select: {
-        captainInviteCodeEncrypted: true,
+        adminInviteCodeEncrypted: true,
         memberInviteCodeEncrypted: true,
       },
     })
@@ -30,7 +30,7 @@ export async function GET(
     }
 
     // Check if codes need to be regenerated (for existing teams that were created before encrypted codes)
-    const needsRegeneration = team.captainInviteCodeEncrypted === 'NEEDS_REGENERATION'
+    const needsRegeneration = team.adminInviteCodeEncrypted === 'NEEDS_REGENERATION'
 
     if (needsRegeneration) {
       return NextResponse.json({
@@ -40,12 +40,12 @@ export async function GET(
     }
 
     // Decrypt the codes
-    const captainCode = decryptInviteCode(team.captainInviteCodeEncrypted)
+    const adminCode = decryptInviteCode(team.adminInviteCodeEncrypted)
     const memberCode = decryptInviteCode(team.memberInviteCodeEncrypted)
 
     return NextResponse.json({
       needsRegeneration: false,
-      captainCode,
+      adminCode,
       memberCode,
     })
   } catch (error) {

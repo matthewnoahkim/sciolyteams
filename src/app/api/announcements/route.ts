@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember, getUserMembership, isCaptain } from '@/lib/rbac'
+import { requireMember, getUserMembership, isAdmin } from '@/lib/rbac'
 import { sendAnnouncementEmail } from '@/lib/email'
 import { z } from 'zod'
 import { AnnouncementScope } from '@prisma/client'
@@ -28,11 +28,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validated = createAnnouncementSchema.parse(body)
 
-    // Only captains can create announcements
-    const isCpt = await isCaptain(session.user.id, validated.teamId)
-    if (!isCpt) {
+    // Only admins can create announcements
+    const isAdminUser = await isAdmin(session.user.id, validated.teamId)
+    if (!isAdminUser) {
       return NextResponse.json(
-        { error: 'Only captains can create announcements' },
+        { error: 'Only admins can create announcements' },
         { status: 403 }
       )
     }
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      // Get the author (captain who posted)
+      // Get the author (admin who posted)
       const author = allMemberships.find(m => m.id === membership.id)
       const authorEmail = author?.user.email
 
@@ -112,15 +112,15 @@ export async function POST(req: NextRequest) {
         console.error('Author email not found for announcement', announcement.id)
       }
 
-      // Get all captains (will be CC'd) - exclude the author
-      const captains = allMemberships.filter(m => m.role === 'CAPTAIN' && m.id !== membership.id)
-      const captainEmails = captains.map(c => c.user.email).filter(Boolean)
+      // Get all admins (will be CC'd) - exclude the author
+      const admins = allMemberships.filter(m => String(m.role) === 'ADMIN' && m.id !== membership.id)
+      const adminEmails = admins.map(a => a.user.email).filter(Boolean)
 
       // Get target members based on scope (will be BCC'd)
       let targetMembers: { email: string; id: string }[] = []
 
       if (validated.scope === 'TEAM') {
-        // All members (exclude captains and author)
+        // All members (exclude admins and author)
         targetMembers = allMemberships
           .filter(m => m.role === 'MEMBER')
           .map(m => ({ email: m.user.email, id: m.user.id }))
@@ -168,20 +168,20 @@ export async function POST(req: NextRequest) {
       // Debug logging
       console.log('Email sending debug:', {
         authorEmail,
-        captainCount: captainEmails.length,
+        adminCount: adminEmails.length,
         memberCount: targetMembers.length,
         scope: validated.scope,
         subteamIds: validated.subteamIds,
       })
 
       // Only send email if we have valid recipients
-      if (authorEmail && (captainEmails.length > 0 || targetMembers.length > 0)) {
+      if (authorEmail && (adminEmails.length > 0 || targetMembers.length > 0)) {
         // Send one email with CC and BCC (don't await to not block response)
         Promise.resolve().then(async () => {
           try {
             const result = await sendAnnouncementEmail({
               to: [authorEmail], // Send to author as primary recipient
-              cc: captainEmails.length > 0 ? captainEmails : undefined, // CC all other captains
+              cc: adminEmails.length > 0 ? adminEmails : undefined, // CC all other admins
               bcc: targetMembers.length > 0 ? targetMembers.map(u => u.email) : undefined, // BCC all members
               replyTo: authorEmail,
               teamId: validated.teamId,
@@ -194,9 +194,9 @@ export async function POST(req: NextRequest) {
 
             console.log('Email sent successfully:', result)
 
-            // Log email for all recipients (captains + members, not the author)
+            // Log email for all recipients (admins + members, not the author)
             const allRecipients = [
-              ...captains.map(c => ({ id: c.userId, email: c.user.email })),
+              ...admins.map(a => ({ id: a.userId, email: a.user.email })),
               ...targetMembers,
             ].filter(r => r.email && r.id)
 
@@ -321,16 +321,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    // Check if user is a captain
-    const isCpt = await isCaptain(session.user.id, teamId)
+    // Check if user is an admin
+    const isAdminUser = await isAdmin(session.user.id, teamId)
 
     // Get announcements visible to this user
-    // Captains can see all announcements, regular members only see team-wide and their subteam
+    // Admins can see all announcements, regular members only see team-wide and their subteam
     const announcements = await prisma.announcement.findMany({
       where: {
         teamId,
-        // Captains see all announcements for the team
-        ...(isCpt ? {} : {
+        // Admins see all announcements for the team
+        ...(isAdminUser ? {} : {
           OR: [
             // Team-wide announcements
             {

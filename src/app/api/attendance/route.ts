@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember, isCaptain } from '@/lib/rbac'
+import { requireMember, isAdmin } from '@/lib/rbac'
 import { updateAttendanceStatuses } from '@/lib/attendance'
 import { z } from 'zod'
 
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     // Update statuses before fetching
     await updateAttendanceStatuses(teamId)
 
-    const isCpt = await isCaptain(session.user.id, teamId)
+    const isAdminUser = await isAdmin(session.user.id, teamId)
 
     // Get all attendance records for team events
     const attendances = await prisma.attendance.findMany({
@@ -84,9 +84,9 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // If not a captain, only return their own check-in status
+    // If not an admin, only return their own check-in status
     const sanitizedAttendances = attendances.map((attendance) => {
-      if (!isCpt) {
+      if (!isAdminUser) {
         // Members can only see their own check-in status
         const userCheckIn = attendance.checkIns.find((ci) => ci.user.id === session.user.id)
         return {
@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
       return attendance
     })
 
-    return NextResponse.json({ attendances: sanitizedAttendances, isCaptain: isCpt })
+    return NextResponse.json({ attendances: sanitizedAttendances, isAdmin: isAdminUser })
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })

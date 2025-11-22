@@ -28,7 +28,7 @@ export default async function NewTestPage({
     },
   })
 
-  if (!membership || membership.role !== 'CAPTAIN') {
+  if (!membership || String(membership.role) !== 'ADMIN') {
     redirect(`/teams/${params.teamId}?tab=tests`)
   }
 

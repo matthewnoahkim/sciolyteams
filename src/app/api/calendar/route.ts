@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember, getUserMembership, isCaptain } from '@/lib/rbac'
+import { requireMember, getUserMembership, isAdmin } from '@/lib/rbac'
 import { generateAttendanceCode, hashAttendanceCode } from '@/lib/attendance'
 import { z } from 'zod'
 import { CalendarScope } from '@prisma/client'
@@ -41,10 +41,10 @@ export async function POST(req: NextRequest) {
 
     // Validate scope permissions
     if (validated.scope === 'TEAM' || validated.scope === 'SUBTEAM') {
-      const isCpt = await isCaptain(session.user.id, validated.teamId)
-      if (!isCpt) {
+      const isAdminUser = await isAdmin(session.user.id, validated.teamId)
+      if (!isAdminUser) {
         return NextResponse.json(
-          { error: 'Only captains can create team/subteam events' },
+          { error: 'Only admins can create team/subteam events' },
           { status: 403 }
         )
       }
@@ -216,11 +216,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    // Check if user is a captain
-    const isCpt = await isCaptain(session.user.id, teamId)
+    // Check if user is an admin
+    const isAdminUser = await isAdmin(session.user.id, teamId)
 
     // Get events visible to this user
-    // Captains can see team-wide events, all subteam events, and only their own personal events
+    // Admins can see team-wide events, all subteam events, and only their own personal events
     // Regular members only see team-wide, their subteam, and their personal events
     const events = await prisma.calendarEvent.findMany({
       where: {
@@ -229,9 +229,9 @@ export async function GET(req: NextRequest) {
           // Team-wide events (visible to all)
           { scope: CalendarScope.TEAM },
           // Subteam events
-          ...(isCpt
+          ...(isAdminUser
             ? [
-                // Captains see all subteam events
+        // Admins see all subteam events
                 { scope: CalendarScope.SUBTEAM },
               ]
             : membership.subteamId

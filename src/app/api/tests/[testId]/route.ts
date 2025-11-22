@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { isCaptain, getUserMembership } from '@/lib/rbac'
+import { isAdmin, getUserMembership } from '@/lib/rbac'
 import { verifyTestPassword, hashTestPassword } from '@/lib/test-security'
 import { z } from 'zod'
 
@@ -73,14 +73,14 @@ export async function GET(
       return NextResponse.json({ error: 'Not a team member' }, { status: 403 })
     }
 
-    const isCpt = await isCaptain(session.user.id, test.teamId)
+    const isAdminUser = await isAdmin(session.user.id, test.teamId)
 
     // Check if member has access to this test
-    if (!isCpt && test.status !== 'PUBLISHED') {
+    if (!isAdminUser && test.status !== 'PUBLISHED') {
       return NextResponse.json({ error: 'Test not available' }, { status: 403 })
     }
 
-    if (!isCpt) {
+    if (!isAdminUser) {
       // Check assignment
       const hasAccess = test.assignments.some(
         (a) =>
@@ -94,8 +94,8 @@ export async function GET(
       }
     }
 
-    // Hide correct answers from non-captains
-    if (!isCpt) {
+    // Hide correct answers from non-admins
+    if (!isAdminUser) {
       test.questions = test.questions.map((q) => ({
         ...q,
         options: q.options.map((o) => ({ ...o, isCorrect: false })),
@@ -131,11 +131,11 @@ export async function PATCH(
       return NextResponse.json({ error: 'Test not found' }, { status: 404 })
     }
 
-    // Check if user is a captain
-    const isCpt = await isCaptain(session.user.id, test.teamId)
-    if (!isCpt) {
+    // Check if user is an admin
+    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    if (!isAdminUser) {
       return NextResponse.json(
-        { error: 'Only captains can edit tests' },
+        { error: 'Only admins can edit tests' },
         { status: 403 }
       )
     }
@@ -235,10 +235,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Test not found' }, { status: 404 })
     }
 
-    const isCpt = await isCaptain(session.user.id, test.teamId)
-    if (!isCpt) {
+    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    if (!isAdminUser) {
       return NextResponse.json(
-        { error: 'Only captains can delete tests' },
+        { error: 'Only admins can delete tests' },
         { status: 403 }
       )
     }

@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     const validated = createTeamSchema.parse(body)
 
     // Create invite codes
-    const { captainHash, memberHash, captainCode, memberCode, captainEncrypted, memberEncrypted } = await createInviteCodes()
+    const { adminHash, memberHash, adminCode, memberCode, adminEncrypted, memberEncrypted } = await createInviteCodes()
 
     // Create team and membership in a transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -58,9 +58,9 @@ export async function POST(req: NextRequest) {
           name: validated.name,
           division: validated.division as Division,
           createdById: session.user.id,
-          captainInviteCodeHash: captainHash,
+          adminInviteCodeHash: adminHash,
           memberInviteCodeHash: memberHash,
-          captainInviteCodeEncrypted: captainEncrypted,
+          adminInviteCodeEncrypted: adminEncrypted,
           memberInviteCodeEncrypted: memberEncrypted,
         },
       })
@@ -69,17 +69,17 @@ export async function POST(req: NextRequest) {
         data: {
           userId: session.user.id,
           teamId: team.id,
-          role: Role.CAPTAIN,
+            role: Role.ADMIN,
         },
       })
 
-      return { team, membership, captainCode, memberCode }
+      return { team, membership, adminCode, memberCode }
     })
 
     return NextResponse.json({
       team: result.team,
       inviteCodes: {
-        captain: result.captainCode,
+        admin: result.adminCode,
         member: result.memberCode,
       },
     })

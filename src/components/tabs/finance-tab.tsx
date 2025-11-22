@@ -12,7 +12,7 @@ import { DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Clock, ShoppingCa
 
 interface FinanceTabProps {
   teamId: string
-  isCaptain: boolean
+  isAdmin: boolean
   currentMembershipId: string
 }
 
@@ -55,7 +55,7 @@ interface PurchaseRequest {
   }
 }
 
-export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: FinanceTabProps) {
+export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: FinanceTabProps) {
   const { toast } = useToast()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([])
@@ -430,7 +430,7 @@ export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: F
             <ShoppingCart className="h-4 w-4 mr-2" />
             Request Purchase
           </Button>
-          {isCaptain && (
+          {isAdmin && (
             <Button onClick={() => setAddExpenseOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Expense
@@ -440,12 +440,12 @@ export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: F
       </div>
 
       {/* Purchase Requests Section */}
-      {(isCaptain || purchaseRequests.some(req => req.requesterId === currentMembershipId)) && (
+      {(isAdmin || purchaseRequests.some(req => req.requesterId === currentMembershipId)) && (
         <Card>
           <CardHeader>
             <CardTitle>Purchase Requests</CardTitle>
             <CardDescription>
-              {isCaptain ? 'Review and approve purchase requests from team members' : 'Your purchase requests'}
+              {isAdmin ? 'Review and approve purchase requests from team members' : 'Your purchase requests'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -454,7 +454,7 @@ export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: F
                 <p className="text-muted-foreground text-sm">No purchase requests</p>
               ) : (
                 purchaseRequests
-                  .filter(req => isCaptain || req.requesterId === currentMembershipId)
+                  .filter(req => isAdmin || req.requesterId === currentMembershipId)
                   .map((request) => (
                     <div
                       key={request.id}
@@ -488,7 +488,7 @@ export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: F
                           </p>
                         )}
                       </div>
-                      {isCaptain && request.status === 'PENDING' && (
+                      {isAdmin && request.status === 'PENDING' && (
                         <Button
                           size="sm"
                           onClick={() => handleReviewRequestClick(request)}
@@ -509,7 +509,7 @@ export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: F
         <CardHeader>
           <CardTitle>Expense Spreadsheet</CardTitle>
           <CardDescription>
-            {isCaptain ? 'View and manage all team expenses' : 'View team expenses'}
+            {isAdmin ? 'View and manage all team expenses' : 'View team expenses'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -521,13 +521,13 @@ export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: F
                   <th className="text-left p-3 font-medium">Description</th>
                   <th className="text-left p-3 font-medium">Category</th>
                   <th className="text-right p-3 font-medium">Amount</th>
-                  {isCaptain && <th className="text-right p-3 font-medium">Actions</th>}
+                  {isAdmin && <th className="text-right p-3 font-medium">Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {expenses.length === 0 ? (
                   <tr>
-                    <td colSpan={isCaptain ? 5 : 4} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={isAdmin ? 5 : 4} className="p-8 text-center text-muted-foreground">
                       No expenses recorded yet
                     </td>
                   </tr>
@@ -545,7 +545,7 @@ export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: F
                       </td>
                       <td className="p-3">{expense.category || '-'}</td>
                       <td className="p-3 text-right font-medium">${expense.amount.toFixed(2)}</td>
-                      {isCaptain && (
+                      {isAdmin && (
                         <td className="p-3 text-right">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -760,7 +760,7 @@ export default function FinanceTab({ teamId, isCaptain, currentMembershipId }: F
             <DialogHeader>
               <DialogTitle>Request Purchase</DialogTitle>
               <DialogDescription>
-                Submit a purchase request for captain approval
+                Submit a purchase request for admin approval
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember, isCaptain } from '@/lib/rbac'
+import { requireMember, isAdmin } from '@/lib/rbac'
 
 // GET /api/attendance/[attendanceId]
 // Get single attendance record details
@@ -98,11 +98,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Attendance not found' }, { status: 404 })
     }
 
-    // Check if user is a captain
-    const isCpt = await isCaptain(session.user.id, attendance.teamId)
-    if (!isCpt) {
+    // Check if user is an admin
+    const isAdminUser = await isAdmin(session.user.id, attendance.teamId)
+    if (!isAdminUser) {
       return NextResponse.json(
-        { error: 'Only captains can delete attendance records' },
+        { error: 'Only admins can delete attendance records' },
         { status: 403 }
       )
     }

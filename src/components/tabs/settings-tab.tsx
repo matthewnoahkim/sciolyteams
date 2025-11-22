@@ -22,15 +22,15 @@ import { Copy, RefreshCw, Eye, EyeOff, Trash2, UserX, X } from 'lucide-react'
 interface SettingsTabProps {
   team: any
   currentMembership: any
-  isCaptain: boolean
+  isAdmin: boolean
 }
 
-export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabProps) {
+export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
-  const [captainCode, setCaptainCode] = useState<string>('••••••••••••')
+  const [adminCode, setAdminCode] = useState<string>('••••••••••••')
   const [memberCode, setMemberCode] = useState<string>('••••••••••••')
-  const [showCaptainCode, setShowCaptainCode] = useState(false)
+  const [showAdminCode, setShowAdminCode] = useState(false)
   const [showMemberCode, setShowMemberCode] = useState(false)
   const [loading, setLoading] = useState(false)
   const [codesFetched, setCodesFetched] = useState(false)
@@ -43,7 +43,7 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
   const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null)
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false)
-  const [codeTypeToRegenerate, setCodeTypeToRegenerate] = useState<'captain' | 'member' | null>(null)
+  const [codeTypeToRegenerate, setCodeTypeToRegenerate] = useState<'admin' | 'member' | null>(null)
 
   const openRemoveMemberDialog = (membershipId: string, memberName: string) => {
     setMemberToRemove({ id: membershipId, name: memberName })
@@ -103,7 +103,7 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
         return
       }
 
-      setCaptainCode(data.captainCode)
+      setAdminCode(data.adminCode)
       setMemberCode(data.memberCode)
       setCodesFetched(true)
     } catch (error) {
@@ -115,11 +115,11 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
     }
   }
 
-  const handleShowCaptainCode = async () => {
-    if (!showCaptainCode && !codesFetched) {
+  const handleShowAdminCode = async () => {
+    if (!showAdminCode && !codesFetched) {
       await fetchCodes()
     }
-    setShowCaptainCode(!showCaptainCode)
+    setShowAdminCode(!showAdminCode)
   }
 
   const handleShowMemberCode = async () => {
@@ -129,7 +129,7 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
     setShowMemberCode(!showMemberCode)
   }
 
-  const handleRegenerateClick = (type: 'captain' | 'member') => {
+  const handleRegenerateClick = (type: 'admin' | 'member') => {
     setCodeTypeToRegenerate(type)
     setRegenerateDialogOpen(true)
   }
@@ -150,9 +150,9 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
 
       const data = await response.json()
       
-      if (codeTypeToRegenerate === 'captain') {
-        setCaptainCode(data.code)
-        setShowCaptainCode(true)
+      if (codeTypeToRegenerate === 'admin') {
+        setAdminCode(data.code)
+        setShowAdminCode(true)
       } else {
         setMemberCode(data.code)
         setShowMemberCode(true)
@@ -185,9 +185,9 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
         const response = await fetch(`/api/teams/${team.id}/invite/codes`)
         if (!response.ok) throw new Error('Failed to fetch codes')
         const data = await response.json()
-        if (type === 'Captain') {
-          realCode = data.captainCode
-          setCaptainCode(data.captainCode)
+        if (type === 'Admin') {
+          realCode = data.adminCode
+          setAdminCode(data.adminCode)
         } else {
           realCode = data.memberCode
           setMemberCode(data.memberCode)
@@ -306,7 +306,7 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
         </CardContent>
       </Card>
 
-      {isCaptain && (
+      {isAdmin && (
         <Card>
           <CardHeader>
             <CardTitle>Club Members</CardTitle>
@@ -331,9 +331,15 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
                     <div>
                       <p className="font-medium">{membership.user.name || membership.user.email}</p>
                       <div className="flex items-center gap-2">
-                        <Badge variant={membership.role === 'CAPTAIN' ? 'default' : 'secondary'} className="text-xs">
-                          {membership.role}
-                        </Badge>
+                        {membership.role === 'ADMIN' && (
+                          <Badge variant="outline" className="text-[10px] uppercase">Admin</Badge>
+                        )}
+                        {Array.isArray(membership.roles) && membership.roles.includes('COACH') && (
+                          <Badge variant="outline" className="text-[10px] uppercase">Coach</Badge>
+                        )}
+                        {Array.isArray(membership.roles) && membership.roles.includes('CAPTAIN') && (
+                          <Badge variant="outline" className="text-[10px] uppercase">Captain</Badge>
+                        )}
                         {membership.subteam && (
                           <span className="text-xs text-muted-foreground">
                             Team: {membership.subteam.name}
@@ -361,38 +367,38 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
         </Card>
       )}
 
-      {isCaptain && (
+      {isAdmin && (
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Captain Invite Code</CardTitle>
+              <CardTitle>Admin Invite Code</CardTitle>
               <CardDescription>
-                Share this code with users who should have captain permissions
+                Share this code with users who should have admin permissions
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-2">
                 <code className="flex-1 rounded bg-muted px-4 py-2 font-mono text-sm">
-                  {showCaptainCode ? captainCode : '••••••••••••'}
+                  {showAdminCode ? adminCode : '••••••••••••'}
                 </code>
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={handleShowCaptainCode}
+                  onClick={handleShowAdminCode}
                 >
-                  {showCaptainCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showAdminCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => handleCopy(captainCode, 'Captain')}
+                  onClick={() => handleCopy(adminCode, 'Admin')}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => handleRegenerateClick('captain')}
+                  onClick={() => handleRegenerateClick('admin')}
                   disabled={loading}
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -441,14 +447,14 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
         </>
       )}
 
-      {!isCaptain && (
+      {!isAdmin && (
         <Card>
           <CardHeader>
             <CardTitle>Invite Codes</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Only team captains can view and manage invite codes.
+              Only team admins can view and manage invite codes.
             </p>
           </CardContent>
         </Card>
@@ -478,7 +484,7 @@ export function SettingsTab({ team, currentMembership, isCaptain }: SettingsTabP
         </Card>
       )}
 
-      {isCaptain && (
+      {isAdmin && (
         <Card className="border-destructive">
           <CardHeader>
             <CardTitle className="text-destructive">Danger Zone</CardTitle>

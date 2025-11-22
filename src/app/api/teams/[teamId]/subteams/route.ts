@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireCaptain } from '@/lib/rbac'
+import { requireAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const createSubteamSchema = z.object({
@@ -19,7 +19,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await requireCaptain(session.user.id, params.teamId)
+    await requireAdmin(session.user.id, params.teamId)
 
     const body = await req.json()
     const { name } = createSubteamSchema.parse(body)

@@ -68,7 +68,7 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
           <DialogHeader>
             <DialogTitle>Join Club</DialogTitle>
             <DialogDescription>
-              Enter an invite code from your club captain to join.
+              Enter an invite code from your club admin to join.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

@@ -156,9 +156,17 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
                           Division {membership.team.division}
                         </CardDescription>
                       </div>
-                      <Badge variant={membership.role === 'CAPTAIN' ? 'default' : 'secondary'}>
-                        {membership.role}
-                      </Badge>
+                      <div className="flex flex-col gap-1 items-end">
+                        {membership.role === 'ADMIN' && (
+                          <Badge variant="outline" className="text-[10px] uppercase">Admin</Badge>
+                        )}
+                        {Array.isArray(membership.roles) && membership.roles.includes('COACH') && (
+                          <Badge variant="outline" className="text-[10px] uppercase">Coach</Badge>
+                        )}
+                        {Array.isArray(membership.roles) && membership.roles.includes('CAPTAIN') && (
+                          <Badge variant="outline" className="text-[10px] uppercase">Captain</Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>

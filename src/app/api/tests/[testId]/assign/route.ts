@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { isCaptain, getUserMembership } from '@/lib/rbac'
+import { isAdmin, getUserMembership } from '@/lib/rbac'
 import { z } from 'zod'
 
 const assignSchema = z.object({
@@ -35,11 +35,11 @@ export async function POST(
       return NextResponse.json({ error: 'Test not found' }, { status: 404 })
     }
 
-    // Check if user is a captain
-    const isCpt = await isCaptain(session.user.id, test.teamId)
-    if (!isCpt) {
+    // Check if user is an admin
+    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    if (!isAdminUser) {
       return NextResponse.json(
-        { error: 'Only captains can assign tests' },
+        { error: 'Only admins can assign tests' },
         { status: 403 }
       )
     }

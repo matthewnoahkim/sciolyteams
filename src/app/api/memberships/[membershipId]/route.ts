@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireCaptain } from '@/lib/rbac'
+import { requireAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const updateMembershipSchema = z.object({
-  subteamId: z.string().nullable(),
+  subteamId: z.string().nullable().optional(),
+  roles: z
+    .array(z.enum(['COACH', 'CAPTAIN']))
+    .optional()
+    .transform((roles) => roles ?? undefined),
 })
 
 export async function PATCH(
@@ -27,10 +31,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    await requireCaptain(session.user.id, membership.teamId)
+    await requireAdmin(session.user.id, membership.teamId)
 
     const body = await req.json()
-    const { subteamId } = updateMembershipSchema.parse(body)
+    const { subteamId, roles } = updateMembershipSchema.parse(body)
 
     // If subteamId is provided, verify it belongs to the same team and check size limit
     if (subteamId) {
@@ -55,9 +59,21 @@ export async function PATCH(
       }
     }
 
+    const updateData: Record<string, any> = {}
+    if (subteamId !== undefined) {
+      updateData.subteamId = subteamId
+    }
+    if (roles !== undefined) {
+      updateData.roles = roles
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No updates provided' }, { status: 400 })
+    }
+
     const updated = await prisma.membership.update({
       where: { id: params.membershipId },
-      data: { subteamId },
+      data: updateData,
       include: {
         user: {
           select: {
@@ -101,7 +117,7 @@ export async function DELETE(
           include: {
             memberships: {
               where: {
-                role: 'CAPTAIN',
+                role: 'ADMIN',
               },
             },
           },
@@ -113,7 +129,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    // Check if the requester is a captain of the team
+    // Check if the requester is an admin of the team
     const requesterMembership = await prisma.membership.findUnique({
       where: {
         userId_teamId: {
@@ -127,18 +143,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'You are not a member of this team' }, { status: 403 })
     }
 
-    const isRequesterCaptain = requesterMembership.role === 'CAPTAIN'
+    const isRequesterAdmin = requesterMembership.role === 'ADMIN'
     const isSelfRemoval = membership.userId === session.user.id
 
-    // Only captains can remove others, or users can remove themselves
-    if (!isRequesterCaptain && !isSelfRemoval) {
-      return NextResponse.json({ error: 'Only captains can remove other members' }, { status: 403 })
+    // Only admins can remove others, or users can remove themselves
+    if (!isRequesterAdmin && !isSelfRemoval) {
+      return NextResponse.json({ error: 'Only admins can remove other members' }, { status: 403 })
     }
 
-    // Check if this is the last captain
-    if (membership.role === 'CAPTAIN' && membership.team.memberships.length === 1) {
+    // Check if this is the last admin
+    if (membership.role === 'ADMIN' && membership.team.memberships.length === 1) {
       return NextResponse.json(
-        { error: 'Cannot remove the only captain. Please promote another member to captain first or delete the team.' },
+        { error: 'Cannot remove the only admin. Please promote another member to admin first or delete the team.' },
         { status: 400 }
       )
     }

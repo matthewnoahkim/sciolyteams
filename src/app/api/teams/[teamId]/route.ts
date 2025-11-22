@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember, requireCaptain } from '@/lib/rbac'
+import { requireMember, requireAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const updateTeamSchema = z.object({
@@ -85,8 +85,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Only captains can update teams
-    await requireCaptain(session.user.id, params.teamId)
+    // Only admins can update teams
+    await requireAdmin(session.user.id, params.teamId)
 
     const body = await req.json()
     const { name } = updateTeamSchema.parse(body)
@@ -129,8 +129,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Only captains can delete teams
-    await requireCaptain(session.user.id, params.teamId)
+    // Only admins can delete teams
+    await requireAdmin(session.user.id, params.teamId)
 
     // Verify team exists
     const team = await prisma.team.findUnique({
