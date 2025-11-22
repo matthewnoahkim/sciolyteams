@@ -6,6 +6,8 @@ import { isAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const updateExpenseSchema = z.object({
+  eventId: z.string().optional().nullable(),
+  subteamId: z.string().optional().nullable(),
   description: z.string().min(1).max(500).optional(),
   category: z.string().optional(),
   amount: z.number().min(0).optional(),
@@ -46,6 +48,8 @@ export async function PATCH(
     }
 
     const updateData: any = {}
+    if (validatedData.eventId !== undefined) updateData.eventId = validatedData.eventId
+    if (validatedData.subteamId !== undefined) updateData.subteamId = validatedData.subteamId
     if (validatedData.description !== undefined) updateData.description = validatedData.description
     if (validatedData.category !== undefined) updateData.category = validatedData.category
     if (validatedData.amount !== undefined) updateData.amount = validatedData.amount
@@ -56,6 +60,13 @@ export async function PATCH(
       where: { id: params.expenseId },
       data: updateData,
       include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
         purchaseRequest: {
           select: {
             id: true,

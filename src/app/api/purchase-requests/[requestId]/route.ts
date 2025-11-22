@@ -13,6 +13,7 @@ const reviewPurchaseRequestSchema = z.object({
   actualAmount: z.number().min(0).optional(), // Actual amount if different from estimated
   expenseDate: z.string().datetime().optional(), // Date of expense
   expenseNotes: z.string().optional(),
+  adminOverride: z.boolean().optional(), // Allow admin to override budget limit
 })
 
 // PATCH /api/purchase-requests/[requestId]
@@ -53,6 +54,52 @@ export async function PATCH(
       return NextResponse.json({ error: 'Reviewer membership not found' }, { status: 404 })
     }
 
+    // If approving, check budget limits (unless admin override)
+    if (validatedData.status === 'APPROVED' && purchaseRequest.eventId) {
+      // Check for team-wide budget (subteamId is null)
+      const budget = await prisma.eventBudget.findFirst({
+        where: {
+          teamId: purchaseRequest.teamId,
+          eventId: purchaseRequest.eventId,
+          subteamId: null,
+        },
+      })
+
+      if (budget && !validatedData.adminOverride) {
+        // Filter expenses by subteam if budget is subteam-specific
+        const expenseWhere: any = {
+          teamId: purchaseRequest.teamId,
+          eventId: purchaseRequest.eventId,
+        }
+        if (budget.subteamId) {
+          expenseWhere.subteamId = budget.subteamId
+        }
+        
+        const expenses = await prisma.expense.findMany({
+          where: expenseWhere,
+          select: {
+            amount: true,
+          },
+        })
+
+        const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0)
+        const remaining = budget.maxBudget - totalSpent
+        const requestAmount = validatedData.actualAmount ?? purchaseRequest.estimatedAmount
+
+        if (requestAmount > remaining) {
+          return NextResponse.json(
+            {
+              error: `Approval would exceed remaining budget. Remaining: $${remaining.toFixed(2)}, Requested: $${requestAmount.toFixed(2)}. Use admin override to proceed.`,
+              code: 'BUDGET_EXCEEDED',
+              remaining,
+              requested: requestAmount,
+            },
+            { status: 400 }
+          )
+        }
+      }
+    }
+
     // Update the purchase request in a transaction
     const result = await prisma.$transaction(async (tx) => {
       const updated = await tx.purchaseRequest.update({
@@ -62,8 +109,22 @@ export async function PATCH(
           reviewNote: validatedData.reviewNote,
           reviewedById: reviewerMembership.id,
           reviewedAt: new Date(),
+          adminOverride: validatedData.adminOverride ?? false,
         },
         include: {
+          event: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+          subteam: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
           expense: {
             select: {
               id: true,
@@ -80,6 +141,8 @@ export async function PATCH(
         expense = await tx.expense.create({
           data: {
             teamId: purchaseRequest.teamId,
+            eventId: purchaseRequest.eventId,
+            subteamId: purchaseRequest.subteamId, // Inherit subteam from purchase request
             description: purchaseRequest.description,
             category: purchaseRequest.category,
             amount: validatedData.actualAmount ?? purchaseRequest.estimatedAmount,

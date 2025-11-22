@@ -317,6 +317,8 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                 teamId={team.id}
                 isAdmin={isAdmin}
                 currentMembershipId={currentMembership.id}
+                currentMembershipSubteamId={currentMembership.subteamId}
+                division={team.division}
               />
             )}
 

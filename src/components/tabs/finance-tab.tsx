@@ -8,12 +8,14 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Clock, ShoppingCart, Download } from 'lucide-react'
+import { DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Clock, ShoppingCart, Download, Settings, AlertTriangle, Wallet } from 'lucide-react'
 
 interface FinanceTabProps {
   teamId: string
   isAdmin: boolean
   currentMembershipId: string
+  currentMembershipSubteamId?: string | null
+  division?: 'B' | 'C'
 }
 
 interface Expense {
@@ -24,9 +26,15 @@ interface Expense {
   date: string
   notes: string | null
   purchaseRequestId: string | null
+  eventId: string | null
   addedById: string
   createdAt: string
   updatedAt: string
+  event?: {
+    id: string
+    name: string
+    slug: string
+  }
   purchaseRequest?: {
     id: string
     requesterId: string
@@ -37,6 +45,8 @@ interface Expense {
 interface PurchaseRequest {
   id: string
   teamId: string
+  eventId: string | null
+  subteamId: string | null
   requesterId: string
   description: string
   category: string | null
@@ -46,8 +56,18 @@ interface PurchaseRequest {
   reviewedById: string | null
   reviewNote: string | null
   reviewedAt: string | null
+  adminOverride: boolean
   createdAt: string
   updatedAt: string
+  event?: {
+    id: string
+    name: string
+    slug: string
+  }
+  subteam?: {
+    id: string
+    name: string
+  } | null
   expense?: {
     id: string
     amount: number
@@ -55,10 +75,49 @@ interface PurchaseRequest {
   }
 }
 
-export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: FinanceTabProps) {
+interface Event {
+  id: string
+  name: string
+  slug: string
+  division: 'B' | 'C'
+}
+
+interface Subteam {
+  id: string
+  name: string
+  teamId: string
+}
+
+interface EventBudget {
+  id: string
+  teamId: string
+  eventId: string
+  subteamId: string | null
+  maxBudget: number
+  createdAt: string
+  updatedAt: string
+  event: {
+    id: string
+    name: string
+    slug: string
+    division: 'B' | 'C'
+  }
+  subteam?: {
+    id: string
+    name: string
+  } | null
+  totalSpent: number
+  totalRequested: number
+  remaining: number
+}
+
+export default function FinanceTab({ teamId, isAdmin, currentMembershipId, currentMembershipSubteamId, division }: FinanceTabProps) {
   const { toast } = useToast()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([])
+  const [events, setEvents] = useState<Event[]>([])
+  const [subteams, setSubteams] = useState<Subteam[]>([])
+  const [budgets, setBudgets] = useState<EventBudget[]>([])
   const [loading, setLoading] = useState(true)
 
   // Add Expense Dialog
@@ -69,6 +128,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
     amount: '',
     date: new Date().toISOString().split('T')[0],
     notes: '',
+    eventId: '',
   })
   const [addingExpense, setAddingExpense] = useState(false)
 
@@ -81,6 +141,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
     amount: '',
     date: '',
     notes: '',
+    eventId: '',
   })
   const [updatingExpense, setUpdatingExpense] = useState(false)
 
@@ -96,7 +157,9 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
     category: '',
     estimatedAmount: '',
     justification: '',
+    eventId: '',
   })
+  const [budgetWarning, setBudgetWarning] = useState<string | null>(null)
   const [submittingRequest, setSubmittingRequest] = useState(false)
 
   // Review Purchase Request Dialog
@@ -109,16 +172,36 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
     actualAmount: '',
     expenseDate: new Date().toISOString().split('T')[0],
     expenseNotes: '',
+    adminOverride: false,
   })
+  const [reviewBudgetWarning, setReviewBudgetWarning] = useState<string | null>(null)
+
+  // Budget Management
+  const [budgetDialogOpen, setBudgetDialogOpen] = useState(false)
+  const [editingBudget, setEditingBudget] = useState<EventBudget | null>(null)
+  const [budgetForm, setBudgetForm] = useState({
+    eventId: '',
+    subteamId: '',
+    maxBudget: '',
+  })
+  const [savingBudget, setSavingBudget] = useState(false)
   const [submittingReview, setSubmittingReview] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [expensesRes, requestsRes] = await Promise.all([
+      const promises = [
         fetch(`/api/expenses?teamId=${teamId}`),
         fetch(`/api/purchase-requests?teamId=${teamId}`),
-      ])
+        fetch(`/api/event-budgets?teamId=${teamId}`),
+        fetch(`/api/teams/${teamId}/subteams`),
+      ]
+
+      if (division) {
+        promises.push(fetch(`/api/events?division=${division}`))
+      }
+
+      const [expensesRes, requestsRes, budgetsRes, subteamsRes, eventsRes] = await Promise.all(promises)
 
       if (expensesRes.ok) {
         const data = await expensesRes.json()
@@ -128,6 +211,24 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
       if (requestsRes.ok) {
         const data = await requestsRes.json()
         setPurchaseRequests(data.purchaseRequests)
+      }
+
+      if (budgetsRes.ok) {
+        const data = await budgetsRes.json()
+        console.log('Fetched budgets:', data.budgets)
+        setBudgets(data.budgets || [])
+      } else {
+        console.error('Failed to fetch budgets:', budgetsRes.status, await budgetsRes.text())
+      }
+
+      if (subteamsRes.ok) {
+        const data = await subteamsRes.json()
+        setSubteams(data.subteams || [])
+      }
+
+      if (eventsRes && eventsRes.ok) {
+        const data = await eventsRes.json()
+        setEvents(data.events || [])
       }
     } catch (error) {
       console.error('Failed to fetch finance data:', error)
@@ -139,7 +240,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
     } finally {
       setLoading(false)
     }
-  }, [teamId, toast])
+  }, [teamId, division, toast])
 
   useEffect(() => {
     fetchData()
@@ -155,6 +256,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           teamId,
+          eventId: expenseForm.eventId || undefined,
           description: expenseForm.description,
           category: expenseForm.category || undefined,
           amount: parseFloat(expenseForm.amount),
@@ -179,6 +281,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
         amount: '',
         date: new Date().toISOString().split('T')[0],
         notes: '',
+        eventId: '',
       })
       setAddExpenseOpen(false)
       await fetchData()
@@ -201,6 +304,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
       amount: expense.amount.toString(),
       date: new Date(expense.date).toISOString().split('T')[0],
       notes: expense.notes || '',
+      eventId: expense.eventId || '',
     })
     setEditExpenseOpen(true)
   }
@@ -216,6 +320,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          eventId: editExpenseForm.eventId || null,
           description: editExpenseForm.description,
           category: editExpenseForm.category || undefined,
           amount: parseFloat(editExpenseForm.amount),
@@ -290,6 +395,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
   const handleRequestPurchase = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmittingRequest(true)
+    setBudgetWarning(null)
 
     try {
       const response = await fetch('/api/purchase-requests', {
@@ -297,6 +403,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           teamId,
+          eventId: purchaseRequestForm.eventId || undefined,
           description: purchaseRequestForm.description,
           category: purchaseRequestForm.category || undefined,
           estimatedAmount: parseFloat(purchaseRequestForm.estimatedAmount),
@@ -306,6 +413,10 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
 
       if (!response.ok) {
         const data = await response.json()
+        if (data.code === 'BUDGET_EXCEEDED') {
+          setBudgetWarning(data.error)
+          throw new Error(data.error)
+        }
         throw new Error(data.error || 'Failed to submit request')
       }
 
@@ -319,22 +430,41 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
         category: '',
         estimatedAmount: '',
         justification: '',
+        eventId: '',
       })
       setRequestPurchaseOpen(false)
       await fetchData()
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to submit request',
-        variant: 'destructive',
-      })
+      // Error already shown via budgetWarning or toast
+      if (!error.message.includes('exceeds remaining budget')) {
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to submit request',
+          variant: 'destructive',
+        })
+      }
     } finally {
       setSubmittingRequest(false)
     }
   }
 
-  const handleReviewRequestClick = (request: PurchaseRequest) => {
+  const handleReviewRequestClick = async (request: PurchaseRequest) => {
     setReviewingRequest(request)
+    setReviewBudgetWarning(null)
+
+    // Check budget if event is specified
+    if (request.eventId) {
+      const budget = budgets.find(b => b.eventId === request.eventId)
+      if (budget) {
+        const requestAmount = request.estimatedAmount
+        if (requestAmount > budget.remaining) {
+          setReviewBudgetWarning(
+            `This request exceeds the remaining budget by $${(requestAmount - budget.remaining).toFixed(2)}. Remaining: $${budget.remaining.toFixed(2)}`
+          )
+        }
+      }
+    }
+
     setReviewForm({
       status: 'APPROVED',
       reviewNote: '',
@@ -342,6 +472,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
       actualAmount: request.estimatedAmount.toString(),
       expenseDate: new Date().toISOString().split('T')[0],
       expenseNotes: '',
+      adminOverride: false,
     })
     setReviewRequestOpen(true)
   }
@@ -363,6 +494,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
           actualAmount: reviewForm.addToExpenses ? parseFloat(reviewForm.actualAmount) : undefined,
           expenseDate: reviewForm.addToExpenses ? new Date(reviewForm.expenseDate).toISOString() : undefined,
           expenseNotes: reviewForm.addToExpenses ? reviewForm.expenseNotes || undefined : undefined,
+          adminOverride: reviewForm.adminOverride,
         }),
       })
 
@@ -407,6 +539,71 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
         {config.label}
       </Badge>
     )
+  }
+
+  const handleSaveBudget = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingBudget(true)
+
+    try {
+      const response = await fetch('/api/event-budgets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId,
+          eventId: budgetForm.eventId,
+          subteamId: budgetForm.subteamId || null,
+          maxBudget: parseFloat(budgetForm.maxBudget),
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to save budget')
+      }
+
+      const result = await response.json()
+      console.log('Budget saved response:', result)
+      
+      // Immediately add the new budget to the list if it's not already there
+      if (result.budget) {
+        setBudgets((prev) => {
+          const exists = prev.some(b => b.id === result.budget.id)
+          if (exists) {
+            return prev.map(b => b.id === result.budget.id ? result.budget : b)
+          }
+          return [...prev, result.budget]
+        })
+      }
+
+      toast({
+        title: 'Budget Saved',
+        description: 'Event budget has been updated',
+      })
+
+      setBudgetDialogOpen(false)
+      setEditingBudget(null)
+      setBudgetForm({ eventId: '', subteamId: '', maxBudget: '' })
+      await fetchData()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save budget',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingBudget(false)
+    }
+  }
+
+  const handleEditBudgetClick = (budget: EventBudget) => {
+    setEditingBudget(budget)
+    setBudgetForm({
+      eventId: budget.eventId,
+      subteamId: budget.subteamId || '',
+      maxBudget: budget.maxBudget.toString(),
+    })
+    setBudgetDialogOpen(true)
   }
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0)
@@ -471,7 +668,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
             <ShoppingCart className="h-4 w-4 mr-2" />
             Request Purchase
           </Button>
-          {isAdmin && (
+              {isAdmin && (
             <Button onClick={() => setAddExpenseOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Expense
@@ -479,6 +676,130 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
           )}
         </div>
       </div>
+
+      {/* Event Budgets Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-5 w-5" />
+              <CardTitle>Event Budgets</CardTitle>
+            </div>
+            {isAdmin && (
+              <Button onClick={() => setBudgetDialogOpen(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Set Budget
+              </Button>
+            )}
+          </div>
+          <CardDescription>
+            Budget tracking for each event team
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {budgets.length === 0 ? (
+            <p className="text-muted-foreground text-sm text-center py-8">
+              No event budgets set yet. {isAdmin && 'Click "Set Budget" to create one.'}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {budgets.map((budget) => {
+                const spentPercentage = Math.min((budget.totalSpent / budget.maxBudget) * 100, 100)
+                return (
+                  <div
+                    key={budget.id}
+                    className="p-4 border rounded-lg space-y-3"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-base mb-1">
+                          {budget.event.name}
+                          {budget.subteam && (
+                            <Badge variant="outline" className="ml-2 text-xs">
+                              {budget.subteam.name}
+                            </Badge>
+                          )}
+                        </h4>
+                      </div>
+                      {isAdmin && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditBudgetClick(budget)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              if (confirm('Are you sure you want to delete this budget?')) {
+                                try {
+                                  const response = await fetch(`/api/event-budgets/${budget.id}`, {
+                                    method: 'DELETE',
+                                  })
+                                  if (response.ok) {
+                                    toast({
+                                      title: 'Budget Deleted',
+                                      description: 'The event budget has been removed',
+                                    })
+                                    await fetchData()
+                                  } else {
+                                    throw new Error('Failed to delete budget')
+                                  }
+                                } catch (error: any) {
+                                  toast({
+                                    title: 'Error',
+                                    description: error.message || 'Failed to delete budget',
+                                    variant: 'destructive',
+                                  })
+                                }
+                              }
+                            }}
+                            className="h-8 w-8 p-0 text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Budget: <span className="font-medium text-foreground">${budget.maxBudget.toFixed(2)}</span></span>
+                        <span className="text-muted-foreground">Spent: <span className="font-medium text-foreground">${budget.totalSpent.toFixed(2)}</span></span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${
+                            spentPercentage > 100
+                              ? 'bg-red-500'
+                              : spentPercentage > 80
+                              ? 'bg-yellow-500'
+                              : 'bg-blue-500'
+                          }`}
+                          style={{ width: `${Math.min(spentPercentage, 100)}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">
+                            ${budget.remaining.toFixed(2)} <span className="text-muted-foreground font-normal">remaining</span>
+                          </p>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Requested: ${(budget.totalRequested || 0).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Purchase Requests Section */}
       {(isAdmin || purchaseRequests.some(req => req.requesterId === currentMembershipId)) && (
@@ -506,6 +827,16 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
                           <h4 className="font-medium">{request.description}</h4>
                           {getStatusBadge(request.status)}
                         </div>
+                        {request.event && (
+                          <p className="text-sm text-muted-foreground mb-1">
+                            Event: {request.event.name}
+                            {request.subteam && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                {request.subteam.name}
+                              </Badge>
+                            )}
+                          </p>
+                        )}
                         {request.category && (
                           <p className="text-sm text-muted-foreground mb-1">
                             Category: {request.category}
@@ -514,6 +845,11 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
                         <p className="text-sm font-medium">
                           Estimated: ${request.estimatedAmount.toFixed(2)}
                         </p>
+                        {request.adminOverride && (
+                          <Badge variant="outline" className="mt-1 text-xs">
+                            Admin Override
+                          </Badge>
+                        )}
                         {request.justification && (
                           <p className="text-sm text-muted-foreground mt-1">{request.justification}</p>
                         )}
@@ -568,6 +904,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
                 <tr>
                   <th className="text-left p-3 font-medium">Date</th>
                   <th className="text-left p-3 font-medium">Description</th>
+                  <th className="text-left p-3 font-medium">Event</th>
                   <th className="text-left p-3 font-medium">Category</th>
                   <th className="text-right p-3 font-medium">Amount</th>
                   {isAdmin && <th className="text-right p-3 font-medium">Actions</th>}
@@ -576,7 +913,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
               <tbody>
                 {expenses.length === 0 ? (
                   <tr>
-                    <td colSpan={isAdmin ? 5 : 4} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={isAdmin ? 6 : 5} className="p-8 text-center text-muted-foreground">
                       No expenses recorded yet
                     </td>
                   </tr>
@@ -592,6 +929,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
                           </Badge>
                         )}
                       </td>
+                      <td className="p-3">{expense.event?.name || '-'}</td>
                       <td className="p-3">{expense.category || '-'}</td>
                       <td className="p-3 text-right font-medium">${expense.amount.toFixed(2)}</td>
                       {isAdmin && (
@@ -634,6 +972,24 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
               <DialogDescription>Add a new expense to the team&apos;s finance spreadsheet</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {division && events.length > 0 && (
+                <div>
+                  <Label htmlFor="expense-event">Event (Optional)</Label>
+                  <select
+                    id="expense-event"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={expenseForm.eventId}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, eventId: e.target.value })}
+                  >
+                    <option value="">None</option>
+                    {events.map((event) => (
+                      <option key={event.id} value={event.id}>
+                        {event.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <Label htmlFor="description">Description *</Label>
                 <Input
@@ -708,6 +1064,24 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
               <DialogDescription>Update expense details</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {division && events.length > 0 && (
+                <div>
+                  <Label htmlFor="edit-expense-event">Event (Optional)</Label>
+                  <select
+                    id="edit-expense-event"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={editExpenseForm.eventId}
+                    onChange={(e) => setEditExpenseForm({ ...editExpenseForm, eventId: e.target.value })}
+                  >
+                    <option value="">None</option>
+                    {events.map((event) => (
+                      <option key={event.id} value={event.id}>
+                        {event.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <Label htmlFor="edit-description">Description *</Label>
                 <Input
@@ -813,6 +1187,148 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {division && events.length > 0 && (
+                <div>
+                  <Label htmlFor="req-event">Event (Optional)</Label>
+                  <select
+                    id="req-event"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={purchaseRequestForm.eventId}
+                    onChange={(e) => {
+                      setPurchaseRequestForm({ ...purchaseRequestForm, eventId: e.target.value })
+                      setBudgetWarning(null)
+                    }}
+                  >
+                    <option value="">None</option>
+                    {events
+                      .filter((event) => {
+                        // Admins can see all events
+                        if (isAdmin) return true
+                        
+                        // Members can only see events that have budgets for their subteam (or team-wide)
+                        if (!currentMembershipSubteamId) {
+                          // Member without subteam - only show events with team-wide budgets
+                          return budgets.some(
+                            (b) => b.eventId === event.id && b.subteamId === null
+                          )
+                        } else {
+                          // Member with subteam - show events with their subteam's budget OR team-wide budget
+                          return budgets.some(
+                            (b) =>
+                              b.eventId === event.id &&
+                              (b.subteamId === currentMembershipSubteamId || b.subteamId === null)
+                          )
+                        }
+                      })
+                      .map((event) => (
+                        <option key={event.id} value={event.id}>
+                          {event.name}
+                        </option>
+                      ))}
+                  </select>
+                  {!isAdmin && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Only events with budgets for your subteam are shown
+                    </p>
+                  )}
+                </div>
+              )}
+              {/* Budget Reminder - Shows when event is selected */}
+              {purchaseRequestForm.eventId && (() => {
+                const selectedEvent = events.find(e => e.id === purchaseRequestForm.eventId)
+                const budget = budgets.find(b => {
+                  if (b.eventId !== purchaseRequestForm.eventId) return false
+                  // For members, find their subteam's budget or team-wide budget
+                  if (!isAdmin && currentMembershipSubteamId) {
+                    return b.subteamId === currentMembershipSubteamId || b.subteamId === null
+                  } else if (!isAdmin) {
+                    return b.subteamId === null
+                  }
+                  // For admins, show the first matching budget (they can see all)
+                  return true
+                })
+                
+                if (budget && selectedEvent) {
+                  const requestAmount = parseFloat(purchaseRequestForm.estimatedAmount) || 0
+                  const wouldExceed = requestAmount > budget.remaining
+                  const subteamName = budget.subteam ? ` (${budget.subteam.name})` : ''
+                  
+                  return (
+                    <div className={`p-4 rounded-lg border-2 ${
+                      wouldExceed 
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-800' 
+                        : 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-800'
+                    }`}>
+                      <div className="flex items-start gap-2 mb-3">
+                        <Wallet className={`h-5 w-5 mt-0.5 ${
+                          wouldExceed 
+                            ? 'text-red-600 dark:text-red-400' 
+                            : 'text-blue-600 dark:text-blue-400'
+                        }`} />
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-sm mb-1">
+                            Budget Reminder: {selectedEvent.name}{subteamName}
+                          </h4>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Total Budget:</span>
+                              <span className="font-medium">${budget.maxBudget.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Already Spent:</span>
+                              <span className="font-medium">${budget.totalSpent.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Pending Requests:</span>
+                              <span className="font-medium">${budget.totalRequested.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between pt-1 border-t border-current/20">
+                              <span className="font-semibold">Remaining Budget:</span>
+                              <span className={`font-bold ${
+                                budget.remaining < 0 
+                                  ? 'text-red-600 dark:text-red-400' 
+                                  : budget.remaining < budget.maxBudget * 0.2
+                                  ? 'text-yellow-600 dark:text-yellow-400'
+                                  : 'text-green-600 dark:text-green-400'
+                              }`}>
+                                ${budget.remaining.toFixed(2)}
+                              </span>
+                            </div>
+                            {requestAmount > 0 && (
+                              <div className="pt-2 mt-2 border-t border-current/20">
+                                <div className="flex justify-between mb-1">
+                                  <span className="text-muted-foreground">Your Request:</span>
+                                  <span className="font-medium">${requestAmount.toFixed(2)}</span>
+                                </div>
+                                {wouldExceed && (
+                                  <div className="flex items-center gap-1 text-red-600 dark:text-red-400 text-xs mt-1">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    <span>This exceeds remaining budget by ${(requestAmount - budget.remaining).toFixed(2)}</span>
+                                  </div>
+                                )}
+                                {!wouldExceed && budget.remaining - requestAmount >= 0 && (
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    After this request: ${(budget.remaining - requestAmount).toFixed(2)} remaining
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+                return null
+              })()}
+              {budgetWarning && (
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200">{budgetWarning}</p>
+                  </div>
+                </div>
+              )}
               <div>
                 <Label htmlFor="req-description">Description *</Label>
                 <Input
@@ -920,6 +1436,28 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
                 />
               </div>
 
+              {reviewBudgetWarning && (
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200">{reviewBudgetWarning}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <input
+                          type="checkbox"
+                          id="admin-override"
+                          checked={reviewForm.adminOverride}
+                          onChange={(e) => setReviewForm({ ...reviewForm, adminOverride: e.target.checked })}
+                          className="h-4 w-4"
+                        />
+                        <Label htmlFor="admin-override" className="cursor-pointer text-sm">
+                          Admin Override (approve despite budget limit)
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               {reviewForm.status === 'APPROVED' && (
                 <>
                   <div className="flex items-center gap-2 p-3 border rounded-lg">
@@ -981,6 +1519,99 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
               </Button>
               <Button type="submit" disabled={submittingReview}>
                 {submittingReview ? 'Submitting...' : 'Submit Review'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Budget Management Dialog */}
+      <Dialog open={budgetDialogOpen} onOpenChange={setBudgetDialogOpen}>
+        <DialogContent>
+          <form onSubmit={handleSaveBudget}>
+            <DialogHeader>
+              <DialogTitle>{editingBudget ? 'Edit Event Budget' : 'Set Event Budget'}</DialogTitle>
+              <DialogDescription>
+                Set the maximum budget for an event team
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {division && events.length > 0 && (
+                <div>
+                  <Label htmlFor="budget-event">Event *</Label>
+                  <select
+                    id="budget-event"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={budgetForm.eventId}
+                    onChange={(e) => setBudgetForm({ ...budgetForm, eventId: e.target.value })}
+                    required
+                    disabled={!!editingBudget}
+                  >
+                    <option value="">Select an event</option>
+                    {events.map((event) => (
+                      <option key={event.id} value={event.id}>
+                        {event.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {subteams.length > 0 && (
+                <div>
+                  <Label htmlFor="budget-subteam">Subteam (Optional)</Label>
+                  <select
+                    id="budget-subteam"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={budgetForm.subteamId}
+                    onChange={(e) => setBudgetForm({ ...budgetForm, subteamId: e.target.value })}
+                    disabled={!!editingBudget}
+                  >
+                    <option value="">Team-wide (all subteams)</option>
+                    {subteams.map((subteam) => (
+                      <option key={subteam.id} value={subteam.id}>
+                        {subteam.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave empty for team-wide budget, or select a specific subteam
+                  </p>
+                </div>
+              )}
+              <div>
+                <Label htmlFor="max-budget">Maximum Budget ($) *</Label>
+                <Input
+                  id="max-budget"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={budgetForm.maxBudget}
+                  onChange={(e) => setBudgetForm({ ...budgetForm, maxBudget: e.target.value })}
+                  required
+                  placeholder="e.g., 75.00"
+                />
+              </div>
+              {editingBudget && (
+                <div className="p-3 bg-muted rounded-lg text-sm">
+                  <p><strong>Current Spending:</strong> ${editingBudget.totalSpent.toFixed(2)}</p>
+                  <p><strong>Remaining:</strong> ${editingBudget.remaining.toFixed(2)}</p>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setBudgetDialogOpen(false)
+                  setEditingBudget(null)
+                  setBudgetForm({ eventId: '', maxBudget: '' })
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={savingBudget}>
+                {savingBudget ? 'Saving...' : editingBudget ? 'Update Budget' : 'Set Budget'}
               </Button>
             </DialogFooter>
           </form>

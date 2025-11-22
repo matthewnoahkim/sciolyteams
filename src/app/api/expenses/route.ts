@@ -7,6 +7,7 @@ import { z } from 'zod'
 
 const createExpenseSchema = z.object({
   teamId: z.string(),
+  eventId: z.string().optional(),
   description: z.string().min(1).max(500),
   category: z.string().optional(),
   amount: z.number().min(0),
@@ -35,6 +36,13 @@ export async function GET(req: NextRequest) {
       where: { teamId },
       orderBy: { date: 'desc' },
       include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
         purchaseRequest: {
           select: {
             id: true,
@@ -92,6 +100,8 @@ export async function POST(req: NextRequest) {
     const expense = await prisma.expense.create({
       data: {
         teamId: validatedData.teamId,
+        eventId: validatedData.eventId,
+        subteamId: membership.subteamId, // Link to admin's subteam (or null for team-wide)
         description: validatedData.description,
         category: validatedData.category,
         amount: validatedData.amount,
@@ -100,6 +110,13 @@ export async function POST(req: NextRequest) {
         addedById: membership.id,
       },
       include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
         purchaseRequest: {
           select: {
             id: true,

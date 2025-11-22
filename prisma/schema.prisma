@@ -12,23 +12,23 @@ datasource db {
 
 // Global user account (from OAuth)
 model User {
-  id            String       @id @default(cuid())
-  email         String       @unique
+  id            String    @id @default(cuid())
+  email         String    @unique
   name          String?
   image         String?
   emailVerified DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  memberships   Membership[]
-  teamsCreated  Team[]       @relation("TeamCreator")
-  emailsReceived EmailLog[]
-  reactions     Reaction[]
-  eventRSVPs    EventRSVP[]
+  accounts           Account[]
+  sessions           Session[]
+  memberships        Membership[]
+  teamsCreated       Team[]              @relation("TeamCreator")
+  emailsReceived     EmailLog[]
+  reactions          Reaction[]
+  eventRSVPs         EventRSVP[]
   attendanceCheckIns AttendanceCheckIn[]
-  attachments   Attachment[]
+  attachments        Attachment[]
 }
 
 // NextAuth models
@@ -82,16 +82,16 @@ enum Role {
 }
 
 model Team {
-  id                        String         @id @default(cuid())
+  id                        String   @id @default(cuid())
   name                      String
   division                  Division
   createdById               String
   adminInviteCodeHash       String
   memberInviteCodeHash      String
   adminInviteCodeEncrypted  String
-  memberInviteCodeEncrypted  String
-  createdAt                 DateTime       @default(now())
-  updatedAt                 DateTime       @updatedAt
+  memberInviteCodeEncrypted String
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   createdBy        User              @relation("TeamCreator", fields: [createdById], references: [id])
   memberships      Membership[]
@@ -100,6 +100,7 @@ model Team {
   calendarEvents   CalendarEvent[]
   expenses         Expense[]
   purchaseRequests PurchaseRequest[]
+  eventBudgets     EventBudget[]
   tests            Test[]
 
   @@index([createdById])
@@ -115,14 +116,14 @@ model Membership {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user                User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team                Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  subteam             Subteam?               @relation(fields: [subteamId], references: [id], onDelete: SetNull)
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team                Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  subteam             Subteam?            @relation(fields: [subteamId], references: [id], onDelete: SetNull)
   rosterAssignments   RosterAssignment[]
   announcements       Announcement[]
-  calendarEvents      CalendarEvent[]        @relation("CreatorEvents")
-  attendeeEvents      CalendarEvent[]        @relation("AttendeeEvents")
-  announcementReplies AnnouncementReply[]    @relation("AnnouncementReplies")
+  calendarEvents      CalendarEvent[]     @relation("CreatorEvents")
+  attendeeEvents      CalendarEvent[]     @relation("AttendeeEvents")
+  announcementReplies AnnouncementReply[] @relation("AnnouncementReplies")
   attendanceCheckIns  AttendanceCheckIn[]
 
   @@unique([userId, teamId])
@@ -137,41 +138,47 @@ model Subteam {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  team                      Team                       @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  members                   Membership[]
-  rosterAssignments         RosterAssignment[]
-  announcementVisibilities  AnnouncementVisibility[]
-  calendarEvents            CalendarEvent[]
-  testAssignments           TestAssignment[]
+  team                     Team                     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  members                  Membership[]
+  rosterAssignments        RosterAssignment[]
+  announcementVisibilities AnnouncementVisibility[]
+  calendarEvents           CalendarEvent[]
+  testAssignments          TestAssignment[]
+  eventBudgets             EventBudget[]
+  expenses                 Expense[]
+  purchaseRequests         PurchaseRequest[]
 
   @@index([teamId])
 }
 
 // Event management
 model Event {
-  id                   String                @id @default(cuid())
-  division             Division
-  name                 String
-  slug                 String
-  maxCompetitors       Int                   @default(2) // 2 for most, 3 for Codebusters & Experimental Design
-  selfScheduled        Boolean               @default(false)
-  createdAt            DateTime              @default(now())
+  id             String   @id @default(cuid())
+  division       Division
+  name           String
+  slug           String
+  maxCompetitors Int      @default(2) // 2 for most, 3 for Codebusters & Experimental Design
+  selfScheduled  Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
-  conflictGroupEvents  ConflictGroupEvent[]
-  rosterAssignments    RosterAssignment[]
+  conflictGroupEvents ConflictGroupEvent[]
+  rosterAssignments   RosterAssignment[]
+  eventBudgets        EventBudget[]
+  expenses            Expense[]
+  purchaseRequests    PurchaseRequest[]
 
   @@unique([division, slug])
   @@index([division])
 }
 
 model ConflictGroup {
-  id          String               @id @default(cuid())
+  id          String   @id @default(cuid())
   division    Division
   blockNumber Int
   name        String
-  createdAt   DateTime             @default(now())
+  createdAt   DateTime @default(now())
 
-  events      ConflictGroupEvent[]
+  events ConflictGroupEvent[]
 
   @@unique([division, blockNumber])
   @@index([division])
@@ -183,24 +190,24 @@ model ConflictGroupEvent {
   eventId         String
   createdAt       DateTime @default(now())
 
-  conflictGroup   ConflictGroup @relation(fields: [conflictGroupId], references: [id], onDelete: Cascade)
-  event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  conflictGroup ConflictGroup @relation(fields: [conflictGroupId], references: [id], onDelete: Cascade)
+  event         Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([conflictGroupId, eventId])
   @@index([eventId])
 }
 
 model RosterAssignment {
-  id             String   @id @default(cuid())
-  subteamId      String
-  membershipId   String
-  eventId        String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id           String   @id @default(cuid())
+  subteamId    String
+  membershipId String
+  eventId      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  subteam        Subteam     @relation(fields: [subteamId], references: [id], onDelete: Cascade)
-  membership     Membership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-  event          Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  subteam    Subteam    @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  event      Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([membershipId, eventId])
   @@index([subteamId, eventId])
@@ -224,9 +231,9 @@ model Announcement {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  team          Team                      @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  author        Membership                @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  calendarEvent CalendarEvent?            @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  team          Team                     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  author        Membership               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  calendarEvent CalendarEvent?           @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
   visibilities  AnnouncementVisibility[]
   emails        EmailLog[]
   replies       AnnouncementReply[]
@@ -247,9 +254,9 @@ model AnnouncementReply {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
-  author         Membership   @relation("AnnouncementReplies", fields: [authorId], references: [id], onDelete: Cascade)
-  reactions      Reaction[]
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  author       Membership   @relation("AnnouncementReplies", fields: [authorId], references: [id], onDelete: Cascade)
+  reactions    Reaction[]
 
   @@index([announcementId])
   @@index([authorId])
@@ -258,19 +265,19 @@ model AnnouncementReply {
 
 model Reaction {
   id        String   @id @default(cuid())
-  emoji     String   // The emoji character (e.g., "👍", "❤️", "😂")
+  emoji     String // The emoji character (e.g., "👍", "❤️", "😂")
   userId    String
   createdAt DateTime @default(now())
 
   // Polymorphic relations - can react to different content types
   announcementId String?
-  eventId       String?
-  replyId       String?
+  eventId        String?
+  replyId        String?
 
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  announcement   Announcement?   @relation(fields: [announcementId], references: [id], onDelete: Cascade)
-  calendarEvent  CalendarEvent?  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  reply          AnnouncementReply? @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcement  Announcement?      @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  calendarEvent CalendarEvent?     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  reply         AnnouncementReply? @relation(fields: [replyId], references: [id], onDelete: Cascade)
 
   @@unique([userId, announcementId, emoji], name: "userId_announcementId_emoji")
   @@unique([userId, eventId, emoji], name: "userId_eventId_emoji")
@@ -288,8 +295,8 @@ model AnnouncementVisibility {
   subteamId      String?
   createdAt      DateTime          @default(now())
 
-  announcement   Announcement      @relation(fields: [announcementId], references: [id], onDelete: Cascade)
-  subteam        Subteam?          @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  subteam      Subteam?     @relation(fields: [subteamId], references: [id], onDelete: Cascade)
 
   @@index([announcementId])
   @@index([subteamId])
@@ -308,27 +315,27 @@ enum RSVPStatus {
 }
 
 model CalendarEvent {
-  id           String        @id @default(cuid())
-  teamId       String
-  creatorId    String
-  scope        CalendarScope
-  title        String
-  description  String?       @db.Text
-  startUTC     DateTime
-  endUTC       DateTime
-  location     String?
-  color        String?       // Custom color for events
-  rsvpEnabled  Boolean       @default(true) // Whether RSVP is enabled for this event
-  important    Boolean       @default(false)
-  subteamId    String?
-  attendeeId   String?       // For PERSONAL scope
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id          String        @id @default(cuid())
+  teamId      String
+  creatorId   String
+  scope       CalendarScope
+  title       String
+  description String?       @db.Text
+  startUTC    DateTime
+  endUTC      DateTime
+  location    String?
+  color       String? // Custom color for events
+  rsvpEnabled Boolean       @default(true) // Whether RSVP is enabled for this event
+  important   Boolean       @default(false)
+  subteamId   String?
+  attendeeId  String? // For PERSONAL scope
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  team         Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  creator      Membership     @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
-  subteam      Subteam?       @relation(fields: [subteamId], references: [id], onDelete: Cascade)
-  attendee     Membership?    @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
+  team         Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator      Membership    @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
+  subteam      Subteam?      @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+  attendee     Membership?   @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
   reactions    Reaction[]
   rsvps        EventRSVP[]
   announcement Announcement?
@@ -343,15 +350,15 @@ model CalendarEvent {
 }
 
 model EventRSVP {
-  id          String      @id @default(cuid())
-  eventId     String
-  userId      String
-  status      RSVPStatus
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id        String     @id @default(cuid())
+  eventId   String
+  userId    String
+  status    RSVPStatus
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
-  event       CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, userId])
   @@index([eventId])
@@ -360,15 +367,15 @@ model EventRSVP {
 
 // Email logging
 model EmailLog {
-  id                 String       @id @default(cuid())
-  announcementId     String?
-  toUserId           String
-  subject            String
-  providerMessageId  String?
-  sentAt             DateTime     @default(now())
+  id                String   @id @default(cuid())
+  announcementId    String?
+  toUserId          String
+  subject           String
+  providerMessageId String?
+  sentAt            DateTime @default(now())
 
-  announcement       Announcement? @relation(fields: [announcementId], references: [id], onDelete: SetNull)
-  toUser             User          @relation(fields: [toUserId], references: [id], onDelete: Cascade)
+  announcement Announcement? @relation(fields: [announcementId], references: [id], onDelete: SetNull)
+  toUser       User          @relation(fields: [toUserId], references: [id], onDelete: Cascade)
 
   @@index([announcementId])
   @@index([toUserId])
@@ -388,18 +395,18 @@ enum CheckInSource {
 }
 
 model Attendance {
-  id              String            @id @default(cuid())
-  calendarEventId String            @unique
+  id              String           @id @default(cuid())
+  calendarEventId String           @unique
   teamId          String
-  codeHash        String            // bcrypt hash of the current code
-  graceMinutes    Int               @default(0) // Grace period in minutes (before & after event)
-  status          AttendanceStatus  @default(UPCOMING)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  codeHash        String // bcrypt hash of the current code
+  graceMinutes    Int              @default(0) // Grace period in minutes (before & after event)
+  status          AttendanceStatus @default(UPCOMING)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  calendarEvent   CalendarEvent     @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
-  checkIns        AttendanceCheckIn[]
-  codeAttempts    AttendanceCodeAttempt[]
+  calendarEvent CalendarEvent           @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  checkIns      AttendanceCheckIn[]
+  codeAttempts  AttendanceCodeAttempt[]
 
   @@index([teamId])
   @@index([calendarEventId])
@@ -407,18 +414,18 @@ model Attendance {
 }
 
 model AttendanceCheckIn {
-  id            String        @id @default(cuid())
-  attendanceId  String
-  userId        String
-  membershipId  String
-  source        CheckInSource
-  reason        String?       // For manual check-ins, reason for adding
-  checkedInAt   DateTime      @default(now())
-  createdAt     DateTime      @default(now())
+  id           String        @id @default(cuid())
+  attendanceId String
+  userId       String
+  membershipId String
+  source       CheckInSource
+  reason       String? // For manual check-ins, reason for adding
+  checkedInAt  DateTime      @default(now())
+  createdAt    DateTime      @default(now())
 
-  attendance    Attendance    @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  membership    Membership    @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
   @@unique([attendanceId, userId])
   @@index([attendanceId])
@@ -428,14 +435,14 @@ model AttendanceCheckIn {
 
 // Rate limiting for code attempts
 model AttendanceCodeAttempt {
-  id            String     @id @default(cuid())
-  attendanceId  String
-  userId        String?    // Nullable to track by IP for unauthenticated attempts
-  ipAddress     String
-  attemptedAt   DateTime   @default(now())
-  success       Boolean
+  id           String   @id @default(cuid())
+  attendanceId String
+  userId       String? // Nullable to track by IP for unauthenticated attempts
+  ipAddress    String
+  attemptedAt  DateTime @default(now())
+  success      Boolean
 
-  attendance    Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
 
   @@index([attendanceId, userId, attemptedAt])
   @@index([attendanceId, ipAddress, attemptedAt])
@@ -446,17 +453,17 @@ model Attachment {
   id               String   @id @default(cuid())
   filename         String
   originalFilename String
-  fileSize         Int      // Size in bytes
+  fileSize         Int // Size in bytes
   mimeType         String
-  filePath         String   // Path to the file in storage
+  filePath         String // Path to the file in storage
   announcementId   String?
   calendarEventId  String?
   uploadedById     String
   createdAt        DateTime @default(now())
 
-  announcement     Announcement? @relation(fields: [announcementId], references: [id], onDelete: Cascade)
-  calendarEvent    CalendarEvent? @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
-  uploadedBy       User           @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  announcement  Announcement?  @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  calendarEvent CalendarEvent? @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  uploadedBy    User           @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
 
   @@index([announcementId])
   @@index([calendarEventId])
@@ -474,46 +481,79 @@ enum PurchaseRequestStatus {
 model Expense {
   id                String   @id @default(cuid())
   teamId            String
+  eventId           String? // Link to event if this expense is for a specific event
+  subteamId         String? // Link to subteam - expenses count against subteam budgets
   description       String
-  category          String?  // e.g., "Equipment", "Travel", "Materials", etc.
-  amount            Float    // Amount in dollars
+  category          String? // e.g., "Equipment", "Travel", "Materials", etc.
+  amount            Float // Amount in dollars
   date              DateTime // Date of purchase/expense
   notes             String?  @db.Text
   purchaseRequestId String?  @unique // Link to purchase request if applicable
-  addedById         String   // Membership ID of who added this
+  addedById         String // Membership ID of who added this
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  team              Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  purchaseRequest   PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id], onDelete: SetNull)
+  team            Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  event           Event?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  subteam         Subteam?         @relation(fields: [subteamId], references: [id], onDelete: SetNull)
+  purchaseRequest PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id], onDelete: SetNull)
 
   @@index([teamId])
+  @@index([eventId])
+  @@index([subteamId])
   @@index([date])
   @@index([addedById])
 }
 
 model PurchaseRequest {
-  id              String                 @id @default(cuid())
+  id              String                @id @default(cuid())
   teamId          String
-  requesterId     String                 // Membership ID of requester
+  eventId         String? // Link to event if this request is for a specific event
+  subteamId       String? // Link to subteam - requests count against subteam budgets
+  requesterId     String // Membership ID of requester
   description     String
   category        String?
-  estimatedAmount Float                  // Estimated cost in dollars
-  justification   String?                @db.Text // Why this purchase is needed
-  status          PurchaseRequestStatus  @default(PENDING)
-  reviewedById    String?                // Membership ID of admin who reviewed
-  reviewNote      String?                @db.Text
+  estimatedAmount Float // Estimated cost in dollars
+  justification   String?               @db.Text // Why this purchase is needed
+  status          PurchaseRequestStatus @default(PENDING)
+  reviewedById    String? // Membership ID of admin who reviewed
+  reviewNote      String?               @db.Text
   reviewedAt      DateTime?
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
+  adminOverride   Boolean               @default(false) // If true, admin approved despite budget limit
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
 
-  team            Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  expense         Expense?               // If approved and added to expenses
+  team    Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  event   Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  subteam Subteam? @relation(fields: [subteamId], references: [id], onDelete: SetNull)
+  expense Expense? // If approved and added to expenses
 
   @@index([teamId])
+  @@index([eventId])
+  @@index([subteamId])
   @@index([requesterId])
   @@index([status])
   @@index([createdAt])
+}
+
+// Event Budget System
+model EventBudget {
+  id        String   @id @default(cuid())
+  teamId    String
+  eventId   String
+  subteamId String? // Optional: if null, budget applies to entire team; if set, applies to specific subteam
+  maxBudget Float // Maximum budget in dollars for this event
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team    Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  subteam Subteam? @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, eventId, subteamId])
+  @@index([teamId])
+  @@index([eventId])
+  @@index([subteamId])
 }
 
 // Testing System
@@ -572,32 +612,32 @@ enum TestAuditAction {
 }
 
 model Test {
-  id                      String      @id @default(cuid())
-  teamId                  String
-  name                    String
-  description             String?     @db.Text
-  instructions            String?     @db.Text // Markdown
-  status                  TestStatus  @default(DRAFT)
-  durationMinutes         Int
-  startAt                 DateTime?
-  endAt                   DateTime?
-  allowLateUntil          DateTime?
-  randomizeQuestionOrder  Boolean     @default(false)
-  randomizeOptionOrder    Boolean     @default(false)
-  requireFullscreen       Boolean     @default(true)
-  requirePasswordToEdit   Boolean     @default(true)
-  adminPasswordHash       String?
-  releaseScoresAt         DateTime?   // When to show scores to students
-  createdByMembershipId   String
-  createdAt               DateTime    @default(now())
-  updatedAt               DateTime    @updatedAt
+  id                     String     @id @default(cuid())
+  teamId                 String
+  name                   String
+  description            String?    @db.Text
+  instructions           String?    @db.Text // Markdown
+  status                 TestStatus @default(DRAFT)
+  durationMinutes        Int
+  startAt                DateTime?
+  endAt                  DateTime?
+  allowLateUntil         DateTime?
+  randomizeQuestionOrder Boolean    @default(false)
+  randomizeOptionOrder   Boolean    @default(false)
+  requireFullscreen      Boolean    @default(true)
+  requirePasswordToEdit  Boolean    @default(true)
+  adminPasswordHash      String?
+  releaseScoresAt        DateTime? // When to show scores to students
+  createdByMembershipId  String
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
 
-  team                    Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  sections                TestSection[]
-  questions               Question[]
-  assignments             TestAssignment[]
-  attempts                TestAttempt[]
-  audits                  TestAudit[]
+  team        Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sections    TestSection[]
+  questions   Question[]
+  assignments TestAssignment[]
+  attempts    TestAttempt[]
+  audits      TestAudit[]
 
   @@index([teamId])
   @@index([status])
@@ -605,11 +645,11 @@ model Test {
 }
 
 model TestSection {
-  id        String     @id @default(cuid())
+  id        String   @id @default(cuid())
   testId    String
   title     String?
-  order     Int        @default(0)
-  createdAt DateTime   @default(now())
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
 
   test      Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
   questions Question[]
@@ -618,23 +658,23 @@ model TestSection {
 }
 
 model Question {
-  id                String       @id @default(cuid())
-  testId            String
-  sectionId         String?
-  type              QuestionType
-  promptMd          String       @db.Text
-  explanation       String?      @db.Text // Shown after grading
-  points            Decimal      @db.Decimal(5, 2)
-  order             Int          @default(0)
-  shuffleOptions    Boolean      @default(false)
-  numericTolerance  Decimal?     @db.Decimal(8, 3)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id               String       @id @default(cuid())
+  testId           String
+  sectionId        String?
+  type             QuestionType
+  promptMd         String       @db.Text
+  explanation      String?      @db.Text // Shown after grading
+  points           Decimal      @db.Decimal(5, 2)
+  order            Int          @default(0)
+  shuffleOptions   Boolean      @default(false)
+  numericTolerance Decimal?     @db.Decimal(8, 3)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  test              Test         @relation(fields: [testId], references: [id], onDelete: Cascade)
-  section           TestSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  options           QuestionOption[]
-  answers           AttemptAnswer[]
+  test    Test             @relation(fields: [testId], references: [id], onDelete: Cascade)
+  section TestSection?     @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  options QuestionOption[]
+  answers AttemptAnswer[]
 
   @@index([testId])
   @@index([sectionId])
@@ -648,21 +688,21 @@ model QuestionOption {
   order      Int      @default(0)
   createdAt  DateTime @default(now())
 
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([questionId])
 }
 
 model TestAssignment {
-  id                  String              @id @default(cuid())
-  testId              String
-  assignedScope       TestAssignmentScope
-  subteamId           String?
-  targetMembershipId  String?             // For PERSONAL scope
-  createdAt           DateTime            @default(now())
+  id                 String              @id @default(cuid())
+  testId             String
+  assignedScope      TestAssignmentScope
+  subteamId          String?
+  targetMembershipId String? // For PERSONAL scope
+  createdAt          DateTime            @default(now())
 
-  test                Test                @relation(fields: [testId], references: [id], onDelete: Cascade)
-  subteam             Subteam?            @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+  test    Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  subteam Subteam? @relation(fields: [subteamId], references: [id], onDelete: Cascade)
 
   @@index([testId])
   @@index([subteamId])
@@ -677,7 +717,7 @@ model TestAttempt {
   startedAt             DateTime?
   submittedAt           DateTime?
   gradeEarned           Decimal?      @db.Decimal(6, 2)
-  proctoringScore       Int?          // 0-100, higher = more risk
+  proctoringScore       Int? // 0-100, higher = more risk
   clientFingerprintHash String?
   ipAtStart             String?
   ipAtSubmit            String?
@@ -685,10 +725,10 @@ model TestAttempt {
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
-  test                  Test          @relation(fields: [testId], references: [id], onDelete: Cascade)
-  answers               AttemptAnswer[]
-  proctorEvents         ProctorEvent[]
-  gradeAdjustments      GradeAdjustment[]
+  test             Test              @relation(fields: [testId], references: [id], onDelete: Cascade)
+  answers          AttemptAnswer[]
+  proctorEvents    ProctorEvent[]
+  gradeAdjustments GradeAdjustment[]
 
   @@unique([membershipId, testId])
   @@index([testId])
@@ -701,7 +741,7 @@ model AttemptAnswer {
   attemptId         String
   questionId        String
   answerText        String?   @db.Text
-  selectedOptionIds Json?     // string[] for MCQ
+  selectedOptionIds Json? // string[] for MCQ
   numericAnswer     Decimal?  @db.Decimal(16, 6)
   pointsAwarded     Decimal?  @db.Decimal(5, 2)
   gradedAt          DateTime?
@@ -709,8 +749,8 @@ model AttemptAnswer {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  attempt           TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  question          Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  attempt  TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([attemptId, questionId])
   @@index([attemptId])
@@ -718,27 +758,27 @@ model AttemptAnswer {
 }
 
 model ProctorEvent {
-  id         String           @id @default(cuid())
-  attemptId  String
-  kind       ProctorEventKind
-  ts         DateTime         @default(now())
-  meta       Json?            // Additional context
+  id        String           @id @default(cuid())
+  attemptId String
+  kind      ProctorEventKind
+  ts        DateTime         @default(now())
+  meta      Json? // Additional context
 
-  attempt    TestAttempt      @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  attempt TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@index([attemptId])
   @@index([ts])
 }
 
 model GradeAdjustment {
-  id                  String      @id @default(cuid())
-  attemptId           String
-  graderMembershipId  String
-  deltaPoints         Decimal     @db.Decimal(6, 2)
-  reason              String      @db.Text
-  createdAt           DateTime    @default(now())
+  id                 String   @id @default(cuid())
+  attemptId          String
+  graderMembershipId String
+  deltaPoints        Decimal  @db.Decimal(6, 2)
+  reason             String   @db.Text
+  createdAt          DateTime @default(now())
 
-  attempt             TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  attempt TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@index([attemptId])
 }
@@ -751,7 +791,7 @@ model TestAudit {
   details           Json?
   createdAt         DateTime        @default(now())
 
-  test              Test            @relation(fields: [testId], references: [id], onDelete: Cascade)
+  test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
 
   @@index([testId])
   @@index([actorMembershipId])
