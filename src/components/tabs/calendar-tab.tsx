@@ -471,24 +471,16 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
       style.color = '#ffffff'
     }
     if (event.important) {
-      // Use contrasting color based on the event's background color
-      const contrastingColor = getContrastingColor(event.color || '#3b82f6')
-      style.border = `2px solid ${contrastingColor}`
+      // Always use red outline for important events
+      style.border = `2px solid #ef4444` // red-500
       style.borderRadius = '4px'
     }
     return style
   }
   
   const getImportantBorderColor = (event: any) => {
-    if (!event.color) return 'border-red-500'
-    
-    const contrastingColor = getContrastingColor(event.color)
-    // Convert hex to Tailwind class
-    if (contrastingColor === '#eab308') {
-      return 'border-yellow-500'
-    } else {
-      return 'border-red-500'
-    }
+    // Always use red border for important events
+    return 'border-red-500'
   }
 
   // Calendar generation functions
