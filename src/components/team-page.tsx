@@ -68,33 +68,43 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
     setTabNotifications(prev => ({ ...prev, [tab]: false }))
   }
 
-  // Check for new content created by OTHER users in each tab
+  // Check for new content in each tab (from anyone, not just other users)
   useEffect(() => {
-    // Don't check if we're currently viewing a tab (it will be cleared when opened)
     const checkForNewContent = async () => {
       const notifications: Record<string, boolean> = {}
 
-      // Stream: Check for new announcements by other users
+      // Stream: Check for new announcements
+      // Also check calendar events that were posted to stream (have calendarEventId in announcement)
       if (activeTab !== 'stream') {
         try {
           const streamResponse = await fetch(`/api/announcements?teamId=${team.id}`)
           if (streamResponse.ok) {
             const streamData = await streamResponse.json()
             const lastCleared = getLastClearedTime('stream')
-            const hasNew = streamData.announcements?.some((announcement: any) => {
-              const createdAt = new Date(announcement.createdAt)
-              const isNew = createdAt > lastCleared
+            const hasNewAnnouncement = streamData.announcements?.some((announcement: any) => {
+              const isNew = new Date(announcement.createdAt) > lastCleared
               const isFromOtherUser = announcement.author?.user?.id !== user.id
               return isNew && isFromOtherUser
             })
-            notifications.stream = !!hasNew
+            
+            // Also check if any calendar events were posted to stream (announcements with calendarEventId)
+            const hasNewCalendarPost = streamData.announcements?.some((announcement: any) => {
+              const announcementCreated = new Date(announcement.createdAt)
+              const isNew = announcementCreated > lastCleared
+              const isFromOtherUser = announcement.author?.user?.id !== user.id
+              // If announcement has calendarEventId, it means a calendar event was posted to stream
+              return isNew && announcement.calendarEventId && isFromOtherUser
+            })
+            
+            notifications.stream = !!(hasNewAnnouncement || hasNewCalendarPost)
           }
         } catch (error) {
           console.error('Failed to check stream notifications:', error)
         }
       }
 
-      // Calendar: Check for new events by other users
+      // Calendar: Check for new events
+      // Also check announcements that are linked to calendar events (RSVP events posted to stream)
       if (activeTab !== 'calendar') {
         try {
           const calendarResponse = await fetch(`/api/calendar?teamId=${team.id}`)
@@ -102,52 +112,130 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
             const calendarData = await calendarResponse.json()
             const lastCleared = getLastClearedTime('calendar')
             const events = calendarData.events || []
-            const hasNew = events.some((event: any) => {
-              const createdAt = new Date(event.createdAt)
-              const isNew = createdAt > lastCleared
+            const hasNewEvent = events.some((event: any) => {
+              const isNew = new Date(event.createdAt) > lastCleared
               const isFromOtherUser = event.creator?.user?.id !== user.id
               return isNew && isFromOtherUser
             })
-            notifications.calendar = !!hasNew
+            
+            // Also check announcements - if a new announcement has a calendarEventId, it means an event was posted
+            let hasNewEventFromAnnouncement = false
+            try {
+              const announcementsResponse = await fetch(`/api/announcements?teamId=${team.id}`)
+              if (announcementsResponse.ok) {
+                const announcementsData = await announcementsResponse.json()
+                hasNewEventFromAnnouncement = announcementsData.announcements?.some((announcement: any) => {
+                  const announcementCreated = new Date(announcement.createdAt)
+                  const isNew = announcementCreated > lastCleared
+                  const isFromOtherUser = announcement.author?.user?.id !== user.id
+                  // If announcement has calendarEventId, it's linked to a calendar event
+                  return isNew && announcement.calendarEventId && isFromOtherUser
+                })
+              }
+            } catch (error) {
+              // Ignore announcement check errors for calendar
+            }
+            
+            notifications.calendar = !!(hasNewEvent || hasNewEventFromAnnouncement)
           }
         } catch (error) {
           console.error('Failed to check calendar notifications:', error)
         }
       }
 
-      // Finance: Check for new purchase requests or expenses by other users
-      if (activeTab !== 'finance') {
+      // Attendance: Check for new attendance records
+      // Also check calendar events since creating a calendar event creates an attendance record
+      if (activeTab !== 'attendance') {
         try {
-          const financeResponse = await fetch(`/api/purchase-requests?teamId=${team.id}`)
-          if (financeResponse.ok) {
-            const financeData = await financeResponse.json()
-            const lastCleared = getLastClearedTime('finance')
-            const purchaseRequests = financeData.purchaseRequests || []
-            const expensesResponse = await fetch(`/api/expenses?teamId=${team.id}`)
-            let expenses: any[] = []
-            if (expensesResponse.ok) {
-              const expensesData = await expensesResponse.json()
-              expenses = expensesData.expenses || []
-            }
-            const hasNew = [
-              ...purchaseRequests,
-              ...expenses
-            ].some((item: any) => {
-              const createdAt = new Date(item.createdAt)
-              const isNew = createdAt > lastCleared
-              // Check if it's from another user
-              const isFromOtherUser = item.requesterId !== currentMembership.id && 
-                                     item.addedById !== currentMembership.id
+          const attendanceResponse = await fetch(`/api/attendance?teamId=${team.id}`)
+          if (attendanceResponse.ok) {
+            const attendanceData = await attendanceResponse.json()
+            const lastCleared = getLastClearedTime('attendance')
+            const hasNewAttendance = attendanceData.attendance?.some((record: any) => {
+              const isNew = new Date(record.createdAt) > lastCleared
+              const isFromOtherUser = record.createdById !== currentMembership.id
               return isNew && isFromOtherUser
             })
-            notifications.finance = !!hasNew
+            
+            // Also check calendar events - if a new calendar event was created, it likely created an attendance record
+            let hasNewCalendarEvent = false
+            try {
+              const calendarResponse = await fetch(`/api/calendar?teamId=${team.id}`)
+              if (calendarResponse.ok) {
+                const calendarData = await calendarResponse.json()
+                const events = calendarData.events || []
+                hasNewCalendarEvent = events.some((event: any) => {
+                  const isNew = new Date(event.createdAt) > lastCleared
+                  const isFromOtherUser = event.creator?.user?.id !== user.id
+                  return isNew && isFromOtherUser
+                })
+              }
+            } catch (error) {
+              // Ignore calendar check errors for attendance
+            }
+            
+            notifications.attendance = !!(hasNewAttendance || hasNewCalendarEvent)
           }
+        } catch (error) {
+          console.error('Failed to check attendance notifications:', error)
+        }
+      }
+
+      // Finance: Check for new purchase requests or expenses
+      // Also check when purchase requests are approved (they become expenses)
+      if (activeTab !== 'finance') {
+        try {
+          const lastCleared = getLastClearedTime('finance')
+          
+          // Check purchase requests
+          const financeResponse = await fetch(`/api/purchase-requests?teamId=${team.id}`)
+          let hasNewRequest = false
+          if (financeResponse.ok) {
+            const financeData = await financeResponse.json()
+            const purchaseRequests = financeData.purchaseRequests || []
+            hasNewRequest = purchaseRequests.some((item: any) => {
+              const isNew = new Date(item.createdAt) > lastCleared
+              const isFromOtherUser = item.requesterId !== currentMembership.id
+              return isNew && isFromOtherUser
+            })
+          }
+          
+          // Check expenses (including those created from approved purchase requests)
+          const expensesResponse = await fetch(`/api/expenses?teamId=${team.id}`)
+          let hasNewExpense = false
+          if (expensesResponse.ok) {
+            const expensesData = await expensesResponse.json()
+            const expenses = expensesData.expenses || []
+            hasNewExpense = expenses.some((item: any) => {
+              const isNew = new Date(item.createdAt) > lastCleared
+              const isFromOtherUser = item.addedById !== currentMembership.id
+              return isNew && isFromOtherUser
+            })
+          }
+          
+          // Check for purchase requests that were recently approved (status change)
+          let hasNewApproval = false
+          if (financeResponse.ok) {
+            const financeData = await financeResponse.json()
+            const purchaseRequests = financeData.purchaseRequests || []
+            hasNewApproval = purchaseRequests.some((request: any) => {
+              // If request is approved and has a reviewedAt date after last cleared
+              if (request.status === 'APPROVED' && request.reviewedAt) {
+                const isNew = new Date(request.reviewedAt) > lastCleared
+                const isFromOtherUser = request.requesterId !== currentMembership.id
+                return isNew && isFromOtherUser
+              }
+              return false
+            })
+          }
+          
+          notifications.finance = !!(hasNewRequest || hasNewExpense || hasNewApproval)
         } catch (error) {
           console.error('Failed to check finance notifications:', error)
         }
       }
 
-      // Tests: Check for new tests by other users
+      // Tests: Check for new tests
       if (activeTab !== 'tests') {
         try {
           const testsResponse = await fetch(`/api/tests?teamId=${team.id}`)
@@ -155,8 +243,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
             const testsData = await testsResponse.json()
             const lastCleared = getLastClearedTime('tests')
             const hasNew = testsData.tests?.some((test: any) => {
-              const createdAt = new Date(test.createdAt)
-              const isNew = createdAt > lastCleared
+              const isNew = new Date(test.createdAt) > lastCleared
               const isFromOtherUser = test.createdById !== currentMembership.id
               return isNew && isFromOtherUser
             })
@@ -167,40 +254,18 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
         }
       }
 
-      // People: Check for new members (added by admins/other users)
+      // People: Check for new members
       if (activeTab !== 'people') {
         try {
           const lastCleared = getLastClearedTime('people')
           const hasNew = team.memberships?.some((membership: any) => {
-            const createdAt = new Date(membership.createdAt)
-            const isNew = createdAt > lastCleared
+            const isNew = new Date(membership.createdAt) > lastCleared
             // New members are always from other users (you can't add yourself)
             return isNew
           })
           notifications.people = !!hasNew
         } catch (error) {
           console.error('Failed to check people notifications:', error)
-        }
-      }
-
-      // Attendance: Check for new attendance records by other users
-      if (activeTab !== 'attendance') {
-        try {
-          const attendanceResponse = await fetch(`/api/attendance?teamId=${team.id}`)
-          if (attendanceResponse.ok) {
-            const attendanceData = await attendanceResponse.json()
-            const lastCleared = getLastClearedTime('attendance')
-            const hasNew = attendanceData.attendance?.some((record: any) => {
-              const createdAt = new Date(record.createdAt)
-              const isNew = createdAt > lastCleared
-              // Check if created by another user
-              const isFromOtherUser = record.createdById !== currentMembership.id
-              return isNew && isFromOtherUser
-            })
-            notifications.attendance = !!hasNew
-          }
-        } catch (error) {
-          console.error('Failed to check attendance notifications:', error)
         }
       }
 
@@ -211,7 +276,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
     // Poll every 30 seconds for new content
     const interval = setInterval(checkForNewContent, 30000)
     return () => clearInterval(interval)
-  }, [team.id, user.id, currentMembership.id, activeTab])
+  }, [team.id, team.memberships, user.id, currentMembership.id, activeTab])
 
   // Clear notification when tab is opened
   useEffect(() => {
