@@ -6,6 +6,7 @@ import { SignInThemeToggle } from '@/components/signin-theme-toggle'
 import { Users, Calendar, Users2, ClipboardCheck, DollarSign, FileText, MessageSquare, Shield, Zap, BarChart3, Mail, HelpCircle } from 'lucide-react'
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
+import { ContactForm } from '@/components/contact-form'
 
 type SignInPageProps = {
   searchParams?: {
@@ -337,29 +338,18 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       </section>
 
       {/* Contact Section */}
-      <section className="relative z-10 container mx-auto px-4 py-20">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Get in Touch
-          </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-            Have questions or need support? We&apos;re here to help.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <a
-              href="mailto:support@teamy.app"
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-            >
-              <Mail className="h-5 w-5" />
-              support@teamy.app
-            </a>
-            <a
-              href="mailto:legal@teamy.app"
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            >
-              <Mail className="h-5 w-5" />
-              legal@teamy.app
-            </a>
+      <section id="contact" className="relative z-10 container mx-auto px-4 py-20">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Get in Touch
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300">
+              Have questions or need support? Send us a message and we&apos;ll get back to you soon.
+            </p>
+          </div>
+          <div className="p-8 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl">
+            <ContactForm />
           </div>
         </div>
       </section>
