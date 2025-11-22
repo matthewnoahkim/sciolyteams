@@ -54,7 +54,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
   const [content, setContent] = useState('')
   const [scope, setScope] = useState<'TEAM' | 'SUBTEAM'>('TEAM')
   const [selectedSubteams, setSelectedSubteams] = useState<string[]>([])
-  const [sendEmail, setSendEmail] = useState(true)
+  const [sendEmail, setSendEmail] = useState(false)
   const [important, setImportant] = useState(false)
   const [isPostSectionCollapsed, setIsPostSectionCollapsed] = useState(true)
   const [editingAnnouncement, setEditingAnnouncement] = useState<any | null>(null)
@@ -201,7 +201,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
 
       setTitle('')
       setContent('')
-      setSendEmail(true)
+      setSendEmail(false)
       setImportant(false)
       setSelectedFiles([])
       fetchAnnouncements()

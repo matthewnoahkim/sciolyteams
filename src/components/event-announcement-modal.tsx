@@ -30,21 +30,21 @@ export function EventAnnouncementModal({
   subteamName,
 }: EventAnnouncementModalProps) {
   const [postToStream, setPostToStream] = useState(true)
-  const [sendEmail, setSendEmail] = useState(true)
+  const [sendEmail, setSendEmail] = useState(false)
 
   const handleConfirm = () => {
     onConfirm(postToStream, sendEmail)
     onOpenChange(false)
     // Reset for next time
     setPostToStream(true)
-    setSendEmail(true)
+    setSendEmail(false)
   }
 
   const handleSkip = () => {
     onOpenChange(false)
     // Reset for next time
     setPostToStream(true)
-    setSendEmail(true)
+    setSendEmail(false)
   }
 
   const scopeText = eventScope === 'TEAM' ? 'entire club' : subteamName ? `${subteamName}` : 'team'
