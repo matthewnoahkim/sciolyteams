@@ -49,7 +49,176 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const [currentClubName, setCurrentClubName] = useState(team.name)
   const [newClubName, setNewClubName] = useState(team.name)
   const [updatingClubName, setUpdatingClubName] = useState(false)
+  const [tabNotifications, setTabNotifications] = useState<Record<string, boolean>>({})
   const isAdmin = currentMembership.role === 'ADMIN'
+
+  // Get last cleared time for a tab from localStorage
+  const getLastClearedTime = (tab: string): Date => {
+    if (typeof window === 'undefined') return new Date(0)
+    const key = `lastCleared_${team.id}_${tab}_${user.id}`
+    const stored = localStorage.getItem(key)
+    return stored ? new Date(stored) : new Date(0)
+  }
+
+  // Clear notification for a tab when it's opened
+  const clearTabNotification = (tab: string) => {
+    if (typeof window === 'undefined') return
+    const key = `lastCleared_${team.id}_${tab}_${user.id}`
+    localStorage.setItem(key, new Date().toISOString())
+    setTabNotifications(prev => ({ ...prev, [tab]: false }))
+  }
+
+  // Check for new content created by OTHER users in each tab
+  useEffect(() => {
+    // Don't check if we're currently viewing a tab (it will be cleared when opened)
+    const checkForNewContent = async () => {
+      const notifications: Record<string, boolean> = {}
+
+      // Stream: Check for new announcements by other users
+      if (activeTab !== 'stream') {
+        try {
+          const streamResponse = await fetch(`/api/announcements?teamId=${team.id}`)
+          if (streamResponse.ok) {
+            const streamData = await streamResponse.json()
+            const lastCleared = getLastClearedTime('stream')
+            const hasNew = streamData.announcements?.some((announcement: any) => {
+              const createdAt = new Date(announcement.createdAt)
+              const isNew = createdAt > lastCleared
+              const isFromOtherUser = announcement.author?.user?.id !== user.id
+              return isNew && isFromOtherUser
+            })
+            notifications.stream = !!hasNew
+          }
+        } catch (error) {
+          console.error('Failed to check stream notifications:', error)
+        }
+      }
+
+      // Calendar: Check for new events by other users
+      if (activeTab !== 'calendar') {
+        try {
+          const calendarResponse = await fetch(`/api/calendar?teamId=${team.id}`)
+          if (calendarResponse.ok) {
+            const calendarData = await calendarResponse.json()
+            const lastCleared = getLastClearedTime('calendar')
+            const events = calendarData.events || []
+            const hasNew = events.some((event: any) => {
+              const createdAt = new Date(event.createdAt)
+              const isNew = createdAt > lastCleared
+              const isFromOtherUser = event.creator?.user?.id !== user.id
+              return isNew && isFromOtherUser
+            })
+            notifications.calendar = !!hasNew
+          }
+        } catch (error) {
+          console.error('Failed to check calendar notifications:', error)
+        }
+      }
+
+      // Finance: Check for new purchase requests or expenses by other users
+      if (activeTab !== 'finance') {
+        try {
+          const financeResponse = await fetch(`/api/purchase-requests?teamId=${team.id}`)
+          if (financeResponse.ok) {
+            const financeData = await financeResponse.json()
+            const lastCleared = getLastClearedTime('finance')
+            const purchaseRequests = financeData.purchaseRequests || []
+            const expensesResponse = await fetch(`/api/expenses?teamId=${team.id}`)
+            let expenses: any[] = []
+            if (expensesResponse.ok) {
+              const expensesData = await expensesResponse.json()
+              expenses = expensesData.expenses || []
+            }
+            const hasNew = [
+              ...purchaseRequests,
+              ...expenses
+            ].some((item: any) => {
+              const createdAt = new Date(item.createdAt)
+              const isNew = createdAt > lastCleared
+              // Check if it's from another user
+              const isFromOtherUser = item.requesterId !== currentMembership.id && 
+                                     item.addedById !== currentMembership.id
+              return isNew && isFromOtherUser
+            })
+            notifications.finance = !!hasNew
+          }
+        } catch (error) {
+          console.error('Failed to check finance notifications:', error)
+        }
+      }
+
+      // Tests: Check for new tests by other users
+      if (activeTab !== 'tests') {
+        try {
+          const testsResponse = await fetch(`/api/tests?teamId=${team.id}`)
+          if (testsResponse.ok) {
+            const testsData = await testsResponse.json()
+            const lastCleared = getLastClearedTime('tests')
+            const hasNew = testsData.tests?.some((test: any) => {
+              const createdAt = new Date(test.createdAt)
+              const isNew = createdAt > lastCleared
+              const isFromOtherUser = test.createdById !== currentMembership.id
+              return isNew && isFromOtherUser
+            })
+            notifications.tests = !!hasNew
+          }
+        } catch (error) {
+          console.error('Failed to check tests notifications:', error)
+        }
+      }
+
+      // People: Check for new members (added by admins/other users)
+      if (activeTab !== 'people') {
+        try {
+          const lastCleared = getLastClearedTime('people')
+          const hasNew = team.memberships?.some((membership: any) => {
+            const createdAt = new Date(membership.createdAt)
+            const isNew = createdAt > lastCleared
+            // New members are always from other users (you can't add yourself)
+            return isNew
+          })
+          notifications.people = !!hasNew
+        } catch (error) {
+          console.error('Failed to check people notifications:', error)
+        }
+      }
+
+      // Attendance: Check for new attendance records by other users
+      if (activeTab !== 'attendance') {
+        try {
+          const attendanceResponse = await fetch(`/api/attendance?teamId=${team.id}`)
+          if (attendanceResponse.ok) {
+            const attendanceData = await attendanceResponse.json()
+            const lastCleared = getLastClearedTime('attendance')
+            const hasNew = attendanceData.attendance?.some((record: any) => {
+              const createdAt = new Date(record.createdAt)
+              const isNew = createdAt > lastCleared
+              // Check if created by another user
+              const isFromOtherUser = record.createdById !== currentMembership.id
+              return isNew && isFromOtherUser
+            })
+            notifications.attendance = !!hasNew
+          }
+        } catch (error) {
+          console.error('Failed to check attendance notifications:', error)
+        }
+      }
+
+      setTabNotifications(prev => ({ ...prev, ...notifications }))
+    }
+
+    checkForNewContent()
+    // Poll every 30 seconds for new content
+    const interval = setInterval(checkForNewContent, 30000)
+    return () => clearInterval(interval)
+  }, [team.id, user.id, currentMembership.id, activeTab])
+
+  // Clear notification when tab is opened
+  useEffect(() => {
+    if (activeTab) {
+      clearTabNotification(activeTab)
+    }
+  }, [activeTab, team.id, user.id])
 
   // Sync local state when user prop changes (e.g., after navigation)
   useEffect(() => {
@@ -64,6 +233,8 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   }, [searchParams])
 
   const handleTabChange = (newTab: string) => {
+    // Clear notification when tab is clicked
+    clearTabNotification(newTab)
     setActiveTab(newTab)
     const url = new URL(window.location.href)
     url.searchParams.set('tab', newTab)
@@ -218,51 +389,69 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
             <nav className="sticky top-8 space-y-2">
               <Button
                 variant={activeTab === 'stream' ? 'default' : 'ghost'}
-                className="w-full justify-start"
+                className="w-full justify-start relative"
                 onClick={() => handleTabChange('stream')}
               >
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Stream
+                {tabNotifications.stream && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                )}
               </Button>
               <Button
                 variant={activeTab === 'people' ? 'default' : 'ghost'}
-                className="w-full justify-start"
+                className="w-full justify-start relative"
                 onClick={() => handleTabChange('people')}
               >
                 <Users className="mr-2 h-4 w-4" />
                 People
+                {tabNotifications.people && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                )}
               </Button>
               <Button
                 variant={activeTab === 'calendar' ? 'default' : 'ghost'}
-                className="w-full justify-start"
+                className="w-full justify-start relative"
                 onClick={() => handleTabChange('calendar')}
               >
                 <Calendar className="mr-2 h-4 w-4" />
                 Calendar
+                {tabNotifications.calendar && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                )}
               </Button>
               <Button
                 variant={activeTab === 'attendance' ? 'default' : 'ghost'}
-                className="w-full justify-start"
+                className="w-full justify-start relative"
                 onClick={() => handleTabChange('attendance')}
               >
                 <ClipboardCheck className="mr-2 h-4 w-4" />
                 Attendance
+                {tabNotifications.attendance && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                )}
               </Button>
               <Button
                 variant={activeTab === 'finance' ? 'default' : 'ghost'}
-                className="w-full justify-start"
+                className="w-full justify-start relative"
                 onClick={() => handleTabChange('finance')}
               >
                 <DollarSign className="mr-2 h-4 w-4" />
                 Finance
+                {tabNotifications.finance && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                )}
               </Button>
               <Button
                 variant={activeTab === 'tests' ? 'default' : 'ghost'}
-                className="w-full justify-start"
+                className="w-full justify-start relative"
                 onClick={() => handleTabChange('tests')}
               >
                 <FileText className="mr-2 h-4 w-4" />
                 Tests
+                {tabNotifications.tests && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                )}
               </Button>
               <Button
                 variant={activeTab === 'settings' ? 'default' : 'ghost'}
