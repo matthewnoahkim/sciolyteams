@@ -260,6 +260,18 @@ export async function POST(req: NextRequest) {
             subteam: true,
           },
         },
+        attachments: {
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
       },
     })
 

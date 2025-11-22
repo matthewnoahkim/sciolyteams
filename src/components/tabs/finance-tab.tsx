@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Clock, ShoppingCart } from 'lucide-react'
+import { DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Clock, ShoppingCart, Download } from 'lucide-react'
 
 interface FinanceTabProps {
   teamId: string
@@ -411,6 +411,47 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0)
 
+  const handleExportCSV = () => {
+    // Create CSV header
+    const headers = ['Date', 'Description', 'Category', 'Amount', 'Notes']
+    const csvRows = [headers.join(',')]
+
+    // Add expense rows
+    expenses.forEach((expense) => {
+      const row = [
+        new Date(expense.date).toLocaleDateString(),
+        `"${expense.description.replace(/"/g, '""')}"`, // Escape quotes in description
+        expense.category || '',
+        expense.amount.toFixed(2),
+        expense.notes ? `"${expense.notes.replace(/"/g, '""')}"` : '', // Escape quotes in notes
+      ]
+      csvRows.push(row.join(','))
+    })
+
+    // Add total row
+    csvRows.push('')
+    csvRows.push(`Total,${totalExpenses.toFixed(2)}`)
+
+    // Create CSV content
+    const csvContent = csvRows.join('\n')
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `expenses-${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    toast({
+      title: 'Export Successful',
+      description: 'Expenses spreadsheet has been exported',
+    })
+  }
+
   if (loading) {
     return <div className="p-4">Loading finance data...</div>
   }
@@ -507,10 +548,18 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId }: Fin
       {/* Expenses Spreadsheet */}
       <Card>
         <CardHeader>
-          <CardTitle>Expense Spreadsheet</CardTitle>
-          <CardDescription>
-            {isAdmin ? 'View and manage all team expenses' : 'View team expenses'}
-          </CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Expense Spreadsheet</CardTitle>
+              <CardDescription>
+                {isAdmin ? 'View and manage all team expenses' : 'View team expenses'}
+              </CardDescription>
+            </div>
+            <Button onClick={handleExportCSV} variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg overflow-x-auto">
