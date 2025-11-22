@@ -12,6 +12,15 @@ const nextConfig = {
   output: process.env.BUILD_STANDALONE === 'true' ? 'standalone' : undefined,
   poweredByHeader: false,
   compress: true,
+  // Webpack configuration for native modules
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Mark argon2 as external for server-side only
+      config.externals = config.externals || []
+      config.externals.push('argon2')
+    }
+    return config
+  },
   // Security headers
   async headers() {
     return [
