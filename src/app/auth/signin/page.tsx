@@ -3,7 +3,7 @@ import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { SignInButton } from '@/components/signin-button'
 import { SignInThemeToggle } from '@/components/signin-theme-toggle'
-import { Users, Calendar, Users2, ClipboardCheck, DollarSign, FileText, Sparkles, MessageSquare, Shield, Zap, BarChart3, Mail, HelpCircle } from 'lucide-react'
+import { Users, Calendar, Users2, ClipboardCheck, DollarSign, FileText, MessageSquare, Shield, Zap, BarChart3, Mail, HelpCircle } from 'lucide-react'
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
 
@@ -371,9 +371,6 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             <div className="grid md:grid-cols-4 gap-8 mb-8">
               <div>
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                    <Sparkles className="h-5 w-5" />
-                  </div>
                   <Logo size="sm" />
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-300">
