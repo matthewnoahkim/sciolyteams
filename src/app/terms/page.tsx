@@ -20,7 +20,7 @@ export default function TermsOfServicePage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">1. Acceptance of Terms</h2>
             <p>
-              By accessing and using Teamy ("the Service"), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+              By accessing and using Teamy (&quot;the Service&quot;), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
             </p>
           </section>
 
@@ -66,7 +66,7 @@ export default function TermsOfServicePage() {
               <li>Attempt to gain unauthorized access to the Service or related systems</li>
               <li>Interfere with or disrupt the Service or servers connected to the Service</li>
               <li>Harass, abuse, or harm other users</li>
-              <li>Post content that is defamatory, obscene, or violates others' rights</li>
+              <li>Post content that is defamatory, obscene, or violates others&apos; rights</li>
               <li>Impersonate any person or entity</li>
               <li>Collect or harvest information about other users without their consent</li>
             </ul>
@@ -77,7 +77,7 @@ export default function TermsOfServicePage() {
             
             <h3 className="text-xl font-semibold mb-3 mt-6">5.1 Content Ownership</h3>
             <p>
-              You retain ownership of any content you post, upload, or submit to the Service ("User Content"). By posting User Content, you grant us a worldwide, non-exclusive, royalty-free license to use, reproduce, modify, and distribute your User Content solely for the purpose of operating and providing the Service.
+              You retain ownership of any content you post, upload, or submit to the Service (&quot;User Content&quot;). By posting User Content, you grant us a worldwide, non-exclusive, royalty-free license to use, reproduce, modify, and distribute your User Content solely for the purpose of operating and providing the Service.
             </p>
 
             <h3 className="text-xl font-semibold mb-3 mt-6">5.2 Content Responsibility</h3>
@@ -125,7 +125,7 @@ export default function TermsOfServicePage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">10. Disclaimer of Warranties</h2>
             <p>
-              THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, SECURE, OR ERROR-FREE.
+              THE SERVICE IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, SECURE, OR ERROR-FREE.
             </p>
           </section>
 
@@ -142,7 +142,7 @@ export default function TermsOfServicePage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">12. Indemnification</h2>
             <p>
-              You agree to defend, indemnify, and hold harmless Teamy and its affiliates from and against any claims, damages, obligations, losses, liabilities, costs, or debt, and expenses (including attorney's fees) arising from your use of the Service, your violation of these Terms, or your violation of any third-party rights.
+              You agree to defend, indemnify, and hold harmless Teamy and its affiliates from and against any claims, damages, obligations, losses, liabilities, costs, or debt, and expenses (including attorney&apos;s fees) arising from your use of the Service, your violation of these Terms, or your violation of any third-party rights.
             </p>
           </section>
 
@@ -175,7 +175,7 @@ export default function TermsOfServicePage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">15. Age Restrictions</h2>
             <p>
-              The Service is not intended for users under the age of 13. If you are between 13 and 18 years of age (or the age of majority in your jurisdiction), you may use the Service only with the consent and supervision of a parent or legal guardian who agrees to be bound by these Terms. If you are a parent or guardian permitting a minor to use the Service, you agree to be responsible for the minor's use of the Service.
+              The Service is not intended for users under the age of 13. If you are between 13 and 18 years of age (or the age of majority in your jurisdiction), you may use the Service only with the consent and supervision of a parent or legal guardian who agrees to be bound by these Terms. If you are a parent or guardian permitting a minor to use the Service, you agree to be responsible for the minor&apos;s use of the Service.
             </p>
           </section>
 
@@ -208,7 +208,7 @@ export default function TermsOfServicePage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">19. Beta and Preview Features</h2>
             <p>
-              We may offer access to beta, preview, or experimental features. These features are provided "as is" and may be modified or discontinued at any time. We make no warranties regarding beta features and they may contain bugs or errors. Your use of beta features is at your own risk.
+              We may offer access to beta, preview, or experimental features. These features are provided &quot;as is&quot; and may be modified or discontinued at any time. We make no warranties regarding beta features and they may contain bugs or errors. Your use of beta features is at your own risk.
             </p>
           </section>
 
@@ -247,7 +247,7 @@ export default function TermsOfServicePage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">24. Changes to Terms</h2>
             <p>
-              We reserve the right to modify these Terms at any time. We will notify users of any material changes by posting the new Terms on this page and updating the "Last updated" date. Material changes will be effective 30 days after posting. Your continued use of the Service after such modifications constitutes your acceptance of the updated Terms. If you do not agree to the modified Terms, you must stop using the Service.
+              We reserve the right to modify these Terms at any time. We will notify users of any material changes by posting the new Terms on this page and updating the &quot;Last updated&quot; date. Material changes will be effective 30 days after posting. Your continued use of the Service after such modifications constitutes your acceptance of the updated Terms. If you do not agree to the modified Terms, you must stop using the Service.
             </p>
           </section>
 

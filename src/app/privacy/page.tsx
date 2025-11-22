@@ -20,7 +20,7 @@ export default function PrivacyPolicyPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">1. Introduction</h2>
             <p>
-              Teamy ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our team management platform (the "Service"). This Privacy Policy should be read in conjunction with our{' '}
+              Teamy (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our team management platform (the &quot;Service&quot;). This Privacy Policy should be read in conjunction with our{' '}
               <Link href="/terms" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
                 Terms of Service
               </Link>
@@ -62,7 +62,7 @@ export default function PrivacyPolicyPage() {
               <li><strong>Analytics cookies:</strong> Help us understand how the Service is used (we do not use third-party advertising cookies)</li>
             </ul>
             <p className="mt-4">
-              <strong>Do Not Track:</strong> Our Service does not respond to "Do Not Track" signals from browsers. We do not track users across third-party websites.
+              <strong>Do Not Track:</strong> Our Service does not respond to &quot;Do Not Track&quot; signals from browsers. We do not track users across third-party websites.
             </p>
           </section>
 
@@ -86,8 +86,8 @@ export default function PrivacyPolicyPage() {
               <li><strong>Within Your Teams:</strong> Information you post (announcements, events, test results) is visible to members of your teams based on team settings and permissions</li>
               <li><strong>Service Providers:</strong> We share data with trusted third-party service providers who assist in operating our Service, including:
                 <ul className="ml-6 mt-2">
-                  <li>Google (OAuth authentication) - see Google's Privacy Policy</li>
-                  <li>Resend (email delivery) - see Resend's Privacy Policy</li>
+                  <li>Google (OAuth authentication) - see Google&apos;s Privacy Policy</li>
+                  <li>Resend (email delivery) - see Resend&apos;s Privacy Policy</li>
                   <li>Hosting and infrastructure providers</li>
                   <li>Database and analytics services</li>
                 </ul>
@@ -158,7 +158,7 @@ export default function PrivacyPolicyPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">7. Children's Privacy</h2>
             <p>
-              Our Service is intended for use by teams and organizations, which may include students under the age of 18. We comply with applicable laws regarding children's privacy, including the Children's Online Privacy Protection Act (COPPA) where applicable. If you are a parent or guardian and believe your child has provided us with personal information, please contact us.
+              Our Service is intended for use by teams and organizations, which may include students under the age of 18. We comply with applicable laws regarding children&apos;s privacy, including the Children&apos;s Online Privacy Protection Act (COPPA) where applicable. If you are a parent or guardian and believe your child has provided us with personal information, please contact us.
             </p>
           </section>
 
@@ -193,7 +193,7 @@ export default function PrivacyPolicyPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">10. Changes to This Privacy Policy</h2>
             <p>
-              We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date. You are advised to review this Privacy Policy periodically for any changes.
+              We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the &quot;Last updated&quot; date. You are advised to review this Privacy Policy periodically for any changes.
             </p>
           </section>
 

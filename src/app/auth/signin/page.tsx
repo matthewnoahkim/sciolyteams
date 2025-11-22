@@ -85,7 +85,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const faqs = [
     {
       question: 'How do I create a team?',
-      answer: 'After signing in, click "Create New Team" on the home page. You\'ll be set as the team admin and can invite members using invite codes.'
+      answer: 'After signing in, click "Create New Team" on the home page. You&apos;ll be set as the team admin and can invite members using invite codes.'
     },
     {
       question: 'Can I use Teamy for free?',
@@ -208,7 +208,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
               Everything You Need to Manage Your Team
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Powerful features designed to streamline your team's workflow and keep everyone connected.
+              Powerful features designed to streamline your team&apos;s workflow and keep everyone connected.
             </p>
           </div>
 
@@ -254,7 +254,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
                 Built for Modern Teams
               </h2>
               <p className="text-lg text-gray-600 dark:text-gray-300">
-                Teamy brings together all the tools your team needs in one intuitive platform. Whether you're managing events, tracking attendance, handling finances, or administering tests, we've got you covered.
+                Teamy brings together all the tools your team needs in one intuitive platform. Whether you&apos;re managing events, tracking attendance, handling finances, or administering tests, we&apos;ve got you covered.
               </p>
               <p className="text-lg text-gray-600 dark:text-gray-300">
                 Our platform is designed with security and ease of use in mind. With role-based access control, real-time updates, and seamless integrations, Teamy helps your team stay organized and productive.
@@ -344,7 +344,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             Get in Touch
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-            Have questions or need support? We're here to help.
+            Have questions or need support? We&apos;re here to help.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <a
