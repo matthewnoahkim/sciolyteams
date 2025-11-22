@@ -156,7 +156,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4">7. Children's Privacy</h2>
+            <h2 className="text-2xl font-semibold mb-4">7. Children&apos;s Privacy</h2>
             <p>
               Our Service is intended for use by teams and organizations, which may include students under the age of 18. We comply with applicable laws regarding children&apos;s privacy, including the Children&apos;s Online Privacy Protection Act (COPPA) where applicable. If you are a parent or guardian and believe your child has provided us with personal information, please contact us.
             </p>
