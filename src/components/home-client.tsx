@@ -58,8 +58,8 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
               <Users className="h-8 w-8" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground leading-tight">SciOly Clubs</h1>
-              <p className="text-base text-muted-foreground leading-relaxed">Science Olympiad Management</p>
+              <h1 className="text-3xl font-bold text-foreground leading-tight">Teamy</h1>
+              <p className="text-base text-muted-foreground leading-relaxed">Team Management Platform</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -107,7 +107,7 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
         <div className="mb-12">
           <h2 className="mb-4 text-5xl font-bold text-foreground leading-tight">Your Clubs</h2>
           <p className="text-xl text-muted-foreground leading-relaxed">
-            Manage your Science Olympiad clubs, events, and schedules
+            Manage your teams, events, and schedules
           </p>
         </div>
 

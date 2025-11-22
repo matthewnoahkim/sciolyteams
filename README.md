@@ -1,6 +1,6 @@
-# SciOly Teams
+# Teamy
 
-A comprehensive Science Olympiad team management platform built with Next.js 14, TypeScript, and PostgreSQL.
+A comprehensive team management platform built with Next.js 14, TypeScript, and PostgreSQL.
 
 ## Features
 

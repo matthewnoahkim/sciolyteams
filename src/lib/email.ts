@@ -137,7 +137,7 @@ export async function sendAnnouncementEmail({
     })
 
     const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'SciOly Teams <noreply@sciolyteams.com>',
+      from: process.env.EMAIL_FROM || 'Teamy <noreply@teamy.app>',
       to,
       cc,
       bcc,
@@ -170,7 +170,7 @@ export async function sendAnnouncementEmail({
           </div>
           
           <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 20px;">
-            SciOly Teams • Team Management Platform
+            Teamy • Team Management Platform
           </p>
         </div>
       `,
