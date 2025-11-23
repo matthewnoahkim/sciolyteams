@@ -7,7 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, Clock, Users, FileText, AlertCircle, Play, Eye, Trash2, Lock } from 'lucide-react'
+import { Plus, Clock, Users, FileText, AlertCircle, Play, Eye, Trash2, Lock, Search, Filter } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 interface TestsTabProps {
   teamId: string
@@ -25,6 +27,8 @@ interface Test {
   allowLateUntil: string | null
   requireFullscreen: boolean
   releaseScoresAt: string | null
+  maxAttempts: number | null
+  scoreReleaseVisibility: 'SCORE_ONLY' | 'SCORE_AND_MISSED' | 'SCORE_AND_FULL_COPY'
   createdAt: string
   _count: {
     questions: number
@@ -32,11 +36,24 @@ interface Test {
   }
 }
 
+interface UserAttemptInfo {
+  testId: string
+  attemptsUsed: number
+  maxAttempts: number | null
+  hasReachedLimit: boolean
+}
+
 export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
   const [tests, setTests] = useState<Test[]>([])
   const [loading, setLoading] = useState(true)
+  const [userAttempts, setUserAttempts] = useState<Map<string, UserAttemptInfo>>(new Map())
+
+  // Search and Filters
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'drafts' | 'scheduled' | 'active' | 'completed'>('all')
+  const [showFilters, setShowFilters] = useState(false)
 
   // Delete Dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -68,6 +85,32 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
       if (response.ok) {
         const data = await response.json()
         setTests(data.tests)
+
+        // For non-admins, fetch attempt counts for each test
+        if (!isAdmin) {
+          const attemptInfoMap = new Map<string, UserAttemptInfo>()
+          
+          for (const test of data.tests) {
+            if (test.maxAttempts !== null) {
+              try {
+                const attemptsResponse = await fetch(`/api/tests/${test.id}/user-attempts`)
+                if (attemptsResponse.ok) {
+                  const attemptsData = await attemptsResponse.json()
+                  attemptInfoMap.set(test.id, {
+                    testId: test.id,
+                    attemptsUsed: attemptsData.attemptsUsed || 0,
+                    maxAttempts: test.maxAttempts,
+                    hasReachedLimit: (attemptsData.attemptsUsed || 0) >= test.maxAttempts,
+                  })
+                }
+              } catch (err) {
+                console.error(`Failed to fetch attempts for test ${test.id}:`, err)
+              }
+            }
+          }
+          
+          setUserAttempts(attemptInfoMap)
+        }
       } else {
         throw new Error('Failed to fetch tests')
       }
@@ -81,7 +124,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
     } finally {
       setLoading(false)
     }
-  }, [teamId, toast])
+  }, [teamId, isAdmin, toast])
 
   useEffect(() => {
     fetchTests()
@@ -176,111 +219,223 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
     return 'Available now'
   }
 
-  // Categorize tests into sections
-  const { drafts, scheduled, opened } = useMemo(() => {
+  // Filter and categorize tests
+  const { drafts, scheduled, active, completed } = useMemo(() => {
     const now = new Date()
     const draftsList: Test[] = []
     const scheduledList: Test[] = []
-    const openedList: Test[] = []
+    const activeList: Test[] = []
+    const completedList: Test[] = []
 
-    tests.forEach((test) => {
+    // Apply search filter
+    let filteredTests = tests
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filteredTests = tests.filter(
+        (test) =>
+          test.name.toLowerCase().includes(query) ||
+          test.description?.toLowerCase().includes(query)
+      )
+    }
+
+    filteredTests.forEach((test) => {
       if (test.status === 'DRAFT') {
-        draftsList.push(test)
+        // Only show drafts to admins
+        if (isAdmin) {
+          draftsList.push(test)
+        }
+        // For non-admins, drafts are filtered out (not added to any list)
       } else if (test.status === 'PUBLISHED') {
         const startAt = test.startAt ? new Date(test.startAt) : null
         const endAt = test.endAt ? new Date(test.endAt) : null
-        
-        if (startAt && now < startAt) {
-          // Test hasn't started yet - Scheduled
-          scheduledList.push(test)
-        } else {
-          // Test has started (or no startAt) - check if it's still open
-          if (!endAt || now <= endAt) {
-            // Test is currently open
-            openedList.push(test)
-          }
-          // If test has ended, we don't show it in any section for members
-          // Admins might want to see closed tests, but for now we'll only show active ones
+        const isPastEnd = endAt && now > endAt
+        const isScheduled = startAt && now < startAt
+
+        // Check if user has reached max attempts (for non-admins)
+        let userReachedLimit = false
+        if (!isAdmin && test.maxAttempts !== null) {
+          const attemptInfo = userAttempts.get(test.id)
+          userReachedLimit = attemptInfo?.hasReachedLimit || false
         }
+
+        // For admins: completed = past end date
+        // For users: completed = past end date OR reached max attempts
+        const isCompleted = isPastEnd || (userReachedLimit && !isAdmin)
+
+        if (isScheduled) {
+          scheduledList.push(test)
+        } else if (isCompleted) {
+          completedList.push(test)
+        } else {
+          activeList.push(test)
+        }
+      } else if (test.status === 'CLOSED') {
+        completedList.push(test)
       }
     })
 
-    return { drafts: draftsList, scheduled: scheduledList, opened: openedList }
-  }, [tests])
+    // Apply status filter
+    let finalDrafts = draftsList
+    let finalScheduled = scheduledList
+    let finalActive = activeList
+    let finalCompleted = completedList
 
-  const renderTestCard = (test: Test) => (
-    <Card key={test.id}>
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <CardTitle>{test.name}</CardTitle>
-              {getStatusBadge(test.status)}
-              {test.requireFullscreen && (
-                <Badge variant="outline" className="gap-1">
-                  <Lock className="h-3 w-3" />
-                  Lockdown
-                </Badge>
+    if (statusFilter === 'drafts') {
+      finalScheduled = []
+      finalActive = []
+      finalCompleted = []
+    } else if (statusFilter === 'scheduled') {
+      finalDrafts = []
+      finalActive = []
+      finalCompleted = []
+    } else if (statusFilter === 'active') {
+      finalDrafts = []
+      finalScheduled = []
+      finalCompleted = []
+    } else if (statusFilter === 'completed') {
+      finalDrafts = []
+      finalScheduled = []
+      finalActive = []
+    }
+    // 'all' shows everything
+
+    return {
+      drafts: finalDrafts,
+      scheduled: finalScheduled,
+      active: finalActive,
+      completed: finalCompleted,
+    }
+  }, [tests, searchQuery, statusFilter, isAdmin, userAttempts])
+
+  const renderTestCard = (test: Test, isCompleted: boolean = false) => {
+    const attemptInfo = userAttempts.get(test.id)
+    const attemptsUsed = attemptInfo?.attemptsUsed || 0
+    const maxAttempts = test.maxAttempts
+    const hasReachedLimit = attemptInfo?.hasReachedLimit || false
+    const canTakeTest = isTestAvailable(test) && (!hasReachedLimit || isAdmin)
+
+    return (
+      <Card key={test.id}>
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <CardTitle>{test.name}</CardTitle>
+                {getStatusBadge(test.status)}
+                {test.requireFullscreen && (
+                  <Badge variant="outline" className="gap-1">
+                    <Lock className="h-3 w-3" />
+                    Lockdown
+                  </Badge>
+                )}
+              </div>
+              {test.description && (
+                <CardDescription>{test.description}</CardDescription>
               )}
             </div>
-            {test.description && (
-              <CardDescription>{test.description}</CardDescription>
+            {isAdmin && (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleViewTest(test)}
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  View
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleDeleteClick(test)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             )}
           </div>
-          {isAdmin && (
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleViewTest(test)}
-              >
-                <Eye className="h-4 w-4 mr-1" />
-                View
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleDeleteClick(test)}
-                className="text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span>{test.durationMinutes} minutes</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span>{test._count.questions} questions</span>
+            </div>
+            {isAdmin ? (
+              <div className="flex items-center gap-2 text-sm">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span>{test._count.attempts} total attempts</span>
+              </div>
+            ) : maxAttempts !== null ? (
+              <div className="flex items-center gap-2 text-sm">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span>
+                  {attemptsUsed}/{maxAttempts} attempts
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span>Unlimited attempts</span>
+              </div>
+            )}
+            <div className="text-sm text-muted-foreground">
+              {getTestTimeInfo(test)}
+            </div>
+          </div>
+
+          {!isAdmin && maxAttempts !== null && (
+            <div className="mb-4 p-3 bg-muted rounded-lg">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Attempts:</span>
+                <span className="font-medium">
+                  {attemptsUsed} used / {maxAttempts} allowed
+                  {maxAttempts - attemptsUsed > 0 && (
+                    <span className="text-green-600 ml-2">
+                      ({maxAttempts - attemptsUsed} remaining)
+                    </span>
+                  )}
+                </span>
+              </div>
             </div>
           )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          <div className="flex items-center gap-2 text-sm">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span>{test.durationMinutes} minutes</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <span>{test._count.questions} questions</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span>{test._count.attempts} attempts</span>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {getTestTimeInfo(test)}
-          </div>
-        </div>
 
-        {!isAdmin && test.status === 'PUBLISHED' && (
-          <Button
-            onClick={() => handleTakeTest(test)}
-            disabled={!isTestAvailable(test)}
-            className="w-full"
-          >
-            <Play className="h-4 w-4 mr-2" />
-            {isTestAvailable(test) ? 'Take Test' : 'Not Available'}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  )
+          {!isAdmin && test.status === 'PUBLISHED' && (
+            <div className="space-y-2">
+              <Button
+                onClick={() => handleTakeTest(test)}
+                disabled={!canTakeTest || isCompleted}
+                className="w-full"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                {isCompleted
+                  ? 'Completed'
+                  : hasReachedLimit
+                  ? 'Max Attempts Reached'
+                  : isTestAvailable(test)
+                  ? 'Take Test'
+                  : 'Not Available'}
+              </Button>
+              {isCompleted && (
+                <Button
+                  variant="outline"
+                  onClick={() => router.push(`/teams/${teamId}/tests/${test.id}/results`)}
+                  className="w-full"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Results
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (loading) {
     return <div className="p-4">Loading tests...</div>
@@ -303,6 +458,53 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
           </Button>
         )}
       </div>
+
+      {/* Search and Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <Input
+                  placeholder={isAdmin ? "Search tests by name or description..." : "Search available tests..."}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 placeholder:text-foreground/50"
+                />
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
+              </Button>
+            </div>
+            {showFilters && (
+              <div className="flex gap-4 items-end">
+                <div className="flex-1">
+                  <Label htmlFor="status-filter">Status</Label>
+                  <select
+                    id="status-filter"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={statusFilter}
+                    onChange={(e) =>
+                      setStatusFilter(e.target.value as 'all' | 'drafts' | 'scheduled' | 'active' | 'completed')
+                    }
+                  >
+                    <option value="all">All Tests</option>
+                    {isAdmin && <option value="drafts">Drafts</option>}
+                    <option value="scheduled">Scheduled</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Warning Banner - Admin Only */}
       {isAdmin && !warningDismissed && (
@@ -367,45 +569,61 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
                 </Badge>
               </div>
               <div className="grid gap-4">
-                {drafts.map(renderTestCard)}
+                {drafts.map((test) => renderTestCard(test, false))}
               </div>
             </div>
           )}
 
-          {/* Scheduled Section */}
+          {/* Scheduled Tests Section */}
           {scheduled.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3 pb-2 border-b border-border">
                 <div className="h-1 w-1 rounded-full bg-blue-500" />
-                <h3 className="text-xl font-bold">Scheduled</h3>
+                <h3 className="text-xl font-bold">Scheduled Tests</h3>
                 <Badge variant="secondary" className="ml-auto">
                   {scheduled.length}
                 </Badge>
               </div>
               <div className="grid gap-4">
-                {scheduled.map(renderTestCard)}
+                {scheduled.map((test) => renderTestCard(test, false))}
               </div>
             </div>
           )}
 
-          {/* Opened Section */}
-          {opened.length > 0 && (
+          {/* Active Tests Section */}
+          {active.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3 pb-2 border-b border-border">
                 <div className="h-1 w-1 rounded-full bg-green-500" />
-                <h3 className="text-xl font-bold">Opened</h3>
+                <h3 className="text-xl font-bold">Active Tests</h3>
                 <Badge variant="secondary" className="ml-auto">
-                  {opened.length}
+                  {active.length}
                 </Badge>
               </div>
               <div className="grid gap-4">
-                {opened.map(renderTestCard)}
+                {active.map((test) => renderTestCard(test, false))}
+              </div>
+            </div>
+          )}
+
+          {/* Completed Tests Section */}
+          {completed.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 pb-2 border-b border-border">
+                <div className="h-1 w-1 rounded-full bg-gray-500" />
+                <h3 className="text-xl font-bold">Completed Tests</h3>
+                <Badge variant="secondary" className="ml-auto">
+                  {completed.length}
+                </Badge>
+              </div>
+              <div className="grid gap-4">
+                {completed.map((test) => renderTestCard(test, true))}
               </div>
             </div>
           )}
 
           {/* Empty State if no tests in visible sections */}
-          {(!isAdmin || drafts.length === 0) && scheduled.length === 0 && opened.length === 0 && (
+          {(!isAdmin || drafts.length === 0) && scheduled.length === 0 && active.length === 0 && completed.length === 0 && (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4" />

@@ -18,6 +18,8 @@ const updateTestSchema = z.object({
   randomizeOptionOrder: z.boolean().optional(),
   requireFullscreen: z.boolean().optional(),
   releaseScoresAt: z.string().datetime().optional().nullable(),
+  maxAttempts: z.number().int().min(1).optional().nullable(),
+  scoreReleaseVisibility: z.enum(['SCORE_ONLY', 'SCORE_AND_MISSED', 'SCORE_AND_FULL_COPY']).optional(),
 })
 
 // GET /api/tests/[testId]
@@ -193,6 +195,10 @@ export async function PATCH(
       updateData.releaseScoresAt = validatedData.releaseScoresAt
         ? new Date(validatedData.releaseScoresAt)
         : null
+    if (validatedData.maxAttempts !== undefined)
+      updateData.maxAttempts = validatedData.maxAttempts
+    if (validatedData.scoreReleaseVisibility !== undefined)
+      updateData.scoreReleaseVisibility = validatedData.scoreReleaseVisibility
 
     const updatedTest = await prisma.test.update({
       where: { id: params.testId },

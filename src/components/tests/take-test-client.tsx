@@ -134,6 +134,13 @@ export function TakeTestClient({
       if (!response.ok) {
         if (data.error === 'NEED_TEST_PASSWORD') {
           setPasswordError(data.message || 'Invalid password')
+        } else if (data.error === 'MAX_ATTEMPTS_REACHED') {
+          toast({
+            title: 'Maximum attempts reached',
+            description: data.message || 'You have reached the maximum number of attempts for this test.',
+            variant: 'destructive',
+          })
+          router.push(`/teams/${test.teamId}?tab=tests`)
         } else {
           throw new Error(data.error || 'Failed to start test')
         }

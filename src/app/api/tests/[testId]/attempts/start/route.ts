@@ -82,32 +82,48 @@ export async function POST(
       )
     }
 
-    // Check for existing attempt
-    let attempt = await prisma.testAttempt.findUnique({
+    // Check for existing in-progress attempt
+    const existingAttempt = await prisma.testAttempt.findFirst({
       where: {
-        membershipId_testId: {
-          membershipId: membership.id,
-          testId: params.testId,
+        membershipId: membership.id,
+        testId: params.testId,
+        status: {
+          in: ['NOT_STARTED', 'IN_PROGRESS'],
         },
+      },
+      orderBy: {
+        createdAt: 'desc',
       },
     })
 
-    if (attempt) {
-      if (attempt.status === 'SUBMITTED' || attempt.status === 'GRADED') {
-        return NextResponse.json(
-          { error: 'You have already completed this test' },
-          { status: 400 }
-        )
+    if (existingAttempt) {
+      // Resume existing in-progress attempt
+      return NextResponse.json({ attempt: existingAttempt })
+    }
 
-      }
-      if (attempt.status === 'INVALIDATED') {
+    // Check attempt limits before creating new attempt
+    if (test.maxAttempts !== null) {
+      const completedAttemptCount = await prisma.testAttempt.count({
+        where: {
+          membershipId: membership.id,
+          testId: params.testId,
+          status: {
+            in: ['SUBMITTED', 'GRADED'],
+          },
+        },
+      })
+
+      if (completedAttemptCount >= test.maxAttempts) {
         return NextResponse.json(
-          { error: 'Your attempt has been invalidated' },
+          {
+            error: 'MAX_ATTEMPTS_REACHED',
+            message: `You have reached the maximum number of attempts (${test.maxAttempts}) for this test.`,
+            attemptsUsed: completedAttemptCount,
+            maxAttempts: test.maxAttempts,
+          },
           { status: 403 }
         )
       }
-      // Resume existing attempt
-      return NextResponse.json({ attempt })
     }
 
     // Create new attempt
