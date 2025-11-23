@@ -72,18 +72,18 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
     setLoading(true)
     try {
       const response = await fetch(`/api/tests/${testId}/attempts`)
-      if (response.ok) {
-        const data = await response.json()
-        setAttempts(data.attempts || [])
-        setSections(data.sections || [])
-      } else {
-        throw new Error('Failed to fetch attempts')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch attempts`)
       }
-    } catch (error) {
+      const data = await response.json()
+      setAttempts(data.attempts || [])
+      setSections(data.sections || [])
+    } catch (error: any) {
       console.error('Failed to fetch attempts:', error)
       toast({
         title: 'Error',
-        description: 'Failed to load test attempts',
+        description: error.message || 'Failed to load test attempts',
         variant: 'destructive',
       })
     } finally {

@@ -39,6 +39,8 @@ export function TakeTestClient({
   const [offPageStartTime, setOffPageStartTime] = useState<number | null>(null)
   const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isExitingRef = useRef(false) // Track when we're intentionally exiting (Save & Exit)
+  const [needsFullscreenPrompt, setNeedsFullscreenPrompt] = useState(false) // Track if we need user interaction to enter fullscreen
 
   // Load existing answers
   useEffect(() => {
@@ -54,6 +56,50 @@ export function TakeTestClient({
       setAnswers(loadedAnswers)
     }
   }, [existingAttempt])
+
+  // Enter fullscreen when starting or resuming a test
+  // This runs when:
+  // 1. Component mounts with an existing attempt (resume) - needs user interaction
+  // 2. User starts a new test (started becomes true) - can request immediately
+  useEffect(() => {
+    // Reset exit flag when starting/resuming (component mount or started changes)
+    isExitingRef.current = false
+    
+    if (started && test.requireFullscreen && attempt) {
+      // If we're resuming (existingAttempt was passed), we need user interaction
+      // Browsers block fullscreen requests that aren't in response to user gestures
+      if (existingAttempt && !document.fullscreenElement) {
+        setNeedsFullscreenPrompt(true)
+        return
+      }
+      
+      // For new starts, we can request immediately (user just clicked "Start Test")
+      if (!document.fullscreenElement && !isExitingRef.current) {
+        document.documentElement.requestFullscreen().catch((error) => {
+          console.warn('Failed to enter fullscreen:', error)
+          setNeedsFullscreenPrompt(true)
+        })
+      }
+    } else {
+      setNeedsFullscreenPrompt(false)
+    }
+  }, [started, test.requireFullscreen, attempt, existingAttempt, toast])
+
+  // Handler for user-initiated fullscreen entry (required for resume)
+  const handleEnterFullscreen = async () => {
+    try {
+      await document.documentElement.requestFullscreen()
+      setNeedsFullscreenPrompt(false)
+    } catch (error) {
+      console.warn('Failed to enter fullscreen:', error)
+      toast({
+        title: 'Fullscreen Required',
+        description: 'Please enable fullscreen mode to continue this test',
+        variant: 'destructive',
+      })
+    }
+  }
+
 
   // Track page visibility and tab switching
   useEffect(() => {
@@ -104,10 +150,28 @@ export function TakeTestClient({
       }
     }
 
+    // Handle fullscreen changes - show prompt when user exits fullscreen
+    const handleFullscreenChange = () => {
+      // Don't show prompt if we're intentionally exiting (Save & Exit)
+      if (isExitingRef.current) {
+        return
+      }
+      
+      // If user manually exited fullscreen while test is active, show the prompt
+      if (test.requireFullscreen && started && attempt && !document.fullscreenElement) {
+        // User manually exited fullscreen (e.g., pressed Escape) - show prompt
+        setNeedsFullscreenPrompt(true)
+      } else if (document.fullscreenElement && needsFullscreenPrompt) {
+        // Fullscreen was entered - hide the prompt
+        setNeedsFullscreenPrompt(false)
+      }
+    }
+
     if (started && attempt) {
       document.addEventListener('visibilitychange', handleVisibilityChange)
       window.addEventListener('blur', handleBlur)
       window.addEventListener('focus', handleFocus)
+      document.addEventListener('fullscreenchange', handleFullscreenChange)
 
       // Periodically update tab tracking on server
       trackingIntervalRef.current = setInterval(async () => {
@@ -132,11 +196,12 @@ export function TakeTestClient({
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('blur', handleBlur)
       window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
       if (trackingIntervalRef.current) {
         clearInterval(trackingIntervalRef.current)
       }
     }
-  }, [started, attempt, tabSwitchCount, timeOffPageSeconds, test.id, offPageStartTime])
+  }, [started, attempt, tabSwitchCount, timeOffPageSeconds, test.id, test.requireFullscreen, offPageStartTime, toast])
 
   const handleStartTest = async () => {
     if (test.testPasswordHash && !isAdmin && !password) {
@@ -250,10 +315,6 @@ export function TakeTestClient({
   const handleSubmit = async () => {
     if (!attempt) return
 
-    // Confirm submission
-    const confirmed = window.confirm('Are you sure you want to submit? You cannot change your answers after submission.')
-    if (!confirmed) return
-
     setSubmitting(true)
 
     try {
@@ -283,9 +344,13 @@ export function TakeTestClient({
         description: 'Your answers have been saved successfully',
       })
 
-      // Exit fullscreen
+      // Exit fullscreen before navigating
       if (document.fullscreenElement) {
-        await document.exitFullscreen()
+        try {
+          await document.exitFullscreen()
+        } catch (error) {
+          // Ignore fullscreen exit errors
+        }
       }
 
       router.push(`/teams/${test.teamId}?tab=tests`)
@@ -296,6 +361,10 @@ export function TakeTestClient({
         variant: 'destructive',
       })
       setSubmitting(false)
+      // Restore fullscreen on error if required
+      if (test.requireFullscreen && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {})
+      }
     }
   }
 
@@ -349,6 +418,28 @@ export function TakeTestClient({
             )}
             <Button onClick={handleStartTest} disabled={loading} className="w-full">
               {loading ? 'Starting...' : 'Start Test'}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Show fullscreen prompt if needed (for resume)
+  if (needsFullscreenPrompt && started && test.requireFullscreen) {
+    return (
+      <div className="container mx-auto max-w-2xl py-8 px-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Resume Test</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              This test requires fullscreen mode. Click the button below to continue.
+            </p>
+            <Button onClick={handleEnterFullscreen} className="w-full" size="lg">
+              <Lock className="h-4 w-4 mr-2" />
+              Enter Fullscreen to Continue
             </Button>
           </CardContent>
         </Card>
@@ -475,9 +566,23 @@ export function TakeTestClient({
               <Button
                 variant="outline"
                 onClick={() => {
-                  const confirmed = window.confirm('Are you sure you want to cancel? Your progress will be saved.')
+                  const confirmed = window.confirm('Are you sure you want to save and exit? Your progress will be saved.')
                   if (confirmed) {
+                    // Mark that we're intentionally exiting
+                    isExitingRef.current = true
+                    
+                    // Exit fullscreen before navigating
+                    if (document.fullscreenElement) {
+                      document.exitFullscreen().catch(() => {})
+                    }
+                    
+                    // Navigate away - fullscreen will NOT be re-entered
                     router.push(`/teams/${test.teamId}?tab=tests`)
+                  } else {
+                    // User canceled - restore fullscreen if required
+                    if (test.requireFullscreen && !document.fullscreenElement) {
+                      document.documentElement.requestFullscreen().catch(() => {})
+                    }
                   }
                 }}
                 disabled={submitting}
@@ -485,7 +590,19 @@ export function TakeTestClient({
                 Save & Exit
               </Button>
               <Button
-                onClick={handleSubmit}
+                onClick={async () => {
+                  const confirmed = window.confirm('Are you sure you want to submit? You cannot change your answers after submitting.')
+                  if (confirmed) {
+                    // Mark that we're intentionally exiting
+                    isExitingRef.current = true
+                    await handleSubmit()
+                  } else {
+                    // User canceled - restore fullscreen if required
+                    if (test.requireFullscreen && !document.fullscreenElement) {
+                      document.documentElement.requestFullscreen().catch(() => {})
+                    }
+                  }
+                }}
                 disabled={submitting}
               >
                 {submitting ? 'Submitting...' : 'Submit Test'}
