@@ -489,8 +489,6 @@ model Test {
   testPasswordHash       String?    // Password required to take the test (hashed)
   testPasswordPlaintext  String?    // Password in plaintext for admin viewing only
   releaseScoresAt        DateTime?
-  maxAttempts            Int?       // Maximum number of attempts allowed per user (null = unlimited)
-  scoreReleaseVisibility ScoreReleaseVisibility @default(SCORE_ONLY) // What to show when scores are released
   createdByMembershipId  String
   createdAt              DateTime         @default(now())
   updatedAt              DateTime         @updatedAt
@@ -589,10 +587,10 @@ model TestAttempt {
   proctorEvents         ProctorEvent[]
   test                  Test              @relation(fields: [testId], references: [id], onDelete: Cascade)
 
+  @@unique([membershipId, testId])
   @@index([testId])
   @@index([membershipId])
   @@index([status])
-  @@index([membershipId, testId])
 }
 
 model AttemptAnswer {
@@ -764,10 +762,4 @@ enum TestAuditAction {
   RESET_PASSWORD
   MANUAL_GRADE
   INVALIDATE_ATTEMPT
-}
-
-enum ScoreReleaseVisibility {
-  SCORE_ONLY          // Show only the overall score
-  SCORE_AND_MISSED    // Show score + list of questions missed
-  SCORE_AND_FULL_COPY // Show score + full test with answers and feedback
 }

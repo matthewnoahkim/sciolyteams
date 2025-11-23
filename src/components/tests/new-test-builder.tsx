@@ -70,9 +70,6 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
     randomizeQuestionOrder: false,
     randomizeOptionOrder: false,
     requireFullscreen: true,
-    maxAttempts: '',
-    releaseScoresAt: '',
-    scoreReleaseVisibility: 'SCORE_ONLY' as 'SCORE_ONLY' | 'SCORE_AND_MISSED' | 'SCORE_AND_FULL_COPY',
   })
 
   const [questions, setQuestions] = useState<QuestionDraft[]>([])
@@ -275,9 +272,6 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
       randomizeQuestionOrder: details.randomizeQuestionOrder,
       randomizeOptionOrder: details.randomizeOptionOrder,
       requireFullscreen: details.requireFullscreen,
-      maxAttempts: details.maxAttempts.trim() ? parseInt(details.maxAttempts, 10) : null,
-      releaseScoresAt: details.releaseScoresAt.trim() ? new Date(details.releaseScoresAt).toISOString() : null,
-      scoreReleaseVisibility: details.scoreReleaseVisibility,
       assignments,
       questions: questions.map((question, index) => ({
         type: question.type,
@@ -545,57 +539,6 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
                   }
                   required
                 />
-              </div>
-              <div>
-                <Label htmlFor="maxAttempts">Maximum attempts per user (optional)</Label>
-                <Input
-                  id="maxAttempts"
-                  type="number"
-                  min="1"
-                  value={details.maxAttempts}
-                  onChange={(event) =>
-                    setDetails((prev) => ({ ...prev, maxAttempts: event.target.value }))
-                  }
-                  placeholder="Leave empty for unlimited"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  If not specified, students can take the test unlimited times.
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="releaseScoresAt">Score release date/time (optional)</Label>
-                <Input
-                  id="releaseScoresAt"
-                  type="datetime-local"
-                  value={details.releaseScoresAt}
-                  onChange={(event) =>
-                    setDetails((prev) => ({ ...prev, releaseScoresAt: event.target.value }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  If not set, scores will be released immediately after grading.
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="scoreReleaseVisibility">Score release visibility</Label>
-                <select
-                  id="scoreReleaseVisibility"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={details.scoreReleaseVisibility}
-                  onChange={(event) =>
-                    setDetails((prev) => ({
-                      ...prev,
-                      scoreReleaseVisibility: event.target.value as typeof details.scoreReleaseVisibility,
-                    }))
-                  }
-                >
-                  <option value="SCORE_ONLY">Score only</option>
-                  <option value="SCORE_AND_MISSED">Score + list of missed questions</option>
-                  <option value="SCORE_AND_FULL_COPY">Score + full test copy with answers</option>
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Choose what students see when scores are released.
-                </p>
               </div>
               <div className="flex items-center gap-2">
                 <input
