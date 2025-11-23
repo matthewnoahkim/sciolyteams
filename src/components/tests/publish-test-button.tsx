@@ -120,12 +120,20 @@ export function PublishTestButton({
         }),
       })
 
-      const data = await response.json()
+      // Try to parse JSON, but handle cases where response is not JSON (e.g., HTML error page)
+      let data: any = null
+      try {
+        const text = await response.text()
+        data = text ? JSON.parse(text) : {}
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError)
+        throw new Error(`Server error (${response.status}): Unable to parse response. Please check server logs.`)
+      }
 
       if (!response.ok) {
         const errorMsg = data.message 
           ? `${data.error}: ${data.message}` 
-          : data.error || 'Failed to publish test'
+          : data.error || data.details || 'Failed to publish test'
         throw new Error(errorMsg)
       }
 

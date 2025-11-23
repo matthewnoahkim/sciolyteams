@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Users, Eye, AlertTriangle, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Users, Eye, AlertTriangle, CheckCircle, XCircle, Clock, Info } from 'lucide-react'
 
 interface TestAttemptsViewProps {
   testId: string
@@ -22,11 +22,18 @@ interface Attempt {
   gradeEarned: number | null
   proctoringScore: number | null
   tabSwitchCount: number
+  timeOffPageSeconds: number
   user: {
     id: string
     name: string | null
     email: string
   } | null
+  proctorEvents: Array<{
+    id: string
+    kind: string
+    ts: string
+    meta: any
+  }>
   answers: Array<{
     id: string
     questionId: string
@@ -63,6 +70,9 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
   const [loading, setLoading] = useState(true)
   const [selectedAttempt, setSelectedAttempt] = useState<Attempt | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [scoringKeyOpen, setScoringKeyOpen] = useState(false)
+  const [sortBy, setSortBy] = useState<'submission' | 'score'>('submission')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
   useEffect(() => {
     fetchAttempts()
@@ -95,6 +105,21 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
     setSelectedAttempt(attempt)
     setDetailDialogOpen(true)
   }
+
+  // Sort attempts based on selected criteria
+  const sortedAttempts = [...attempts].sort((a, b) => {
+    if (sortBy === 'submission') {
+      // Sort by submission date
+      const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0
+      const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0
+      return sortDirection === 'desc' ? dateB - dateA : dateA - dateB
+    } else {
+      // Sort by score
+      const scoreA = a.gradeEarned ?? -1
+      const scoreB = b.gradeEarned ?? -1
+      return sortDirection === 'desc' ? scoreB - scoreA : scoreA - scoreB
+    }
+  })
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' }> = {
@@ -142,13 +167,58 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Attempts ({attempts.length})
-          </CardTitle>
-          <CardDescription>
-            View all student attempts for {testName}
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Attempts ({attempts.length})
+              </CardTitle>
+              <CardDescription>
+                View all student attempts for {testName}
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Sort By Dropdown */}
+              <div className="flex items-center gap-2">
+                <label htmlFor="sortBy" className="text-sm text-muted-foreground">
+                  Sort by:
+                </label>
+                <select
+                  id="sortBy"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'submission' | 'score')}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="submission">Submission Date</option>
+                  <option value="score">Score</option>
+                </select>
+              </div>
+
+              {/* Sort Direction Dropdown */}
+              <select
+                value={sortDirection}
+                onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="desc">
+                  {sortBy === 'submission' ? 'Newest First' : 'High to Low'}
+                </option>
+                <option value="asc">
+                  {sortBy === 'submission' ? 'Oldest First' : 'Low to High'}
+                </option>
+              </select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setScoringKeyOpen(true)}
+                className="gap-2"
+              >
+                <Info className="h-4 w-4" />
+                Scoring Key
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {attempts.length === 0 ? (
@@ -157,7 +227,7 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
             </p>
           ) : (
             <div className="space-y-3">
-              {attempts.map((attempt) => (
+              {sortedAttempts.map((attempt) => (
                 <Card key={attempt.id} className="border-border">
                   <CardContent className="pt-4">
                     <div className="flex items-start justify-between gap-4">
@@ -249,6 +319,14 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                     </p>
                   </div>
                 )}
+                {selectedAttempt.timeOffPageSeconds > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase">Time Off Page</p>
+                    <p className="text-lg font-semibold text-orange-600">
+                      {Math.floor(selectedAttempt.timeOffPageSeconds / 60)}m {selectedAttempt.timeOffPageSeconds % 60}s
+                    </p>
+                  </div>
+                )}
                 {selectedAttempt.submittedAt && (
                   <div>
                     <p className="text-xs text-muted-foreground uppercase">Submitted</p>
@@ -256,6 +334,50 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                   </div>
                 )}
               </div>
+
+              {/* Proctor Events / Tab-Out Details */}
+              {selectedAttempt.proctorEvents && selectedAttempt.proctorEvents.length > 0 && (
+                <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-950/20 dark:border-orange-800">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-orange-600" />
+                      Proctoring Events ({selectedAttempt.proctorEvents.length})
+                    </CardTitle>
+                    <CardDescription>
+                      Detailed timeline of tab switches and other suspicious activity
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {selectedAttempt.proctorEvents.map((event, idx) => (
+                        <div
+                          key={event.id}
+                          className="flex items-start gap-3 p-2 rounded bg-white dark:bg-slate-900 border border-orange-200 dark:border-orange-800"
+                        >
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center text-xs font-semibold text-orange-700 dark:text-orange-300">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className="text-xs">
+                                {event.kind.replace(/_/g, ' ')}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(event.ts).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            {event.meta && Object.keys(event.meta).length > 0 && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {JSON.stringify(event.meta)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Answers */}
               <div className="space-y-4">
@@ -363,6 +485,120 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Proctoring Scoring Key Dialog */}
+      <Dialog open={scoringKeyOpen} onOpenChange={setScoringKeyOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              Proctoring Risk Score Guide
+            </DialogTitle>
+            <DialogDescription>
+              Understanding how suspicious activity is measured
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Score Ranges */}
+            <div>
+              <h3 className="font-semibold text-sm mb-3">Risk Levels</h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="font-medium">Low Risk</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">0-39 points</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                    <span className="font-medium">Medium Risk</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">40-74 points</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="h-4 w-4 text-red-600" />
+                    <span className="font-medium">High Risk</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">75-100 points</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Event Weights */}
+            <div>
+              <h3 className="font-semibold text-sm mb-3">Event Weights</h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                Each event type contributes points to the risk score. Repeated events have diminishing returns.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center justify-between p-2 rounded border bg-muted/20">
+                  <span className="text-sm">DevTools Open</span>
+                  <Badge variant="destructive">20</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded border bg-muted/20">
+                  <span className="text-sm">Exit Fullscreen</span>
+                  <Badge variant="destructive">15</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded border bg-muted/20">
+                  <span className="text-sm">Multi-Monitor Hint</span>
+                  <Badge variant="destructive">12</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded border bg-muted/20">
+                  <span className="text-sm">Tab Switch</span>
+                  <Badge variant="default">10</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded border bg-muted/20">
+                  <span className="text-sm">Copy</span>
+                  <Badge variant="default">10</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded border bg-muted/20">
+                  <span className="text-sm">Visibility Hidden</span>
+                  <Badge variant="default">8</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded border bg-muted/20">
+                  <span className="text-sm">Paste</span>
+                  <Badge variant="default">8</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded border bg-muted/20">
+                  <span className="text-sm">Blur</span>
+                  <Badge variant="secondary">5</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded border bg-muted/20">
+                  <span className="text-sm">Network Offline</span>
+                  <Badge variant="secondary">5</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded border bg-muted/20">
+                  <span className="text-sm">Context Menu</span>
+                  <Badge variant="secondary">3</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded border bg-muted/20">
+                  <span className="text-sm">Resize</span>
+                  <Badge variant="secondary">2</Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Formula Explanation */}
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                How It's Calculated
+              </h3>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li>• Each event adds its weighted points to the total score</li>
+                <li>• Repeated events use diminishing returns: <code className="bg-muted px-1 py-0.5 rounded">weight × log(count + 1)</code></li>
+                <li>• This prevents excessive penalties for minor repeated actions</li>
+                <li>• Total score is capped at 100</li>
+                <li>• Example: 1st tab switch ≈ 7-10 pts, 2nd ≈ +5-7 pts, 3rd ≈ +3-5 pts</li>
+              </ul>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

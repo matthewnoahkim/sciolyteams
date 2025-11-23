@@ -17,7 +17,7 @@ const publishSchema = z.object({
 // POST /api/tests/[testId]/publish
 export async function POST(
   req: NextRequest,
-  { params }: { params: { testId: string } }
+  { params }: { params: Promise<{ testId: string }> | { testId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -25,11 +25,14 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const resolvedParams = await Promise.resolve(params)
+    const testId = resolvedParams.testId
+
     const body = await req.json()
     const validatedData = publishSchema.parse(body)
 
     const test = await prisma.test.findUnique({
-      where: { id: params.testId },
+      where: { id: testId },
       include: {
         questions: true,
       },
@@ -80,7 +83,7 @@ export async function POST(
 
     // Update test status, scheduling, password, and score release
     const updatedTest = await prisma.test.update({
-      where: { id: params.testId },
+      where: { id: testId },
       data: {
         status: 'PUBLISHED',
         startAt,

@@ -37,18 +37,6 @@ export async function GET(
     const attempts = await prisma.testAttempt.findMany({
       where: { testId: resolvedParams.testId },
       include: {
-        membership: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                image: true,
-              },
-            },
-          },
-        },
         answers: {
           include: {
             question: {
@@ -65,13 +53,31 @@ export async function GET(
             ts: 'asc',
           },
         },
-        gradeAdjustments: true,
       },
       orderBy: [
         { submittedAt: 'desc' },
         { createdAt: 'desc' },
       ],
     })
+
+    // Fetch memberships and users separately
+    const membershipIds = [...new Set(attempts.map(a => a.membershipId))]
+    const memberships = await prisma.membership.findMany({
+      where: { id: { in: membershipIds } },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+    })
+
+    // Create a map for quick lookup
+    const membershipMap = new Map(memberships.map(m => [m.id, m]))
 
     // Sort answers by question order after fetching (Prisma doesn't support nested orderBy on relations)
     const attemptsWithSortedAnswers = attempts.map((attempt) => ({
@@ -80,45 +86,56 @@ export async function GET(
     }))
 
     // Transform to match client interface
-    const transformedAttempts = attemptsWithSortedAnswers.map((attempt) => ({
-      id: attempt.id,
-      membershipId: attempt.membershipId,
-      status: attempt.status,
-      startedAt: attempt.startedAt?.toISOString() || null,
-      submittedAt: attempt.submittedAt?.toISOString() || null,
-      gradeEarned: attempt.gradeEarned ? Number(attempt.gradeEarned) : null,
-      proctoringScore: attempt.proctoringScore ? Number(attempt.proctoringScore) : null,
-      tabSwitchCount: attempt.tabSwitchCount || 0,
-      user: attempt.membership?.user
-        ? {
-            id: attempt.membership.user.id,
-            name: attempt.membership.user.name,
-            email: attempt.membership.user.email,
-          }
-        : null,
-      answers: attempt.answers.map((answer) => ({
-        id: answer.id,
-        questionId: answer.questionId,
-        answerText: answer.answerText,
-        selectedOptionIds: answer.selectedOptionIds,
-        numericAnswer: answer.numericAnswer ? Number(answer.numericAnswer) : null,
-        pointsAwarded: answer.pointsAwarded ? Number(answer.pointsAwarded) : null,
-        gradedAt: answer.gradedAt?.toISOString() || null,
-        graderNote: answer.graderNote,
-        question: {
-          id: answer.question.id,
-          promptMd: answer.question.promptMd,
-          type: answer.question.type,
-          points: Number(answer.question.points),
-          sectionId: answer.question.sectionId,
-          options: answer.question.options.map((opt) => ({
-            id: opt.id,
-            label: opt.label,
-            isCorrect: opt.isCorrect,
-          })),
-        },
-      })),
-    }))
+    const transformedAttempts = attemptsWithSortedAnswers.map((attempt) => {
+      const membership = membershipMap.get(attempt.membershipId)
+      
+      return {
+        id: attempt.id,
+        membershipId: attempt.membershipId,
+        status: attempt.status,
+        startedAt: attempt.startedAt?.toISOString() || null,
+        submittedAt: attempt.submittedAt?.toISOString() || null,
+        gradeEarned: attempt.gradeEarned ? Number(attempt.gradeEarned) : null,
+        proctoringScore: attempt.proctoringScore ? Number(attempt.proctoringScore) : null,
+        tabSwitchCount: attempt.tabSwitchCount || 0,
+        timeOffPageSeconds: attempt.timeOffPageSeconds || 0,
+        user: membership?.user
+          ? {
+              id: membership.user.id,
+              name: membership.user.name,
+              email: membership.user.email,
+            }
+          : null,
+        proctorEvents: attempt.proctorEvents.map((event) => ({
+          id: event.id,
+          kind: event.kind,
+          ts: event.ts.toISOString(),
+          meta: event.meta,
+        })),
+        answers: attempt.answers.map((answer) => ({
+          id: answer.id,
+          questionId: answer.questionId,
+          answerText: answer.answerText,
+          selectedOptionIds: answer.selectedOptionIds,
+          numericAnswer: answer.numericAnswer ? Number(answer.numericAnswer) : null,
+          pointsAwarded: answer.pointsAwarded ? Number(answer.pointsAwarded) : null,
+          gradedAt: answer.gradedAt?.toISOString() || null,
+          graderNote: answer.graderNote,
+          question: {
+            id: answer.question.id,
+            promptMd: answer.question.promptMd,
+            type: answer.question.type,
+            points: Number(answer.question.points),
+            sectionId: answer.question.sectionId,
+            options: answer.question.options.map((opt) => ({
+              id: opt.id,
+              label: opt.label,
+              isCorrect: opt.isCorrect,
+            })),
+          },
+        })),
+      }
+    })
 
     const sections = await prisma.testSection.findMany({
       where: { testId: resolvedParams.testId },
