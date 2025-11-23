@@ -551,10 +551,12 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                 Create Team
               </Button>
             )}
-            <Button variant="outline" onClick={handleEmailAll}>
-              <Mail className="mr-2 h-4 w-4" />
-              Email All
-            </Button>
+            {isAdmin && (
+              <Button variant="outline" onClick={handleEmailAll}>
+                <Mail className="mr-2 h-4 w-4" />
+                Email All
+              </Button>
+            )}
           </div>
           <Button variant="outline" onClick={handleExportToGoogleSheet}>
             <FileSpreadsheet className="mr-2 h-4 w-4" />
