@@ -222,35 +222,31 @@ export function ViewResultsClient({
                 ? attempt.gradeEarned.toFixed(2)
                 : Number(attempt.gradeEarned || 0).toFixed(2)}
             </div>
+            {testSettingsState.scoreReleaseMode === 'SCORE_ONLY' && (
+              <p className="text-sm text-muted-foreground mt-3">
+                Only the score is available. Detailed answers and feedback are not released for this test.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {scoresReleased && attempt.answers && sortedAnswers.length > 0 && (
+      {/* Show responses section only if not in SCORE_ONLY mode */}
+      {scoresReleased && testSettingsState.scoreReleaseMode !== 'SCORE_ONLY' && attempt.answers && sortedAnswers.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Your Responses</CardTitle>
             <CardDescription>
-              {testSettingsState.scoreReleaseMode === 'SCORE_ONLY'
-                ? 'Score only mode - detailed responses not available'
-                : testSettingsState.scoreReleaseMode === 'SCORE_WITH_WRONG'
+              {testSettingsState.scoreReleaseMode === 'SCORE_WITH_WRONG'
                 ? 'Showing which questions you got correct and incorrect'
-                : 'Full test review'}
+                : 'Full test review - all answers and feedback'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {sortedAnswers.length === 0 && testSettingsState.scoreReleaseMode === 'SCORE_ONLY' ? (
-              <p className="text-muted-foreground text-center py-4">
-                Detailed question information is not available in score-only mode.
-              </p>
-            ) : sortedAnswers.map((answer: any, index: number) => {
+            {sortedAnswers.map((answer: any, index: number) => {
                 const isCorrect = answer.pointsAwarded !== null && answer.pointsAwarded > 0
-                // In SCORE_WITH_WRONG mode, show all questions (but not the actual answers)
-                // In FULL_TEST mode, show everything
-                // In SCORE_ONLY mode, don't show any question details
-                const showQuestion = 
-                  testSettingsState.scoreReleaseMode === 'FULL_TEST' || 
-                  testSettingsState.scoreReleaseMode === 'SCORE_WITH_WRONG'
+                // In SCORE_WITH_WRONG mode, show questions and correctness (but not answers)
+                // In FULL_TEST mode, show everything including answers
                 const showAnswerDetails = testSettingsState.scoreReleaseMode === 'FULL_TEST'
 
               return (
@@ -259,25 +255,38 @@ export function ViewResultsClient({
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <CardTitle className="text-base">Question {index + 1}</CardTitle>
-                        {showQuestion && answer.question && (
-                          <p className="text-sm text-muted-foreground mt-1">
+                        {answer.question && (
+                          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
                             {answer.question.promptMd}
                           </p>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {answer.pointsAwarded !== null && answer.question && (
-                          <Badge
-                            variant={isCorrect ? 'default' : 'destructive'}
-                            className="gap-1"
-                          >
+                        {testSettingsState.scoreReleaseMode === 'SCORE_WITH_WRONG' ? (
+                          // In SCORE_WITH_WRONG mode, just show correct/incorrect badge
+                          <Badge variant={isCorrect ? 'default' : 'destructive'} className="gap-1">
                             {isCorrect ? (
                               <CheckCircle className="h-3 w-3" />
                             ) : (
                               <XCircle className="h-3 w-3" />
                             )}
-                            {answer.pointsAwarded} / {answer.question.points} pts
+                            {isCorrect ? 'Correct' : 'Incorrect'}
                           </Badge>
+                        ) : (
+                          // In FULL_TEST mode, show points
+                          answer.pointsAwarded !== null && answer.question && (
+                            <Badge
+                              variant={isCorrect ? 'default' : 'destructive'}
+                              className="gap-1"
+                            >
+                              {isCorrect ? (
+                                <CheckCircle className="h-3 w-3" />
+                              ) : (
+                                <XCircle className="h-3 w-3" />
+                              )}
+                              {answer.pointsAwarded} / {answer.question.points} pts
+                            </Badge>
+                          )
                         )}
                       </div>
                     </div>

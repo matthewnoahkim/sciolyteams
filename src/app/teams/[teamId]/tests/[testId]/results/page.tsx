@@ -2,8 +2,9 @@ import { redirect, notFound } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getUserMembership } from '@/lib/rbac'
+import { getUserMembership, isAdmin } from '@/lib/rbac'
 import { ViewResultsClient } from '@/components/tests/view-results-client'
+import { filterAttemptByReleaseMode } from '@/lib/test-security'
 
 export default async function TestResultsPage({
   params,
@@ -20,6 +21,9 @@ export default async function TestResultsPage({
   if (!membership) {
     redirect('/teams')
   }
+
+  // Check if user is admin
+  const isAdminUser = await isAdmin(session.user.id, params.teamId)
 
   const test = await prisma.test.findFirst({
     where: {
@@ -116,11 +120,22 @@ export default async function TestResultsPage({
     })),
   }
 
+  // Apply score release filtering for non-admins
+  const filteredAttemptData = filterAttemptByReleaseMode(
+    attemptData,
+    {
+      scoreReleaseMode: (test.scoreReleaseMode || 'FULL_TEST') as 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
+      releaseScoresAt: test.releaseScoresAt,
+      status: test.status,
+    },
+    isAdminUser
+  )
+
   return (
     <ViewResultsClient
       testId={test.id}
       testName={test.name}
-      attempt={attemptData}
+      attempt={filteredAttemptData}
       testSettings={{
         releaseScoresAt: test.releaseScoresAt,
         scoreReleaseMode: test.scoreReleaseMode || 'FULL_TEST',
