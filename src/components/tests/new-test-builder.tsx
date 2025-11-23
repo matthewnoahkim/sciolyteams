@@ -502,7 +502,11 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
         }
 
         const data = await response.json()
-        const testId = data.testId
+        const testId = data.test?.id
+
+        if (!testId) {
+          throw new Error('Test ID not found in response')
+        }
 
         if (andPublish) {
           // Open the publish dialog
@@ -730,7 +734,7 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
           </Card>
 
           <Card className="border-primary/10">
-            <CardHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b">
+            <CardHeader className="sticky top-0 z-10 bg-gradient-card-light/95 dark:bg-gradient-card-dark/95 backdrop-blur-sm supports-[backdrop-filter]:bg-gradient-card-light/80 dark:supports-[backdrop-filter]:bg-gradient-card-dark/80 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b">
               <div>
                 <CardTitle>Questions</CardTitle>
                 <CardDescription>

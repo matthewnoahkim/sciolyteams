@@ -54,8 +54,10 @@ export default async function NewTestPage({
   }
 
   return (
-    <div className="px-4 py-8 lg:px-8">
-      <NewTestBuilder teamId={team.id} teamName={team.name} subteams={team.subteams} />
+    <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark">
+      <div className="px-4 py-8 lg:px-8">
+        <NewTestBuilder teamId={team.id} teamName={team.name} subteams={team.subteams} />
+      </div>
     </div>
   )
 }

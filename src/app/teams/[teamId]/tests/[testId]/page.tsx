@@ -177,13 +177,15 @@ export default async function TeamTestDetailPage({
     }
 
     return (
-      <div className="px-4 py-8 lg:px-8">
-        <NewTestBuilder 
-          teamId={team.id} 
-          teamName={team.name} 
-          subteams={team.subteams}
-          test={transformedTest}
-        />
+      <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark">
+        <div className="px-4 py-8 lg:px-8">
+          <NewTestBuilder 
+            teamId={team.id} 
+            teamName={team.name} 
+            subteams={team.subteams}
+            test={transformedTest}
+          />
+        </div>
       </div>
     )
   }
@@ -207,7 +209,8 @@ export default async function TeamTestDetailPage({
           .join(', ')
 
   return (
-    <div className="container mx-auto max-w-6xl space-y-8 py-8 px-4 lg:px-6">
+    <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark">
+      <div className="container mx-auto max-w-6xl space-y-8 py-8 px-4 lg:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-2">
           <Link href={`/teams/${params.teamId}?tab=tests`} className="w-fit">
@@ -443,6 +446,7 @@ export default async function TeamTestDetailPage({
           {/* Attempts View - Admin Only */}
           <TestAttemptsView testId={test.id} testName={test.name} />
       </div>
+    </div>
     </div>
   )
 }
