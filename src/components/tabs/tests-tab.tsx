@@ -341,7 +341,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
         {/* Search and Filter */}
         <div className="flex gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10 shrink-0 will-change-transform" />
             <Input
               type="text"
               placeholder="Search tests..."
