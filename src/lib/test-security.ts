@@ -177,12 +177,15 @@ export function autoGradeQuestion(question: {
   }
 
   if (question.type === 'NUMERIC' && answer.numericAnswer !== null && answer.numericAnswer !== undefined) {
-    // Assuming the first option's label contains the correct answer
-    const correctAnswer = question.options?.[0]?.isCorrect
-      ? parseFloat(question.options[0].id) // Storing answer in ID for numeric
-      : null
-    
-    if (correctAnswer === null) {
+    // Find the correct option (should be the one marked as isCorrect)
+    const correctOption = question.options?.find((o) => o.isCorrect)
+    if (!correctOption) {
+      return { pointsAwarded: 0, isCorrect: false }
+    }
+
+    // The correct answer should be in the option's label
+    const correctAnswer = parseFloat(correctOption.label)
+    if (isNaN(correctAnswer)) {
       return { pointsAwarded: 0, isCorrect: false }
     }
 
@@ -314,6 +317,18 @@ export function filterAttemptByReleaseMode(
         id: answer.id,
         questionId: answer.questionId,
         pointsAwarded: answer.pointsAwarded,
+        // Include question data so UI can show which questions were wrong
+        // But hide options to prevent seeing correct answers
+        question: answer.question ? {
+          id: answer.question.id,
+          promptMd: answer.question.promptMd,
+          type: answer.question.type,
+          points: answer.question.points,
+          sectionId: answer.question.sectionId,
+          order: answer.question.order,
+          // Don't include options to hide correct answers
+          options: [],
+        } : null,
         // Hide actual answers and feedback
         answerText: null,
         selectedOptionIds: null,

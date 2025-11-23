@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { ArrowLeft, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react'
 
 // Client-safe helper functions (don't import from test-security.ts which has server-only deps)
@@ -36,27 +37,94 @@ export function ViewResultsClient({
 }: ViewResultsClientProps) {
   const router = useRouter()
   const [attempt, setAttempt] = useState(initialAttempt)
+  const [allAttempts, setAllAttempts] = useState<any[]>([])
+  const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(initialAttempt?.id || null)
   const [loading, setLoading] = useState(false)
+  const [testSettingsState, setTestSettingsState] = useState(testSettings)
 
   useEffect(() => {
-    // Fetch latest results
-    const fetchResults = async () => {
+    // Initialize with the initial attempt if provided
+    if (initialAttempt) {
+      setAllAttempts([initialAttempt])
+      setSelectedAttemptId(initialAttempt.id)
+      setAttempt(initialAttempt)
+    }
+
+    // Fetch all attempts
+    const fetchAllAttempts = async () => {
       setLoading(true)
       try {
-        const response = await fetch(`/api/tests/${testId}/my-results`)
+        const response = await fetch(`/api/tests/${testId}/my-all-attempts`)
         if (response.ok) {
           const data = await response.json()
-          setAttempt(data.attempt)
+          const attempts = data.attempts || []
+          setAllAttempts(attempts)
+          // Update test settings from API response
+          if (data.test) {
+            setTestSettingsState({
+              releaseScoresAt: data.test.releaseScoresAt ? new Date(data.test.releaseScoresAt) : null,
+              scoreReleaseMode: data.test.scoreReleaseMode || 'FULL_TEST',
+            })
+          }
+          // Set selected attempt to the first (latest) one if available
+          if (attempts.length > 0) {
+            setSelectedAttemptId(attempts[0].id)
+            setAttempt(attempts[0])
+          } else if (initialAttempt) {
+            // Fallback to initial attempt if no attempts from API
+            setAllAttempts([initialAttempt])
+            setSelectedAttemptId(initialAttempt.id)
+            setAttempt(initialAttempt)
+          }
+        } else {
+          // Fallback to single attempt API
+          const singleResponse = await fetch(`/api/tests/${testId}/my-results`)
+          if (singleResponse.ok) {
+            const singleData = await singleResponse.json()
+            if (singleData.attempt) {
+              setAllAttempts([singleData.attempt])
+              setSelectedAttemptId(singleData.attempt.id)
+              setAttempt(singleData.attempt)
+            }
+            // Update test settings from API response
+            if (singleData.test) {
+              setTestSettingsState({
+                releaseScoresAt: singleData.test.releaseScoresAt ? new Date(singleData.test.releaseScoresAt) : null,
+                scoreReleaseMode: singleData.test.scoreReleaseMode || 'FULL_TEST',
+              })
+            }
+          } else if (initialAttempt) {
+            // Keep initial attempt if API fails
+            setAllAttempts([initialAttempt])
+            setSelectedAttemptId(initialAttempt.id)
+            setAttempt(initialAttempt)
+          }
         }
       } catch (error) {
         console.error('Failed to fetch results:', error)
+        // Keep initial attempt if API fails
+        if (initialAttempt) {
+          setAllAttempts([initialAttempt])
+          setSelectedAttemptId(initialAttempt.id)
+          setAttempt(initialAttempt)
+        }
       } finally {
         setLoading(false)
       }
     }
 
-    fetchResults()
-  }, [testId])
+    fetchAllAttempts()
+  }, [testId, initialAttempt])
+
+  // Update selected attempt when selection changes
+  useEffect(() => {
+    if (selectedAttemptId && allAttempts.length > 0) {
+      const selected = allAttempts.find((a) => a.id === selectedAttemptId)
+      if (selected) {
+        setAttempt(selected)
+      }
+    }
+  }, [selectedAttemptId, allAttempts])
 
   if (!attempt) {
     return (
@@ -71,7 +139,7 @@ export function ViewResultsClient({
     )
   }
 
-  const scoresReleased = shouldReleaseScores(testSettings.releaseScoresAt, 'PUBLISHED')
+  const scoresReleased = shouldReleaseScores(testSettingsState.releaseScoresAt, 'PUBLISHED')
 
   // The API already filters the attempt based on release mode, so we can use it directly
   // But we need to handle the case where answers might be null (SCORE_ONLY mode)
@@ -93,6 +161,32 @@ export function ViewResultsClient({
         </Button>
         <h1 className="text-3xl font-bold mb-2">{testName}</h1>
         <p className="text-muted-foreground">Your Test Results</p>
+        
+        {/* Attempt selector - show if there are multiple attempts */}
+        {allAttempts.length > 1 && (
+          <div className="mt-4">
+            <Label htmlFor="attempt-select" className="text-sm font-medium mb-2 block">
+              Select Attempt:
+            </Label>
+            <select
+              id="attempt-select"
+              value={selectedAttemptId || ''}
+              onChange={(e) => setSelectedAttemptId(e.target.value)}
+              className="w-full max-w-md h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              {allAttempts.map((att, index) => (
+                <option key={att.id} value={att.id}>
+                  Attempt {allAttempts.length - index} - {att.submittedAt 
+                    ? new Date(att.submittedAt).toLocaleString()
+                    : 'Not submitted'} 
+                  {att.gradeEarned !== null && att.gradeEarned !== undefined 
+                    ? ` (Score: ${typeof att.gradeEarned === 'number' ? att.gradeEarned.toFixed(2) : Number(att.gradeEarned || 0).toFixed(2)})`
+                    : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {!scoresReleased && (
@@ -137,19 +231,27 @@ export function ViewResultsClient({
           <CardHeader>
             <CardTitle>Your Responses</CardTitle>
             <CardDescription>
-              {testSettings.scoreReleaseMode === 'SCORE_ONLY'
+              {testSettingsState.scoreReleaseMode === 'SCORE_ONLY'
                 ? 'Score only mode - detailed responses not available'
-                : testSettings.scoreReleaseMode === 'SCORE_WITH_WRONG'
-                ? 'Showing questions you missed'
+                : testSettingsState.scoreReleaseMode === 'SCORE_WITH_WRONG'
+                ? 'Showing which questions you got correct and incorrect'
                 : 'Full test review'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {sortedAnswers.map((answer: any, index: number) => {
-              const isCorrect = answer.pointsAwarded !== null && answer.pointsAwarded > 0
-              const showDetails =
-                testSettings.scoreReleaseMode === 'FULL_TEST' ||
-                (testSettings.scoreReleaseMode === 'SCORE_WITH_WRONG' && !isCorrect)
+            {sortedAnswers.length === 0 && testSettingsState.scoreReleaseMode === 'SCORE_ONLY' ? (
+              <p className="text-muted-foreground text-center py-4">
+                Detailed question information is not available in score-only mode.
+              </p>
+            ) : sortedAnswers.map((answer: any, index: number) => {
+                const isCorrect = answer.pointsAwarded !== null && answer.pointsAwarded > 0
+                // In SCORE_WITH_WRONG mode, show all questions (but not the actual answers)
+                // In FULL_TEST mode, show everything
+                // In SCORE_ONLY mode, don't show any question details
+                const showQuestion = 
+                  testSettingsState.scoreReleaseMode === 'FULL_TEST' || 
+                  testSettingsState.scoreReleaseMode === 'SCORE_WITH_WRONG'
+                const showAnswerDetails = testSettingsState.scoreReleaseMode === 'FULL_TEST'
 
               return (
                 <Card key={answer.id} className="border-border">
@@ -157,14 +259,14 @@ export function ViewResultsClient({
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <CardTitle className="text-base">Question {index + 1}</CardTitle>
-                        {showDetails && (
+                        {showQuestion && answer.question && (
                           <p className="text-sm text-muted-foreground mt-1">
                             {answer.question.promptMd}
                           </p>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {answer.pointsAwarded !== null && (
+                        {answer.pointsAwarded !== null && answer.question && (
                           <Badge
                             variant={isCorrect ? 'default' : 'destructive'}
                             className="gap-1"
@@ -180,7 +282,7 @@ export function ViewResultsClient({
                       </div>
                     </div>
                   </CardHeader>
-                  {showDetails && (
+                  {showAnswerDetails && (
                     <CardContent className="space-y-3">
                       {/* MCQ Answers */}
                       {answer.question.type.startsWith('MCQ') &&

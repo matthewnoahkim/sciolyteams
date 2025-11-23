@@ -82,23 +82,22 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
         setTests(data.tests)
 
         // For non-admins, fetch attempt counts for each test
+        // We need this for ALL tests (not just limited attempts) to show "View Results" button
         if (!isAdmin && data.tests.length > 0) {
           const attemptMap = new Map<string, UserAttemptInfo>()
           for (const test of data.tests) {
-            if (test.maxAttempts !== null) {
-              try {
-                const attemptsResponse = await fetch(`/api/tests/${test.id}/user-attempts`)
-                if (attemptsResponse.ok) {
-                  const attemptsData = await attemptsResponse.json()
-                  attemptMap.set(test.id, {
-                    attemptsUsed: attemptsData.attemptsUsed || 0,
-                    maxAttempts: test.maxAttempts,
-                    hasReachedLimit: (attemptsData.attemptsUsed || 0) >= test.maxAttempts,
-                  })
-                }
-              } catch (err) {
-                console.error(`Failed to fetch attempts for test ${test.id}:`, err)
+            try {
+              const attemptsResponse = await fetch(`/api/tests/${test.id}/user-attempts`)
+              if (attemptsResponse.ok) {
+                const attemptsData = await attemptsResponse.json()
+                attemptMap.set(test.id, {
+                  attemptsUsed: attemptsData.attemptsUsed || 0,
+                  maxAttempts: test.maxAttempts,
+                  hasReachedLimit: test.maxAttempts !== null && (attemptsData.attemptsUsed || 0) >= test.maxAttempts,
+                })
               }
+            } catch (err) {
+              console.error(`Failed to fetch attempts for test ${test.id}:`, err)
             }
           }
           setUserAttempts(attemptMap)
@@ -244,15 +243,17 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
         const isScheduled = startAt && now < startAt
 
         // Check if user has reached max attempts (for non-admins)
+        // Only check for limited attempts (maxAttempts !== null)
         let userReachedLimit = false
         if (!isAdmin && test.maxAttempts !== null) {
           const attemptInfo = userAttempts.get(test.id)
           userReachedLimit = attemptInfo?.hasReachedLimit || false
         }
 
-        // For admins: completed = past end date
-        // For users: completed = past end date OR reached max attempts
-        const isCompleted = isPastEnd || userReachedLimit
+        // For admins: completed = past end date only
+        // For users with limited attempts: completed = past end date OR reached max attempts
+        // For users with unlimited attempts: completed = past end date only (not based on attempts)
+        const isCompleted = isPastEnd || (test.maxAttempts !== null && userReachedLimit)
 
         if (isScheduled) {
           scheduledList.push(test)
@@ -351,17 +352,54 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
             {(() => {
               const attemptInfo = userAttempts.get(test.id)
               const hasCompletedAttempt = attemptInfo && attemptInfo.attemptsUsed > 0
-              const isCompleted = (() => {
+              
+              // For unlimited attempts, show "View Results" if user has any completed attempts
+              // For limited attempts, only show if test is completed (past end date OR reached limit)
+              const shouldShowResults = (() => {
+                // If unlimited attempts, show results if user has any completed attempts
+                if (test.maxAttempts === null && hasCompletedAttempt) {
+                  return true
+                }
+                
+                // For limited attempts, check if test is completed
                 const now = new Date()
                 const endAt = test.endAt ? new Date(test.endAt) : null
                 const allowLateUntil = test.allowLateUntil ? new Date(test.allowLateUntil) : null
                 const deadline = allowLateUntil || endAt
                 const isPastEnd = deadline ? now > deadline : false
-                const userReachedLimit = attemptInfo?.hasReachedLimit || false
-                return isPastEnd || userReachedLimit
+                const userReachedLimit = test.maxAttempts !== null && (attemptInfo?.hasReachedLimit || false)
+                const isCompleted = isPastEnd || userReachedLimit
+                
+                return isCompleted && hasCompletedAttempt
               })()
 
-              if (isCompleted && hasCompletedAttempt) {
+              // For unlimited attempts, show both buttons if user has completed attempts
+              // For limited attempts, show either "Take Test" or "View Results" based on completion
+              if (test.maxAttempts === null && hasCompletedAttempt) {
+                // Unlimited attempts with completed attempts - show both buttons
+                return (
+                  <div className="flex gap-2 w-full">
+                    <Button
+                      onClick={() => handleTakeTest(test)}
+                      disabled={!isTestAvailable(test)}
+                      className="flex-1"
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      {isTestAvailable(test) ? 'Retake Test' : 'Not Available'}
+                    </Button>
+                    <Button
+                      onClick={() => router.push(`/teams/${teamId}/tests/${test.id}/results`)}
+                      className="flex-1"
+                      variant="outline"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Results
+                    </Button>
+                  </div>
+                )
+              }
+
+              if (shouldShowResults) {
                 return (
                   <Button
                     onClick={() => router.push(`/teams/${teamId}/tests/${test.id}/results`)}

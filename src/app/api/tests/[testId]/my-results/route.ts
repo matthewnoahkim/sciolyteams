@@ -117,10 +117,11 @@ export async function GET(
     }
 
     // Apply score release filtering
+    // Use FULL_TEST as default (matches schema default) if scoreReleaseMode is null/undefined
     const filteredAttempt = filterAttemptByReleaseMode(
       attemptData,
       {
-        scoreReleaseMode: test.scoreReleaseMode || 'SCORE_ONLY',
+        scoreReleaseMode: (test.scoreReleaseMode || 'FULL_TEST') as 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
         releaseScoresAt: test.releaseScoresAt,
         status: test.status,
       },
@@ -132,7 +133,7 @@ export async function GET(
       test: {
         id: test.id,
         releaseScoresAt: test.releaseScoresAt?.toISOString() || null,
-        scoreReleaseMode: test.scoreReleaseMode || 'SCORE_ONLY',
+        scoreReleaseMode: test.scoreReleaseMode || 'FULL_TEST',
         scoresReleased: shouldReleaseScores({
           releaseScoresAt: test.releaseScoresAt,
           status: test.status,

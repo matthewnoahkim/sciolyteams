@@ -39,7 +39,8 @@ export default async function TestResultsPage({
     notFound()
   }
 
-  // Fetch attempt directly from database
+  // Fetch attempt directly from database (for initial render)
+  // The ViewResultsClient will fetch from API which applies score release filtering
   const attempt = await prisma.testAttempt.findFirst({
     where: {
       membershipId: membership.id,
@@ -79,17 +80,50 @@ export default async function TestResultsPage({
     )
   }
 
-  // Sort answers by question order
+  // Transform attempt data to match API format
   const sortedAnswers = attempt.answers.sort((a, b) => a.question.order - b.question.order)
+  const attemptData = {
+    id: attempt.id,
+    status: attempt.status,
+    startedAt: attempt.startedAt?.toISOString() || null,
+    submittedAt: attempt.submittedAt?.toISOString() || null,
+    gradeEarned: attempt.gradeEarned ? Number(attempt.gradeEarned) : null,
+    proctoringScore: attempt.proctoringScore ? Number(attempt.proctoringScore) : null,
+    tabSwitchCount: attempt.tabSwitchCount || 0,
+    answers: sortedAnswers.map((answer) => ({
+      id: answer.id,
+      questionId: answer.questionId,
+      answerText: answer.answerText,
+      selectedOptionIds: answer.selectedOptionIds,
+      numericAnswer: answer.numericAnswer ? Number(answer.numericAnswer) : null,
+      pointsAwarded: answer.pointsAwarded ? Number(answer.pointsAwarded) : null,
+      gradedAt: answer.gradedAt?.toISOString() || null,
+      graderNote: answer.graderNote,
+      question: {
+        id: answer.question.id,
+        promptMd: answer.question.promptMd,
+        type: answer.question.type,
+        points: Number(answer.question.points),
+        sectionId: answer.question.sectionId,
+        order: answer.question.order,
+        options: answer.question.options.map((opt) => ({
+          id: opt.id,
+          label: opt.label,
+          isCorrect: opt.isCorrect,
+          order: opt.order,
+        })),
+      },
+    })),
+  }
 
   return (
     <ViewResultsClient
       testId={test.id}
       testName={test.name}
-      attempt={attempt}
+      attempt={attemptData}
       testSettings={{
         releaseScoresAt: test.releaseScoresAt,
-        scoreReleaseMode: test.scoreReleaseMode || 'SCORE_ONLY',
+        scoreReleaseMode: test.scoreReleaseMode || 'FULL_TEST',
       }}
     />
   )

@@ -7,6 +7,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { generateClientFingerprint } from '@/lib/test-security-client'
 import { Clock, Lock, AlertCircle } from 'lucide-react'
@@ -39,8 +47,14 @@ export function TakeTestClient({
   const [offPageStartTime, setOffPageStartTime] = useState<number | null>(null)
   const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const isExitingRef = useRef(false) // Track when we're intentionally exiting (Save & Exit)
   const [needsFullscreenPrompt, setNeedsFullscreenPrompt] = useState(false) // Track if we need user interaction to enter fullscreen
+  const [showSaveExitDialog, setShowSaveExitDialog] = useState(false)
+  const [showSubmitDialog, setShowSubmitDialog] = useState(false)
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null) // Time remaining in seconds
+  const pausedAtRef = useRef<number | null>(null) // Timestamp when user saved and exited
+  const totalPausedSecondsRef = useRef<number>(0) // Total seconds paused (accumulated)
 
   // Load existing answers
   useEffect(() => {
@@ -56,6 +70,25 @@ export function TakeTestClient({
       setAnswers(loadedAnswers)
     }
   }, [existingAttempt])
+
+  // When resuming a test, calculate paused time if user had saved and exited
+  useEffect(() => {
+    if (started && attempt && existingAttempt && attempt.startedAt) {
+      // Check if this is a resume (attempt exists and was previously started)
+      // If there's a pausedAt timestamp in localStorage, calculate the pause duration
+      const pausedAtKey = `test_paused_${attempt.id}`
+      const pausedAtStr = localStorage.getItem(pausedAtKey)
+      
+      if (pausedAtStr) {
+        const pausedAt = parseInt(pausedAtStr, 10)
+        const now = Date.now()
+        const pauseDuration = Math.floor((now - pausedAt) / 1000)
+        totalPausedSecondsRef.current += pauseDuration
+        // Clear the paused timestamp
+        localStorage.removeItem(pausedAtKey)
+      }
+    }
+  }, [started, attempt, existingAttempt])
 
   // Enter fullscreen when starting or resuming a test
   // This runs when:
@@ -312,7 +345,15 @@ export function TakeTestClient({
     }, 1000)
   }
 
-  const handleSubmit = async () => {
+  // Format time remaining as MM:SS
+  const formatTime = (seconds: number): string => {
+    if (seconds < 0) return '00:00'
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const handleSubmit = useCallback(async () => {
     if (!attempt) return
 
     setSubmitting(true)
@@ -366,7 +407,67 @@ export function TakeTestClient({
         document.documentElement.requestFullscreen().catch(() => {})
       }
     }
-  }
+  }, [attempt, test.id, test.teamId, test.requireFullscreen, toast, router])
+
+  // Countdown timer
+  useEffect(() => {
+    if (!started || !attempt || attempt.status !== 'IN_PROGRESS') {
+      setTimeRemaining(null)
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current)
+        timerIntervalRef.current = null
+      }
+      return
+    }
+
+    // Calculate initial remaining time
+    const calculateRemainingTime = (): number => {
+      if (!attempt.startedAt) return test.durationMinutes * 60
+      
+      const startTime = new Date(attempt.startedAt).getTime()
+      const now = Date.now()
+      const elapsedSeconds = Math.floor((now - startTime) / 1000)
+      // Account for time spent off-page (tab switches)
+      // Account for time spent paused (save & exit)
+      const adjustedElapsed = elapsedSeconds - (timeOffPageSeconds || 0) - totalPausedSecondsRef.current
+      const totalDurationSeconds = test.durationMinutes * 60
+      const remaining = Math.max(0, totalDurationSeconds - adjustedElapsed)
+      
+      return remaining
+    }
+
+    // Set initial time
+    setTimeRemaining(calculateRemainingTime())
+
+    // Update timer every second
+    timerIntervalRef.current = setInterval(() => {
+      const remaining = calculateRemainingTime()
+      setTimeRemaining(remaining)
+
+      // Auto-submit when time runs out
+      if (remaining <= 0 && attempt.status === 'IN_PROGRESS') {
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current)
+          timerIntervalRef.current = null
+        }
+        toast({
+          title: 'Time Up',
+          description: 'Your test is being submitted automatically.',
+          variant: 'destructive',
+        })
+        // Mark that we're intentionally exiting
+        isExitingRef.current = true
+        handleSubmit()
+      }
+    }, 1000)
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current)
+        timerIntervalRef.current = null
+      }
+    }
+  }, [started, attempt, test.durationMinutes, timeOffPageSeconds, toast, handleSubmit])
 
   if (!started) {
     return (
@@ -451,10 +552,20 @@ export function TakeTestClient({
     <div className="container mx-auto max-w-4xl py-8 px-4">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
             <CardTitle>{test.name}</CardTitle>
             <div className="flex items-center gap-4 text-sm">
-              <span>Time: {test.durationMinutes} min</span>
+              {timeRemaining !== null ? (
+                <span className={`font-mono font-semibold ${
+                  timeRemaining <= 60 ? 'text-red-600' : 
+                  timeRemaining <= 300 ? 'text-amber-600' : 
+                  'text-foreground'
+                }`}>
+                  Time: {formatTime(timeRemaining)}
+                </span>
+              ) : (
+                <span>Time: {test.durationMinutes} min</span>
+              )}
               {tabSwitchCount > 0 && (
                 <span className="text-amber-600">
                   Tab switches: {tabSwitchCount}
@@ -566,42 +677,15 @@ export function TakeTestClient({
               <Button
                 variant="outline"
                 onClick={() => {
-                  const confirmed = window.confirm('Are you sure you want to save and exit? Your progress will be saved.')
-                  if (confirmed) {
-                    // Mark that we're intentionally exiting
-                    isExitingRef.current = true
-                    
-                    // Exit fullscreen before navigating
-                    if (document.fullscreenElement) {
-                      document.exitFullscreen().catch(() => {})
-                    }
-                    
-                    // Navigate away - fullscreen will NOT be re-entered
-                    router.push(`/teams/${test.teamId}?tab=tests`)
-                  } else {
-                    // User canceled - restore fullscreen if required
-                    if (test.requireFullscreen && !document.fullscreenElement) {
-                      document.documentElement.requestFullscreen().catch(() => {})
-                    }
-                  }
+                  setShowSaveExitDialog(true)
                 }}
                 disabled={submitting}
               >
                 Save & Exit
               </Button>
               <Button
-                onClick={async () => {
-                  const confirmed = window.confirm('Are you sure you want to submit? You cannot change your answers after submitting.')
-                  if (confirmed) {
-                    // Mark that we're intentionally exiting
-                    isExitingRef.current = true
-                    await handleSubmit()
-                  } else {
-                    // User canceled - restore fullscreen if required
-                    if (test.requireFullscreen && !document.fullscreenElement) {
-                      document.documentElement.requestFullscreen().catch(() => {})
-                    }
-                  }
+                onClick={() => {
+                  setShowSubmitDialog(true)
                 }}
                 disabled={submitting}
               >
@@ -611,6 +695,110 @@ export function TakeTestClient({
           </div>
         </CardContent>
       </Card>
+
+      {/* Save & Exit Confirmation Dialog */}
+      <Dialog open={showSaveExitDialog} onOpenChange={(open) => {
+        setShowSaveExitDialog(open)
+        if (!open) {
+          // User canceled - restore fullscreen if required
+          if (test.requireFullscreen && !document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {})
+          }
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save and Exit?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to save and exit? Your progress will be saved.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSaveExitDialog(false)
+                // User canceled - restore fullscreen if required
+                if (test.requireFullscreen && !document.fullscreenElement) {
+                  document.documentElement.requestFullscreen().catch(() => {})
+                }
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                // Mark that we're intentionally exiting
+                isExitingRef.current = true
+                
+                // Pause the timer - store the current timestamp
+                if (attempt && attempt.startedAt) {
+                  pausedAtRef.current = Date.now()
+                  // Store in localStorage so we can resume later
+                  localStorage.setItem(`test_paused_${attempt.id}`, pausedAtRef.current.toString())
+                }
+                
+                // Exit fullscreen before navigating
+                if (document.fullscreenElement) {
+                  document.exitFullscreen().catch(() => {})
+                }
+                
+                // Navigate away - fullscreen will NOT be re-entered
+                setShowSaveExitDialog(false)
+                router.push(`/teams/${test.teamId}?tab=tests`)
+              }}
+            >
+              Save & Exit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Submit Confirmation Dialog */}
+      <Dialog open={showSubmitDialog} onOpenChange={(open) => {
+        setShowSubmitDialog(open)
+        if (!open) {
+          // User canceled - restore fullscreen if required
+          if (test.requireFullscreen && !document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {})
+          }
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit Test?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to submit? You cannot change your answers after submitting.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSubmitDialog(false)
+                // User canceled - restore fullscreen if required
+                if (test.requireFullscreen && !document.fullscreenElement) {
+                  document.documentElement.requestFullscreen().catch(() => {})
+                }
+              }}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                // Mark that we're intentionally exiting
+                isExitingRef.current = true
+                setShowSubmitDialog(false)
+                await handleSubmit()
+              }}
+              disabled={submitting}
+            >
+              {submitting ? 'Submitting...' : 'Submit'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
