@@ -85,8 +85,8 @@ export async function POST(
     // Check for existing in-progress or not-started attempt
     let attempt = await prisma.testAttempt.findFirst({
       where: {
-        membershipId: membership.id,
-        testId: params.testId,
+          membershipId: membership.id,
+          testId: params.testId,
         status: {
           in: ['NOT_STARTED', 'IN_PROGRESS'],
         },

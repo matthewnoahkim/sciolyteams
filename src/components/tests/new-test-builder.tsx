@@ -401,11 +401,11 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
           </Card>
 
           <Card className="border-primary/10">
-            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <CardHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b">
               <div>
                 <CardTitle>Questions</CardTitle>
                 <CardDescription>
-                  Add prompts, images, and answer options. Everything auto-formats like Google Forms.
+                  Add prompts, images, and answer options.
                 </CardDescription>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -932,7 +932,9 @@ function QuestionCard({
             />
           </div>
           <div>
-            <Label htmlFor={`explanation-${question.id}`}>Explanation (optional)</Label>
+            <Label htmlFor={`explanation-${question.id}`}>
+              {question.type === 'LONG_TEXT' ? 'Example Answer (optional)' : 'Explanation (optional)'}
+            </Label>
             <textarea
               id={`explanation-${question.id}`}
               className="mt-2 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -943,7 +945,11 @@ function QuestionCard({
                   explanation: event.target.value,
                 }))
               }
-              placeholder="Share the reasoning for the correct answer."
+              placeholder={
+                question.type === 'LONG_TEXT'
+                  ? 'Provide an example of a good answer for grading reference.'
+                  : 'Share the reasoning for the correct answer.'
+              }
             />
           </div>
         </div>
