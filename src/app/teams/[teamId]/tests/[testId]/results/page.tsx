@@ -124,7 +124,7 @@ export default async function TestResultsPage({
   const filteredAttemptData = filterAttemptByReleaseMode(
     attemptData,
     {
-      scoreReleaseMode: (test.scoreReleaseMode || 'FULL_TEST') as 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
+      scoreReleaseMode: (test.scoreReleaseMode || 'FULL_TEST') as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
       releaseScoresAt: test.releaseScoresAt,
       status: test.status,
     },

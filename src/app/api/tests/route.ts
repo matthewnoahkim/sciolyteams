@@ -62,7 +62,7 @@ const createTestSchema = z.object({
   requireFullscreen: z.boolean().optional(),
   releaseScoresAt: z.string().datetime().optional(),
   maxAttempts: z.number().int().min(1).optional(),
-  scoreReleaseMode: z.enum(['SCORE_ONLY', 'SCORE_WITH_WRONG', 'FULL_TEST']).optional(),
+  scoreReleaseMode: z.enum(['NONE', 'SCORE_ONLY', 'SCORE_WITH_WRONG', 'FULL_TEST']).optional(),
   assignments: z.array(assignmentSchema).optional(),
   questions: z.array(questionSchema).optional(),
 })

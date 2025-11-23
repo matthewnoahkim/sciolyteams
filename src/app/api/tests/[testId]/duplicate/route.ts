@@ -27,6 +27,9 @@ export async function POST(
           },
         },
         assignments: true,
+        sections: {
+          orderBy: { order: 'asc' },
+        },
       },
     })
 
@@ -60,6 +63,8 @@ export async function POST(
           instructions: originalTest.instructions,
           status: 'DRAFT',
           durationMinutes: originalTest.durationMinutes,
+          maxAttempts: originalTest.maxAttempts,
+          scoreReleaseMode: originalTest.scoreReleaseMode,
           randomizeQuestionOrder: originalTest.randomizeQuestionOrder,
           randomizeOptionOrder: originalTest.randomizeOptionOrder,
           requireFullscreen: originalTest.requireFullscreen,
@@ -73,6 +78,21 @@ export async function POST(
           createdByMembershipId: membership.id,
         },
       })
+
+      // Copy sections first (if they exist)
+      const sectionIdMap = new Map<string, string>()
+      if (originalTest.sections && originalTest.sections.length > 0) {
+        for (const section of originalTest.sections) {
+          const newSection = await tx.testSection.create({
+            data: {
+              testId: newTest.id,
+              title: section.title,
+              order: section.order,
+            },
+          })
+          sectionIdMap.set(section.id, newSection.id)
+        }
+      }
 
       // Copy assignments
       if (originalTest.assignments.length > 0) {
@@ -92,6 +112,7 @@ export async function POST(
           const newQuestion = await tx.question.create({
             data: {
               testId: newTest.id,
+              sectionId: question.sectionId ? sectionIdMap.get(question.sectionId) || null : null,
               type: question.type,
               promptMd: question.promptMd,
               explanation: question.explanation,

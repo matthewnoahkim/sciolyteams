@@ -25,7 +25,7 @@ interface ViewResultsClientProps {
   attempt: any
   testSettings: {
     releaseScoresAt: Date | null
-    scoreReleaseMode: 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
+    scoreReleaseMode: 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
   }
 }
 
@@ -189,7 +189,25 @@ export function ViewResultsClient({
         )}
       </div>
 
-      {!scoresReleased && (
+      {testSettingsState.scoreReleaseMode === 'NONE' && (
+        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800 mb-6">
+          <CardContent className="pt-6">
+            <div className="flex gap-3">
+              <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                  Scores Not Released
+                </p>
+                <p className="text-sm text-orange-800 dark:text-orange-200 mt-1">
+                  Scores are not released for this test.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!scoresReleased && testSettingsState.scoreReleaseMode !== 'NONE' && (
         <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800 mb-6">
           <CardContent className="pt-6">
             <div className="flex gap-3">
@@ -211,7 +229,7 @@ export function ViewResultsClient({
         </Card>
       )}
 
-      {scoresReleased && attempt.gradeEarned !== null && attempt.gradeEarned !== undefined && (
+      {scoresReleased && testSettingsState.scoreReleaseMode !== 'NONE' && attempt.gradeEarned !== null && attempt.gradeEarned !== undefined && (
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Overall Score</CardTitle>
@@ -231,8 +249,8 @@ export function ViewResultsClient({
         </Card>
       )}
 
-      {/* Show responses section only if not in SCORE_ONLY mode */}
-      {scoresReleased && testSettingsState.scoreReleaseMode !== 'SCORE_ONLY' && attempt.answers && sortedAnswers.length > 0 && (
+      {/* Show responses section only if not in SCORE_ONLY or NONE mode */}
+      {scoresReleased && testSettingsState.scoreReleaseMode !== 'SCORE_ONLY' && testSettingsState.scoreReleaseMode !== 'NONE' && attempt.answers && sortedAnswers.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Your Responses</CardTitle>

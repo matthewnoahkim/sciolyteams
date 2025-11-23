@@ -19,7 +19,7 @@ const updateTestSchema = z.object({
   requireFullscreen: z.boolean().optional(),
   releaseScoresAt: z.string().datetime().optional().nullable(),
   maxAttempts: z.number().int().min(1).optional().nullable(),
-  scoreReleaseMode: z.enum(['SCORE_ONLY', 'SCORE_WITH_WRONG', 'FULL_TEST']).optional(),
+  scoreReleaseMode: z.enum(['NONE', 'SCORE_ONLY', 'SCORE_WITH_WRONG', 'FULL_TEST']).optional(),
 })
 
 // GET /api/tests/[testId]

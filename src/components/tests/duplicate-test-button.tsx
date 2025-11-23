@@ -50,8 +50,8 @@ export function DuplicateTestButton({
       })
 
       setOpen(false)
-      // Navigate to the new test's edit page
-      router.push(`/teams/${teamId}/tests/${data.test.id}/edit`)
+      // Navigate to the new test's page (will show builder for draft)
+      router.push(`/teams/${teamId}/tests/${data.test.id}`)
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -80,7 +80,7 @@ export function DuplicateTestButton({
             <DialogTitle>Duplicate Test</DialogTitle>
             <DialogDescription>
               Create a copy of &quot;{testName}&quot;? The duplicate will be created as a draft
-              with all questions and assignments copied. Scheduling and passwords will be reset.
+              with all questions, assignments, and settings copied. Scheduling and passwords will be reset.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

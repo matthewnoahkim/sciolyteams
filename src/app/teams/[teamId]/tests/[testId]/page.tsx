@@ -367,7 +367,9 @@ export default async function TeamTestDetailPage({
               <SettingToggle
                 label="Score release mode"
                 note={
-                  test.scoreReleaseMode === 'SCORE_ONLY'
+                  test.scoreReleaseMode === 'NONE'
+                    ? 'No scores released'
+                    : test.scoreReleaseMode === 'SCORE_ONLY'
                     ? 'Score only'
                     : test.scoreReleaseMode === 'SCORE_WITH_WRONG'
                     ? 'Score + wrong questions'

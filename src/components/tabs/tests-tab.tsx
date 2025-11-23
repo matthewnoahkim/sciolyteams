@@ -27,7 +27,7 @@ interface Test {
   requireFullscreen: boolean
   releaseScoresAt: string | null
   maxAttempts: number | null
-  scoreReleaseMode: 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
+  scoreReleaseMode: 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
   createdAt: string
   _count: {
     questions: number

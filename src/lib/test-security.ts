@@ -267,7 +267,7 @@ export function shouldReleaseScores(test: {
 export function filterAttemptByReleaseMode(
   attempt: any,
   test: {
-    scoreReleaseMode: 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
+    scoreReleaseMode: 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
     releaseScoresAt: Date | null
     status: string
   },
@@ -293,6 +293,16 @@ export function filterAttemptByReleaseMode(
         gradedAt: null,
         graderNote: null,
       })),
+    }
+  }
+
+  // NONE mode - don't release anything, even if releaseScoresAt has passed
+  if (test.scoreReleaseMode === 'NONE') {
+    return {
+      ...attempt,
+      gradeEarned: null,
+      proctoringScore: null,
+      answers: null,
     }
   }
 

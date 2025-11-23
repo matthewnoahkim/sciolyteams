@@ -23,6 +23,7 @@ import {
   Users,
   Send,
 } from 'lucide-react'
+import { DuplicateTestButton } from '@/components/tests/duplicate-test-button'
 
 type QuestionType = 'MCQ_SINGLE' | 'MCQ_MULTI' | 'LONG_TEXT'
 
@@ -59,7 +60,7 @@ interface NewTestBuilderProps {
     instructions: string | null
     durationMinutes: number
     maxAttempts: number | null
-    scoreReleaseMode: 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
+    scoreReleaseMode: 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
     randomizeQuestionOrder: boolean
     randomizeOptionOrder: boolean
     requireFullscreen: boolean
@@ -136,7 +137,7 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
     instructions: test?.instructions || '',
     durationMinutes: test?.durationMinutes?.toString() || '60',
     maxAttempts: test?.maxAttempts?.toString() || '',
-    scoreReleaseMode: (test?.scoreReleaseMode || 'FULL_TEST') as 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
+    scoreReleaseMode: (test?.scoreReleaseMode || 'FULL_TEST') as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
     randomizeQuestionOrder: test?.randomizeQuestionOrder || false,
     randomizeOptionOrder: test?.randomizeOptionOrder || false,
     requireFullscreen: test?.requireFullscreen ?? true,
@@ -672,6 +673,13 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
           >
             Cancel
           </Button>
+          {isEditMode && test && (
+            <DuplicateTestButton
+              testId={test.id}
+              testName={test.name}
+              teamId={teamId}
+            />
+          )}
           <Button onClick={() => handleSave(false)} disabled={saving} variant="outline">
             {saving ? 'Saving…' : isEditMode ? 'Save Changes' : 'Save as Draft'}
           </Button>
@@ -903,13 +911,14 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
                   onChange={(event) =>
                     setDetails((prev) => ({
                       ...prev,
-                      scoreReleaseMode: event.target.value as 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
+                      scoreReleaseMode: event.target.value as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
                     }))
                   }
                 >
                   <option value="FULL_TEST">Full test (answers, correctness, feedback)</option>
                   <option value="SCORE_WITH_WRONG">Score + which questions were wrong</option>
                   <option value="SCORE_ONLY">Score only</option>
+                  <option value="NONE">Don't release scores</option>
                 </select>
                 <p className="text-xs text-muted-foreground mt-1">
                   Controls what students see after submission

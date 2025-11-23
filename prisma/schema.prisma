@@ -756,6 +756,7 @@ enum ProctorEventKind {
 }
 
 enum ScoreReleaseMode {
+  NONE               // Don't release any scores or feedback
   SCORE_ONLY         // Release score only
   SCORE_WITH_WRONG   // Release score + list of questions they got wrong
   FULL_TEST          // Release score + full test (MCQ + FRQ answers, correctness, feedback)
