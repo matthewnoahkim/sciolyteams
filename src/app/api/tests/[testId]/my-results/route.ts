@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { isAdmin } from '@/lib/rbac'
+import { getUserMembership, isAdmin } from '@/lib/rbac'
+import { shouldReleaseScores, filterAttemptByReleaseMode } from '@/lib/test-security'
 
-// GET /api/tests/[testId]/attempts - Get all attempts for a test (admin only)
+// GET /api/tests/[testId]/my-results
+// Get the current user's latest test results
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ testId: string }> | { testId: string } }
@@ -16,39 +18,40 @@ export async function GET(
     }
 
     const resolvedParams = await Promise.resolve(params)
+    const testId = resolvedParams.testId
 
     const test = await prisma.test.findUnique({
-      where: { id: resolvedParams.testId },
-      select: { teamId: true },
+      where: { id: testId },
+      select: {
+        id: true,
+        teamId: true,
+        releaseScoresAt: true,
+        scoreReleaseMode: true,
+        status: true,
+      },
     })
 
     if (!test) {
       return NextResponse.json({ error: 'Test not found' }, { status: 404 })
     }
 
-    const isAdminUser = await isAdmin(session.user.id, test.teamId)
-    if (!isAdminUser) {
-      return NextResponse.json(
-        { error: 'Only admins can view test attempts' },
-        { status: 403 }
-      )
+    const membership = await getUserMembership(session.user.id, test.teamId)
+    if (!membership) {
+      return NextResponse.json({ error: 'Not a team member' }, { status: 403 })
     }
 
-    const attempts = await prisma.testAttempt.findMany({
-      where: { testId: resolvedParams.testId },
-      include: {
-        membership: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                image: true,
-              },
-            },
-          },
+    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+
+    // Get the latest submitted/graded attempt for this user
+    const attempt = await prisma.testAttempt.findFirst({
+      where: {
+        membershipId: membership.id,
+        testId: testId,
+        status: {
+          in: ['SUBMITTED', 'GRADED'],
         },
+      },
+      include: {
         answers: {
           include: {
             question: {
@@ -65,38 +68,29 @@ export async function GET(
             ts: 'asc',
           },
         },
-        gradeAdjustments: true,
       },
-      orderBy: [
-        { submittedAt: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: {
+        submittedAt: 'desc',
+      },
     })
 
-    // Sort answers by question order after fetching (Prisma doesn't support nested orderBy on relations)
-    const attemptsWithSortedAnswers = attempts.map((attempt) => ({
-      ...attempt,
-      answers: attempt.answers.sort((a, b) => a.question.order - b.question.order),
-    }))
+    if (!attempt) {
+      return NextResponse.json({ error: 'No attempt found' }, { status: 404 })
+    }
 
-    // Transform to match client interface
-    const transformedAttempts = attemptsWithSortedAnswers.map((attempt) => ({
+    // Sort answers by question order
+    const sortedAnswers = attempt.answers.sort((a, b) => a.question.order - b.question.order)
+
+    // Transform attempt data
+    const attemptData = {
       id: attempt.id,
-      membershipId: attempt.membershipId,
       status: attempt.status,
       startedAt: attempt.startedAt?.toISOString() || null,
       submittedAt: attempt.submittedAt?.toISOString() || null,
       gradeEarned: attempt.gradeEarned ? Number(attempt.gradeEarned) : null,
       proctoringScore: attempt.proctoringScore ? Number(attempt.proctoringScore) : null,
       tabSwitchCount: attempt.tabSwitchCount || 0,
-      user: attempt.membership?.user
-        ? {
-            id: attempt.membership.user.id,
-            name: attempt.membership.user.name,
-            email: attempt.membership.user.email,
-          }
-        : null,
-      answers: attempt.answers.map((answer) => ({
+      answers: sortedAnswers.map((answer) => ({
         id: answer.id,
         questionId: answer.questionId,
         answerText: answer.answerText,
@@ -111,27 +105,43 @@ export async function GET(
           type: answer.question.type,
           points: Number(answer.question.points),
           sectionId: answer.question.sectionId,
+          order: answer.question.order,
           options: answer.question.options.map((opt) => ({
             id: opt.id,
             label: opt.label,
             isCorrect: opt.isCorrect,
+            order: opt.order,
           })),
         },
       })),
-    }))
+    }
 
-    const sections = await prisma.testSection.findMany({
-      where: { testId: resolvedParams.testId },
-      orderBy: { order: 'asc' },
-      select: {
-        id: true,
-        title: true,
+    // Apply score release filtering
+    const filteredAttempt = filterAttemptByReleaseMode(
+      attemptData,
+      {
+        scoreReleaseMode: test.scoreReleaseMode || 'SCORE_ONLY',
+        releaseScoresAt: test.releaseScoresAt,
+        status: test.status,
+      },
+      isAdminUser
+    )
+
+    return NextResponse.json({
+      attempt: filteredAttempt,
+      test: {
+        id: test.id,
+        releaseScoresAt: test.releaseScoresAt?.toISOString() || null,
+        scoreReleaseMode: test.scoreReleaseMode || 'SCORE_ONLY',
+        scoresReleased: shouldReleaseScores({
+          releaseScoresAt: test.releaseScoresAt,
+          status: test.status,
+        }),
       },
     })
-
-    return NextResponse.json({ attempts: transformedAttempts, sections })
   } catch (error) {
-    console.error('Get test attempts error:', error)
+    console.error('Get my results error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

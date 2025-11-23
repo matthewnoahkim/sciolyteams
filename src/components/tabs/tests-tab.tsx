@@ -35,6 +35,12 @@ interface Test {
   }
 }
 
+interface UserAttemptInfo {
+  attemptsUsed: number
+  maxAttempts: number | null
+  hasReachedLimit: boolean
+}
+
 export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
@@ -42,6 +48,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'scheduled' | 'opened' | 'completed'>('all')
+  const [userAttempts, setUserAttempts] = useState<Map<string, UserAttemptInfo>>(new Map())
 
   // Delete Dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -73,6 +80,29 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
       if (response.ok) {
         const data = await response.json()
         setTests(data.tests)
+
+        // For non-admins, fetch attempt counts for each test
+        if (!isAdmin && data.tests.length > 0) {
+          const attemptMap = new Map<string, UserAttemptInfo>()
+          for (const test of data.tests) {
+            if (test.maxAttempts !== null) {
+              try {
+                const attemptsResponse = await fetch(`/api/tests/${test.id}/user-attempts`)
+                if (attemptsResponse.ok) {
+                  const attemptsData = await attemptsResponse.json()
+                  attemptMap.set(test.id, {
+                    attemptsUsed: attemptsData.attemptsUsed || 0,
+                    maxAttempts: test.maxAttempts,
+                    hasReachedLimit: (attemptsData.attemptsUsed || 0) >= test.maxAttempts,
+                  })
+                }
+              } catch (err) {
+                console.error(`Failed to fetch attempts for test ${test.id}:`, err)
+              }
+            }
+          }
+          setUserAttempts(attemptMap)
+        }
       } else {
         throw new Error('Failed to fetch tests')
       }
@@ -86,7 +116,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
     } finally {
       setLoading(false)
     }
-  }, [teamId, toast])
+  }, [teamId, isAdmin, toast])
 
   useEffect(() => {
     fetchTests()
@@ -201,19 +231,34 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
 
     filteredTests.forEach((test) => {
       if (test.status === 'DRAFT') {
-        draftsList.push(test)
+        if (isAdmin) {
+          draftsList.push(test)
+        }
+        // Non-admins don't see drafts
       } else if (test.status === 'PUBLISHED') {
         const startAt = test.startAt ? new Date(test.startAt) : null
         const endAt = test.endAt ? new Date(test.endAt) : null
-        
-        // Check if test is completed
-        if (endAt && now > endAt) {
-          completedList.push(test)
-        } else if (startAt && now < startAt) {
-          // Test hasn't started yet - Scheduled
+        const allowLateUntil = test.allowLateUntil ? new Date(test.allowLateUntil) : null
+        const deadline = allowLateUntil || endAt
+        const isPastEnd = deadline ? now > deadline : false
+        const isScheduled = startAt && now < startAt
+
+        // Check if user has reached max attempts (for non-admins)
+        let userReachedLimit = false
+        if (!isAdmin && test.maxAttempts !== null) {
+          const attemptInfo = userAttempts.get(test.id)
+          userReachedLimit = attemptInfo?.hasReachedLimit || false
+        }
+
+        // For admins: completed = past end date
+        // For users: completed = past end date OR reached max attempts
+        const isCompleted = isPastEnd || userReachedLimit
+
+        if (isScheduled) {
           scheduledList.push(test)
+        } else if (isCompleted) {
+          completedList.push(test)
         } else {
-          // Test has started (or no startAt) and hasn't ended - currently open
           openedList.push(test)
         }
       } else if (test.status === 'CLOSED') {
@@ -233,7 +278,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
     }
 
     return { drafts: draftsList, scheduled: scheduledList, opened: openedList, completed: completedList }
-  }, [tests, searchQuery, statusFilter])
+  }, [tests, searchQuery, statusFilter, isAdmin, userAttempts])
 
   const renderTestCard = (test: Test) => (
     <Card key={test.id}>
@@ -302,14 +347,45 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
         </div>
 
         {!isAdmin && test.status === 'PUBLISHED' && (
-          <Button
-            onClick={() => handleTakeTest(test)}
-            disabled={!isTestAvailable(test)}
-            className="w-full"
-          >
-            <Play className="h-4 w-4 mr-2" />
-            {isTestAvailable(test) ? 'Take Test' : 'Not Available'}
-          </Button>
+          <div className="flex gap-2">
+            {(() => {
+              const attemptInfo = userAttempts.get(test.id)
+              const hasCompletedAttempt = attemptInfo && attemptInfo.attemptsUsed > 0
+              const isCompleted = (() => {
+                const now = new Date()
+                const endAt = test.endAt ? new Date(test.endAt) : null
+                const allowLateUntil = test.allowLateUntil ? new Date(test.allowLateUntil) : null
+                const deadline = allowLateUntil || endAt
+                const isPastEnd = deadline ? now > deadline : false
+                const userReachedLimit = attemptInfo?.hasReachedLimit || false
+                return isPastEnd || userReachedLimit
+              })()
+
+              if (isCompleted && hasCompletedAttempt) {
+                return (
+                  <Button
+                    onClick={() => router.push(`/teams/${teamId}/tests/${test.id}/results`)}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Results
+                  </Button>
+                )
+              }
+
+              return (
+                <Button
+                  onClick={() => handleTakeTest(test)}
+                  disabled={!isTestAvailable(test)}
+                  className="w-full"
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  {isTestAvailable(test) ? 'Take Test' : 'Not Available'}
+                </Button>
+              )
+            })()}
+          </div>
         )}
       </CardContent>
     </Card>
