@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 import {
@@ -20,6 +21,7 @@ import {
   ShieldAlert,
   Trash2,
   Users,
+  Send,
 } from 'lucide-react'
 
 type QuestionType = 'MCQ_SINGLE' | 'MCQ_MULTI' | 'LONG_TEXT'
@@ -50,31 +52,122 @@ interface NewTestBuilderProps {
   teamId: string
   teamName: string
   subteams: SubteamInfo[]
+  test?: {
+    id: string
+    name: string
+    description: string | null
+    instructions: string | null
+    durationMinutes: number
+    maxAttempts: number | null
+    scoreReleaseMode: 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
+    randomizeQuestionOrder: boolean
+    randomizeOptionOrder: boolean
+    requireFullscreen: boolean
+    status: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
+    assignments: Array<{
+      assignedScope: 'TEAM' | 'SUBTEAM' | 'PERSONAL'
+      subteamId: string | null
+      subteam: { id: string; name: string } | null
+    }>
+    questions: Array<{
+      id: string
+      type: string
+      promptMd: string
+      explanation: string | null
+      points: number
+      shuffleOptions: boolean
+      options: Array<{
+        id: string
+        label: string
+        isCorrect: boolean
+        order: number
+      }>
+    }>
+  }
 }
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024 // 2MB
 
-export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderProps) {
+// Parse promptMd to extract context and prompt
+function parsePromptMd(promptMd: string): { context: string; prompt: string } {
+  const parts = promptMd.split('---')
+  if (parts.length === 2) {
+    return { context: parts[0].trim(), prompt: parts[1].trim() }
+  }
+  return { context: '', prompt: promptMd.trim() }
+}
+
+export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuilderProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
-
-  const [assignmentMode, setAssignmentMode] = useState<'TEAM' | 'SUBTEAMS'>('TEAM')
-  const [selectedSubteams, setSelectedSubteams] = useState<string[]>([])
-
-  const [details, setDetails] = useState({
-    name: '',
-    description: '',
-    instructions: '',
-    durationMinutes: '60',
-    maxAttempts: '',
-    scoreReleaseMode: 'FULL_TEST' as 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
-    randomizeQuestionOrder: false,
-    randomizeOptionOrder: false,
-    requireFullscreen: true,
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [publishFormData, setPublishFormData] = useState({
+    startAt: '',
+    endAt: '',
+    testPassword: '',
+    testPasswordConfirm: '',
+    releaseScoresAt: '',
   })
 
-  const [questions, setQuestions] = useState<QuestionDraft[]>([])
+  const isEditMode = !!test
+
+  const [assignmentMode, setAssignmentMode] = useState<'TEAM' | 'SUBTEAMS'>(() => {
+    if (test) {
+      const hasSubteamAssignments = test.assignments.some(a => a.assignedScope === 'SUBTEAM')
+      return hasSubteamAssignments ? 'SUBTEAMS' : 'TEAM'
+    }
+    return 'TEAM'
+  })
+  
+  const [selectedSubteams, setSelectedSubteams] = useState<string[]>(() => {
+    if (test) {
+      return test.assignments
+        .filter(a => a.assignedScope === 'SUBTEAM' && a.subteamId)
+        .map(a => a.subteamId!)
+    }
+    return []
+  })
+
+  const [details, setDetails] = useState({
+    name: test?.name || '',
+    description: test?.description || '',
+    instructions: test?.instructions || '',
+    durationMinutes: test?.durationMinutes?.toString() || '60',
+    maxAttempts: test?.maxAttempts?.toString() || '',
+    scoreReleaseMode: (test?.scoreReleaseMode || 'FULL_TEST') as 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
+    randomizeQuestionOrder: test?.randomizeQuestionOrder || false,
+    randomizeOptionOrder: test?.randomizeOptionOrder || false,
+    requireFullscreen: test?.requireFullscreen ?? true,
+  })
+
+  const [questions, setQuestions] = useState<QuestionDraft[]>(() => {
+    if (test?.questions) {
+      return test.questions.map((q) => {
+        const { context, prompt } = parsePromptMd(q.promptMd)
+        const type = (q.type === 'MCQ_SINGLE' || q.type === 'MCQ_MULTI' || q.type === 'LONG_TEXT') 
+          ? q.type as QuestionType
+          : 'MCQ_SINGLE'
+        
+        return {
+          id: q.id,
+          type,
+          prompt,
+          context,
+          explanation: q.explanation || '',
+          points: Number(q.points),
+          options: q.options.map((opt) => ({
+            id: opt.id,
+            label: opt.label,
+            isCorrect: opt.isCorrect,
+          })),
+          shuffleOptions: q.shuffleOptions,
+        }
+      })
+    }
+    return []
+  })
 
   const addQuestion = (type: QuestionType) => {
     const baseOptions: OptionDraft[] =
@@ -247,7 +340,7 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
     return prompt
   }
 
-  const handleSave = async () => {
+  const handleSave = async (andPublish: boolean = false) => {
     if (validationSummary.errors.length > 0) {
       toast({
         title: 'Please fix the highlighted issues',
@@ -299,26 +392,135 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
 
     setSaving(true)
     try {
-      const response = await fetch('/api/tests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+      if (isEditMode && test) {
+        // Update existing test
+        const response = await fetch(`/api/tests/${test.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: payload.name,
+            description: payload.description,
+            instructions: payload.instructions,
+            durationMinutes: payload.durationMinutes,
+            maxAttempts: payload.maxAttempts,
+            scoreReleaseMode: payload.scoreReleaseMode,
+            randomizeQuestionOrder: payload.randomizeQuestionOrder,
+            randomizeOptionOrder: payload.randomizeOptionOrder,
+            requireFullscreen: payload.requireFullscreen,
+          }),
+        })
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || 'Failed to create test')
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Failed to update test')
+        }
+
+        // Update assignments
+        await fetch(`/api/tests/${test.id}/assign`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assignments }),
+        })
+
+        // Get existing question IDs
+        const existingQuestionIds = new Set(test.questions.map(q => q.id))
+        const currentQuestionIds = new Set(questions.map(q => q.id))
+        
+        // Delete questions that were removed
+        const questionsToDelete = test.questions.filter(q => !currentQuestionIds.has(q.id))
+        for (const q of questionsToDelete) {
+          await fetch(`/api/tests/${test.id}/questions/${q.id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+
+        // Update or create questions
+        for (let i = 0; i < questions.length; i++) {
+          const question = questions[i]
+          const questionPayload = {
+            type: question.type,
+            promptMd: composePrompt(question),
+            explanation: question.explanation.trim() || undefined,
+            points: question.points,
+            order: i,
+            shuffleOptions: question.type === 'LONG_TEXT' ? false : question.shuffleOptions,
+            options:
+              question.type === 'LONG_TEXT'
+                ? undefined
+                : question.options
+                    .filter((option) => option.label.trim())
+                    .map((option, optIndex) => ({
+                      label: option.label.trim(),
+                      isCorrect: option.isCorrect,
+                      order: optIndex,
+                    })),
+          }
+
+          // Check if this question existed in the original test
+          const questionExistedBefore = existingQuestionIds.has(question.id)
+          
+          if (!questionExistedBefore) {
+            // Create new question
+            await fetch(`/api/tests/${test.id}/questions`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(questionPayload),
+            })
+          } else {
+            // Update existing question
+            await fetch(`/api/tests/${test.id}/questions/${question.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(questionPayload),
+            })
+          }
+        }
+
+        if (andPublish && test.status === 'DRAFT') {
+          // Open the publish dialog
+          setPublishDialogOpen(true)
+        } else {
+          toast({
+            title: 'Test Updated',
+            description: 'Your changes have been saved',
+          })
+          router.push(`/teams/${teamId}?tab=tests`)
+          router.refresh()
+        }
+      } else {
+        // Create new test
+        const response = await fetch('/api/tests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}))
+          throw new Error(data.error || 'Failed to create test')
+        }
+
+        const data = await response.json()
+        const testId = data.testId
+
+        if (andPublish) {
+          // Open the publish dialog
+          setPublishDialogOpen(true)
+          // Store the testId for publishing
+          sessionStorage.setItem('newTestId', testId)
+        } else {
+          toast({
+            title: 'Test saved',
+            description: 'Your test draft has been created successfully.',
+          })
+          router.push(`/teams/${teamId}?tab=tests`)
+          router.refresh()
+        }
       }
-
-      toast({
-        title: 'Test saved',
-        description: 'Your test draft has been created successfully.',
-      })
-      router.push(`/teams/${teamId}?tab=tests`)
-      router.refresh()
     } catch (error: any) {
       toast({
-        title: 'Failed to save test',
+        title: isEditMode ? 'Failed to update test' : 'Failed to save test',
         description: error.message || 'Something went wrong while saving the test.',
         variant: 'destructive',
       })
@@ -327,12 +529,132 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
     }
   }
 
+  const handlePublishTest = async () => {
+    const testId = isEditMode && test ? test.id : sessionStorage.getItem('newTestId')
+    
+    if (!testId) {
+      toast({
+        title: 'Error',
+        description: 'Test ID not found. Please save the test first.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (!publishFormData.startAt || !publishFormData.endAt) {
+      toast({
+        title: 'Error',
+        description: 'Start and end times are required',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const start = new Date(publishFormData.startAt)
+    const end = new Date(publishFormData.endAt)
+    if (end <= start) {
+      toast({
+        title: 'Error',
+        description: 'End time must be after start time',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (publishFormData.testPassword) {
+      if (publishFormData.testPassword.length < 6) {
+        toast({
+          title: 'Error',
+          description: 'Test password must be at least 6 characters',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      if (!publishFormData.testPasswordConfirm) {
+        toast({
+          title: 'Error',
+          description: 'Please confirm the password',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      if (publishFormData.testPassword !== publishFormData.testPasswordConfirm) {
+        toast({
+          title: 'Error',
+          description: 'Passwords do not match',
+          variant: 'destructive',
+        })
+        return
+      }
+    }
+
+    setPublishing(true)
+    try {
+      const startAtISO = publishFormData.startAt ? new Date(publishFormData.startAt).toISOString() : undefined
+      const endAtISO = publishFormData.endAt ? new Date(publishFormData.endAt).toISOString() : undefined
+      const releaseScoresAtISO = publishFormData.releaseScoresAt && publishFormData.releaseScoresAt.trim() 
+        ? new Date(publishFormData.releaseScoresAt).toISOString() 
+        : undefined
+
+      const response = await fetch(`/api/tests/${testId}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startAt: startAtISO,
+          endAt: endAtISO,
+          testPassword: publishFormData.testPassword || undefined,
+          releaseScoresAt: releaseScoresAtISO,
+        }),
+      })
+
+      let data: any = null
+      try {
+        const text = await response.text()
+        data = text ? JSON.parse(text) : {}
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError)
+        throw new Error(`Server error (${response.status}): Unable to parse response. Please check server logs.`)
+      }
+
+      if (!response.ok) {
+        const errorMsg = data.message 
+          ? `${data.error}: ${data.message}` 
+          : data.error || data.details || 'Failed to publish test'
+        throw new Error(errorMsg)
+      }
+
+      toast({
+        title: 'Test Published',
+        description: 'The test is now visible to assigned members',
+      })
+
+      if (!isEditMode) {
+        sessionStorage.removeItem('newTestId')
+      }
+      setPublishDialogOpen(false)
+      router.push(`/teams/${teamId}?tab=tests`)
+      router.refresh()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to publish test',
+        variant: 'destructive',
+      })
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   return (
     <div className="max-w-6xl mx-auto pb-24 space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">Team • {teamName}</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Create a New Test</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {isEditMode ? 'Edit Test' : 'Create a Test'}
+          </h1>
           <p className="text-muted-foreground">
             Build your assessment just like a Google Form. Configure timing, assignments, and
             lockdown before sharing with students.
@@ -346,8 +668,15 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
           >
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Test'}
+          <Button onClick={() => handleSave(false)} disabled={saving} variant="outline">
+            {saving ? 'Saving…' : isEditMode ? 'Save Changes' : 'Save as Draft'}
+          </Button>
+          <Button 
+            onClick={() => handleSave(true)} 
+            disabled={saving || validationSummary.errors.length > 0}
+          >
+            <Send className="h-4 w-4 mr-2" />
+            {saving ? 'Saving…' : 'Save & Publish'}
           </Button>
         </div>
       </div>
@@ -646,6 +975,94 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
           </Card>
         </div>
       </div>
+
+      {/* Publish Dialog */}
+      <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Publish Test</DialogTitle>
+            <DialogDescription>
+              Schedule the test and set a password if needed. Students will need the password to take the test.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="startAt">Start Date/Time *</Label>
+              <Input
+                id="startAt"
+                type="datetime-local"
+                value={publishFormData.startAt}
+                onChange={(e) => setPublishFormData((prev) => ({ ...prev, startAt: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="endAt">End Date/Time *</Label>
+              <Input
+                id="endAt"
+                type="datetime-local"
+                value={publishFormData.endAt}
+                onChange={(e) => setPublishFormData((prev) => ({ ...prev, endAt: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="testPassword">Test Password (optional)</Label>
+              <Input
+                id="testPassword"
+                type="password"
+                value={publishFormData.testPassword}
+                onChange={(e) => setPublishFormData((prev) => ({ ...prev, testPassword: e.target.value }))}
+                placeholder="Students need this to take the test"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                If set, students will need to enter this password to start the test.
+              </p>
+            </div>
+
+            {publishFormData.testPassword && (
+              <div>
+                <Label htmlFor="testPasswordConfirm">Confirm Password</Label>
+                <Input
+                  id="testPasswordConfirm"
+                  type="password"
+                  value={publishFormData.testPasswordConfirm}
+                  onChange={(e) => setPublishFormData((prev) => ({ ...prev, testPasswordConfirm: e.target.value }))}
+                  placeholder="Confirm password"
+                />
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="releaseScoresAt">Release Scores (optional)</Label>
+              <Input
+                id="releaseScoresAt"
+                type="datetime-local"
+                value={publishFormData.releaseScoresAt}
+                onChange={(e) => setPublishFormData((prev) => ({ ...prev, releaseScoresAt: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                When to automatically release scores to students. Leave empty for manual release.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPublishDialogOpen(false)} disabled={publishing}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePublishTest}
+              disabled={publishing}
+            >
+              {publishing ? 'Publishing...' : 'Publish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

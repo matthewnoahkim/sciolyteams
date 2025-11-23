@@ -23,15 +23,13 @@ import {
   Shuffle,
   ShieldAlert,
   FileText,
-  Edit,
   Key,
-  Copy,
 } from 'lucide-react'
-import { PublishTestButton } from '@/components/tests/publish-test-button'
 import { PasswordCopyButton } from '@/components/tests/password-copy-button'
 import { EditTestSchedule } from '@/components/tests/edit-test-schedule'
 import { DuplicateTestButton } from '@/components/tests/duplicate-test-button'
 import { TestAttemptsView } from '@/components/tests/test-attempts-view'
+import { NewTestBuilder } from '@/components/tests/new-test-builder'
 
 const STATUS_CONFIG: Record<
   'DRAFT' | 'PUBLISHED' | 'CLOSED',
@@ -87,6 +85,8 @@ export default async function TeamTestDetailPage({
       instructions: true,
       status: true,
       durationMinutes: true,
+      maxAttempts: true,
+      scoreReleaseMode: true,
       startAt: true,
       endAt: true,
       allowLateUntil: true,
@@ -94,10 +94,8 @@ export default async function TeamTestDetailPage({
       randomizeOptionOrder: true,
       requireFullscreen: true,
       releaseScoresAt: true,
-      maxAttempts: true,
-      scoreReleaseMode: true,
       testPasswordHash: true,
-      testPasswordPlaintext: true, // Admin-only plaintext password for viewing
+      testPasswordPlaintext: true,
       createdAt: true,
       updatedAt: true,
       assignments: {
@@ -125,6 +123,72 @@ export default async function TeamTestDetailPage({
     notFound()
   }
 
+  // If the test is a draft, show the builder/editor interface
+  if (test.status === 'DRAFT') {
+    const team = await prisma.team.findUnique({
+      where: { id: params.teamId },
+      select: {
+        id: true,
+        name: true,
+        subteams: {
+          select: {
+            id: true,
+            name: true,
+          },
+          orderBy: {
+            name: 'asc',
+          },
+        },
+      },
+    })
+
+    if (!team) {
+      redirect('/teams')
+    }
+
+    // Transform the test data to match NewTestBuilder's expected format
+    const transformedTest = {
+      id: test.id,
+      name: test.name,
+      description: test.description,
+      instructions: test.instructions,
+      durationMinutes: test.durationMinutes,
+      maxAttempts: test.maxAttempts,
+      scoreReleaseMode: test.scoreReleaseMode,
+      randomizeQuestionOrder: test.randomizeQuestionOrder,
+      randomizeOptionOrder: test.randomizeOptionOrder,
+      requireFullscreen: test.requireFullscreen,
+      status: test.status,
+      assignments: test.assignments,
+      questions: test.questions.map(q => ({
+        id: q.id,
+        type: q.type,
+        promptMd: q.promptMd,
+        explanation: q.explanation,
+        points: Number(q.points),
+        shuffleOptions: q.shuffleOptions,
+        options: q.options.map(o => ({
+          id: o.id,
+          label: o.label,
+          isCorrect: o.isCorrect,
+          order: o.order,
+        })),
+      })),
+    }
+
+    return (
+      <div className="px-4 py-8 lg:px-8">
+        <NewTestBuilder 
+          teamId={team.id} 
+          teamName={team.name} 
+          subteams={team.subteams}
+          test={transformedTest}
+        />
+      </div>
+    )
+  }
+
+  // Otherwise, show the detail view for published tests
   const statusConfig = STATUS_CONFIG[test.status]
 
   const assignmentSummary =
@@ -167,22 +231,6 @@ export default async function TeamTestDetailPage({
           )}
         </div>
         <div className="flex gap-2">
-          {test.status === 'DRAFT' && (
-            <>
-              <Link href={`/teams/${params.teamId}/tests/${test.id}/edit`}>
-                <Button>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Test
-                </Button>
-              </Link>
-              <PublishTestButton
-                testId={test.id}
-                teamId={params.teamId}
-                currentStatus={test.status}
-                questionCount={test.questions.length}
-              />
-            </>
-          )}
           <DuplicateTestButton
             testId={test.id}
             testName={test.name}

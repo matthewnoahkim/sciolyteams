@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, Clock, Users, FileText, AlertCircle, Play, Eye, Trash2, Lock, Search } from 'lucide-react'
+import { Plus, Clock, Users, FileText, AlertCircle, Play, Eye, Trash2, Lock, Search, Edit } from 'lucide-react'
 
 interface TestsTabProps {
   teamId: string
@@ -160,7 +160,8 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
   }
 
   const handleViewTest = (test: Test) => {
-    // Navigate to test builder or viewer
+    // Navigate to test detail page
+    // The page will automatically show the builder for drafts or detail view for published tests
     window.location.href = `/teams/${teamId}/tests/${test.id}`
   }
 
@@ -307,8 +308,17 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
                 variant="ghost"
                 onClick={() => handleViewTest(test)}
               >
-                <Eye className="h-4 w-4 mr-1" />
-                View
+                {test.status === 'DRAFT' ? (
+                  <>
+                    <Edit className="h-4 w-4 mr-1" />
+                    Edit
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4 mr-1" />
+                    View
+                  </>
+                )}
               </Button>
               <Button
                 size="sm"
