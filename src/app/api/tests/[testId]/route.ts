@@ -18,6 +18,8 @@ const updateTestSchema = z.object({
   randomizeOptionOrder: z.boolean().optional(),
   requireFullscreen: z.boolean().optional(),
   releaseScoresAt: z.string().datetime().optional().nullable(),
+  maxAttempts: z.number().int().min(1).optional().nullable(),
+  scoreReleaseMode: z.enum(['SCORE_ONLY', 'SCORE_WITH_WRONG', 'FULL_TEST']).optional(),
 })
 
 // GET /api/tests/[testId]
@@ -101,7 +103,31 @@ export async function GET(
       }))
     }
 
-    return NextResponse.json({ test })
+    // Get user's attempt information
+    const userAttempts = await prisma.testAttempt.findMany({
+      where: {
+        membershipId: membership.id,
+        testId: params.testId,
+      },
+      select: {
+        id: true,
+        status: true,
+        startedAt: true,
+        submittedAt: true,
+        gradeEarned: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const completedAttempts = userAttempts.filter(
+      (a) => a.status === 'SUBMITTED' || a.status === 'GRADED'
+    ).length
+
+    return NextResponse.json({
+      test,
+      userAttempts: isAdminUser ? null : userAttempts,
+      completedAttempts: isAdminUser ? null : completedAttempts,
+    })
   } catch (error) {
     console.error('Get test error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -193,6 +219,10 @@ export async function PATCH(
       updateData.releaseScoresAt = validatedData.releaseScoresAt
         ? new Date(validatedData.releaseScoresAt)
         : null
+    if (validatedData.maxAttempts !== undefined)
+      updateData.maxAttempts = validatedData.maxAttempts
+    if (validatedData.scoreReleaseMode !== undefined)
+      updateData.scoreReleaseMode = validatedData.scoreReleaseMode
 
     const updatedTest = await prisma.test.update({
       where: { id: params.testId },

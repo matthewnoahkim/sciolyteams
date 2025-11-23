@@ -473,27 +473,29 @@ model EventBudget {
 }
 
 model Test {
-  id                     String           @id @default(cuid())
+  id                     String            @id @default(cuid())
   teamId                 String
   name                   String
   description            String?
   instructions           String?
-  status                 TestStatus       @default(DRAFT)
+  status                 TestStatus        @default(DRAFT)
   durationMinutes        Int
   startAt                DateTime?
   endAt                  DateTime?
   allowLateUntil         DateTime?
-  randomizeQuestionOrder Boolean          @default(false)
-  randomizeOptionOrder   Boolean          @default(false)
-  requireFullscreen      Boolean          @default(true)
-  testPasswordHash       String?    // Password required to take the test (hashed)
-  testPasswordPlaintext  String?    // Password in plaintext for admin viewing only
+  randomizeQuestionOrder Boolean           @default(false)
+  randomizeOptionOrder   Boolean           @default(false)
+  requireFullscreen      Boolean           @default(true)
+  testPasswordHash       String?           // Password required to take the test (hashed)
+  testPasswordPlaintext  String?           // Password in plaintext for admin viewing only
   releaseScoresAt        DateTime?
+  maxAttempts            Int?              // Max attempts per user (null = unlimited)
+  scoreReleaseMode       ScoreReleaseMode  @default(FULL_TEST) // What to release: score only, score + wrong questions, or full test
   createdByMembershipId  String
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime         @updatedAt
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
   questions              Question[]
-  team                   Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team                   Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
   assignments            TestAssignment[]
   attempts               TestAttempt[]
   audits                 TestAudit[]
@@ -587,9 +589,9 @@ model TestAttempt {
   proctorEvents         ProctorEvent[]
   test                  Test              @relation(fields: [testId], references: [id], onDelete: Cascade)
 
-  @@unique([membershipId, testId])
   @@index([testId])
   @@index([membershipId])
+  @@index([membershipId, testId])
   @@index([status])
 }
 
@@ -751,6 +753,12 @@ enum ProctorEventKind {
   NETWORK_OFFLINE
   NETWORK_ONLINE
   MULTI_MONITOR_HINT
+}
+
+enum ScoreReleaseMode {
+  SCORE_ONLY         // Release score only
+  SCORE_WITH_WRONG   // Release score + list of questions they got wrong
+  FULL_TEST          // Release score + full test (MCQ + FRQ answers, correctness, feedback)
 }
 
 enum TestAuditAction {

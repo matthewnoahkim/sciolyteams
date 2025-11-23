@@ -61,6 +61,8 @@ const createTestSchema = z.object({
   randomizeOptionOrder: z.boolean().optional(),
   requireFullscreen: z.boolean().optional(),
   releaseScoresAt: z.string().datetime().optional(),
+  maxAttempts: z.number().int().min(1).optional(),
+  scoreReleaseMode: z.enum(['SCORE_ONLY', 'SCORE_WITH_WRONG', 'FULL_TEST']).optional(),
   assignments: z.array(assignmentSchema).optional(),
   questions: z.array(questionSchema).optional(),
 })
@@ -127,6 +129,8 @@ export async function GET(req: NextRequest) {
         allowLateUntil: true,
         requireFullscreen: true,
         releaseScoresAt: true,
+        maxAttempts: true,
+        scoreReleaseMode: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -184,6 +188,8 @@ export async function POST(req: NextRequest) {
       randomizeOptionOrder,
       requireFullscreen,
       releaseScoresAt,
+      maxAttempts,
+      scoreReleaseMode,
     } = validatedData
 
     const createdTest = await prisma.$transaction(async (tx) => {
@@ -199,6 +205,8 @@ export async function POST(req: NextRequest) {
           randomizeOptionOrder: randomizeOptionOrder ?? false,
           requireFullscreen: requireFullscreen ?? true,
           releaseScoresAt: releaseScoresAt ? new Date(releaseScoresAt) : null,
+          maxAttempts: maxAttempts ?? null,
+          scoreReleaseMode: scoreReleaseMode ?? 'FULL_TEST',
           createdByMembershipId: membership.id,
         },
       })

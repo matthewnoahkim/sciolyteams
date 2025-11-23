@@ -67,6 +67,8 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
     description: '',
     instructions: '',
     durationMinutes: '60',
+    maxAttempts: '',
+    scoreReleaseMode: 'FULL_TEST' as 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
     randomizeQuestionOrder: false,
     randomizeOptionOrder: false,
     requireFullscreen: true,
@@ -269,6 +271,8 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
       description: details.description.trim() || undefined,
       instructions: details.instructions.trim() || undefined,
       durationMinutes: validationSummary.durationValue,
+      maxAttempts: details.maxAttempts ? parseInt(details.maxAttempts, 10) : undefined,
+      scoreReleaseMode: details.scoreReleaseMode,
       randomizeQuestionOrder: details.randomizeQuestionOrder,
       randomizeOptionOrder: details.randomizeOptionOrder,
       requireFullscreen: details.requireFullscreen,
@@ -539,6 +543,44 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
                   }
                   required
                 />
+              </div>
+              <div>
+                <Label htmlFor="maxAttempts">Max attempts per user (optional)</Label>
+                <Input
+                  id="maxAttempts"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={details.maxAttempts}
+                  onChange={(event) =>
+                    setDetails((prev) => ({ ...prev, maxAttempts: event.target.value }))
+                  }
+                  placeholder="Unlimited if not set"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Leave blank for unlimited attempts
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="scoreReleaseMode">Score release mode</Label>
+                <select
+                  id="scoreReleaseMode"
+                  className="w-full h-12 rounded-2xl border border-input bg-background/50 px-4 py-3 text-sm"
+                  value={details.scoreReleaseMode}
+                  onChange={(event) =>
+                    setDetails((prev) => ({
+                      ...prev,
+                      scoreReleaseMode: event.target.value as 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
+                    }))
+                  }
+                >
+                  <option value="FULL_TEST">Full test (answers, correctness, feedback)</option>
+                  <option value="SCORE_WITH_WRONG">Score + which questions were wrong</option>
+                  <option value="SCORE_ONLY">Score only</option>
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Controls what students see after submission
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <input

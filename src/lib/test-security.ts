@@ -237,3 +237,93 @@ if (typeof setInterval !== 'undefined') {
   }, 60 * 60 * 1000)
 }
 
+/**
+ * Check if scores should be released for a test
+ */
+export function shouldReleaseScores(test: {
+  releaseScoresAt: Date | null
+  status: string
+}): boolean {
+  // Always release for draft/closed tests (shouldn't be taking these anyway)
+  if (test.status !== 'PUBLISHED') {
+    return true
+  }
+
+  // If no releaseScoresAt is set, release immediately
+  if (!test.releaseScoresAt) {
+    return true
+  }
+
+  // Release if current time is past releaseScoresAt
+  return new Date() >= test.releaseScoresAt
+}
+
+/**
+ * Filter attempt data based on score release settings
+ */
+export function filterAttemptByReleaseMode(
+  attempt: any,
+  test: {
+    scoreReleaseMode: 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
+    releaseScoresAt: Date | null
+    status: string
+  },
+  isAdmin: boolean
+): any {
+  // Admins always see everything
+  if (isAdmin) {
+    return attempt
+  }
+
+  // Check if scores should be released
+  const scoresReleased = shouldReleaseScores(test)
+
+  if (!scoresReleased) {
+    // Hide all score-related information
+    return {
+      ...attempt,
+      gradeEarned: null,
+      proctoringScore: null,
+      answers: attempt.answers?.map((answer: any) => ({
+        ...answer,
+        pointsAwarded: null,
+        gradedAt: null,
+        graderNote: null,
+      })),
+    }
+  }
+
+  // Scores are released - filter based on mode
+  if (test.scoreReleaseMode === 'SCORE_ONLY') {
+    // Only show overall score
+    return {
+      ...attempt,
+      gradeEarned: attempt.gradeEarned,
+      proctoringScore: null,
+      answers: null, // Hide all answer details
+    }
+  }
+
+  if (test.scoreReleaseMode === 'SCORE_WITH_WRONG') {
+    // Show score and which questions were wrong (but not the answers)
+    return {
+      ...attempt,
+      gradeEarned: attempt.gradeEarned,
+      proctoringScore: null,
+      answers: attempt.answers?.map((answer: any) => ({
+        id: answer.id,
+        questionId: answer.questionId,
+        pointsAwarded: answer.pointsAwarded,
+        // Hide actual answers and feedback
+        answerText: null,
+        selectedOptionIds: null,
+        numericAnswer: null,
+        graderNote: null,
+      })),
+    }
+  }
+
+  // FULL_TEST mode - show everything
+  return attempt
+}
+

@@ -3,14 +3,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { ProctorEventKind } from '@prisma/client'
 
-const tabTrackingSchema = z.object({
-  tabSwitchCount: z.number().int().min(0),
-  timeOffPageSeconds: z.number().int().min(0),
+const proctorEventSchema = z.object({
+  kind: z.nativeEnum(ProctorEventKind),
+  meta: z.record(z.any()).optional(),
 })
 
-// PATCH /api/tests/[testId]/attempts/[attemptId]/tab-tracking
-export async function PATCH(
+export async function POST(
   req: NextRequest,
   { params }: { params: { testId: string; attemptId: string } }
 ) {
@@ -21,7 +21,7 @@ export async function PATCH(
     }
 
     const body = await req.json()
-    const validatedData = tabTrackingSchema.parse(body)
+    const validatedData = proctorEventSchema.parse(body)
 
     const attempt = await prisma.testAttempt.findUnique({
       where: { id: params.attemptId },
@@ -49,15 +49,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const updatedAttempt = await prisma.testAttempt.update({
-      where: { id: params.attemptId },
+    const proctorEvent = await prisma.proctorEvent.create({
       data: {
-        tabSwitchCount: validatedData.tabSwitchCount,
-        timeOffPageSeconds: validatedData.timeOffPageSeconds,
+        attemptId: params.attemptId,
+        kind: validatedData.kind,
+        meta: validatedData.meta || undefined,
       },
     })
 
-    return NextResponse.json({ attempt: updatedAttempt })
+    return NextResponse.json({ proctorEvent }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -65,7 +65,7 @@ export async function PATCH(
         { status: 400 }
       )
     }
-    console.error('Update tab tracking error:', error)
+    console.error('Create proctor event error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

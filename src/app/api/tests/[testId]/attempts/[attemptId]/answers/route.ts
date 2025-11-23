@@ -3,18 +3,16 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { Prisma } from '@prisma/client'
 
 const saveAnswerSchema = z.object({
   questionId: z.string(),
-  answerText: z.string().optional(),
-  selectedOptionIds: z.array(z.string()).optional(),
-  numericAnswer: z.number().optional(),
+  answerText: z.string().optional().nullable(),
+  selectedOptionIds: z.array(z.string()).optional().nullable(),
+  numericAnswer: z.number().optional().nullable(),
 })
 
-// PATCH /api/tests/[testId]/attempts/[attemptId]/answers
-// Autosave answers
-export async function PATCH(
+// POST /api/tests/[testId]/attempts/[attemptId]/answers
+export async function POST(
   req: NextRequest,
   { params }: { params: { testId: string; attemptId: string } }
 ) {
@@ -25,7 +23,7 @@ export async function PATCH(
     }
 
     const body = await req.json()
-    const { answers } = body // Array of answers
+    const validatedData = saveAnswerSchema.parse(body)
 
     const attempt = await prisma.testAttempt.findUnique({
       where: { id: params.attemptId },
@@ -40,7 +38,7 @@ export async function PATCH(
 
     if (attempt.status !== 'IN_PROGRESS') {
       return NextResponse.json(
-        { error: 'Cannot save answers to submitted attempt' },
+        { error: 'Cannot modify submitted attempt' },
         { status: 400 }
       )
     }
@@ -57,39 +55,41 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Upsert answers
-    const operations = answers.map((answer: any) => {
-      const validated = saveAnswerSchema.parse(answer)
-      const selectedOptionValue =
-        validated.selectedOptionIds !== undefined
-          ? validated.selectedOptionIds
-          : Prisma.JsonNull
-
-      return prisma.attemptAnswer.upsert({
-        where: {
-          attemptId_questionId: {
-            attemptId: params.attemptId,
-            questionId: validated.questionId,
-          },
-        },
-        create: {
-          attemptId: params.attemptId,
-          questionId: validated.questionId,
-          answerText: validated.answerText,
-          selectedOptionIds: selectedOptionValue,
-          numericAnswer: validated.numericAnswer,
-        },
-        update: {
-          answerText: validated.answerText,
-          selectedOptionIds: selectedOptionValue,
-          numericAnswer: validated.numericAnswer,
-        },
-      })
+    // Verify question belongs to this test
+    const question = await prisma.question.findFirst({
+      where: {
+        id: validatedData.questionId,
+        testId: params.testId,
+      },
     })
 
-    await prisma.$transaction(operations)
+    if (!question) {
+      return NextResponse.json({ error: 'Question not found' }, { status: 404 })
+    }
 
-    return NextResponse.json({ success: true })
+    // Upsert answer
+    const answer = await prisma.attemptAnswer.upsert({
+      where: {
+        attemptId_questionId: {
+          attemptId: params.attemptId,
+          questionId: validatedData.questionId,
+        },
+      },
+      update: {
+        answerText: validatedData.answerText,
+        selectedOptionIds: validatedData.selectedOptionIds,
+        numericAnswer: validatedData.numericAnswer,
+      },
+      create: {
+        attemptId: params.attemptId,
+        questionId: validatedData.questionId,
+        answerText: validatedData.answerText,
+        selectedOptionIds: validatedData.selectedOptionIds,
+        numericAnswer: validatedData.numericAnswer,
+      },
+    })
+
+    return NextResponse.json({ answer })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -97,8 +97,7 @@ export async function PATCH(
         { status: 400 }
       )
     }
-    console.error('Save answers error:', error)
+    console.error('Save answer error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

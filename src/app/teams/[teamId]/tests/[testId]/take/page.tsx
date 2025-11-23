@@ -81,12 +81,13 @@ export default async function TakeTestPage({
     }
   }
 
-  // Check for existing attempt
-  const existingAttempt = await prisma.testAttempt.findUnique({
+  // Check for existing in-progress or not-started attempt
+  const existingAttempt = await prisma.testAttempt.findFirst({
     where: {
-      membershipId_testId: {
-        membershipId: membership.id,
-        testId: test.id,
+      membershipId: membership.id,
+      testId: test.id,
+      status: {
+        in: ['NOT_STARTED', 'IN_PROGRESS'],
       },
     },
     include: {
@@ -102,6 +103,7 @@ export default async function TakeTestPage({
         },
       },
     },
+    orderBy: { createdAt: 'desc' },
   })
 
   return (

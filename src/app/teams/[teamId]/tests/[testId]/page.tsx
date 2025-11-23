@@ -31,6 +31,7 @@ import { PublishTestButton } from '@/components/tests/publish-test-button'
 import { PasswordCopyButton } from '@/components/tests/password-copy-button'
 import { EditTestSchedule } from '@/components/tests/edit-test-schedule'
 import { DuplicateTestButton } from '@/components/tests/duplicate-test-button'
+import { TestAttemptsView } from '@/components/tests/test-attempts-view'
 
 const STATUS_CONFIG: Record<
   'DRAFT' | 'PUBLISHED' | 'CLOSED',
@@ -93,6 +94,8 @@ export default async function TeamTestDetailPage({
       randomizeOptionOrder: true,
       requireFullscreen: true,
       releaseScoresAt: true,
+      maxAttempts: true,
+      scoreReleaseMode: true,
       testPasswordHash: true,
       testPasswordPlaintext: true, // Admin-only plaintext password for viewing
       createdAt: true,
@@ -226,6 +229,13 @@ export default async function TeamTestDetailPage({
                 label="Assigned to"
                 value={assignmentSummary}
               />
+              {test.maxAttempts && (
+                <InfoItem
+                  icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />}
+                  label="Max Attempts"
+                  value={`${test.maxAttempts} per user`}
+                />
+              )}
               {test.status === 'PUBLISHED' && test.testPasswordHash && (
                 <div className="flex gap-3 sm:col-span-2">
                   <div className="mt-1">
@@ -303,6 +313,16 @@ export default async function TeamTestDetailPage({
                     : 'After manual release'
                 }
               />
+              <SettingToggle
+                label="Score release mode"
+                note={
+                  test.scoreReleaseMode === 'SCORE_ONLY'
+                    ? 'Score only'
+                    : test.scoreReleaseMode === 'SCORE_WITH_WRONG'
+                    ? 'Score + wrong questions'
+                    : 'Full test'
+                }
+              />
             </CardContent>
           </Card>
 
@@ -371,6 +391,9 @@ export default async function TeamTestDetailPage({
               ))}
             </CardContent>
           </Card>
+
+          {/* Attempts View - Admin Only */}
+          <TestAttemptsView testId={test.id} testName={test.name} />
       </div>
     </div>
   )
