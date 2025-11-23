@@ -327,11 +327,11 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const handleSignOut = async () => {
     try {
       const response = await signOut({
-        callbackUrl: '/',
+        callbackUrl: '/signin',
         redirect: false,
       })
 
-      const targetUrl = response?.url ?? '/'
+      const targetUrl = response?.url ?? '/signin'
       router.push(targetUrl)
       router.refresh()
     } catch (error) {

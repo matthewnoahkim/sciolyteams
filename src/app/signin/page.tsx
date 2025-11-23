@@ -27,7 +27,7 @@ export default function SignInPage() {
         </CardHeader>
         <CardContent>
           <Button
-            onClick={() => signIn('google', { callbackUrl: '/dashboard', redirect: true })}
+            onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
             className="w-full"
             size="lg"
           >
