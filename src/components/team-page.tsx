@@ -327,11 +327,11 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const handleSignOut = async () => {
     try {
       const response = await signOut({
-        callbackUrl: '/auth/signin',
+        callbackUrl: '/signin',
         redirect: false,
       })
 
-      const targetUrl = response?.url ?? '/auth/signin'
+      const targetUrl = response?.url ?? '/signin'
       router.push(targetUrl)
       router.refresh()
     } catch (error) {
@@ -392,7 +392,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
       <header className="border-b glass-effect-light dark:glass-effect-dark">
         <div className="container mx-auto flex items-center justify-between p-6">
           <div className="flex items-center gap-6">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="apple-button-hover">
+            <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')} className="apple-button-hover">
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>

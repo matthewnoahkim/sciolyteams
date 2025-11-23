@@ -127,12 +127,12 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
 
   const handleViewTest = (test: Test) => {
     // Navigate to test builder or viewer
-    window.location.href = `/teams/${teamId}/tests/${test.id}`
+    window.location.href = `/clubs/${teamId}/tests/${test.id}`
   }
 
   const handleTakeTest = (test: Test) => {
     // Navigate to test player
-    window.location.href = `/teams/${teamId}/tests/${test.id}/take`
+    window.location.href = `/clubs/${teamId}/tests/${test.id}/take`
   }
 
   const getStatusBadge = (status: Test['status']) => {
@@ -297,7 +297,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
           </p>
         </div>
         {isAdmin && (
-          <Button onClick={() => router.push(`/teams/${teamId}/tests/new`)}>
+          <Button onClick={() => router.push(`/clubs/${teamId}/tests/new`)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Test
           </Button>

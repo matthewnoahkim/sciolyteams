@@ -8,7 +8,7 @@ interface LogoProps {
   iconClassName?: string
   textClassName?: string
   showText?: boolean
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
 const sizeMap = {
@@ -26,6 +26,11 @@ const sizeMap = {
     icon: 'h-8 w-8',
     container: 'h-14 w-14',
     text: 'text-3xl',
+  },
+  xl: {
+    icon: 'h-10 w-10',
+    container: 'h-16 w-16',
+    text: 'text-4xl',
   },
 }
 

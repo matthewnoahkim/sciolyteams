@@ -310,7 +310,7 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
         title: 'Test saved',
         description: 'Your test draft has been created successfully.',
       })
-      router.push(`/teams/${teamId}?tab=tests`)
+      router.push(`/clubs/${teamId}?tab=tests`)
       router.refresh()
     } catch (error: any) {
       toast({
@@ -337,7 +337,7 @@ export function NewTestBuilder({ teamId, teamName, subteams }: NewTestBuilderPro
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => router.push(`/teams/${teamId}?tab=tests`)}
+            onClick={() => router.push(`/clubs/${teamId}?tab=tests`)}
             disabled={saving}
           >
             Cancel

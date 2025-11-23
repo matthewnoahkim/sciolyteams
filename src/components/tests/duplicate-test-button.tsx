@@ -51,7 +51,7 @@ export function DuplicateTestButton({
 
       setOpen(false)
       // Navigate to the new test's edit page
-      router.push(`/teams/${teamId}/tests/${data.test.id}/edit`)
+      router.push(`/clubs/${teamId}/tests/${data.test.id}/edit`)
     } catch (error: any) {
       toast({
         title: 'Error',

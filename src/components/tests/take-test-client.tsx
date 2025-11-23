@@ -273,7 +273,7 @@ export function TakeTestClient({
             <div className="flex gap-2 pt-4">
               <Button
                 variant="outline"
-                onClick={() => router.push(`/teams/${test.teamId}?tab=tests`)}
+                onClick={() => router.push(`/clubs/${test.teamId}?tab=tests`)}
               >
                 Cancel
               </Button>
@@ -284,7 +284,7 @@ export function TakeTestClient({
                     title: 'Test Submitted',
                     description: 'Your answers have been saved',
                   })
-                  router.push(`/teams/${test.teamId}?tab=tests`)
+                  router.push(`/clubs/${test.teamId}?tab=tests`)
                 }}
               >
                 Submit Test

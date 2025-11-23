@@ -403,7 +403,7 @@ export function EditTestForm({ teamId, teamName, subteams, test }: EditTestFormP
         description: 'Your changes have been saved',
       })
 
-      router.push(`/teams/${teamId}/tests/${test.id}`)
+      router.push(`/clubs/${teamId}/tests/${test.id}`)
       router.refresh()
     } catch (error: any) {
       toast({
@@ -420,7 +420,7 @@ export function EditTestForm({ teamId, teamName, subteams, test }: EditTestFormP
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Link href={`/teams/${teamId}/tests/${test.id}`}>
+          <Link href={`/clubs/${teamId}/tests/${test.id}`}>
             <Button variant="ghost" size="sm" className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Test
