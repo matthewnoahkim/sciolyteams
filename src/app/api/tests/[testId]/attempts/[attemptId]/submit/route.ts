@@ -139,7 +139,7 @@ export async function POST(
             attemptId: params.attemptId,
             questionId: result.questionId,
             answerText: null,
-            selectedOptionIds: null,
+            selectedOptionIds: undefined,
             numericAnswer: null,
             pointsAwarded: result.pointsAwarded,
             gradedAt: result.needsManualGrade ? null : new Date(),

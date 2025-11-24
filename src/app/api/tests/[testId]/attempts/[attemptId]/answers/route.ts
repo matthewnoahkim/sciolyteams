@@ -77,14 +77,14 @@ export async function POST(
       },
       update: {
         answerText: validatedData.answerText,
-        selectedOptionIds: validatedData.selectedOptionIds,
+        selectedOptionIds: validatedData.selectedOptionIds ?? undefined,
         numericAnswer: validatedData.numericAnswer,
       },
       create: {
         attemptId: params.attemptId,
         questionId: validatedData.questionId,
         answerText: validatedData.answerText,
-        selectedOptionIds: validatedData.selectedOptionIds,
+        selectedOptionIds: validatedData.selectedOptionIds ?? undefined,
         numericAnswer: validatedData.numericAnswer,
       },
     })

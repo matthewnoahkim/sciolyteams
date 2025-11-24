@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
           requireFullscreen: requireFullscreen ?? true,
           releaseScoresAt: releaseScoresAt ? new Date(releaseScoresAt) : null,
           maxAttempts: maxAttempts ?? null,
-          scoreReleaseMode: scoreReleaseMode ?? 'FULL_TEST',
+          scoreReleaseMode: (scoreReleaseMode ?? 'FULL_TEST') as any,
           createdByMembershipId: membership.id,
         },
       })

@@ -148,7 +148,7 @@ export function autoGradeQuestion(question: {
   type: string
   points: number
   numericTolerance?: number | null
-  options?: Array<{ id: string; isCorrect: boolean }>
+  options?: Array<{ id: string; isCorrect: boolean; label: string }>
 }, answer: {
   selectedOptionIds?: string[]
   numericAnswer?: number | null

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { isAdmin, getUserMembership } from '@/lib/rbac'
 import { hashTestPassword } from '@/lib/test-security'
 import { z } from 'zod'
@@ -100,9 +101,9 @@ export async function POST(
         releaseScoresAt: validatedData.releaseScoresAt
           ? new Date(validatedData.releaseScoresAt)
           : null,
+        ...(validatedData.scoreReleaseMode && { scoreReleaseMode: validatedData.scoreReleaseMode as any }),
         ...(validatedData.durationMinutes && { durationMinutes: validatedData.durationMinutes }),
         ...(validatedData.maxAttempts !== undefined && { maxAttempts: validatedData.maxAttempts }),
-        ...(validatedData.scoreReleaseMode && { scoreReleaseMode: validatedData.scoreReleaseMode }),
         ...(validatedData.requireFullscreen !== undefined && { requireFullscreen: validatedData.requireFullscreen }),
       },
     })
