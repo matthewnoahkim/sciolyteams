@@ -34,14 +34,17 @@ export default function DevPage() {
   const [userToDelete, setUserToDelete] = useState<any>(null)
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [logSearchQuery, setLogSearchQuery] = useState('')
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false)
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (password === DEV_PASSWORD) {
       setIsAuthenticated(true)
       sessionStorage.setItem('dev_auth', 'true')
+      setPassword('') // Clear password on success
     } else {
-      alert('Incorrect password')
+      setErrorDialogOpen(true)
+      setPassword('') // Clear password on error
     }
   }
 
@@ -192,6 +195,28 @@ export default function DevPage() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Incorrect Password Error Dialog */}
+        <Dialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="rounded-full bg-destructive/10 p-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                </div>
+                <DialogTitle>Incorrect Password</DialogTitle>
+              </div>
+              <DialogDescription className="pt-2">
+                The password you entered is incorrect. Please try again.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button onClick={() => setErrorDialogOpen(false)}>
+                Try Again
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }
