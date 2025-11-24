@@ -595,7 +595,7 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                         {answer.question.type.startsWith('MCQ') && answer.selectedOptionIds && (
                           <div>
                             <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                              Student's Answer
+                              Student&apos;s Answer
                             </p>
                             <div className="space-y-2">
                               {answer.question.options.map((option) => {
@@ -631,7 +631,7 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                         {answer.question.type === 'NUMERIC' && answer.numericAnswer !== null && (
                           <div>
                             <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                              Student's Answer
+                              Student&apos;s Answer
                             </p>
                             <p className="font-mono">{answer.numericAnswer}</p>
                           </div>
@@ -643,7 +643,7 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                             {/* Student's Answer */}
                             <div>
                               <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                                Student's Answer
+                                Student&apos;s Answer
                               </p>
                               <div className="whitespace-pre-wrap p-3 bg-muted/30 rounded border">
                                 {answer.answerText && answer.answerText.trim() ? (
@@ -828,7 +828,7 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
             <div className="rounded-lg border bg-muted/30 p-4">
               <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
                 <Info className="h-4 w-4" />
-                How It's Calculated
+                How It&apos;s Calculated
               </h3>
               <ul className="text-xs text-muted-foreground space-y-1">
                 <li>• Each event adds its weighted points to the total score</li>

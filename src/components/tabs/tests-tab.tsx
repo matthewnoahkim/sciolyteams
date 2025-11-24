@@ -518,7 +518,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
                     onClick={() => handleDismissWarning(true)}
                     className="h-7 text-xs text-orange-800 dark:text-orange-200 hover:text-orange-900 dark:hover:text-orange-100"
                   >
-                    Don't show again
+                    Don&apos;t show again
                   </Button>
                 </div>
               </div>
