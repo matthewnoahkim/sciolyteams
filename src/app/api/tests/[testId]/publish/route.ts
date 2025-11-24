@@ -12,6 +12,13 @@ const publishSchema = z.object({
   testPassword: z.string().min(6).optional(),
   releaseScoresAt: z.string().datetime().optional(),
   sendEmails: z.boolean().optional(),
+  durationMinutes: z.number().min(1).optional(),
+  maxAttempts: z.number().min(1).optional().nullable(),
+  scoreReleaseMode: z.enum(['NONE', 'SCORE_ONLY', 'SCORE_WITH_WRONG', 'FULL_TEST']).optional(),
+  requireFullscreen: z.boolean().optional(),
+  assignmentMode: z.enum(['TEAM', 'SUBTEAMS', 'EVENT']).optional(),
+  selectedSubteams: z.array(z.string()).optional(),
+  selectedEventId: z.string().optional(),
 })
 
 // POST /api/tests/[testId]/publish
@@ -93,8 +100,63 @@ export async function POST(
         releaseScoresAt: validatedData.releaseScoresAt
           ? new Date(validatedData.releaseScoresAt)
           : null,
+        ...(validatedData.durationMinutes && { durationMinutes: validatedData.durationMinutes }),
+        ...(validatedData.maxAttempts !== undefined && { maxAttempts: validatedData.maxAttempts }),
+        ...(validatedData.scoreReleaseMode && { scoreReleaseMode: validatedData.scoreReleaseMode }),
+        ...(validatedData.requireFullscreen !== undefined && { requireFullscreen: validatedData.requireFullscreen }),
       },
     })
+
+    // Handle assignments if provided
+    if (validatedData.assignmentMode) {
+      // First, delete existing assignments
+      await prisma.testAssignment.deleteMany({
+        where: { testId },
+      })
+
+      // Create new assignments based on mode
+      if (validatedData.assignmentMode === 'TEAM') {
+        await prisma.testAssignment.create({
+          data: {
+            testId,
+            assignedScope: 'TEAM',
+          },
+        })
+      } else if (validatedData.assignmentMode === 'SUBTEAMS' && validatedData.selectedSubteams) {
+        await prisma.testAssignment.createMany({
+          data: validatedData.selectedSubteams.map(subteamId => ({
+            testId,
+            assignedScope: 'SUBTEAM' as const,
+            subteamId,
+          })),
+        })
+      } else if (validatedData.assignmentMode === 'EVENT' && validatedData.selectedEventId) {
+        // Find all members assigned to this event via roster assignments
+        const rosterAssignments = await prisma.rosterAssignment.findMany({
+          where: {
+            eventId: validatedData.selectedEventId,
+            subteam: {
+              teamId: test.teamId,
+            },
+          },
+          select: {
+            membershipId: true,
+          },
+        })
+
+        const uniqueMembershipIds = [...new Set(rosterAssignments.map(ra => ra.membershipId))]
+
+        if (uniqueMembershipIds.length > 0) {
+          await prisma.testAssignment.createMany({
+            data: uniqueMembershipIds.map(membershipId => ({
+              testId,
+              assignedScope: 'PERSONAL' as const,
+              targetMembershipId: membershipId,
+            })),
+          })
+        }
+      }
+    }
 
     // Create audit log
     await prisma.testAudit.create({

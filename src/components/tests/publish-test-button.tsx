@@ -32,6 +32,7 @@ export function PublishTestButton({
   const { toast } = useToast()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [formData, setFormData] = useState({
     startAt: '',
@@ -39,6 +40,10 @@ export function PublishTestButton({
     testPassword: '',
     testPasswordConfirm: '',
     releaseScoresAt: '',
+    durationMinutes: '60',
+    maxAttempts: '',
+    scoreReleaseMode: 'FULL_TEST' as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
+    requireFullscreen: true,
   })
 
   const handlePublish = async () => {
@@ -117,6 +122,10 @@ export function PublishTestButton({
           endAt: endAtISO,
           testPassword: formData.testPassword || undefined,
           releaseScoresAt: releaseScoresAtISO,
+          durationMinutes: parseInt(formData.durationMinutes, 10) || 60,
+          maxAttempts: formData.maxAttempts ? parseInt(formData.maxAttempts, 10) : null,
+          scoreReleaseMode: formData.scoreReleaseMode,
+          requireFullscreen: formData.requireFullscreen,
         }),
       })
 
@@ -167,11 +176,11 @@ export function PublishTestButton({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Publish Test</DialogTitle>
             <DialogDescription>
-              Schedule the test and set a password if needed. Students will need the password to take the test.
+              Configure test schedule, security settings, and password. Students will need the password to take the test.
             </DialogDescription>
           </DialogHeader>
 
@@ -232,6 +241,66 @@ export function PublishTestButton({
             )}
 
             <div>
+              <Label htmlFor="durationMinutes">Allotted time (minutes) *</Label>
+              <Input
+                id="durationMinutes"
+                type="number"
+                min="1"
+                value={formData.durationMinutes}
+                onChange={(e) => setFormData((prev) => ({ ...prev, durationMinutes: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="maxAttempts">Max attempts per user (optional)</Label>
+              <Input
+                id="maxAttempts"
+                type="number"
+                min="1"
+                value={formData.maxAttempts}
+                onChange={(e) => setFormData((prev) => ({ ...prev, maxAttempts: e.target.value }))}
+                placeholder="Unlimited if not set"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave blank for unlimited attempts
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="scoreReleaseMode">Score release mode</Label>
+              <select
+                id="scoreReleaseMode"
+                value={formData.scoreReleaseMode}
+                onChange={(e) => setFormData((prev) => ({ ...prev, scoreReleaseMode: e.target.value as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST' }))}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="FULL_TEST">Full test (answers, correctness, feedback)</option>
+                <option value="SCORE_WITH_WRONG">Score + wrong questions</option>
+                <option value="SCORE_ONLY">Score only</option>
+                <option value="NONE">No scores released</option>
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Controls what students see after submission
+              </p>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.requireFullscreen}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, requireFullscreen: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input"
+                />
+                <span className="text-sm font-medium">Require fullscreen lockdown</span>
+              </label>
+              <p className="text-xs text-muted-foreground mt-1 ml-6">
+                Lockdown is best-effort. Students will be prompted to stay in fullscreen mode.
+              </p>
+            </div>
+
+            <div>
               <Label htmlFor="releaseScoresAt">Release Scores (optional)</Label>
               <Input
                 id="releaseScoresAt"
@@ -250,10 +319,56 @@ export function PublishTestButton({
               Cancel
             </Button>
             <Button
-              onClick={handlePublish}
+              onClick={() => setConfirmOpen(true)}
               disabled={publishing || questionCount === 0}
             >
               {publishing ? 'Publishing...' : 'Publish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Publication</DialogTitle>
+            <DialogDescription>
+              Tests cannot be edited after they are published. You will only be able to update the test schedule and password.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to publish this test? Once published:
+            </p>
+            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <span className="text-destructive">•</span>
+                <span>Questions and answers cannot be modified</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-destructive">•</span>
+                <span>Test settings (duration, attempts, lockdown) cannot be changed</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-destructive">•</span>
+                <span>Assignments cannot be modified</span>
+              </li>
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={publishing}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirmOpen(false)
+                handlePublish()
+              }}
+              disabled={publishing || questionCount === 0}
+              className="bg-primary"
+            >
+              {publishing ? 'Publishing...' : 'Yes, Publish Test'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { nanoid } from 'nanoid'
 import { Button } from '@/components/ui/button'
@@ -52,6 +52,7 @@ interface QuestionDraft {
 interface NewTestBuilderProps {
   teamId: string
   teamName: string
+  teamDivision?: 'B' | 'C'
   subteams: SubteamInfo[]
   test?: {
     id: string
@@ -98,23 +99,30 @@ function parsePromptMd(promptMd: string): { context: string; prompt: string } {
   return { context: '', prompt: promptMd.trim() }
 }
 
-export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuilderProps) {
+export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test }: NewTestBuilderProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
   const [publishDialogOpen, setPublishDialogOpen] = useState(false)
+  const [confirmPublishOpen, setConfirmPublishOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [events, setEvents] = useState<Array<{ id: string; name: string }>>([])
+  const [loadingEvents, setLoadingEvents] = useState(false)
   const [publishFormData, setPublishFormData] = useState({
     startAt: '',
     endAt: '',
     testPassword: '',
     testPasswordConfirm: '',
     releaseScoresAt: '',
+    durationMinutes: test?.durationMinutes?.toString() || '60',
+    maxAttempts: test?.maxAttempts?.toString() || '',
+    scoreReleaseMode: (test?.scoreReleaseMode || 'FULL_TEST') as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
+    requireFullscreen: test?.requireFullscreen ?? true,
   })
 
   const isEditMode = !!test
 
-  const [assignmentMode, setAssignmentMode] = useState<'TEAM' | 'SUBTEAMS'>(() => {
+  const [assignmentMode, setAssignmentMode] = useState<'TEAM' | 'SUBTEAMS' | 'EVENT'>(() => {
     if (test) {
       const hasSubteamAssignments = test.assignments.some(a => a.assignedScope === 'SUBTEAM')
       return hasSubteamAssignments ? 'SUBTEAMS' : 'TEAM'
@@ -131,16 +139,14 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
     return []
   })
 
+  const [selectedEventId, setSelectedEventId] = useState<string>('')
+
   const [details, setDetails] = useState({
     name: test?.name || '',
     description: test?.description || '',
     instructions: test?.instructions || '',
-    durationMinutes: test?.durationMinutes?.toString() || '60',
-    maxAttempts: test?.maxAttempts?.toString() || '',
-    scoreReleaseMode: (test?.scoreReleaseMode || 'FULL_TEST') as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
     randomizeQuestionOrder: test?.randomizeQuestionOrder || false,
     randomizeOptionOrder: test?.randomizeOptionOrder || false,
-    requireFullscreen: test?.requireFullscreen ?? true,
   })
 
   const [questions, setQuestions] = useState<QuestionDraft[]>(() => {
@@ -274,6 +280,29 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
     )
   }
 
+  // Fetch events when publish dialog opens
+  useEffect(() => {
+    if (publishDialogOpen && teamDivision && events.length === 0 && !loadingEvents) {
+      setLoadingEvents(true)
+      fetch(`/api/events?division=${teamDivision}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.events) {
+            setEvents(data.events)
+          }
+        })
+        .catch(error => {
+          console.error('Failed to fetch events:', error)
+          toast({
+            title: 'Failed to load events',
+            description: 'Could not load Science Olympiad events',
+            variant: 'destructive',
+          })
+        })
+        .finally(() => setLoadingEvents(false))
+    }
+  }, [publishDialogOpen, teamDivision, events.length, loadingEvents, toast])
+
   const validationSummary = useMemo(() => {
     const errors: string[] = []
 
@@ -281,13 +310,12 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
       errors.push('Test name is required.')
     }
 
-    const durationValue = parseInt(details.durationMinutes, 10)
-    if (!Number.isFinite(durationValue) || durationValue <= 0) {
-      errors.push('Duration must be a positive number of minutes.')
-    }
-
     if (assignmentMode === 'SUBTEAMS' && selectedSubteams.length === 0) {
       errors.push('Select at least one subteam or assign to the entire team.')
+    }
+
+    if (assignmentMode === 'EVENT' && !selectedEventId) {
+      errors.push('Select an event or choose a different assignment option.')
     }
 
 
@@ -325,11 +353,8 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
 
     return {
       errors,
-      durationValue: Number.isFinite(parseInt(details.durationMinutes, 10))
-        ? parseInt(details.durationMinutes, 10)
-        : 0,
     }
-  }, [assignmentMode, details, questions, selectedSubteams])
+  }, [assignmentMode, details, questions, selectedSubteams, selectedEventId])
 
   const composePrompt = (question: QuestionDraft) => {
     const context = question.context.trim()
@@ -364,12 +389,8 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
       name: details.name.trim(),
       description: details.description.trim() || undefined,
       instructions: details.instructions.trim() || undefined,
-      durationMinutes: validationSummary.durationValue,
-      maxAttempts: details.maxAttempts ? parseInt(details.maxAttempts, 10) : undefined,
-      scoreReleaseMode: details.scoreReleaseMode,
       randomizeQuestionOrder: details.randomizeQuestionOrder,
       randomizeOptionOrder: details.randomizeOptionOrder,
-      requireFullscreen: details.requireFullscreen,
       assignments,
       questions: questions.map((question, index) => ({
         type: question.type,
@@ -402,12 +423,8 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
             name: payload.name,
             description: payload.description,
             instructions: payload.instructions,
-            durationMinutes: payload.durationMinutes,
-            maxAttempts: payload.maxAttempts,
-            scoreReleaseMode: payload.scoreReleaseMode,
             randomizeQuestionOrder: payload.randomizeQuestionOrder,
             randomizeOptionOrder: payload.randomizeOptionOrder,
-            requireFullscreen: payload.requireFullscreen,
           }),
         })
 
@@ -611,6 +628,13 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
           endAt: endAtISO,
           testPassword: publishFormData.testPassword || undefined,
           releaseScoresAt: releaseScoresAtISO,
+          durationMinutes: parseInt(publishFormData.durationMinutes, 10) || 60,
+          maxAttempts: publishFormData.maxAttempts ? parseInt(publishFormData.maxAttempts, 10) : null,
+          scoreReleaseMode: publishFormData.scoreReleaseMode,
+          requireFullscreen: publishFormData.requireFullscreen,
+          assignmentMode,
+          selectedSubteams: assignmentMode === 'SUBTEAMS' ? selectedSubteams : undefined,
+          selectedEventId: assignmentMode === 'EVENT' ? selectedEventId : undefined,
         }),
       })
 
@@ -693,9 +717,8 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
         </div>
       </div>
 
-      <div className="flex flex-col gap-6 lg:flex-row">
-        <div className="flex-1 space-y-6">
-          <Card className="border-primary/10">
+      <div className="space-y-6">
+        <Card className="border-primary/10">
             <CardHeader>
               <CardTitle>Test Overview</CardTitle>
               <CardDescription>
@@ -793,209 +816,13 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
           </Card>
         </div>
 
-        <div className="lg:w-[320px] space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="h-4 w-4" />
-                Assignments
-              </CardTitle>
-              <CardDescription>
-                Choose who should receive the test. Admins can always preview drafts.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="assignmentScope"
-                  id="assign-team"
-                  checked={assignmentMode === 'TEAM'}
-                  onChange={() => setAssignmentMode('TEAM')}
-                  className="h-4 w-4"
-                />
-                <Label htmlFor="assign-team" className="cursor-pointer">
-                  Entire team
-                </Label>
-              </div>
-              <div className="flex items-start gap-2">
-                <input
-                  type="radio"
-                  name="assignmentScope"
-                  id="assign-subteams"
-                  checked={assignmentMode === 'SUBTEAMS'}
-                  onChange={() => setAssignmentMode('SUBTEAMS')}
-                  className="mt-1 h-4 w-4"
-                />
-                <div className="flex-1">
-                  <Label htmlFor="assign-subteams" className="cursor-pointer">
-                    Specific subteams
-                  </Label>
-                  <div className="mt-2 space-y-2 rounded-md border border-input bg-muted/30 p-3">
-                    {subteams.length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        No subteams yet—everyone will receive this test.
-                      </p>
-                    )}
-                    {subteams.map((subteam) => (
-                      <label
-                        key={subteam.id}
-                        className={cn(
-                          'flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm transition',
-                          assignmentMode === 'SUBTEAMS' && selectedSubteams.includes(subteam.id)
-                            ? 'bg-primary/10 border-primary/40'
-                            : 'hover:bg-muted'
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4"
-                          checked={selectedSubteams.includes(subteam.id)}
-                          onChange={() => toggleSubteam(subteam.id)}
-                          disabled={assignmentMode !== 'SUBTEAMS'}
-                        />
-                        {subteam.name}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Lock className="h-4 w-4" />
-                Security & Lockdown
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="duration">Allotted time (minutes) *</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  min="1"
-                  max="720"
-                  value={details.durationMinutes}
-                  onChange={(event) =>
-                    setDetails((prev) => ({ ...prev, durationMinutes: event.target.value }))
-                  }
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="maxAttempts">Max attempts per user (optional)</Label>
-                <Input
-                  id="maxAttempts"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={details.maxAttempts}
-                  onChange={(event) =>
-                    setDetails((prev) => ({ ...prev, maxAttempts: event.target.value }))
-                  }
-                  placeholder="Unlimited if not set"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Leave blank for unlimited attempts
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="scoreReleaseMode">Score release mode</Label>
-                <select
-                  id="scoreReleaseMode"
-                  className="w-full h-12 rounded-2xl border border-input bg-background/50 px-4 py-3 text-sm"
-                  value={details.scoreReleaseMode}
-                  onChange={(event) =>
-                    setDetails((prev) => ({
-                      ...prev,
-                      scoreReleaseMode: event.target.value as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
-                    }))
-                  }
-                >
-                  <option value="FULL_TEST">Full test (answers, correctness, feedback)</option>
-                  <option value="SCORE_WITH_WRONG">Score + which questions were wrong</option>
-                  <option value="SCORE_ONLY">Score only</option>
-                  <option value="NONE">Don't release scores</option>
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Controls what students see after submission
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  id="requireFullscreen"
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={details.requireFullscreen}
-                  onChange={(event) =>
-                    setDetails((prev) => ({ ...prev, requireFullscreen: event.target.checked }))
-                  }
-                />
-                <Label htmlFor="requireFullscreen" className="cursor-pointer">
-                  Require fullscreen lockdown
-                </Label>
-              </div>
-              <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
-                <p className="flex items-center gap-1 font-medium text-foreground">
-                  <ShieldAlert className="h-4 w-4" />
-                  Lockdown is best-effort
-                </p>
-                <p>
-                  Students will be prompted to stay in fullscreen and we log focus changes, pasted
-                  content, and dev tools usage. Pair with live proctoring for high-stakes tests.
-                </p>
-              </div>
-              <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
-                <p className="flex items-center gap-1 font-medium text-foreground">
-                  <AlertCircle className="h-4 w-4" />
-                  Need to randomize?
-                </p>
-                <div className="space-y-2 pt-1">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4"
-                      checked={details.randomizeQuestionOrder}
-                      onChange={(event) =>
-                        setDetails((prev) => ({
-                          ...prev,
-                          randomizeQuestionOrder: event.target.checked,
-                        }))
-                      }
-                    />
-                    Randomize question order per student
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4"
-                      checked={details.randomizeOptionOrder}
-                      onChange={(event) =>
-                        setDetails((prev) => ({
-                          ...prev,
-                          randomizeOptionOrder: event.target.checked,
-                        }))
-                      }
-                    />
-                    Shuffle answer choices
-                  </label>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
       {/* Publish Dialog */}
       <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Publish Test</DialogTitle>
             <DialogDescription>
-              Schedule the test and set a password if needed. Students will need the password to take the test.
+              Configure test schedule, security settings, and password. Students will need the password to take the test.
             </DialogDescription>
           </DialogHeader>
 
@@ -1050,6 +877,66 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
             )}
 
             <div>
+              <Label htmlFor="durationMinutes">Allotted time (minutes) *</Label>
+              <Input
+                id="durationMinutes"
+                type="number"
+                min="1"
+                value={publishFormData.durationMinutes}
+                onChange={(e) => setPublishFormData((prev) => ({ ...prev, durationMinutes: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="maxAttempts">Max attempts per user (optional)</Label>
+              <Input
+                id="maxAttempts"
+                type="number"
+                min="1"
+                value={publishFormData.maxAttempts}
+                onChange={(e) => setPublishFormData((prev) => ({ ...prev, maxAttempts: e.target.value }))}
+                placeholder="Unlimited if not set"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave blank for unlimited attempts
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="scoreReleaseMode">Score release mode</Label>
+              <select
+                id="scoreReleaseMode"
+                value={publishFormData.scoreReleaseMode}
+                onChange={(e) => setPublishFormData((prev) => ({ ...prev, scoreReleaseMode: e.target.value as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST' }))}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="FULL_TEST">Full test (answers, correctness, feedback)</option>
+                <option value="SCORE_WITH_WRONG">Score + wrong questions</option>
+                <option value="SCORE_ONLY">Score only</option>
+                <option value="NONE">No scores released</option>
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Controls what students see after submission
+              </p>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={publishFormData.requireFullscreen}
+                  onChange={(e) => setPublishFormData((prev) => ({ ...prev, requireFullscreen: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input"
+                />
+                <span className="text-sm font-medium">Require fullscreen lockdown</span>
+              </label>
+              <p className="text-xs text-muted-foreground mt-1 ml-6">
+                Lockdown is best-effort. Students will be prompted to stay in fullscreen mode.
+              </p>
+            </div>
+
+            <div>
               <Label htmlFor="releaseScoresAt">Release Scores (optional)</Label>
               <Input
                 id="releaseScoresAt"
@@ -1061,6 +948,116 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
                 When to automatically release scores to students. Leave empty for manual release.
               </p>
             </div>
+
+            <div className="space-y-3 pt-4 border-t">
+              <div>
+                <Label className="text-base font-semibold">Assignments</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose who should receive the test. Admins can always preview drafts.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="assignmentScope"
+                  id="assign-team"
+                  checked={assignmentMode === 'TEAM'}
+                  onChange={() => setAssignmentMode('TEAM')}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="assign-team" className="cursor-pointer font-normal">
+                  Entire team
+                </Label>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <input
+                  type="radio"
+                  name="assignmentScope"
+                  id="assign-subteams"
+                  checked={assignmentMode === 'SUBTEAMS'}
+                  onChange={() => setAssignmentMode('SUBTEAMS')}
+                  className="mt-1 h-4 w-4"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="assign-subteams" className="cursor-pointer font-normal">
+                    Specific subteams
+                  </Label>
+                  {assignmentMode === 'SUBTEAMS' && (
+                    <div className="mt-2 space-y-2 rounded-md border border-input bg-muted/30 p-3 max-h-32 overflow-y-auto">
+                      {subteams.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          No subteams yet—everyone will receive this test.
+                        </p>
+                      )}
+                      {subteams.map((subteam) => (
+                        <label
+                          key={subteam.id}
+                          className={cn(
+                            'flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm transition',
+                            selectedSubteams.includes(subteam.id)
+                              ? 'bg-primary/10 border-primary/40'
+                              : 'hover:bg-muted'
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={selectedSubteams.includes(subteam.id)}
+                            onChange={() => toggleSubteam(subteam.id)}
+                          />
+                          {subteam.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <input
+                  type="radio"
+                  name="assignmentScope"
+                  id="assign-event"
+                  checked={assignmentMode === 'EVENT'}
+                  onChange={() => setAssignmentMode('EVENT')}
+                  className="mt-1 h-4 w-4"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="assign-event" className="cursor-pointer font-normal">
+                    Users assigned to a specific event
+                  </Label>
+                  {assignmentMode === 'EVENT' && (
+                    <div className="mt-2">
+                      <select
+                        value={selectedEventId}
+                        onChange={(e) => setSelectedEventId(e.target.value)}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        disabled={loadingEvents}
+                      >
+                        <option value="">
+                          {loadingEvents ? 'Loading events...' : 'Select an event'}
+                        </option>
+                        {events.map((event) => (
+                          <option key={event.id} value={event.id}>
+                            {event.name}
+                          </option>
+                        ))}
+                      </select>
+                      {!loadingEvents && events.length === 0 && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          No events found for your division.
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Test will be assigned to all members with a roster assignment for this event.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           <DialogFooter>
@@ -1068,10 +1065,56 @@ export function NewTestBuilder({ teamId, teamName, subteams, test }: NewTestBuil
               Cancel
             </Button>
             <Button
-              onClick={handlePublishTest}
+              onClick={() => setConfirmPublishOpen(true)}
               disabled={publishing}
             >
               {publishing ? 'Publishing...' : 'Publish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmPublishOpen} onOpenChange={setConfirmPublishOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Publication</DialogTitle>
+            <DialogDescription>
+              Tests cannot be edited after they are published. You will only be able to update the test schedule and password.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to publish this test? Once published:
+            </p>
+            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <span className="text-destructive">•</span>
+                <span>Questions and answers cannot be modified</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-destructive">•</span>
+                <span>Test settings (duration, attempts, lockdown) cannot be changed</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-destructive">•</span>
+                <span>Assignments cannot be modified</span>
+              </li>
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmPublishOpen(false)} disabled={publishing}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirmPublishOpen(false)
+                handlePublishTest()
+              }}
+              disabled={publishing}
+              className="bg-primary"
+            >
+              {publishing ? 'Publishing...' : 'Yes, Publish Test'}
             </Button>
           </DialogFooter>
         </DialogContent>

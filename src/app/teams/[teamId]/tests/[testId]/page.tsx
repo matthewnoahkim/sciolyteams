@@ -130,6 +130,7 @@ export default async function TeamTestDetailPage({
       select: {
         id: true,
         name: true,
+        division: true,
         subteams: {
           select: {
             id: true,
@@ -181,7 +182,8 @@ export default async function TeamTestDetailPage({
         <div className="px-4 py-8 lg:px-8">
           <NewTestBuilder 
             teamId={team.id} 
-            teamName={team.name} 
+            teamName={team.name}
+            teamDivision={team.division}
             subteams={team.subteams}
             test={transformedTest}
           />
@@ -367,11 +369,11 @@ export default async function TeamTestDetailPage({
               <SettingToggle
                 label="Score release mode"
                 note={
-                  test.scoreReleaseMode === 'NONE'
+                  String(test.scoreReleaseMode) === 'NONE'
                     ? 'No scores released'
-                    : test.scoreReleaseMode === 'SCORE_ONLY'
+                    : String(test.scoreReleaseMode) === 'SCORE_ONLY'
                     ? 'Score only'
-                    : test.scoreReleaseMode === 'SCORE_WITH_WRONG'
+                    : String(test.scoreReleaseMode) === 'SCORE_WITH_WRONG'
                     ? 'Score + wrong questions'
                     : 'Full test'
                 }
