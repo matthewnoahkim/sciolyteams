@@ -166,6 +166,8 @@ A comprehensive team management platform built with Next.js 14, TypeScript, and 
    - `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
    - `RESEND_API_KEY`: Resend API key for emails
    - `EMAIL_FROM`: Sender email address
+   - `OPENAI_API_KEY`: Required for the optional admin-only AI Assist tools
+   - `OPENAI_FRQ_MODEL` *(optional)*: Override the default OpenAI model for FRQ grading (defaults to `gpt-4o-mini`)
 
 4. **Set up Google OAuth**
    

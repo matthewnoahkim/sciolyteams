@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { isAdmin } from '@/lib/rbac'
+import { getUserMembership, isAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 import { Decimal } from '@prisma/client/runtime/library'
+import { AiSuggestionStatus } from '@prisma/client'
 
 const gradeAnswerSchema = z.object({
   answerId: z.string(),
   pointsAwarded: z.number().min(0),
   graderNote: z.string().optional(),
+  aiSuggestionId: z.string().optional().nullable(),
 })
 
 const gradeAttemptSchema = z.object({
@@ -48,6 +50,11 @@ export async function PATCH(
         { error: 'Only admins can grade test attempts' },
         { status: 403 }
       )
+    }
+
+    const adminMembership = await getUserMembership(session.user.id, test.teamId)
+    if (!adminMembership) {
+      return NextResponse.json({ error: 'Membership not found for admin user' }, { status: 403 })
     }
 
     // Get the attempt with all answers and questions
@@ -99,6 +106,37 @@ export async function PATCH(
             gradedAt: new Date(),
           },
         })
+
+        if (grade.aiSuggestionId) {
+          const suggestion = await tx.aiGradingSuggestion.findUnique({
+            where: { id: grade.aiSuggestionId },
+          })
+
+          if (!suggestion) {
+            throw new Error('AI suggestion reference not found')
+          }
+
+          if (suggestion.answerId !== grade.answerId || suggestion.attemptId !== resolvedParams.attemptId) {
+            throw new Error('AI suggestion does not match this answer')
+          }
+
+          const suggestedPoints = Number(suggestion.suggestedPoints)
+          const acceptedStatus =
+            Math.abs(grade.pointsAwarded - suggestedPoints) < 0.01
+              ? AiSuggestionStatus.ACCEPTED
+              : AiSuggestionStatus.OVERRIDDEN
+
+          await tx.aiGradingSuggestion.update({
+            where: { id: suggestion.id },
+            data: {
+              status: acceptedStatus,
+              acceptedPoints: new Decimal(grade.pointsAwarded),
+              acceptedAt: new Date(),
+              acceptedByUserId: session.user.id,
+              acceptedByMembershipId: adminMembership.id,
+            },
+          })
+        }
       }
 
       // Recalculate total score

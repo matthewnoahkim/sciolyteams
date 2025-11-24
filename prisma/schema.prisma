@@ -475,33 +475,34 @@ model EventBudget {
 }
 
 model Test {
-  id                     String            @id @default(cuid())
+  id                     String                @id @default(cuid())
   teamId                 String
   name                   String
   description            String?
   instructions           String?
-  status                 TestStatus        @default(DRAFT)
+  status                 TestStatus            @default(DRAFT)
   durationMinutes        Int
   startAt                DateTime?
   endAt                  DateTime?
   allowLateUntil         DateTime?
-  randomizeQuestionOrder Boolean           @default(false)
-  randomizeOptionOrder   Boolean           @default(false)
-  requireFullscreen      Boolean           @default(true)
-  testPasswordHash       String?           // Password required to take the test (hashed)
-  testPasswordPlaintext  String?           // Password in plaintext for admin viewing only
+  randomizeQuestionOrder Boolean               @default(false)
+  randomizeOptionOrder   Boolean               @default(false)
+  requireFullscreen      Boolean               @default(true)
+  testPasswordHash       String?               // Password required to take the test (hashed)
+  testPasswordPlaintext  String?               // Password in plaintext for admin viewing only
   releaseScoresAt        DateTime?
-  maxAttempts            Int?              // Max attempts per user (null = unlimited)
-  scoreReleaseMode       ScoreReleaseMode  @default(FULL_TEST) // What to release: score only, score + wrong questions, or full test
+  maxAttempts            Int?                  // Max attempts per user (null = unlimited)
+  scoreReleaseMode       ScoreReleaseMode      @default(FULL_TEST) // What to release: score only, score + wrong questions, or full test
   createdByMembershipId  String
-  createdAt              DateTime          @default(now())
-  updatedAt              DateTime          @updatedAt
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
   questions              Question[]
-  team                   Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team                   Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
   assignments            TestAssignment[]
   attempts               TestAttempt[]
   audits                 TestAudit[]
   sections               TestSection[]
+  aiSuggestions          AiGradingSuggestion[]
 
   @@index([teamId])
   @@index([status])
@@ -537,6 +538,7 @@ model Question {
   section          TestSection?     @relation(fields: [sectionId], references: [id])
   test             Test             @relation(fields: [testId], references: [id], onDelete: Cascade)
   options          QuestionOption[]
+  aiSuggestions    AiGradingSuggestion[]
 
   @@index([testId])
   @@index([sectionId])
@@ -589,6 +591,7 @@ model TestAttempt {
   answers               AttemptAnswer[]
   gradeAdjustments      GradeAdjustment[]
   proctorEvents         ProctorEvent[]
+  aiSuggestions         AiGradingSuggestion[]
   test                  Test              @relation(fields: [testId], references: [id], onDelete: Cascade)
 
   @@index([testId])
@@ -609,8 +612,9 @@ model AttemptAnswer {
   graderNote        String?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
-  attempt           TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  question          Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  attempt           TestAttempt        @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question          Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  aiSuggestions     AiGradingSuggestion[]
 
   @@unique([attemptId, questionId])
   @@index([attemptId])
@@ -639,6 +643,41 @@ model GradeAdjustment {
   attempt            TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@index([attemptId])
+}
+
+model AiGradingSuggestion {
+  id                      String             @id @default(cuid())
+  testId                  String
+  attemptId               String
+  answerId                String
+  questionId              String
+  requestedByUserId       String
+  requestedByMembershipId String?
+  suggestedPoints         Decimal            @db.Decimal(5, 2)
+  maxPoints               Decimal            @db.Decimal(5, 2)
+  explanation             String
+  strengths               String?
+  gaps                    String?
+  rubricAlignment         String?
+  rawResponse             Json?
+  status                  AiSuggestionStatus @default(SUGGESTED)
+  acceptedPoints          Decimal?           @db.Decimal(5, 2)
+  acceptedAt              DateTime?
+  acceptedByUserId        String?
+  acceptedByMembershipId  String?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  attempt                 TestAttempt        @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  answer                  AttemptAnswer      @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  question                Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  test                    Test               @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@index([answerId])
+  @@index([questionId])
+  @@index([testId])
+  @@index([requestedByUserId])
+  @@index([status])
 }
 
 model TestAudit {
@@ -822,6 +861,15 @@ enum TestAuditAction {
   RESET_PASSWORD
   MANUAL_GRADE
   INVALIDATE_ATTEMPT
+}
+
+enum AiSuggestionStatus {
+  REQUESTED
+  SUGGESTED
+  FAILED
+  ACCEPTED
+  OVERRIDDEN
+  DISMISSED
 }
 
 enum LogType {

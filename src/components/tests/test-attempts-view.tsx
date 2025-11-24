@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Users, Eye, AlertTriangle, CheckCircle, XCircle, Clock, Info, Save } from 'lucide-react'
+import { Users, Eye, AlertTriangle, CheckCircle, XCircle, Clock, Info, Save, Sparkles, Bot, Loader2 } from 'lucide-react'
 
 interface TestAttemptsViewProps {
   testId: string
@@ -66,11 +66,30 @@ interface GradeEdit {
   answerId: string
   pointsAwarded: number
   graderNote: string
+  aiSuggestionId?: string | null
 }
 
 interface Section {
   id: string
   title: string | null
+}
+
+type AiSuggestionStatus = 'REQUESTED' | 'SUGGESTED' | 'FAILED' | 'ACCEPTED' | 'OVERRIDDEN' | 'DISMISSED'
+
+interface AiSuggestion {
+  id: string
+  answerId: string
+  questionId: string
+  suggestedPoints: number
+  maxPoints: number
+  explanation: string
+  strengths?: string | null
+  gaps?: string | null
+  rubricAlignment?: string | null
+  status: AiSuggestionStatus
+  createdAt: string
+  acceptedAt?: string | null
+  acceptedPoints?: number | null
 }
 
 export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
@@ -85,12 +104,12 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [gradeEdits, setGradeEdits] = useState<Record<string, GradeEdit>>({})
   const [saving, setSaving] = useState(false)
+  const [aiSuggestions, setAiSuggestions] = useState<Record<string, AiSuggestion | null>>({})
+  const [aiLoadingByAnswer, setAiLoadingByAnswer] = useState<Record<string, boolean>>({})
+  const [aiErrors, setAiErrors] = useState<Record<string, string | null>>({})
+  const [bulkAiLoading, setBulkAiLoading] = useState(false)
 
-  useEffect(() => {
-    fetchAttempts()
-  }, [testId])
-
-  const fetchAttempts = async () => {
+  const fetchAttempts = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/tests/${testId}/attempts`)
@@ -111,9 +130,14 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [testId, toast])
+
+  useEffect(() => {
+    fetchAttempts()
+  }, [fetchAttempts])
 
   const handleViewDetails = (attempt: Attempt) => {
+    resetAiAssistantState()
     setSelectedAttempt(attempt)
     setDetailDialogOpen(true)
     // Initialize grade edits from current attempt
@@ -123,19 +147,43 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
         answerId: answer.id,
         pointsAwarded: answer.pointsAwarded !== null ? answer.pointsAwarded : 0,
         graderNote: answer.graderNote || '',
+        aiSuggestionId: null,
       }
     })
     setGradeEdits(edits)
+    void loadAiSuggestionsForAttempt(attempt.id)
   }
 
   const handleGradeEdit = (answerId: string, field: 'pointsAwarded' | 'graderNote', value: number | string) => {
-    setGradeEdits((prev) => ({
-      ...prev,
-      [answerId]: {
-        ...prev[answerId],
-        [field]: value,
-      },
-    }))
+    setGradeEdits((prev) => {
+      const existing = prev[answerId] || { answerId, pointsAwarded: 0, graderNote: '', aiSuggestionId: null }
+      let updated: GradeEdit
+
+      if (field === 'pointsAwarded' && typeof value === 'number') {
+        const suggestion = aiSuggestions[answerId]
+        const shouldClearSuggestion =
+          existing.aiSuggestionId &&
+          (!suggestion ||
+            suggestion.id !== existing.aiSuggestionId ||
+            Math.abs(value - suggestion.suggestedPoints) > 0.01)
+
+        updated = {
+          ...existing,
+          pointsAwarded: value,
+          aiSuggestionId: shouldClearSuggestion ? null : existing.aiSuggestionId,
+        }
+      } else {
+        updated = {
+          ...existing,
+          graderNote: value as string,
+        }
+      }
+
+      return {
+        ...prev,
+        [answerId]: updated,
+      }
+    })
   }
 
   const handleSaveGrades = async () => {
@@ -248,6 +296,222 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
     return `${diffMins}m ${diffSecs}s`
   }
 
+  const isFrqQuestion = (type: string) => type === 'SHORT_TEXT' || type === 'LONG_TEXT'
+
+  const resetAiAssistantState = () => {
+    setAiSuggestions({})
+    setAiErrors({})
+    setAiLoadingByAnswer({})
+    setBulkAiLoading(false)
+  }
+
+  const loadAiSuggestionsForAttempt = async (attemptId: string) => {
+    try {
+      const response = await fetch(`/api/tests/${testId}/attempts/${attemptId}/ai/suggestions`)
+      if (!response.ok) {
+        throw new Error('Failed to load AI suggestions')
+      }
+      const data = await response.json()
+      const latest: Record<string, AiSuggestion | null> = {}
+      ;(data.suggestions || []).forEach((suggestion: AiSuggestion) => {
+        if (!latest[suggestion.answerId]) {
+          latest[suggestion.answerId] = suggestion
+        }
+      })
+      setAiSuggestions(latest)
+    } catch (error) {
+      console.error('Failed to load AI suggestions', error)
+    }
+  }
+
+  const renderAiStatusBadge = (status: AiSuggestionStatus) => {
+    const config: Record<
+      AiSuggestionStatus,
+      { label: string; variant: 'default' | 'secondary' | 'destructive'; className?: string }
+    > = {
+      REQUESTED: { label: 'Requested', variant: 'secondary' },
+      SUGGESTED: { label: 'Suggested', variant: 'secondary' },
+      FAILED: { label: 'Errored', variant: 'destructive' },
+      ACCEPTED: { label: 'Accepted', variant: 'default', className: 'bg-green-600 text-white' },
+      OVERRIDDEN: { label: 'Overridden', variant: 'destructive' },
+      DISMISSED: { label: 'Dismissed', variant: 'secondary' },
+    }
+    const badge = config[status] || config.SUGGESTED
+    return (
+      <Badge variant={badge.variant} className={badge.className}>
+        {badge.label}
+      </Badge>
+    )
+  }
+
+  const requestAiSuggestions = async ({ mode, answerId }: { mode: 'single' | 'all'; answerId?: string }) => {
+    if (!selectedAttempt) return
+    if (mode === 'single' && !answerId) return
+
+    const targetAnswerIds =
+      mode === 'all'
+        ? selectedAttempt.answers.filter((answer) => isFrqQuestion(answer.question.type)).map((answer) => answer.id)
+        : answerId
+        ? [answerId]
+        : []
+
+    if (targetAnswerIds.length === 0) return
+
+    setAiErrors((prev) => {
+      const next = { ...prev }
+      targetAnswerIds.forEach((id) => {
+        next[id] = null
+      })
+      return next
+    })
+
+    setAiLoadingByAnswer((prev) => {
+      const next = { ...prev }
+      targetAnswerIds.forEach((id) => {
+        next[id] = true
+      })
+      return next
+    })
+
+    if (mode === 'all') {
+      setBulkAiLoading(true)
+    }
+
+    try {
+      const response = await fetch(`/api/tests/${testId}/attempts/${selectedAttempt.id}/ai/grade`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, answerId }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to request AI grading')
+      }
+
+      const data = await response.json()
+      setAiSuggestions((prev) => {
+        const next = { ...prev }
+        ;(data.suggestions || []).forEach((suggestion: AiSuggestion) => {
+          next[suggestion.answerId] = suggestion
+        })
+        return next
+      })
+
+      const suggestionCount = data.suggestions?.length || 0
+      if (suggestionCount > 0) {
+        toast({
+          title: 'AI Assist ready',
+          description: `Generated ${suggestionCount} suggestion${suggestionCount > 1 ? 's' : ''}. Review before applying.`,
+        })
+      } else {
+        toast({
+          title: 'No suggestions returned',
+          description: 'AI did not return any suggestions for this request.',
+          variant: 'destructive',
+        })
+      }
+    } catch (error: any) {
+      const message = error.message || 'AI Assist request failed'
+      setAiErrors((prev) => {
+        const next = { ...prev }
+        targetAnswerIds.forEach((id) => {
+          next[id] = message
+        })
+        return next
+      })
+      toast({
+        title: 'AI Assist error',
+        description: message,
+        variant: 'destructive',
+      })
+    } finally {
+      setAiLoadingByAnswer((prev) => {
+        const next = { ...prev }
+        targetAnswerIds.forEach((id) => {
+          next[id] = false
+        })
+        return next
+      })
+      if (mode === 'all') {
+        setBulkAiLoading(false)
+      }
+    }
+  }
+
+  const handleAcceptSuggestion = (answerId: string) => {
+    const suggestion = aiSuggestions[answerId]
+    if (!suggestion) return
+
+    setGradeEdits((prev) => {
+      const existing = prev[answerId] || { answerId, pointsAwarded: 0, graderNote: '', aiSuggestionId: null }
+      const feedbackParts = [suggestion.explanation]
+      if (suggestion.strengths) {
+        feedbackParts.push(`Strengths: ${suggestion.strengths}`)
+      }
+      if (suggestion.gaps) {
+        feedbackParts.push(`Gaps: ${suggestion.gaps}`)
+      }
+      if (suggestion.rubricAlignment) {
+        feedbackParts.push(`Rubric: ${suggestion.rubricAlignment}`)
+      }
+      const autoNote = feedbackParts.filter(Boolean).join('\n')
+
+      return {
+        ...prev,
+        [answerId]: {
+          ...existing,
+          pointsAwarded: suggestion.suggestedPoints,
+          graderNote: existing.graderNote || autoNote,
+          aiSuggestionId: suggestion.id,
+        },
+      }
+    })
+
+    toast({
+      title: 'AI suggestion applied',
+      description: 'Score and feedback fields were filled in. Review before saving.',
+    })
+  }
+
+  const handleDismissSuggestion = async (answerId: string) => {
+    if (!selectedAttempt) return
+    const suggestion = aiSuggestions[answerId]
+    if (!suggestion) return
+
+    try {
+      const response = await fetch(
+        `/api/tests/${testId}/attempts/${selectedAttempt.id}/ai/suggestions/${suggestion.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'dismiss' }),
+        }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to dismiss suggestion')
+      }
+
+      setAiSuggestions((prev) => ({
+        ...prev,
+        [answerId]: suggestion ? { ...suggestion, status: 'DISMISSED' as AiSuggestionStatus } : null,
+      }))
+
+      toast({
+        title: 'Suggestion dismissed',
+        description: 'AI suggestion was marked as dismissed for this answer.',
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Could not dismiss suggestion',
+        description: error.message || 'Something went wrong.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   // Sort attempts based on selected criteria
   const sortedAttempts = [...attempts].sort((a, b) => {
     if (sortBy === 'submission') {
@@ -262,6 +526,9 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
       return sortDirection === 'desc' ? scoreB - scoreA : scoreA - scoreB
     }
   })
+
+  const selectedAttemptHasFrq =
+    selectedAttempt?.answers.some((answer) => isFrqQuestion(answer.question.type)) ?? false
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' }> = {
@@ -552,45 +819,74 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
 
               {/* Answers */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="font-semibold text-lg">Responses</h3>
-                  {selectedAttempt.answers.some(a => a.question.type === 'SHORT_TEXT' || a.question.type === 'LONG_TEXT') && (
-                    <Button 
-                      onClick={handleSaveGrades} 
-                      disabled={saving}
-                      className="gap-2"
-                    >
-                      <Save className="h-4 w-4" />
-                      {saving ? 'Saving...' : 'Save Grades'}
-                    </Button>
+                  {selectedAttemptHasFrq && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => requestAiSuggestions({ mode: 'all' })}
+                        disabled={bulkAiLoading}
+                        className="gap-2"
+                      >
+                        {bulkAiLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4" />
+                            AI Grade All FRQs
+                          </>
+                        )}
+                      </Button>
+                      <Button onClick={handleSaveGrades} disabled={saving} className="gap-2">
+                        <Save className="h-4 w-4" />
+                        {saving ? 'Saving...' : 'Save Grades'}
+                      </Button>
+                    </div>
                   )}
                 </div>
+                {selectedAttemptHasFrq && (
+                  <p className="text-xs text-muted-foreground">
+                    Manual scores remain the source of truth. AI Assist only fills draft values until you press
+                    &quot;Save Grades&quot;.
+                  </p>
+                )}
                 {selectedAttempt.answers && selectedAttempt.answers.length > 0 ? (
-                  selectedAttempt.answers.map((answer, index) => (
-                    <Card key={answer.id} className="border-border">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <CardTitle className="text-base">
-                              Question {index + 1}
-                            </CardTitle>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {answer.question.promptMd}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">
-                              {answer.question.type.replace('MCQ_', '').replace('_', ' ')}
-                            </Badge>
-                            {answer.pointsAwarded !== null && (
-                              <Badge variant={answer.pointsAwarded > 0 ? 'default' : 'destructive'}>
-                                {answer.pointsAwarded} / {answer.question.points} pts
+                  selectedAttempt.answers.map((answer, index) => {
+                    const suggestion = aiSuggestions[answer.id]
+                    const aiLoading = aiLoadingByAnswer[answer.id]
+                    const aiError = aiErrors[answer.id]
+                    const isFrq = isFrqQuestion(answer.question.type)
+
+                    return (
+                      <Card key={answer.id} className="border-border">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <CardTitle className="text-base">
+                                Question {index + 1}
+                              </CardTitle>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {answer.question.promptMd}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">
+                                {answer.question.type.replace('MCQ_', '').replace('_', ' ')}
                               </Badge>
-                            )}
+                              {answer.pointsAwarded !== null && (
+                                <Badge variant={answer.pointsAwarded > 0 ? 'default' : 'destructive'}>
+                                  {answer.pointsAwarded} / {answer.question.points} pts
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
+                        </CardHeader>
+                        <CardContent className="space-y-3">
                         {/* Student's Answer */}
                         {answer.question.type.startsWith('MCQ') && answer.selectedOptionIds && (
                           <div>
@@ -638,7 +934,7 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                         )}
 
                         {/* FRQ Questions - Show Grading Interface */}
-                        {(answer.question.type === 'SHORT_TEXT' || answer.question.type === 'LONG_TEXT') && (
+                        {isFrq && (
                           <div className="space-y-4">
                             {/* Student's Answer */}
                             <div>
@@ -702,6 +998,95 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                                 </div>
                               )}
                             </div>
+
+                            <div className="space-y-3 rounded-lg border border-dashed border-blue-300 bg-blue-50/40 dark:bg-slate-900/40 p-4">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-xs font-semibold uppercase text-blue-900 dark:text-blue-100 flex items-center gap-1">
+                                    <Bot className="h-3.5 w-3.5" />
+                                    AI Assist (optional)
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Suggestions never auto-apply. Review before accepting.
+                                  </p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => requestAiSuggestions({ mode: 'single', answerId: answer.id })}
+                                  disabled={aiLoading}
+                                  className="gap-1"
+                                >
+                                  {aiLoading ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                      Working...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Sparkles className="h-4 w-4" />
+                                      AI Suggestion
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                              {aiError && (
+                                <p className="text-xs text-red-600">
+                                  {aiError}
+                                </p>
+                              )}
+                              {suggestion ? (
+                                <div className="space-y-2 text-sm">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="font-semibold">
+                                      Suggested: {suggestion.suggestedPoints} / {suggestion.maxPoints} pts
+                                    </div>
+                                    {renderAiStatusBadge(suggestion.status)}
+                                  </div>
+                                  <p className="text-sm whitespace-pre-wrap">
+                                    {suggestion.explanation}
+                                  </p>
+                                  {suggestion.strengths && (
+                                    <p className="text-xs text-green-700 dark:text-green-300 whitespace-pre-wrap">
+                                      <span className="font-semibold">Strengths:</span> {suggestion.strengths}
+                                    </p>
+                                  )}
+                                  {suggestion.gaps && (
+                                    <p className="text-xs text-amber-700 dark:text-amber-300 whitespace-pre-wrap">
+                                      <span className="font-semibold">Needs work:</span> {suggestion.gaps}
+                                    </p>
+                                  )}
+                                  {suggestion.rubricAlignment && (
+                                    <p className="text-xs text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
+                                      <span className="font-semibold">Rubric map:</span> {suggestion.rubricAlignment}
+                                    </p>
+                                  )}
+                                  <p className="text-[11px] text-muted-foreground">
+                                    Suggested {new Date(suggestion.createdAt).toLocaleString()}
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button size="sm" onClick={() => handleAcceptSuggestion(answer.id)} className="gap-1">
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                      Accept &amp; fill form
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleDismissSuggestion(answer.id)}
+                                      disabled={suggestion.status === 'DISMISSED'}
+                                      className="gap-1"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5" />
+                                      Dismiss
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">
+                                  No AI suggestion yet. Use the button above to get a rubric-aligned draft grade.
+                                </p>
+                              )}
+                            </div>
                           </div>
                         )}
 
@@ -715,8 +1100,9 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                           </div>
                         )}
                       </CardContent>
-                    </Card>
-                  ))
+                      </Card>
+                    )
+                  })
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No answers recorded
