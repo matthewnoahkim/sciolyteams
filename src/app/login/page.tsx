@@ -72,13 +72,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <div className="space-y-8 rounded-3xl border border-gray-200/50 dark:border-gray-800/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-8 md:p-12 shadow-2xl">
             <div className="text-center space-y-6">
               <div className="flex justify-center">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 flex items-center justify-center shadow-lg">
-                  <Logo size="lg" showText={false} />
-                </div>
+                <Logo size="lg" showText={false} />
               </div>
               <div className="space-y-2">
                 <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white">
-                  Welcome Back
+                  Welcome
                 </h2>
                 <p className="text-lg text-gray-600 dark:text-gray-300">
                   Sign in to access your teams
