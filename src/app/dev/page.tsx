@@ -18,11 +18,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { HealthTools } from '@/components/dev/health-tools'
 
-// WARNING: This is a development-only page with hardcoded password
+// WARNING: This is a development-only page
 // DO NOT use this pattern in production environments
 // This page should be removed or properly secured before deployment
-
-const DEV_PASSWORD = '$cience-Olymp1ad'
 
 export default function DevPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -35,16 +33,41 @@ export default function DevPage() {
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [logSearchQuery, setLogSearchQuery] = useState('')
   const [errorDialogOpen, setErrorDialogOpen] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password === DEV_PASSWORD) {
-      setIsAuthenticated(true)
-      sessionStorage.setItem('dev_auth', 'true')
-      setPassword('') // Clear password on success
-    } else {
+    setIsVerifying(true)
+    
+    try {
+      const response = await fetch('/api/dev/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setIsAuthenticated(true)
+        sessionStorage.setItem('dev_auth', 'true')
+        setPassword('') // Clear password on success
+      } else {
+        // Log debug info if available
+        if (data.debug) {
+          console.error('Password verification failed:', data.debug)
+        }
+        setErrorDialogOpen(true)
+        setPassword('') // Clear password on error
+      }
+    } catch (error) {
+      console.error('Error verifying password:', error)
       setErrorDialogOpen(true)
       setPassword('') // Clear password on error
+    } finally {
+      setIsVerifying(false)
     }
   }
 
@@ -154,7 +177,7 @@ export default function DevPage() {
     // Combine all sections
     const csvContent = [
       ...userSection.map((row) => row.map(escapeCSV).join(',')),
-      ...membershipRows.map((row) => row.join(',')),
+      ...membershipRows.map((row: string[]) => row.join(',')),
     ].join('\n')
 
     // Add BOM for Excel compatibility with special characters
@@ -189,8 +212,8 @@ export default function DevPage() {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full">
-                Access Dev Panel
+              <Button type="submit" className="w-full" disabled={isVerifying}>
+                {isVerifying ? 'Verifying...' : 'Access Dev Panel'}
               </Button>
             </form>
           </CardContent>
