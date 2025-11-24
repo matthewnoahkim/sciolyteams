@@ -175,11 +175,11 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
   const handleSignOut = async () => {
     try {
       const response = await signOut({
-        callbackUrl: '/auth/signin',
+        callbackUrl: '/login',
         redirect: false,
       })
 
-      const targetUrl = response?.url ?? '/auth/signin'
+      const targetUrl = response?.url ?? '/login'
       router.push(targetUrl)
       router.refresh()
     } catch (error) {
@@ -283,7 +283,7 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
                   className="cursor-pointer apple-hover group relative"
                   onClick={() => {
                     clearTeamNotification(membership.team.id)
-                    router.push(`/teams/${membership.team.id}`)
+                    router.push(`/club/${membership.team.id}`)
                   }}
                 >
                   {teamNotifications[membership.team.id] && (

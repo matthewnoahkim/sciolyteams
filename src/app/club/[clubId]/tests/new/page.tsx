@@ -7,19 +7,19 @@ import { NewTestBuilder } from '@/components/tests/new-test-builder'
 export default async function NewTestPage({
   params,
 }: {
-  params: { teamId: string }
+  params: { clubId: string }
 }) {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) {
-    redirect('/auth/signin')
+    redirect('/login')
   }
 
   const membership = await prisma.membership.findUnique({
     where: {
       userId_teamId: {
         userId: session.user.id,
-        teamId: params.teamId,
+        teamId: params.clubId,
       },
     },
     select: {
@@ -29,11 +29,11 @@ export default async function NewTestPage({
   })
 
   if (!membership || String(membership.role) !== 'ADMIN') {
-    redirect(`/teams/${params.teamId}?tab=tests`)
+    redirect(`/club/${params.clubId}?tab=tests`)
   }
 
   const team = await prisma.team.findUnique({
-    where: { id: params.teamId },
+    where: { id: params.clubId },
     select: {
       id: true,
       name: true,
@@ -50,7 +50,7 @@ export default async function NewTestPage({
   })
 
   if (!team) {
-    redirect('/teams')
+    redirect('/dashboard')
   }
 
   return (

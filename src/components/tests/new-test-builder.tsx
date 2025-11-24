@@ -503,7 +503,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
             title: 'Test Updated',
             description: 'Your changes have been saved',
           })
-          router.push(`/teams/${teamId}?tab=tests`)
+          router.push(`/club/${teamId}?tab=tests`)
           router.refresh()
         }
       } else {
@@ -536,7 +536,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
             title: 'Test saved',
             description: 'Your test draft has been created successfully.',
           })
-          router.push(`/teams/${teamId}?tab=tests`)
+          router.push(`/club/${teamId}?tab=tests`)
           router.refresh()
         }
       }
@@ -663,7 +663,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
         sessionStorage.removeItem('newTestId')
       }
       setPublishDialogOpen(false)
-      router.push(`/teams/${teamId}?tab=tests`)
+      router.push(`/club/${teamId}?tab=tests`)
       router.refresh()
     } catch (error: any) {
       toast({
@@ -692,7 +692,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => router.push(`/teams/${teamId}?tab=tests`)}
+            onClick={() => router.push(`/club/${teamId}?tab=tests`)}
             disabled={saving}
           >
             Cancel

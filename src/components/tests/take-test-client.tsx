@@ -394,7 +394,7 @@ export function TakeTestClient({
         }
       }
 
-      router.push(`/teams/${test.teamId}?tab=tests`)
+      router.push(`/club/${test.teamId}?tab=tests`)
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -745,7 +745,7 @@ export function TakeTestClient({
                 
                 // Navigate away - fullscreen will NOT be re-entered
                 setShowSaveExitDialog(false)
-                router.push(`/teams/${test.teamId}?tab=tests`)
+                router.push(`/club/${test.teamId}?tab=tests`)
               }}
             >
               Save & Exit

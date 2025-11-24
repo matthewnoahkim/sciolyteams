@@ -43,19 +43,19 @@ const STATUS_CONFIG: Record<
 export default async function TeamTestDetailPage({
   params,
 }: {
-  params: { teamId: string; testId: string }
+  params: { clubId: string; testId: string }
 }) {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) {
-    redirect('/auth/signin')
+    redirect('/login')
   }
 
   const membership = await prisma.membership.findUnique({
     where: {
       userId_teamId: {
         userId: session.user.id,
-        teamId: params.teamId,
+        teamId: params.clubId,
       },
     },
     select: {
@@ -70,13 +70,13 @@ export default async function TeamTestDetailPage({
 
   // Only admins can view the authoring dashboard
   if (String(membership.role) !== 'ADMIN') {
-    redirect(`/teams/${params.teamId}?tab=tests`)
+    redirect(`/club/${params.clubId}?tab=tests`)
   }
 
   const test = await prisma.test.findFirst({
     where: {
       id: params.testId,
-      teamId: params.teamId,
+      teamId: params.clubId,
     },
     select: {
       id: true,
@@ -126,7 +126,7 @@ export default async function TeamTestDetailPage({
   // If the test is a draft, show the builder/editor interface
   if (test.status === 'DRAFT') {
     const team = await prisma.team.findUnique({
-      where: { id: params.teamId },
+      where: { id: params.clubId },
       select: {
         id: true,
         name: true,
@@ -215,7 +215,7 @@ export default async function TeamTestDetailPage({
       <div className="container mx-auto max-w-6xl space-y-8 py-8 px-4 lg:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-2">
-          <Link href={`/teams/${params.teamId}?tab=tests`} className="w-fit">
+          <Link href={`/club/${params.clubId}?tab=tests`} className="w-fit">
             <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
               <ArrowLeft className="h-4 w-4" />
               Back to Tests
@@ -239,7 +239,7 @@ export default async function TeamTestDetailPage({
           <DuplicateTestButton
             testId={test.id}
             testName={test.name}
-            teamId={params.teamId}
+            teamId={params.clubId}
           />
         </div>
       </div>

@@ -97,7 +97,7 @@ export function TestDetailView({ teamId, test }: TestDetailViewProps) {
     <div className="container mx-auto max-w-6xl space-y-8 py-8 px-4 lg:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-2">
-          <Link href={`/teams/${teamId}?tab=tests`} className="w-fit">
+          <Link href={`/club/${teamId}?tab=tests`} className="w-fit">
             <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
               <ArrowLeft className="h-4 w-4" />
               Back to Tests

@@ -5,11 +5,11 @@ import { prisma } from '@/lib/prisma'
 import { TeamPage } from '@/components/team-page'
 import { Suspense } from 'react'
 
-export default async function TeamDetailPage({ params }: { params: { teamId: string } }) {
+export default async function TeamDetailPage({ params }: { params: { clubId: string } }) {
   const session = await getServerSession(authOptions)
 
   if (!session?.user) {
-    redirect('/auth/signin')
+    redirect('/login')
   }
 
   // Check membership
@@ -17,17 +17,17 @@ export default async function TeamDetailPage({ params }: { params: { teamId: str
     where: {
       userId_teamId: {
         userId: session.user.id,
-        teamId: params.teamId,
+        teamId: params.clubId,
       },
     },
   })
 
   if (!membership) {
-    redirect('/')
+    redirect('/dashboard')
   }
 
   const team = await prisma.team.findUnique({
-    where: { id: params.teamId },
+    where: { id: params.clubId },
     include: {
       memberships: {
         include: {
@@ -72,7 +72,7 @@ export default async function TeamDetailPage({ params }: { params: { teamId: str
   })
 
   if (!team) {
-    redirect('/')
+    redirect('/dashboard')
   }
 
   return (

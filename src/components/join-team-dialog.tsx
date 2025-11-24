@@ -47,7 +47,7 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
         title: 'Success!',
         description: data.message,
       })
-      router.push(`/teams/${data.membership.team.id}`)
+      router.push(`/club/${data.membership.team.id}`)
       router.refresh()
       onOpenChange(false)
     } catch (error: any) {

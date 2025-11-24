@@ -47,7 +47,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
         title: 'Club created!',
         description: `${name} (Division ${division})`,
       })
-      router.push(`/teams/${data.team.id}`)
+      router.push(`/club/${data.team.id}`)
       router.refresh()
     } catch (error) {
       toast({

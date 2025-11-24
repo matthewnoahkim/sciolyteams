@@ -9,23 +9,23 @@ import { TakeTestClient } from '@/components/tests/take-test-client'
 export default async function TakeTestPage({
   params,
 }: {
-  params: { teamId: string; testId: string }
+  params: { clubId: string; testId: string }
 }) {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) {
-    redirect('/auth/signin')
+    redirect('/login')
   }
 
-  const membership = await getUserMembership(session.user.id, params.teamId)
+  const membership = await getUserMembership(session.user.id, params.clubId)
   if (!membership) {
-    redirect('/teams')
+    redirect('/dashboard')
   }
 
   const test = await prisma.test.findFirst({
     where: {
       id: params.testId,
-      teamId: params.teamId,
+      teamId: params.clubId,
     },
     include: {
       assignments: {
@@ -53,19 +53,19 @@ export default async function TakeTestPage({
     notFound()
   }
 
-  const isAdminUser = await isAdmin(session.user.id, params.teamId)
+  const isAdminUser = await isAdmin(session.user.id, params.clubId)
 
   // Admins can take any test, but members need proper access
   if (!isAdminUser) {
     // Check if test is published
     if (test.status !== 'PUBLISHED') {
-      redirect(`/teams/${params.teamId}?tab=tests`)
+      redirect(`/club/${params.clubId}?tab=tests`)
     }
 
     // Check if test is available (scheduling)
     const availability = isTestAvailable(test)
     if (!availability.available) {
-      redirect(`/teams/${params.teamId}?tab=tests`)
+      redirect(`/club/${params.clubId}?tab=tests`)
     }
 
     // Check assignment
@@ -77,7 +77,7 @@ export default async function TakeTestPage({
     )
 
     if (!hasAccess) {
-      redirect(`/teams/${params.teamId}?tab=tests`)
+      redirect(`/club/${params.clubId}?tab=tests`)
     }
   }
 

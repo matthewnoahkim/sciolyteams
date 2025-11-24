@@ -9,26 +9,26 @@ import { filterAttemptByReleaseMode } from '@/lib/test-security'
 export default async function TestResultsPage({
   params,
 }: {
-  params: { teamId: string; testId: string }
+  params: { clubId: string; testId: string }
 }) {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) {
-    redirect('/auth/signin')
+    redirect('/login')
   }
 
-  const membership = await getUserMembership(session.user.id, params.teamId)
+  const membership = await getUserMembership(session.user.id, params.clubId)
   if (!membership) {
-    redirect('/teams')
+    redirect('/dashboard')
   }
 
   // Check if user is admin
-  const isAdminUser = await isAdmin(session.user.id, params.teamId)
+  const isAdminUser = await isAdmin(session.user.id, params.clubId)
 
   const test = await prisma.test.findFirst({
     where: {
       id: params.testId,
-      teamId: params.teamId,
+      teamId: params.clubId,
     },
     select: {
       id: true,

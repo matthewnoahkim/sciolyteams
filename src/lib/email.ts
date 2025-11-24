@@ -105,7 +105,7 @@ export async function sendAnnouncementEmail({
 
     // Build the team stream URL
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-    const teamStreamUrl = `${baseUrl}/teams/${teamId}?tab=stream`
+    const teamStreamUrl = `${baseUrl}/club/${teamId}?tab=stream`
 
     // Build event details section if this is an event announcement
     let eventDetailsHtml = ''

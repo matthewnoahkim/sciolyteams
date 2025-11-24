@@ -162,12 +162,12 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
   const handleViewTest = (test: Test) => {
     // Navigate to test detail page
     // The page will automatically show the builder for drafts or detail view for published tests
-    window.location.href = `/teams/${teamId}/tests/${test.id}`
+    window.location.href = `/club/${teamId}/tests/${test.id}`
   }
 
   const handleTakeTest = (test: Test) => {
     // Navigate to test player
-    window.location.href = `/teams/${teamId}/tests/${test.id}/take`
+    window.location.href = `/club/${teamId}/tests/${test.id}/take`
   }
 
   const getStatusBadge = (status: Test['status']) => {
@@ -398,7 +398,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
                       {isTestAvailable(test) ? 'Retake Test' : 'Not Available'}
                     </Button>
                     <Button
-                      onClick={() => router.push(`/teams/${teamId}/tests/${test.id}/results`)}
+                      onClick={() => router.push(`/club/${teamId}/tests/${test.id}/results`)}
                       className="flex-1"
                       variant="outline"
                     >
@@ -412,7 +412,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
               if (shouldShowResults) {
                 return (
                   <Button
-                    onClick={() => router.push(`/teams/${teamId}/tests/${test.id}/results`)}
+                    onClick={() => router.push(`/club/${teamId}/tests/${test.id}/results`)}
                     className="w-full"
                     variant="outline"
                   >
@@ -455,7 +455,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
             </p>
           </div>
           {isAdmin && (
-            <Button onClick={() => router.push(`/teams/${teamId}/tests/new`)}>
+            <Button onClick={() => router.push(`/club/${teamId}/tests/new`)}>
               <Plus className="h-4 w-4 mr-2" />
               Create Test
             </Button>
