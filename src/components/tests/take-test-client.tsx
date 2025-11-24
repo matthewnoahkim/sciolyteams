@@ -359,10 +359,19 @@ export function TakeTestClient({
     setSubmitting(true)
 
     try {
-      // Save all pending answers immediately
+      // Save all pending answers immediately before submitting
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current)
       }
+
+      // Save all answers that might be pending (wait for them to complete)
+      const savePromises = Object.entries(answers).map(([questionId, answerData]) => 
+        saveAnswer(questionId, answerData)
+      )
+      await Promise.all(savePromises)
+
+      // Small delay to ensure DB writes complete
+      await new Promise(resolve => setTimeout(resolve, 100))
 
       const response = await fetch(`/api/tests/${test.id}/attempts/${attempt.id}/submit`, {
         method: 'POST',
@@ -407,7 +416,7 @@ export function TakeTestClient({
         document.documentElement.requestFullscreen().catch(() => {})
       }
     }
-  }, [attempt, test.id, test.teamId, test.requireFullscreen, toast, router])
+  }, [attempt, test.id, test.teamId, test.requireFullscreen, toast, router, answers, saveAnswer])
 
   // Countdown timer
   useEffect(() => {
@@ -727,9 +736,20 @@ export function TakeTestClient({
               Cancel
             </Button>
             <Button
-              onClick={() => {
+              onClick={async () => {
                 // Mark that we're intentionally exiting
                 isExitingRef.current = true
+                
+                // Save all pending answers before exiting
+                if (saveTimeoutRef.current) {
+                  clearTimeout(saveTimeoutRef.current)
+                }
+                
+                // Save all answers that might be pending
+                const savePromises = Object.entries(answers).map(([questionId, answerData]) => 
+                  saveAnswer(questionId, answerData)
+                )
+                await Promise.all(savePromises)
                 
                 // Pause the timer - store the current timestamp
                 if (attempt && attempt.startedAt) {

@@ -122,14 +122,25 @@ export async function POST(
         },
       })
 
-      // Update answer grades
+      // Create or update answer records for all questions
       for (const result of gradingResults) {
-        await tx.attemptAnswer.updateMany({
+        await tx.attemptAnswer.upsert({
           where: {
+            attemptId_questionId: {
+              attemptId: params.attemptId,
+              questionId: result.questionId,
+            },
+          },
+          update: {
+            pointsAwarded: result.pointsAwarded,
+            gradedAt: result.needsManualGrade ? null : new Date(),
+          },
+          create: {
             attemptId: params.attemptId,
             questionId: result.questionId,
-          },
-          data: {
+            answerText: null,
+            selectedOptionIds: null,
+            numericAnswer: null,
             pointsAwarded: result.pointsAwarded,
             gradedAt: result.needsManualGrade ? null : new Date(),
           },

@@ -1,0 +1,165 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { isAdmin } from '@/lib/rbac'
+import { z } from 'zod'
+import { Decimal } from '@prisma/client/runtime/library'
+
+const gradeAnswerSchema = z.object({
+  answerId: z.string(),
+  pointsAwarded: z.number().min(0),
+  graderNote: z.string().optional(),
+})
+
+const gradeAttemptSchema = z.object({
+  grades: z.array(gradeAnswerSchema),
+})
+
+// PATCH /api/tests/[testId]/attempts/[attemptId]/grade
+// Grade FRQ answers for an attempt (admin only)
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ testId: string; attemptId: string }> | { testId: string; attemptId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const resolvedParams = await Promise.resolve(params)
+    const body = await req.json()
+    const validatedData = gradeAttemptSchema.parse(body)
+
+    // Get the test and verify admin access
+    const test = await prisma.test.findUnique({
+      where: { id: resolvedParams.testId },
+      select: { teamId: true },
+    })
+
+    if (!test) {
+      return NextResponse.json({ error: 'Test not found' }, { status: 404 })
+    }
+
+    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    if (!isAdminUser) {
+      return NextResponse.json(
+        { error: 'Only admins can grade test attempts' },
+        { status: 403 }
+      )
+    }
+
+    // Get the attempt with all answers and questions
+    const attempt = await prisma.testAttempt.findUnique({
+      where: { id: resolvedParams.attemptId },
+      include: {
+        answers: {
+          include: {
+            question: true,
+          },
+        },
+      },
+    })
+
+    if (!attempt) {
+      return NextResponse.json({ error: 'Attempt not found' }, { status: 404 })
+    }
+
+    if (attempt.testId !== resolvedParams.testId) {
+      return NextResponse.json(
+        { error: 'Attempt does not belong to this test' },
+        { status: 400 }
+      )
+    }
+
+    // Update grades in a transaction
+    await prisma.$transaction(async (tx) => {
+      for (const grade of validatedData.grades) {
+        // Find the answer
+        const answer = attempt.answers.find((a) => a.id === grade.answerId)
+        if (!answer) {
+          throw new Error(`Answer ${grade.answerId} not found in this attempt`)
+        }
+
+        // Validate points don't exceed question points
+        const questionPoints = Number(answer.question.points)
+        if (grade.pointsAwarded > questionPoints) {
+          throw new Error(
+            `Points awarded (${grade.pointsAwarded}) cannot exceed question points (${questionPoints})`
+          )
+        }
+
+        // Update the answer
+        await tx.attemptAnswer.update({
+          where: { id: grade.answerId },
+          data: {
+            pointsAwarded: new Decimal(grade.pointsAwarded),
+            graderNote: grade.graderNote || null,
+            gradedAt: new Date(),
+          },
+        })
+      }
+
+      // Recalculate total score
+      const updatedAnswers = await tx.attemptAnswer.findMany({
+        where: { attemptId: resolvedParams.attemptId },
+        include: { question: true },
+      })
+
+      // Calculate total earned points (only from graded questions)
+      const totalEarned = updatedAnswers.reduce((sum, answer) => {
+        if (answer.gradedAt !== null && answer.pointsAwarded !== null) {
+          return sum + Number(answer.pointsAwarded)
+        }
+        return sum
+      }, 0)
+
+      // Check if all questions are graded
+      const allGraded = updatedAnswers.every((answer) => answer.gradedAt !== null)
+
+      // Update attempt with new score and status
+      await tx.testAttempt.update({
+        where: { id: resolvedParams.attemptId },
+        data: {
+          gradeEarned: new Decimal(totalEarned),
+          status: allGraded ? 'GRADED' : 'SUBMITTED',
+        },
+      })
+    })
+
+    // Fetch and return updated attempt
+    const updatedAttempt = await prisma.testAttempt.findUnique({
+      where: { id: resolvedParams.attemptId },
+      include: {
+        answers: {
+          include: {
+            question: {
+              include: {
+                options: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    return NextResponse.json({
+      success: true,
+      attempt: updatedAttempt,
+    })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: error.errors },
+        { status: 400 }
+      )
+    }
+    console.error('Grade attempt error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
