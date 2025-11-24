@@ -5,8 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Users, Eye, AlertTriangle, CheckCircle, XCircle, Clock, Info } from 'lucide-react'
+import { Users, Eye, AlertTriangle, CheckCircle, XCircle, Clock, Info, Save } from 'lucide-react'
 
 interface TestAttemptsViewProps {
   testId: string
@@ -49,6 +52,7 @@ interface Attempt {
       type: string
       points: number
       sectionId: string | null
+      explanation: string | null
       options: Array<{
         id: string
         label: string
@@ -56,6 +60,12 @@ interface Attempt {
       }>
     }
   }>
+}
+
+interface GradeEdit {
+  answerId: string
+  pointsAwarded: number
+  graderNote: string
 }
 
 interface Section {
@@ -73,6 +83,8 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
   const [scoringKeyOpen, setScoringKeyOpen] = useState(false)
   const [sortBy, setSortBy] = useState<'submission' | 'score'>('submission')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [gradeEdits, setGradeEdits] = useState<Record<string, GradeEdit>>({})
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     fetchAttempts()
@@ -104,6 +116,136 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
   const handleViewDetails = (attempt: Attempt) => {
     setSelectedAttempt(attempt)
     setDetailDialogOpen(true)
+    // Initialize grade edits from current attempt
+    const edits: Record<string, GradeEdit> = {}
+    attempt.answers.forEach((answer) => {
+      edits[answer.id] = {
+        answerId: answer.id,
+        pointsAwarded: answer.pointsAwarded !== null ? answer.pointsAwarded : 0,
+        graderNote: answer.graderNote || '',
+      }
+    })
+    setGradeEdits(edits)
+  }
+
+  const handleGradeEdit = (answerId: string, field: 'pointsAwarded' | 'graderNote', value: number | string) => {
+    setGradeEdits((prev) => ({
+      ...prev,
+      [answerId]: {
+        ...prev[answerId],
+        [field]: value,
+      },
+    }))
+  }
+
+  const handleSaveGrades = async () => {
+    if (!selectedAttempt) return
+
+    setSaving(true)
+    try {
+      // Only send grades that have changed or need grading
+      const gradesToSave = Object.values(gradeEdits).filter((grade) => {
+        const answer = selectedAttempt.answers.find((a) => a.id === grade.answerId)
+        if (!answer) return false
+        
+        // Include if it is an FRQ that needs grading
+        const isFRQ = answer.question.type === 'SHORT_TEXT' || answer.question.type === 'LONG_TEXT'
+        return isFRQ
+      })
+
+      const response = await fetch(`/api/tests/${testId}/attempts/${selectedAttempt.id}/grade`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grades: gradesToSave }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to save grades')
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Grades saved successfully',
+      })
+
+      // Refresh attempts to get updated data
+      await fetchAttempts()
+      setDetailDialogOpen(false)
+    } catch (error: any) {
+      console.error('Failed to save grades:', error)
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save grades',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const calculateGradingStatus = (attempt: Attempt): {
+    status: 'UNGRADED' | 'PARTIALLY_GRADED' | 'FULLY_GRADED'
+    gradedCount: number
+    totalCount: number
+  } => {
+    const totalCount = attempt.answers.length
+    const gradedCount = attempt.answers.filter((a) => a.gradedAt !== null).length
+
+    let status: 'UNGRADED' | 'PARTIALLY_GRADED' | 'FULLY_GRADED'
+    if (gradedCount === 0) {
+      status = 'UNGRADED'
+    } else if (gradedCount === totalCount) {
+      status = 'FULLY_GRADED'
+    } else {
+      status = 'PARTIALLY_GRADED'
+    }
+
+    return { status, gradedCount, totalCount }
+  }
+
+  const calculateScoreBreakdown = (attempt: Attempt): {
+    earnedPoints: number
+    gradedTotalPoints: number
+    overallTotalPoints: number
+  } => {
+    let earnedPoints = 0
+    let gradedTotalPoints = 0
+    let overallTotalPoints = 0
+
+    attempt.answers.forEach((answer) => {
+      const questionPoints = answer.question.points
+      overallTotalPoints += questionPoints
+
+      if (answer.gradedAt !== null) {
+        gradedTotalPoints += questionPoints
+        earnedPoints += answer.pointsAwarded || 0
+      }
+    })
+
+    return { earnedPoints, gradedTotalPoints, overallTotalPoints }
+  }
+
+  const getGradingStatusBadge = (status: 'UNGRADED' | 'PARTIALLY_GRADED' | 'FULLY_GRADED') => {
+    const config = {
+      UNGRADED: { label: 'Ungraded', variant: 'secondary' as const, className: 'bg-gray-500' },
+      PARTIALLY_GRADED: { label: 'Partially Graded', variant: 'default' as const, className: 'bg-orange-500' },
+      FULLY_GRADED: { label: 'Fully Graded', variant: 'default' as const, className: 'bg-green-600' },
+    }
+    const { label, variant, className } = config[status]
+    return <Badge variant={variant} className={className}>{label}</Badge>
+  }
+
+  const calculateTimeTaken = (startedAt: string | null, submittedAt: string | null): string => {
+    if (!startedAt || !submittedAt) return 'N/A'
+    
+    const start = new Date(startedAt).getTime()
+    const end = new Date(submittedAt).getTime()
+    const diffMs = end - start
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffSecs = Math.floor((diffMs % 60000) / 1000)
+    
+    return `${diffMins}m ${diffSecs}s`
   }
 
   // Sort attempts based on selected criteria
@@ -244,9 +386,15 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                           {attempt.gradeEarned !== null && (
                             <div className="flex items-center gap-1">
                               <span className="font-medium">Score:</span>
-                              <span>{attempt.gradeEarned.toFixed(2)}</span>
+                              <span>{(() => {
+                                const breakdown = calculateScoreBreakdown(attempt)
+                                return `${breakdown.earnedPoints.toFixed(1)} / ${breakdown.gradedTotalPoints.toFixed(1)} pts`
+                              })()}</span>
                             </div>
                           )}
+                          <div className="flex items-center gap-1">
+                            {getGradingStatusBadge(calculateGradingStatus(attempt).status)}
+                          </div>
                           {attempt.submittedAt && (
                             <div className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
@@ -299,12 +447,35 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                   <p className="text-xs text-muted-foreground uppercase">Status</p>
                   <div className="mt-1">{getStatusBadge(selectedAttempt.status)}</div>
                 </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase">Grading Status</p>
+                  <div className="mt-1">{getGradingStatusBadge(calculateGradingStatus(selectedAttempt).status)}</div>
+                </div>
                 {selectedAttempt.gradeEarned !== null && (
                   <div>
                     <p className="text-xs text-muted-foreground uppercase">Score</p>
-                    <p className="text-lg font-semibold">{selectedAttempt.gradeEarned.toFixed(2)}</p>
+                    <p className="text-lg font-semibold">
+                      {(() => {
+                        const breakdown = calculateScoreBreakdown(selectedAttempt)
+                        return `${breakdown.earnedPoints.toFixed(1)} / ${breakdown.gradedTotalPoints.toFixed(1)} pts`
+                      })()}
+                    </p>
+                    {(() => {
+                      const breakdown = calculateScoreBreakdown(selectedAttempt)
+                      return breakdown.gradedTotalPoints < breakdown.overallTotalPoints && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          (of {breakdown.overallTotalPoints.toFixed(1)} total)
+                        </p>
+                      )
+                    })()}
                   </div>
                 )}
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase">Time Taken</p>
+                  <p className="text-lg font-semibold">
+                    {calculateTimeTaken(selectedAttempt.startedAt, selectedAttempt.submittedAt)}
+                  </p>
+                </div>
                 {selectedAttempt.proctoringScore !== null && (
                   <div>
                     <p className="text-xs text-muted-foreground uppercase">Proctoring</p>
@@ -381,7 +552,19 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
 
               {/* Answers */}
               <div className="space-y-4">
-                <h3 className="font-semibold text-lg">Responses</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">Responses</h3>
+                  {selectedAttempt.answers.some(a => a.question.type === 'SHORT_TEXT' || a.question.type === 'LONG_TEXT') && (
+                    <Button 
+                      onClick={handleSaveGrades} 
+                      disabled={saving}
+                      className="gap-2"
+                    >
+                      <Save className="h-4 w-4" />
+                      {saving ? 'Saving...' : 'Save Grades'}
+                    </Button>
+                  )}
+                </div>
                 {selectedAttempt.answers && selectedAttempt.answers.length > 0 ? (
                   selectedAttempt.answers.map((answer, index) => (
                     <Card key={answer.id} className="border-border">
@@ -454,19 +637,76 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                           </div>
                         )}
 
-                        {(answer.question.type === 'SHORT_TEXT' || answer.question.type === 'LONG_TEXT') &&
-                          answer.answerText && (
+                        {/* FRQ Questions - Show Grading Interface */}
+                        {(answer.question.type === 'SHORT_TEXT' || answer.question.type === 'LONG_TEXT') && (
+                          <div className="space-y-4">
+                            {/* Student's Answer */}
                             <div>
                               <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
                                 Student's Answer
                               </p>
-                              <p className="whitespace-pre-wrap p-3 bg-muted/30 rounded">
-                                {answer.answerText}
-                              </p>
+                              <div className="whitespace-pre-wrap p-3 bg-muted/30 rounded border">
+                                {answer.answerText && answer.answerText.trim() ? (
+                                  answer.answerText
+                                ) : (
+                                  <span className="text-muted-foreground italic">No answer provided</span>
+                                )}
+                              </div>
                             </div>
-                          )}
 
-                        {answer.graderNote && (
+                            {/* Example Solution */}
+                            {answer.question.explanation && (
+                              <div>
+                                <p className="text-xs font-semibold uppercase text-green-600 dark:text-green-400 mb-2">
+                                  Example Solution / Grading Guide
+                                </p>
+                                <div className="whitespace-pre-wrap p-3 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-800">
+                                  {answer.question.explanation}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Grading Interface */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
+                              <div>
+                                <Label htmlFor={`points-${answer.id}`} className="text-sm font-semibold">
+                                  Points Awarded (max: {answer.question.points})
+                                </Label>
+                                <Input
+                                  id={`points-${answer.id}`}
+                                  type="number"
+                                  min="0"
+                                  max={answer.question.points}
+                                  step="0.5"
+                                  value={gradeEdits[answer.id]?.pointsAwarded === 0 ? '' : gradeEdits[answer.id]?.pointsAwarded ?? ''}
+                                  onChange={(e) => handleGradeEdit(answer.id, 'pointsAwarded', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                                  className="mt-1"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <Label htmlFor={`feedback-${answer.id}`} className="text-sm font-semibold">
+                                  Feedback (optional)
+                                </Label>
+                                <Textarea
+                                  id={`feedback-${answer.id}`}
+                                  value={gradeEdits[answer.id]?.graderNote ?? ''}
+                                  onChange={(e) => handleGradeEdit(answer.id, 'graderNote', e.target.value)}
+                                  placeholder="Provide feedback to the student..."
+                                  className="mt-1 min-h-[80px]"
+                                />
+                              </div>
+                              {answer.gradedAt && (
+                                <div className="md:col-span-2 text-xs text-muted-foreground">
+                                  Last graded: {new Date(answer.gradedAt).toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Show saved grader note for non-FRQ questions */}
+                        {answer.question.type !== 'SHORT_TEXT' && answer.question.type !== 'LONG_TEXT' && answer.graderNote && (
                           <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950 rounded">
                             <p className="text-xs font-semibold uppercase text-blue-900 dark:text-blue-100 mb-1">
                               Grader Note

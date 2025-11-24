@@ -262,6 +262,71 @@ export function shouldReleaseScores(test: {
 }
 
 /**
+ * Calculate grading status for an attempt
+ */
+export function calculateGradingStatus(answers: Array<{
+  gradedAt: Date | null
+  question: { type: string }
+}>): {
+  status: 'UNGRADED' | 'PARTIALLY_GRADED' | 'FULLY_GRADED'
+  gradedCount: number
+  totalCount: number
+  ungradedCount: number
+} {
+  const totalCount = answers.length
+  const gradedCount = answers.filter((a) => a.gradedAt !== null).length
+  const ungradedCount = totalCount - gradedCount
+
+  let status: 'UNGRADED' | 'PARTIALLY_GRADED' | 'FULLY_GRADED'
+  if (gradedCount === 0) {
+    status = 'UNGRADED'
+  } else if (gradedCount === totalCount) {
+    status = 'FULLY_GRADED'
+  } else {
+    status = 'PARTIALLY_GRADED'
+  }
+
+  return { status, gradedCount, totalCount, ungradedCount }
+}
+
+/**
+ * Calculate score breakdown for an attempt
+ */
+export function calculateScoreBreakdown(answers: Array<{
+  pointsAwarded: number | null
+  gradedAt: Date | null
+  question: { points: number }
+}>): {
+  earnedPoints: number
+  gradedTotalPoints: number
+  overallTotalPoints: number
+  hasUngradedQuestions: boolean
+} {
+  let earnedPoints = 0
+  let gradedTotalPoints = 0
+  let overallTotalPoints = 0
+
+  answers.forEach((answer) => {
+    const questionPoints = Number(answer.question.points)
+    overallTotalPoints += questionPoints
+
+    if (answer.gradedAt !== null) {
+      gradedTotalPoints += questionPoints
+      earnedPoints += Number(answer.pointsAwarded || 0)
+    }
+  })
+
+  const hasUngradedQuestions = gradedTotalPoints < overallTotalPoints
+
+  return {
+    earnedPoints,
+    gradedTotalPoints,
+    overallTotalPoints,
+    hasUngradedQuestions,
+  }
+}
+
+/**
  * Filter attempt data based on score release settings
  */
 export function filterAttemptByReleaseMode(

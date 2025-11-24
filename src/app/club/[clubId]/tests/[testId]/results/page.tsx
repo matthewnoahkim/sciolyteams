@@ -77,7 +77,7 @@ export default async function TestResultsPage({
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">No Results Found</h1>
           <p className="text-muted-foreground">
-            You haven't submitted any attempts for this test yet.
+            You haven&apos;t submitted any attempts for this test yet.
           </p>
         </div>
       </div>

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { ArrowLeft, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react'
 
-// Client-safe helper functions (don't import from test-security.ts which has server-only deps)
+// Client-safe helper functions (do not import from test-security.ts which has server-only deps)
 function shouldReleaseScores(releaseScoresAt: Date | null, status: string): boolean {
   if (status !== 'PUBLISHED') {
     return true
@@ -132,7 +132,7 @@ export function ViewResultsClient({
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">No Results Found</h1>
           <p className="text-muted-foreground">
-            You haven't submitted any attempts for this test yet.
+            You haven&apos;t submitted any attempts for this test yet.
           </p>
         </div>
       </div>
@@ -146,6 +146,45 @@ export function ViewResultsClient({
   const sortedAnswers = attempt.answers
     ? [...(attempt.answers || [])].sort((a: any, b: any) => a.question.order - b.question.order)
     : []
+
+  // Calculate grading status
+  const calculateGradingStatus = () => {
+    if (!attempt.answers || attempt.answers.length === 0) {
+      return { isFullyGraded: true, hasUngraded: false }
+    }
+    
+    const hasUngraded = attempt.answers.some((a: any) => a.gradedAt === null)
+    const isFullyGraded = !hasUngraded
+    
+    return { isFullyGraded, hasUngraded }
+  }
+
+  const gradingStatus = calculateGradingStatus()
+
+  // Calculate score breakdown
+  const calculateScoreBreakdown = () => {
+    if (!attempt.answers || attempt.answers.length === 0) {
+      return { earnedPoints: 0, gradedTotalPoints: 0, overallTotalPoints: 0 }
+    }
+
+    let earnedPoints = 0
+    let gradedTotalPoints = 0
+    let overallTotalPoints = 0
+
+    attempt.answers.forEach((answer: any) => {
+      const questionPoints = answer.question?.points || 0
+      overallTotalPoints += questionPoints
+
+      if (answer.gradedAt !== null) {
+        gradedTotalPoints += questionPoints
+        earnedPoints += answer.pointsAwarded || 0
+      }
+    })
+
+    return { earnedPoints, gradedTotalPoints, overallTotalPoints }
+  }
+
+  const scoreBreakdown = calculateScoreBreakdown()
 
   return (
     <div className="container mx-auto max-w-4xl py-8 px-4">
@@ -235,16 +274,32 @@ export function ViewResultsClient({
             <CardTitle>Overall Score</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold">
-              {typeof attempt.gradeEarned === 'number' 
-                ? attempt.gradeEarned.toFixed(2)
-                : Number(attempt.gradeEarned || 0).toFixed(2)}
+            <div className="space-y-3">
+              <div className="text-4xl font-bold">
+                {scoreBreakdown.earnedPoints.toFixed(1)} / {scoreBreakdown.gradedTotalPoints.toFixed(1)} pts
+              </div>
+              
+              {/* Show grading status if not fully graded */}
+              {!gradingStatus.isFullyGraded && (
+                <div className="flex items-start gap-2 p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                      Grading in Progress
+                    </p>
+                    <p className="text-sm text-orange-800 dark:text-orange-200 mt-1">
+                      Some questions are still being graded. Your score shown is based on {scoreBreakdown.gradedTotalPoints.toFixed(1)} of {scoreBreakdown.overallTotalPoints.toFixed(1)} total points.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {testSettingsState.scoreReleaseMode === 'SCORE_ONLY' && (
+                <p className="text-sm text-muted-foreground">
+                  Only the score is available. Detailed answers and feedback are not released for this test.
+                </p>
+              )}
             </div>
-            {testSettingsState.scoreReleaseMode === 'SCORE_ONLY' && (
-              <p className="text-sm text-muted-foreground mt-3">
-                Only the score is available. Detailed answers and feedback are not released for this test.
-              </p>
-            )}
           </CardContent>
         </Card>
       )}
@@ -292,19 +347,25 @@ export function ViewResultsClient({
                           </Badge>
                         ) : (
                           // In FULL_TEST mode, show points
-                          answer.pointsAwarded !== null && answer.question && (
-                            <Badge
-                              variant={isCorrect ? 'default' : 'destructive'}
-                              className="gap-1"
-                            >
-                              {isCorrect ? (
-                                <CheckCircle className="h-3 w-3" />
-                              ) : (
-                                <XCircle className="h-3 w-3" />
-                              )}
-                              {answer.pointsAwarded} / {answer.question.points} pts
-                            </Badge>
-                          )
+                          <>
+                            {answer.gradedAt === null ? (
+                              <Badge variant="secondary" className="bg-gray-500">
+                                Pending Grading
+                              </Badge>
+                            ) : answer.pointsAwarded !== null && answer.question ? (
+                              <Badge
+                                variant={isCorrect ? 'default' : 'destructive'}
+                                className="gap-1"
+                              >
+                                {isCorrect ? (
+                                  <CheckCircle className="h-3 w-3" />
+                                ) : (
+                                  <XCircle className="h-3 w-3" />
+                                )}
+                                {answer.pointsAwarded} / {answer.question.points} pts
+                              </Badge>
+                            ) : null}
+                          </>
                         )}
                       </div>
                     </div>
@@ -367,22 +428,63 @@ export function ViewResultsClient({
                           </div>
                         )}
 
-                      {/* Text Answers */}
+                      {/* Text Answers (FRQs) */}
                       {(answer.question.type === 'SHORT_TEXT' ||
-                        answer.question.type === 'LONG_TEXT') &&
-                        answer.answerText && (
-                          <div>
-                            <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                              Your Answer
-                            </p>
-                            <p className="whitespace-pre-wrap p-3 bg-muted/30 rounded">
-                              {answer.answerText}
-                            </p>
+                        answer.question.type === 'LONG_TEXT') && (
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                                Your Answer
+                              </p>
+                              <div className="whitespace-pre-wrap p-3 bg-muted/30 rounded border">
+                                {answer.answerText && answer.answerText.trim() ? (
+                                  answer.answerText
+                                ) : (
+                                  <span className="text-muted-foreground italic">No answer provided</span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Show grading status for ungraded FRQs */}
+                            {answer.gradedAt === null && (
+                              <div className="p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                                <p className="text-sm text-orange-900 dark:text-orange-100">
+                                  <Clock className="h-4 w-4 inline mr-1" />
+                                  This response is pending grading by your instructor.
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Example Solution (for FRQs in FULL_TEST mode) */}
+                            {answer.question.explanation && answer.gradedAt !== null && (
+                              <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-800">
+                                <p className="text-xs font-semibold uppercase text-green-900 dark:text-green-100 mb-1">
+                                  Example Solution
+                                </p>
+                                <p className="text-sm text-green-900 dark:text-green-100 whitespace-pre-wrap">
+                                  {answer.question.explanation}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Grader Feedback */}
+                            {answer.graderNote && answer.gradedAt !== null && (
+                              <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
+                                <p className="text-xs font-semibold uppercase text-blue-900 dark:text-blue-100 mb-1">
+                                  Grader Feedback
+                                </p>
+                                <p className="text-sm text-blue-900 dark:text-blue-100 whitespace-pre-wrap">
+                                  {answer.graderNote}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
 
-                      {/* Grader Feedback */}
-                      {answer.graderNote && (
+                      {/* Grader Feedback for non-FRQ questions */}
+                      {answer.question.type !== 'SHORT_TEXT' && 
+                       answer.question.type !== 'LONG_TEXT' && 
+                       answer.graderNote && (
                         <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950 rounded">
                           <p className="text-xs font-semibold uppercase text-blue-900 dark:text-blue-100 mb-1">
                             Grader Feedback

@@ -114,7 +114,6 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
     testPassword: '',
     testPasswordConfirm: '',
     releaseScoresAt: '',
-    durationMinutes: test?.durationMinutes?.toString() || '60',
     maxAttempts: test?.maxAttempts?.toString() || '',
     scoreReleaseMode: (test?.scoreReleaseMode || 'FULL_TEST') as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST',
     requireFullscreen: test?.requireFullscreen ?? true,
@@ -145,6 +144,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
     name: test?.name || '',
     description: test?.description || '',
     instructions: test?.instructions || '',
+    durationMinutes: test?.durationMinutes || 60,
     randomizeQuestionOrder: test?.randomizeQuestionOrder || false,
     randomizeOptionOrder: test?.randomizeOptionOrder || false,
   })
@@ -310,6 +310,10 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
       errors.push('Test name is required.')
     }
 
+    if (!details.durationMinutes || details.durationMinutes < 1 || details.durationMinutes > 720) {
+      errors.push('Duration must be between 1 and 720 minutes.')
+    }
+
     if (assignmentMode === 'SUBTEAMS' && selectedSubteams.length === 0) {
       errors.push('Select at least one subteam or assign to the entire team.')
     }
@@ -389,6 +393,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
       name: details.name.trim(),
       description: details.description.trim() || undefined,
       instructions: details.instructions.trim() || undefined,
+      durationMinutes: details.durationMinutes,
       randomizeQuestionOrder: details.randomizeQuestionOrder,
       randomizeOptionOrder: details.randomizeOptionOrder,
       assignments,
@@ -423,6 +428,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
             name: payload.name,
             description: payload.description,
             instructions: payload.instructions,
+            durationMinutes: payload.durationMinutes,
             randomizeQuestionOrder: payload.randomizeQuestionOrder,
             randomizeOptionOrder: payload.randomizeOptionOrder,
           }),
@@ -628,7 +634,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
           endAt: endAtISO,
           testPassword: publishFormData.testPassword || undefined,
           releaseScoresAt: releaseScoresAtISO,
-          durationMinutes: parseInt(publishFormData.durationMinutes, 10) || 60,
+          durationMinutes: details.durationMinutes,
           maxAttempts: publishFormData.maxAttempts ? parseInt(publishFormData.maxAttempts, 10) : null,
           scoreReleaseMode: publishFormData.scoreReleaseMode,
           requireFullscreen: publishFormData.requireFullscreen,
@@ -761,6 +767,27 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                   placeholder="Let students know what resources are allowed, how to submit work, and any other expectations."
                 />
               </div>
+              <div>
+                <Label htmlFor="test-duration">Duration (minutes) *</Label>
+                <Input
+                  id="test-duration"
+                  type="number"
+                  min="1"
+                  max="720"
+                  value={details.durationMinutes}
+                  onChange={(event) =>
+                    setDetails((prev) => ({
+                      ...prev,
+                      durationMinutes: parseInt(event.target.value, 10) || 60,
+                    }))
+                  }
+                  placeholder="60"
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Time allowed to complete the test (1-720 minutes)
+                </p>
+              </div>
             </CardContent>
           </Card>
 
@@ -875,18 +902,6 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                 />
               </div>
             )}
-
-            <div>
-              <Label htmlFor="durationMinutes">Allotted time (minutes) *</Label>
-              <Input
-                id="durationMinutes"
-                type="number"
-                min="1"
-                value={publishFormData.durationMinutes}
-                onChange={(e) => setPublishFormData((prev) => ({ ...prev, durationMinutes: e.target.value }))}
-                required
-              />
-            </div>
 
             <div>
               <Label htmlFor="maxAttempts">Max attempts per user (optional)</Label>

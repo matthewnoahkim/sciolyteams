@@ -389,16 +389,16 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
 
   return (
     <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark">
-      <header className="border-b glass-effect-light dark:glass-effect-dark">
+      <header className="glass-effect-light dark:glass-effect-dark sticky top-0 z-50">
         <div className="container mx-auto flex items-center justify-between p-6">
-          <div className="flex items-center gap-6">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="apple-button-hover">
+          <div className="flex items-center gap-4 lg:gap-6 flex-1 min-w-0">
+            <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="apple-button-hover shrink-0">
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <div className="flex items-center gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-3 mb-1 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-3xl font-bold text-foreground leading-tight">{currentClubName}</h1>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-foreground leading-tight">{currentClubName}</h1>
                   {isAdmin && (
                     <Button
                       variant="ghost"
@@ -407,48 +407,49 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                         setNewClubName(currentClubName)
                         setEditClubNameOpen(true)
                       }}
-                      className="h-8 w-8 p-0"
+                      className="h-7 w-7 p-0 hover:bg-primary/10"
                     >
-                      <Pencil className="h-4 w-4" />
+                      <Pencil className="h-3.5 w-3.5" />
                     </Button>
                   )}
                 </div>
-                <Badge variant="outline">Division {team.division}</Badge>
+                <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary font-semibold">Division {team.division}</Badge>
               </div>
-              <p className="text-base text-muted-foreground leading-relaxed">
+              <p className="text-sm text-muted-foreground leading-relaxed flex items-center gap-2">
+                <Users className="h-3.5 w-3.5" />
                 {team.memberships.length} member{team.memberships.length !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
+          <div className="flex items-center gap-3 lg:gap-4 shrink-0">
+            <div className="hidden sm:flex items-center gap-3">
+              <Avatar className="h-10 w-10 ring-2 ring-primary/10">
                 <AvatarImage src={user.image || ''} />
-                <AvatarFallback>
+                <AvatarFallback className="bg-gradient-primary-light dark:bg-gradient-primary-dark text-primary-foreground">
                   {currentUserName?.charAt(0) || user.email.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div className="hidden text-right sm:block">
+              <div className="hidden text-right lg:block">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-foreground">{currentUserName || user.email}</p>
+                  <p className="text-sm font-semibold text-foreground">{currentUserName || user.email}</p>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setEditUsernameOpen(true)}
-                    className="h-6 w-6 p-0"
+                    className="h-5 w-5 p-0 hover:bg-primary/10"
                   >
                     <Pencil className="h-3 w-3" />
                   </Button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 justify-end flex-wrap">
                   {currentMembership.role === 'ADMIN' && (
-                    <Badge variant="outline" className="text-[10px] uppercase">Admin</Badge>
+                    <Badge variant="outline" className="text-[9px] uppercase border-primary/30 bg-primary/5">Admin</Badge>
                   )}
                   {Array.isArray(currentMembership.roles) && currentMembership.roles.includes('COACH') && (
-                    <Badge variant="outline" className="text-[10px] uppercase">Coach</Badge>
+                    <Badge variant="outline" className="text-[9px] uppercase border-purple-500/30 bg-purple-500/5">Coach</Badge>
                   )}
                   {Array.isArray(currentMembership.roles) && currentMembership.roles.includes('CAPTAIN') && (
-                    <Badge variant="outline" className="text-[10px] uppercase">Captain</Badge>
+                    <Badge variant="outline" className="text-[9px] uppercase border-blue-500/30 bg-blue-500/5">Captain</Badge>
                   )}
                 </div>
               </div>
@@ -458,6 +459,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               variant="outline"
               size="sm"
               onClick={handleSignOut}
+              className="apple-button-hover"
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -465,83 +467,114 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
         </div>
       </header>
 
-      <main className="container mx-auto p-8">
-        <div className="flex gap-8">
+      <main className="container mx-auto p-6 lg:p-8">
+        <div className="flex gap-6 lg:gap-8">
           {/* Vertical Navigation Sidebar */}
-          <aside className="w-48 flex-shrink-0">
-            <nav className="sticky top-8 space-y-2">
+          <aside className="w-52 flex-shrink-0 hidden md:block">
+            <nav className="sticky top-24 space-y-2 glass-effect-light dark:glass-effect-dark p-3 rounded-3xl">
               <Button
                 variant={activeTab === 'stream' ? 'default' : 'ghost'}
-                className="w-full justify-start relative"
+                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
                 onClick={() => handleTabChange('stream')}
               >
-                <MessageSquare className="mr-2 h-4 w-4" />
+                <MessageSquare className="mr-3 h-4 w-4" />
                 Stream
                 {tabNotifications.stream && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  </span>
                 )}
               </Button>
               <Button
                 variant={activeTab === 'people' ? 'default' : 'ghost'}
-                className="w-full justify-start relative"
+                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
                 onClick={() => handleTabChange('people')}
               >
-                <Users className="mr-2 h-4 w-4" />
+                <Users className="mr-3 h-4 w-4" />
                 People
                 {tabNotifications.people && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  </span>
                 )}
               </Button>
               <Button
                 variant={activeTab === 'calendar' ? 'default' : 'ghost'}
-                className="w-full justify-start relative"
+                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
                 onClick={() => handleTabChange('calendar')}
               >
-                <Calendar className="mr-2 h-4 w-4" />
+                <Calendar className="mr-3 h-4 w-4" />
                 Calendar
                 {tabNotifications.calendar && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  </span>
                 )}
               </Button>
               <Button
                 variant={activeTab === 'attendance' ? 'default' : 'ghost'}
-                className="w-full justify-start relative"
+                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
                 onClick={() => handleTabChange('attendance')}
               >
-                <ClipboardCheck className="mr-2 h-4 w-4" />
+                <ClipboardCheck className="mr-3 h-4 w-4" />
                 Attendance
                 {tabNotifications.attendance && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  </span>
                 )}
               </Button>
               <Button
                 variant={activeTab === 'finance' ? 'default' : 'ghost'}
-                className="w-full justify-start relative"
+                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
                 onClick={() => handleTabChange('finance')}
               >
-                <DollarSign className="mr-2 h-4 w-4" />
+                <DollarSign className="mr-3 h-4 w-4" />
                 Finance
                 {tabNotifications.finance && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  </span>
                 )}
               </Button>
               <Button
                 variant={activeTab === 'tests' ? 'default' : 'ghost'}
-                className="w-full justify-start relative"
+                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
                 onClick={() => handleTabChange('tests')}
               >
-                <FileText className="mr-2 h-4 w-4" />
+                <FileText className="mr-3 h-4 w-4" />
                 Tests
                 {tabNotifications.tests && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500"></span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  </span>
                 )}
               </Button>
+              <div className="h-px bg-border my-2" />
               <Button
                 variant={activeTab === 'settings' ? 'default' : 'ghost'}
-                className="w-full justify-start"
+                className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
                 onClick={() => handleTabChange('settings')}
               >
-                <Settings className="mr-2 h-4 w-4" />
+                <Settings className="mr-3 h-4 w-4" />
                 Settings
               </Button>
             </nav>

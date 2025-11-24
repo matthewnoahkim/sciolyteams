@@ -234,7 +234,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
         if (isAdmin) {
           draftsList.push(test)
         }
-        // Non-admins don't see drafts
+        // Non-admins do not see drafts
       } else if (test.status === 'PUBLISHED') {
         const startAt = test.startAt ? new Date(test.startAt) : null
         const endAt = test.endAt ? new Date(test.endAt) : null

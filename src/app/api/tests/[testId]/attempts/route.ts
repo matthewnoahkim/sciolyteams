@@ -127,6 +127,7 @@ export async function GET(
             type: answer.question.type,
             points: Number(answer.question.points),
             sectionId: answer.question.sectionId,
+            explanation: answer.question.explanation,
             options: answer.question.options.map((opt) => ({
               id: opt.id,
               label: opt.label,

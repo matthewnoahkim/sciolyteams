@@ -15,10 +15,11 @@ export function SignInButton({ callbackUrl = '/' }: SignInButtonProps) {
 
   return (
     <Button 
-      className="w-full h-12 text-base font-semibold bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 shadow-md hover:shadow-lg transition-all duration-200" 
+      className="w-full h-14 text-base font-semibold bg-white dark:bg-card text-gray-900 dark:text-white border-2 border-gray-200 dark:border-border hover:bg-gray-50 dark:hover:bg-secondary hover:border-primary/50 dark:hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl" 
       onClick={handleSignIn}
+      variant="outline"
     >
-      <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24">
+      <svg className="mr-3 h-6 w-6" viewBox="0 0 24 24">
         <path
           fill="#4285F4"
           d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
