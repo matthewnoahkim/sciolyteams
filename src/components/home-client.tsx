@@ -189,32 +189,32 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
 
   return (
     <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark">
-      <header className="border-b glass-effect-light dark:glass-effect-dark">
+      <header className="glass-effect-light dark:glass-effect-dark sticky top-0 z-50">
         <div className="container mx-auto flex items-center justify-between p-6">
           <div className="flex items-center gap-4">
             <Logo size="lg" />
-            <div>
-              <p className="text-base text-muted-foreground leading-relaxed">Team Management Platform</p>
+            <div className="hidden md:block">
+              <p className="text-sm text-muted-foreground">Team Management Platform</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 lg:gap-4">
             <div className="flex items-center gap-3">
               <Avatar 
-                className="h-10 w-10 cursor-pointer apple-transition hover:scale-105"
+                className="h-10 w-10 cursor-pointer apple-button-hover ring-2 ring-primary/10"
                 onClick={() => setEditNameOpen(true)}
               >
                 <AvatarImage src={user.image || ''} />
-                <AvatarFallback>
+                <AvatarFallback className="bg-gradient-primary-light dark:bg-gradient-primary-dark text-primary-foreground">
                   {currentUserName?.charAt(0) || user.email.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden text-right sm:block">
                 <div className="flex items-center gap-1">
-                  <p className="text-sm font-medium text-foreground">{currentUserName || user.email}</p>
+                  <p className="text-sm font-semibold text-foreground">{currentUserName || user.email}</p>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-5 w-5"
+                    className="h-5 w-5 hover:bg-primary/10"
                     onClick={(e) => {
                       e.stopPropagation()
                       setEditNameOpen(true)
@@ -231,6 +231,7 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
               variant="outline"
               size="sm"
               onClick={handleSignOut}
+              className="apple-button-hover"
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -238,84 +239,101 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
         </div>
       </header>
 
-      <main className="container mx-auto p-6">
-        <div className="mb-12">
-          <h2 className="mb-4 text-5xl font-bold text-foreground leading-tight">Your Clubs</h2>
+      <main className="container mx-auto p-6 lg:p-10">
+        <div className="mb-16">
+          <h2 className="mb-4 text-5xl lg:text-6xl font-extrabold text-foreground leading-tight">
+            Your <span className="gradient-text dark:gradient-text-dark">Clubs</span>
+          </h2>
           <p className="text-xl text-muted-foreground leading-relaxed">
             Manage your teams, events, and schedules
           </p>
         </div>
 
         {memberships.length === 0 ? (
-          <Card className="border-dashed">
-            <CardHeader className="text-center">
-              <CardTitle className="text-3xl">No Clubs Yet</CardTitle>
+          <Card className="border-dashed border-2 glass-effect-light dark:glass-effect-dark">
+            <CardHeader className="text-center py-12">
+              <div className="inline-flex p-4 rounded-2xl bg-gradient-primary-light dark:bg-gradient-primary-dark mx-auto mb-4">
+                <Users className="h-12 w-12 text-white" />
+              </div>
+              <CardTitle className="text-4xl mb-3">No Clubs Yet</CardTitle>
               <CardDescription className="text-lg">
                 Create your first club or join an existing one to get started
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex justify-center gap-6">
-              <Button onClick={() => setCreateOpen(true)} size="lg">
+            <CardContent className="flex flex-col sm:flex-row justify-center gap-4 pb-12">
+              <Button onClick={() => setCreateOpen(true)} size="lg" className="apple-button-hover text-base px-8">
                 <Plus className="mr-2 h-5 w-5" />
                 Create Club
               </Button>
-              <Button variant="outline" onClick={() => setJoinOpen(true)} size="lg">
+              <Button variant="outline" onClick={() => setJoinOpen(true)} size="lg" className="apple-button-hover text-base px-8">
                 Join Club
               </Button>
             </CardContent>
           </Card>
         ) : (
           <>
-            <div className="mb-10 flex justify-end gap-6">
-              <Button onClick={() => setCreateOpen(true)} size="lg">
+            <div className="mb-12 flex justify-end gap-4">
+              <Button onClick={() => setCreateOpen(true)} size="lg" className="apple-button-hover text-base px-8">
                 <Plus className="mr-2 h-5 w-5" />
                 Create Club
               </Button>
-              <Button variant="outline" onClick={() => setJoinOpen(true)} size="lg">
+              <Button variant="outline" onClick={() => setJoinOpen(true)} size="lg" className="apple-button-hover text-base px-8">
                 Join Club
               </Button>
             </div>
 
-            <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {memberships.map((membership) => (
                 <Card
                   key={membership.id}
-                  className="cursor-pointer apple-hover group relative"
+                  className="cursor-pointer apple-hover group relative overflow-hidden glass-effect-light dark:glass-effect-dark border-2"
                   onClick={() => {
                     clearTeamNotification(membership.team.id)
                     router.push(`/teams/${membership.team.id}`)
                   }}
                 >
+                  {/* Gradient overlay on hover */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  
                   {teamNotifications[membership.team.id] && (
-                    <span className="absolute right-4 top-4 h-2 w-2 rounded-full bg-red-500 z-10"></span>
+                    <div className="absolute right-4 top-4 z-10">
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                      </span>
+                    </div>
                   )}
-                  <CardHeader>
+                  
+                  <CardHeader className="relative">
                     <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle>{membership.team.name}</CardTitle>
-                        <CardDescription>
-                          Division {membership.team.division}
+                      <div className="flex-1">
+                        <CardTitle className="text-2xl mb-2 group-hover:text-primary transition-colors">{membership.team.name}</CardTitle>
+                        <CardDescription className="text-base flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold">
+                            Division {membership.team.division}
+                          </span>
                         </CardDescription>
-                      </div>
-                      <div className="flex flex-col gap-1 items-end">
-                        {membership.role === 'ADMIN' && (
-                          <Badge variant="outline" className="text-[10px] uppercase">Admin</Badge>
-                        )}
-                        {Array.isArray(membership.roles) && membership.roles.includes('COACH') && (
-                          <Badge variant="outline" className="text-[10px] uppercase">Coach</Badge>
-                        )}
-                        {Array.isArray(membership.roles) && membership.roles.includes('CAPTAIN') && (
-                          <Badge variant="outline" className="text-[10px] uppercase">Captain</Badge>
-                        )}
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="relative space-y-3">
                     {membership.subteam && (
-                      <div className="text-sm text-muted-foreground">
-                        Team: <span className="font-medium">{membership.subteam.name}</span>
+                      <div className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <span>Team: <span className="font-semibold text-foreground">{membership.subteam.name}</span></span>
                       </div>
                     )}
+                    <div className="flex flex-wrap gap-2">
+                      {membership.role === 'ADMIN' && (
+                        <Badge variant="outline" className="text-xs uppercase font-semibold border-primary/30 bg-primary/5">Admin</Badge>
+                      )}
+                      {Array.isArray(membership.roles) && membership.roles.includes('COACH') && (
+                        <Badge variant="outline" className="text-xs uppercase font-semibold border-purple-500/30 bg-purple-500/5">Coach</Badge>
+                      )}
+                      {Array.isArray(membership.roles) && membership.roles.includes('CAPTAIN') && (
+                        <Badge variant="outline" className="text-xs uppercase font-semibold border-blue-500/30 bg-blue-500/5">Captain</Badge>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
