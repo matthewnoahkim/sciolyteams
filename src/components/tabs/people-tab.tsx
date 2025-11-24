@@ -118,7 +118,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
 
       setNewTeamName('')
       setCreateOpen(false)
-      // Data will update on next navigation - no refresh needed
+      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
@@ -152,17 +152,10 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
       })
 
       // Update the selectedTeam state if it's the one being edited
-      if (selectedTeam && selectedTeam.id === editingTeam.id) {
-        setSelectedTeam({
-          ...selectedTeam,
-          name: editTeamName
-        })
-      }
-
       setEditOpen(false)
       setEditingTeam(null)
       setEditTeamName('')
-      // Data will update on next navigation - no refresh needed
+      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
@@ -205,7 +198,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
 
       setTeamToDelete(null)
       setDeleteDialogOpen(false)
-      // Data will update on next navigation - no refresh needed
+      router.refresh()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -250,8 +243,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
         description: event ? `Added to ${event.name}` : 'Added to event',
       })
 
-      // Optimistically update assignments - refetch assignments
-      fetchAssignments()
+      router.refresh()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -276,8 +268,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
         title: 'Member removed',
       })
 
-      // Optimistically update assignments - refetch assignments
-      fetchAssignments()
+      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
@@ -347,7 +338,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
         description: `${memberName} moved to ${teamName}`,
       })
 
-      // Data will update on next navigation - no refresh needed
+      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
@@ -386,8 +377,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
         description: `${memberName} added to ${eventName}`,
       })
 
-      // Optimistically update assignments - refetch assignments
-      fetchAssignments()
+      router.refresh()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -416,7 +406,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
         description: role ? `Assigned ${role.toLowerCase()} role` : 'Removed roles',
       })
 
-      // Data will update on next navigation - no refresh needed
+      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
