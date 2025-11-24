@@ -15,7 +15,7 @@ export function SignInButton({ callbackUrl = '/' }: SignInButtonProps) {
 
   return (
     <Button 
-      className="w-full h-14 text-base font-semibold bg-white dark:bg-card text-gray-900 dark:text-white border-2 border-gray-200 dark:border-border hover:bg-gray-50 dark:hover:bg-secondary hover:border-primary/50 dark:hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl" 
+      className="w-full h-14 text-base font-semibold bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm text-gray-900 dark:text-white border-2 border-gray-200/50 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-800 hover:border-blue-300 dark:hover:border-blue-700 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl transform hover:scale-[1.02]" 
       onClick={handleSignIn}
       variant="outline"
     >

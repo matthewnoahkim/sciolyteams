@@ -3,11 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, LogOut, MessageSquare, Users, Calendar, Settings, Pencil, ClipboardCheck, DollarSign, FileText } from 'lucide-react'
-import { Logo } from '@/components/logo'
-import { signOut } from 'next-auth/react'
+import { ArrowLeft, MessageSquare, Users, Calendar, Settings, ClipboardCheck, DollarSign, FileText, Pencil } from 'lucide-react'
+import { AppHeader } from '@/components/app-header'
 import { StreamTab } from '@/components/tabs/stream-tab'
 import { PeopleTab } from '@/components/tabs/people-tab'
 import { CalendarTab } from '@/components/tabs/calendar-tab'
@@ -15,8 +13,6 @@ import { AttendanceTab } from '@/components/tabs/attendance-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
 import FinanceTab from '@/components/tabs/finance-tab'
 import TestsTab from '@/components/tabs/tests-tab'
-import { ThemeToggle } from '@/components/theme-toggle'
-import { EditUsernameDialog } from '@/components/edit-username-dialog'
 import {
   Dialog,
   DialogContent,
@@ -45,8 +41,6 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'stream')
-  const [editUsernameOpen, setEditUsernameOpen] = useState(false)
-  const [currentUserName, setCurrentUserName] = useState(user.name)
   const [editClubNameOpen, setEditClubNameOpen] = useState(false)
   const [currentClubName, setCurrentClubName] = useState(team.name)
   const [newClubName, setNewClubName] = useState(team.name)
@@ -303,11 +297,6 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
     }
   }, [activeTab, team.id, user.id])
 
-  // Sync local state when user prop changes (e.g., after navigation)
-  useEffect(() => {
-    setCurrentUserName(user.name)
-  }, [user.name])
-
   useEffect(() => {
     const tabParam = searchParams.get('tab')
     if (tabParam) {
@@ -322,21 +311,6 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
     const url = new URL(window.location.href)
     url.searchParams.set('tab', newTab)
     router.replace(url.pathname + url.search, { scroll: false })
-  }
-
-  const handleSignOut = async () => {
-    try {
-      const response = await signOut({
-        callbackUrl: '/login',
-        redirect: false,
-      })
-
-      const targetUrl = response?.url ?? '/login'
-      router.push(targetUrl)
-      router.refresh()
-    } catch (error) {
-      console.error('Sign out error', error)
-    }
   }
 
   const handleUpdateClubName = async (e: React.FormEvent) => {
@@ -388,90 +362,24 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark">
-      <header className="glass-effect-light dark:glass-effect-dark sticky top-0 z-50">
-        <div className="container mx-auto flex items-center justify-between p-6">
-          <div className="flex items-center gap-4 lg:gap-6 flex-1 min-w-0">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="apple-button-hover shrink-0">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-3 mb-1 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl lg:text-3xl font-bold text-foreground leading-tight">{currentClubName}</h1>
-                  {isAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setNewClubName(currentClubName)
-                        setEditClubNameOpen(true)
-                      }}
-                      className="h-7 w-7 p-0 hover:bg-primary/10"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-                <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary font-semibold">Division {team.division}</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed flex items-center gap-2">
-                <Users className="h-3.5 w-3.5" />
-                {team.memberships.length} member{team.memberships.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 lg:gap-4 shrink-0">
-            <div className="hidden sm:flex items-center gap-3">
-              <Avatar className="h-10 w-10 ring-2 ring-primary/10">
-                <AvatarImage src={user.image || ''} />
-                <AvatarFallback className="bg-gradient-primary-light dark:bg-gradient-primary-dark text-primary-foreground">
-                  {currentUserName?.charAt(0) || user.email.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="hidden text-right lg:block">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">{currentUserName || user.email}</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditUsernameOpen(true)}
-                    className="h-5 w-5 p-0 hover:bg-primary/10"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                </div>
-                <div className="flex items-center gap-1 justify-end flex-wrap">
-                  {currentMembership.role === 'ADMIN' && (
-                    <Badge variant="outline" className="text-[9px] uppercase border-primary/30 bg-primary/5">Admin</Badge>
-                  )}
-                  {Array.isArray(currentMembership.roles) && currentMembership.roles.includes('COACH') && (
-                    <Badge variant="outline" className="text-[9px] uppercase border-purple-500/30 bg-purple-500/5">Coach</Badge>
-                  )}
-                  {Array.isArray(currentMembership.roles) && currentMembership.roles.includes('CAPTAIN') && (
-                    <Badge variant="outline" className="text-[9px] uppercase border-blue-500/30 bg-blue-500/5">Captain</Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-            <ThemeToggle />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSignOut}
-              className="apple-button-hover"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+      {/* Animated background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-40 animate-blob"></div>
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-40 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-indigo-400/20 to-blue-400/20 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-40 animate-blob animation-delay-4000"></div>
+        
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)]"></div>
+      </div>
 
-      <main className="container mx-auto p-6 lg:p-8">
+      <AppHeader user={user} showBackButton={true} backHref="/dashboard" title={currentClubName} />
+
+      <main className="relative z-10 container mx-auto px-4 py-6 md:py-8">
         <div className="flex gap-6 lg:gap-8">
           {/* Vertical Navigation Sidebar */}
           <aside className="w-52 flex-shrink-0 hidden md:block">
-            <nav className="sticky top-24 space-y-2 glass-effect-light dark:glass-effect-dark p-3 rounded-3xl">
+            <nav className="sticky top-24 space-y-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 p-3 rounded-2xl shadow-lg">
               <Button
                 variant={activeTab === 'stream' ? 'default' : 'ghost'}
                 className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
@@ -582,6 +490,37 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
 
           {/* Main Content Area */}
           <div className="flex-1 min-w-0">
+            {/* Team Info Header */}
+            <div className="mb-6 p-6 rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
+                    <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{currentClubName}</h2>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setNewClubName(currentClubName)
+                          setEditClubNameOpen(true)
+                        }}
+                        className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Badge variant="outline" className="border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold">
+                      Division {team.division}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    {team.memberships.length} member{team.memberships.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {activeTab === 'stream' && (
               <StreamTab
                 teamId={team.id}
@@ -645,12 +584,6 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
         </div>
       </main>
 
-      <EditUsernameDialog
-        open={editUsernameOpen}
-        onOpenChange={setEditUsernameOpen}
-        currentName={user.name ?? null}
-        onNameUpdated={setCurrentUserName}
-      />
 
       {/* Edit Club Name Dialog */}
       <Dialog open={editClubNameOpen} onOpenChange={setEditClubNameOpen}>
