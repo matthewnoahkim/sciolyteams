@@ -48,19 +48,6 @@ export async function POST(request: NextRequest) {
     }
     const trimmedPassword = password.trim()
 
-    // Debug logging (remove in production)
-    console.log('Password check:', {
-      received: `"${trimmedPassword}"`,
-      receivedLength: trimmedPassword.length,
-      expected: `"${devPassword}"`,
-      expectedLength: devPassword.length,
-      match: trimmedPassword === devPassword,
-      charCodes: {
-        received: trimmedPassword.split('').map(c => c.charCodeAt(0)),
-        expected: devPassword.split('').map(c => c.charCodeAt(0)),
-      },
-    })
-
     if (trimmedPassword === devPassword) {
       return NextResponse.json({ success: true })
     } else {
