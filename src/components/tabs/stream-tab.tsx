@@ -126,22 +126,75 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
     e.preventDefault()
     setPosting(true)
 
+    // Store form data for optimistic update
+    const formDataToPost = {
+      title,
+      content,
+      scope,
+      selectedSubteams,
+      sendEmail,
+      important,
+      selectedFiles,
+    }
+
+    // Create optimistic announcement
+    const tempAnnouncement = {
+      id: `temp-${Date.now()}`,
+      title,
+      content,
+      important,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      author: {
+        id: currentMembership.id,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+        },
+      },
+      replies: [],
+      reactions: [],
+      attachments: [],
+      visibilities: scope === 'TEAM' 
+        ? [{ scope: 'TEAM' }]
+        : selectedSubteams.map((subteamId) => ({
+            scope: 'SUBTEAM',
+            subteamId,
+            subteam: subteams.find((s) => s.id === subteamId),
+          })),
+    }
+
+    // Optimistically add announcement to the top of the list
+    setAnnouncements((prev) => [tempAnnouncement, ...prev])
+
+    // Clear form immediately
+    setTitle('')
+    setContent('')
+    setSendEmail(false)
+    setImportant(false)
+    setSelectedFiles([])
+    setIsPostSectionCollapsed(true) // Collapse the form after successful post
+
     try {
       const response = await fetch('/api/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           teamId,
-          title,
-          content,
-          scope,
-          subteamIds: scope === 'SUBTEAM' ? selectedSubteams : undefined,
-          sendEmail,
-          important,
+          title: formDataToPost.title,
+          content: formDataToPost.content,
+          scope: formDataToPost.scope,
+          subteamIds: formDataToPost.scope === 'SUBTEAM' ? formDataToPost.selectedSubteams : undefined,
+          sendEmail: formDataToPost.sendEmail,
+          important: formDataToPost.important,
         }),
       })
 
       if (!response.ok) {
+        // Revert optimistic update on error
+        setAnnouncements((prev) => prev.filter((a) => a.id !== tempAnnouncement.id))
         const errorData = (await response.json().catch(() => ({}))) as ApiErrorResponse
         console.error('Announcement post error:', errorData)
         const errorMsg = errorData.error || 'Failed to post announcement'
@@ -151,6 +204,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
 
       const rawData: unknown = await response.json().catch(() => null)
       let announcementId: string | undefined
+      let serverAnnouncement: any = null
+      
       if (
         rawData &&
         typeof rawData === 'object' &&
@@ -159,18 +214,19 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
         typeof rawData.announcement === 'object' &&
         'id' in rawData.announcement
       ) {
+        serverAnnouncement = rawData.announcement
         announcementId = (rawData.announcement as { id?: string }).id
       }
 
       // Upload files if any
-      if (selectedFiles.length > 0 && announcementId) {
+      if (formDataToPost.selectedFiles.length > 0 && announcementId) {
         setUploadingFiles(true)
         try {
           await Promise.all(
-            selectedFiles.map(async (file) => {
+            formDataToPost.selectedFiles.map(async (file) => {
               const formData = new FormData()
               formData.append('file', file)
-              formData.append('announcementId', announcementId)
+              formData.append('announcementId', announcementId!)
 
               const uploadResponse = await fetch('/api/attachments/upload', {
                 method: 'POST',
@@ -194,17 +250,23 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
         }
       }
 
+      // Replace temp announcement with server response
+      if (serverAnnouncement) {
+        setAnnouncements((prev) =>
+          prev.map((announcement) =>
+            announcement.id === tempAnnouncement.id ? serverAnnouncement : announcement
+          )
+        )
+      } else {
+        // If server response doesn't include full announcement, remove temp and refetch
+        setAnnouncements((prev) => prev.filter((a) => a.id !== tempAnnouncement.id))
+        fetchAnnouncements()
+      }
+
       toast({
         title: 'Announcement posted',
-        description: sendEmail ? 'Emails are being sent.' : undefined,
+        description: formDataToPost.sendEmail ? 'Emails are being sent.' : undefined,
       })
-
-      setTitle('')
-      setContent('')
-      setSendEmail(false)
-      setImportant(false)
-      setSelectedFiles([])
-      fetchAnnouncements()
     } catch (error: any) {
       console.error('Post announcement error:', error)
       toast({
@@ -281,6 +343,39 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
 
     setPostingReply((prev) => ({ ...prev, [announcementId]: true }))
 
+    // Optimistically create a temporary reply
+    const tempReply = {
+      id: `temp-${Date.now()}`,
+      content,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      author: {
+        id: currentMembership.id,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+        },
+      },
+      reactions: [],
+    }
+
+    // Optimistically add reply to announcements
+    setAnnouncements((prev) =>
+      prev.map((announcement) =>
+        announcement.id === announcementId
+          ? {
+              ...announcement,
+              replies: [...(announcement.replies || []), tempReply],
+            }
+          : announcement
+      )
+    )
+
+    // Clear the input immediately
+    setReplyContent((prev) => ({ ...prev, [announcementId]: '' }))
+
     try {
       const response = await fetch(`/api/announcements/${announcementId}/replies`, {
         method: 'POST',
@@ -288,17 +383,40 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
         body: JSON.stringify({ content }),
       })
 
-      if (!response.ok) throw new Error('Failed to post reply')
+      if (!response.ok) {
+        // Revert optimistic update on error
+        setAnnouncements((prev) =>
+          prev.map((announcement) =>
+            announcement.id === announcementId
+              ? {
+                  ...announcement,
+                  replies: (announcement.replies || []).filter((r: any) => r.id !== tempReply.id),
+                }
+              : announcement
+          )
+        )
+        throw new Error('Failed to post reply')
+      }
+
+      const data = await response.json()
+      
+      // Replace temp reply with real one from server
+      setAnnouncements((prev) =>
+        prev.map((announcement) =>
+          announcement.id === announcementId
+            ? {
+                ...announcement,
+                replies: (announcement.replies || []).map((r: any) =>
+                  r.id === tempReply.id ? data.reply : r
+                ),
+              }
+            : announcement
+        )
+      )
 
       toast({
         title: 'Reply posted',
       })
-
-      // Clear the input
-      setReplyContent((prev) => ({ ...prev, [announcementId]: '' }))
-      
-      // Refresh announcements to get new reply
-      fetchAnnouncements()
     } catch (error) {
       toast({
         title: 'Error',
@@ -324,12 +442,14 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
     try {
       // Check if user already reacted with this emoji
       let hasReacted = false
+      let currentReactions: any[] = []
       
       if (targetType === 'announcement') {
         const announcement = announcements.find(a => a.id === targetId)
         hasReacted = announcement?.reactions?.some((r: any) => 
           r.emoji === emoji && r.user.id === currentMembership.userId
         )
+        currentReactions = announcement?.reactions || []
       } else {
         // For replies, find the reply in any announcement
         for (const announcement of announcements) {
@@ -338,19 +458,59 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
             hasReacted = reply.reactions?.some((r: any) => 
               r.emoji === emoji && r.user.id === currentMembership.userId
             )
+            currentReactions = reply.reactions || []
             break
           }
         }
       }
 
+      // Optimistically update reactions
+      const optimisticReactions = hasReacted
+        ? currentReactions.filter((r: any) => !(r.emoji === emoji && r.user.id === currentMembership.userId))
+        : [
+            ...currentReactions,
+            {
+              id: `temp-${Date.now()}`,
+              emoji,
+              user: {
+                id: currentMembership.userId,
+                name: user.name,
+                email: user.email,
+                image: user.image,
+              },
+            },
+          ]
+
+      // Update state optimistically
+      if (targetType === 'announcement') {
+        setAnnouncements((prev) =>
+          prev.map((announcement) =>
+            announcement.id === targetId
+              ? { ...announcement, reactions: optimisticReactions }
+              : announcement
+          )
+        )
+      } else {
+        setAnnouncements((prev) =>
+          prev.map((announcement) => ({
+            ...announcement,
+            replies: (announcement.replies || []).map((reply: any) =>
+              reply.id === targetId ? { ...reply, reactions: optimisticReactions } : reply
+            ),
+          }))
+        )
+      }
+
+      // Make API call
       if (hasReacted) {
         // Remove reaction
-        await fetch(`/api/reactions?targetType=${targetType}&targetId=${targetId}&emoji=${encodeURIComponent(emoji)}`, {
+        const response = await fetch(`/api/reactions?targetType=${targetType}&targetId=${targetId}&emoji=${encodeURIComponent(emoji)}`, {
           method: 'DELETE',
         })
+        if (!response.ok) throw new Error('Failed to remove reaction')
       } else {
         // Add reaction
-        await fetch('/api/reactions', {
+        const response = await fetch('/api/reactions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -359,11 +519,50 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
             targetId,
           }),
         })
+        if (!response.ok) throw new Error('Failed to add reaction')
+        
+        // If response includes reaction data, use it to replace temp reaction
+        try {
+          const data = await response.json()
+          if (data.reaction) {
+            if (targetType === 'announcement') {
+              setAnnouncements((prev) =>
+                prev.map((announcement) =>
+                  announcement.id === targetId
+                    ? {
+                        ...announcement,
+                        reactions: (announcement.reactions || []).map((r: any) =>
+                          r.id?.startsWith('temp-') && r.emoji === emoji ? data.reaction : r
+                        ),
+                      }
+                    : announcement
+                )
+              )
+            } else {
+              setAnnouncements((prev) =>
+                prev.map((announcement) => ({
+                  ...announcement,
+                  replies: (announcement.replies || []).map((reply: any) =>
+                    reply.id === targetId
+                      ? {
+                          ...reply,
+                          reactions: (reply.reactions || []).map((r: any) =>
+                            r.id?.startsWith('temp-') && r.emoji === emoji ? data.reaction : r
+                          ),
+                        }
+                      : reply
+                  ),
+                }))
+              )
+            }
+          }
+        } catch (e) {
+          // If response doesn't include reaction, that's okay - optimistic update is fine
+        }
       }
-
-      // Refresh announcements to get updated reactions
-      fetchAnnouncements()
     } catch (error) {
+      // Revert optimistic update on error
+      fetchAnnouncements()
       toast({
         title: 'Error',
         description: 'Failed to update reaction',

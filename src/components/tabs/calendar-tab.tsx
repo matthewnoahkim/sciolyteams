@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -1511,8 +1512,15 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
 
       {/* Calendar View */}
       {loading ? (
-        <div className="flex items-center justify-center h-[400px] border rounded-lg">
-          <p className="text-muted-foreground">Loading calendar...</p>
+        <div className="border rounded-lg p-6">
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-64" />
+            <div className="grid grid-cols-7 gap-2">
+              {Array.from({ length: 35 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          </div>
         </div>
       ) : viewMode === 'month' ? (
         renderMonthView()

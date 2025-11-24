@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Clock,
   CheckCircle,
@@ -386,8 +387,19 @@ export function AttendanceTab({ teamId, isAdmin, user }: AttendanceTabProps) {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">Loading attendance...</p>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="p-6">
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-32" />
+                <div className="flex gap-2 mt-4">
+                  <Skeleton className="h-9 w-24" />
+                  <Skeleton className="h-9 w-24" />
+                </div>
+              </div>
+            </Card>
+          ))}
         </div>
       ) : attendances.length === 0 ? (
         <Card className="p-12 text-center">

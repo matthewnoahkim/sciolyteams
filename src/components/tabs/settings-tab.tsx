@@ -72,7 +72,7 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
 
       setRemoveMemberDialogOpen(false)
       setMemberToRemove(null)
-      router.refresh()
+      // Data will update on next navigation - no refresh needed
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -266,9 +266,8 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
         description: 'You have successfully left the club',
       })
 
-      // Redirect and refresh after leaving
-      await router.push('/')
-      router.refresh()
+      // Navigate to home - no refresh needed as we're going to a different page
+      router.push('/')
     } catch (error: any) {
       toast({
         title: 'Error',

@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Clock, ShoppingCart, Download, Settings, AlertTriangle, Wallet } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { SaveIndicator } from '@/components/ui/save-indicator'
 
 interface FinanceTabProps {
   teamId: string
@@ -194,6 +196,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
   })
   const [savingBudget, setSavingBudget] = useState(false)
   const [submittingReview, setSubmittingReview] = useState(false)
+  const [saveIndicator, setSaveIndicator] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -258,41 +261,69 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
     e.preventDefault()
     setAddingExpense(true)
 
+    const expenseData = {
+      teamId,
+      eventId: expenseForm.eventId || undefined,
+      description: expenseForm.description,
+      category: expenseForm.category || undefined,
+      amount: parseFloat(expenseForm.amount),
+      date: new Date(expenseForm.date).toISOString(),
+      notes: expenseForm.notes || undefined,
+    }
+
+    // Optimistic update - create temporary expense
+    const tempExpense: Expense = {
+      id: `temp-${Date.now()}`,
+      ...expenseData,
+      date: expenseForm.date,
+      event: expenseForm.eventId ? events.find(e => e.id === expenseForm.eventId) : undefined,
+      addedBy: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    setExpenses(prev => [tempExpense, ...prev])
+    setExpenseForm({
+      description: '',
+      category: '',
+      amount: '',
+      date: new Date().toISOString().split('T')[0],
+      notes: '',
+      eventId: '',
+    })
+    setAddExpenseOpen(false)
+
     try {
       const response = await fetch('/api/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teamId,
-          eventId: expenseForm.eventId || undefined,
-          description: expenseForm.description,
-          category: expenseForm.category || undefined,
-          amount: parseFloat(expenseForm.amount),
-          date: new Date(expenseForm.date).toISOString(),
-          notes: expenseForm.notes || undefined,
-        }),
+        body: JSON.stringify(expenseData),
       })
 
       if (!response.ok) {
+        // Revert optimistic update on error
+        setExpenses(prev => prev.filter(e => e.id !== tempExpense.id))
         const data = await response.json()
         throw new Error(data.error || 'Failed to add expense')
       }
 
+      const data = await response.json()
+      // Refetch expenses to get full data with addedBy field
+      // The API POST doesn't return addedBy, so we need to refetch
+      const expensesRes = await fetch(`/api/expenses?teamId=${teamId}`)
+      if (expensesRes.ok) {
+        const expensesData = await expensesRes.json()
+        setExpenses(expensesData.expenses)
+      } else {
+        // Fallback: replace temp expense with response (may be missing addedBy)
+        setExpenses(prev => prev.map(e => e.id === tempExpense.id ? data.expense : e))
+      }
+      setSaveIndicator(true)
+      
       toast({
         title: 'Expense Added',
         description: 'The expense has been added to the spreadsheet',
       })
-
-      setExpenseForm({
-        description: '',
-        category: '',
-        amount: '',
-        date: new Date().toISOString().split('T')[0],
-        notes: '',
-        eventId: '',
-      })
-      setAddExpenseOpen(false)
-      await fetchData()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -323,33 +354,60 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
 
     setUpdatingExpense(true)
 
+    const updateData = {
+      eventId: editExpenseForm.eventId || null,
+      description: editExpenseForm.description,
+      category: editExpenseForm.category || undefined,
+      amount: parseFloat(editExpenseForm.amount),
+      date: new Date(editExpenseForm.date).toISOString(),
+      notes: editExpenseForm.notes || undefined,
+    }
+
+    // Optimistic update
+    const originalExpense = editingExpense
+    const optimisticExpense: Expense = {
+      ...editingExpense,
+      ...updateData,
+      date: editExpenseForm.date,
+      amount: parseFloat(editExpenseForm.amount),
+      event: editExpenseForm.eventId ? events.find(e => e.id === editExpenseForm.eventId) : undefined,
+      updatedAt: new Date().toISOString(),
+    }
+
+    setExpenses(prev => prev.map(e => e.id === editingExpense.id ? optimisticExpense : e))
+    setEditExpenseOpen(false)
+    setEditingExpense(null)
+
     try {
       const response = await fetch(`/api/expenses/${editingExpense.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventId: editExpenseForm.eventId || null,
-          description: editExpenseForm.description,
-          category: editExpenseForm.category || undefined,
-          amount: parseFloat(editExpenseForm.amount),
-          date: new Date(editExpenseForm.date).toISOString(),
-          notes: editExpenseForm.notes || undefined,
-        }),
+        body: JSON.stringify(updateData),
       })
 
       if (!response.ok) {
+        // Revert optimistic update
+        setExpenses(prev => prev.map(e => e.id === editingExpense.id ? originalExpense : e))
         const data = await response.json()
         throw new Error(data.error || 'Failed to update expense')
       }
 
+      const data = await response.json()
+      // Refetch expenses to get full data with addedBy field
+      const expensesRes = await fetch(`/api/expenses?teamId=${teamId}`)
+      if (expensesRes.ok) {
+        const expensesData = await expensesRes.json()
+        setExpenses(expensesData.expenses)
+      } else {
+        // Fallback: update with response
+        setExpenses(prev => prev.map(e => e.id === editingExpense.id ? data.expense : e))
+      }
+      setSaveIndicator(true)
+      
       toast({
         title: 'Expense Updated',
         description: 'The expense has been updated',
       })
-
-      setEditExpenseOpen(false)
-      setEditingExpense(null)
-      await fetchData()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -371,24 +429,31 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
 
     setDeletingExpenseLoading(true)
 
+    // Optimistic update
+    const expenseToDelete = deletingExpense
+    setExpenses(prev => prev.filter(e => e.id !== deletingExpense.id))
+    setDeleteExpenseOpen(false)
+    setDeletingExpense(null)
+
     try {
-      const response = await fetch(`/api/expenses/${deletingExpense.id}`, {
+      const response = await fetch(`/api/expenses/${expenseToDelete.id}`, {
         method: 'DELETE',
       })
 
       if (!response.ok) {
+        // Revert optimistic update
+        setExpenses(prev => [...prev, expenseToDelete].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ))
         const data = await response.json()
         throw new Error(data.error || 'Failed to delete expense')
       }
 
+      setSaveIndicator(true)
       toast({
         title: 'Expense Deleted',
         description: 'The expense has been removed',
       })
-
-      setDeleteExpenseOpen(false)
-      setDeletingExpense(null)
-      await fetchData()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -433,6 +498,16 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         description: 'Your purchase request has been submitted for review',
       })
 
+      const data = await response.json()
+      
+      // Optimistically add the new request
+      if (data.purchaseRequest) {
+        setPurchaseRequests(prev => [data.purchaseRequest, ...prev])
+      } else {
+        // If response doesn't include purchaseRequest, refetch
+        await fetchData()
+      }
+
       setPurchaseRequestForm({
         description: '',
         category: '',
@@ -441,7 +516,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         eventId: '',
       })
       setRequestPurchaseOpen(false)
-      await fetchData()
+      setSaveIndicator(true)
     } catch (error: any) {
       // Error already shown via budgetWarning or toast
       if (!error.message.includes('exceeds remaining budget')) {
@@ -518,9 +593,28 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
           : 'The purchase request has been denied',
       })
 
+      const data = await response.json()
+      
+      // Optimistically update the request
+      if (data.purchaseRequest) {
+        setPurchaseRequests(prev => prev.map(r => 
+          r.id === reviewingRequest.id ? data.purchaseRequest : r
+        ))
+      }
+      
+      // If expense was created, add it optimistically
+      if (data.expense) {
+        setExpenses(prev => [data.expense, ...prev])
+      }
+      
+      // If response structure is different, refetch to ensure consistency
+      if (!data.purchaseRequest && !data.expense) {
+        await fetchData()
+      }
+
       setReviewRequestOpen(false)
       setReviewingRequest(null)
-      await fetchData()
+      setSaveIndicator(true)
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -574,7 +668,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
       const result = await response.json()
       console.log('Budget saved response:', result)
       
-      // Immediately add the new budget to the list if it's not already there
+      // Optimistically update budgets
       if (result.budget) {
         setBudgets((prev) => {
           const exists = prev.some(b => b.id === result.budget.id)
@@ -585,6 +679,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         })
       }
 
+      setSaveIndicator(true)
       toast({
         title: 'Budget Saved',
         description: 'Event budget has been updated',
@@ -593,7 +688,6 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
       setBudgetDialogOpen(false)
       setEditingBudget(null)
       setBudgetForm({ eventId: '', subteamId: '', maxBudget: '' })
-      await fetchData()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -697,15 +791,26 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
   }
 
   if (loading) {
-    return <div className="p-4">Loading finance data...</div>
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <div>
+        <div className="flex items-center gap-3">
           <h2 className="text-2xl font-bold">Finance</h2>
+          <SaveIndicator show={saveIndicator} />
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setRequestPurchaseOpen(true)}>
@@ -824,11 +929,13 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                                     method: 'DELETE',
                                   })
                                   if (response.ok) {
+                                    // Optimistically remove budget
+                                    setBudgets(prev => prev.filter(b => b.id !== budget.id))
+                                    setSaveIndicator(true)
                                     toast({
                                       title: 'Budget Deleted',
                                       description: 'The event budget has been removed',
                                     })
-                                    await fetchData()
                                   } else {
                                     throw new Error('Failed to delete budget')
                                   }

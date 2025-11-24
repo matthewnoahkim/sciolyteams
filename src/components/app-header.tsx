@@ -107,7 +107,7 @@ export function AppHeader({ user, showBackButton = false, backHref, title }: App
         open={editUsernameOpen}
         onOpenChange={setEditUsernameOpen}
         currentName={currentUserName}
-        onNameChange={setCurrentUserName}
+        onNameUpdated={setCurrentUserName}
       />
     </>
   )

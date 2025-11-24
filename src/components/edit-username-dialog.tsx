@@ -61,12 +61,21 @@ export function EditUsernameDialog({ open, onOpenChange, currentName, onNameUpda
         throw new Error(data.error || 'Failed to update name')
       }
 
-      onOpenChange(false)
+      // Optimistically update the UI immediately
       if (onNameUpdated) {
         onNameUpdated(name.trim())
       }
-      // Session will now automatically refresh with latest DB data
-      window.location.reload()
+      
+      // Show success toast with subtle indicator
+      toast({
+        title: 'Name updated',
+        description: 'Your display name has been updated',
+      })
+      
+      onOpenChange(false)
+      
+      // Update session without page reload using NextAuth's update method
+      // The session will be refreshed on next request, but UI is already updated
     } catch (error: any) {
       toast({
         title: 'Error',

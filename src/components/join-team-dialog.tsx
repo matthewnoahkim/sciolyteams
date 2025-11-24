@@ -47,9 +47,9 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
         title: 'Success!',
         description: data.message,
       })
-      router.push(`/club/${data.membership.team.id}`)
-      router.refresh()
       onOpenChange(false)
+      // Navigate without refresh - Next.js will handle the route transition smoothly
+      router.push(`/club/${data.membership.team.id}`)
     } catch (error: any) {
       toast({
         title: 'Error',

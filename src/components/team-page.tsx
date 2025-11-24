@@ -344,12 +344,11 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
         description: `Club name changed to "${newClubName.trim()}"`,
       })
 
-      // Update local state immediately
+      // Update local state immediately (optimistic update)
       setCurrentClubName(newClubName.trim())
       setEditClubNameOpen(false)
       
-      // Refresh to get updated data
-      router.refresh()
+      // Update team name in props if needed - the state is already updated
     } catch (error: any) {
       toast({
         title: 'Error',
