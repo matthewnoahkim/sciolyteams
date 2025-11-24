@@ -1,0 +1,891 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import {
+  RefreshCw,
+  Search,
+  Filter,
+  AlertTriangle,
+  Activity,
+  Users,
+  Server,
+  Clock,
+  AlertCircle,
+  X,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+} from 'lucide-react'
+import { format } from 'date-fns'
+import { ScrollArea } from '@/components/ui/scroll-area'
+
+interface LogEntry {
+  id: string
+  timestamp: string
+  action?: string
+  description?: string
+  message?: string
+  errorType?: string
+  method?: string
+  route?: string
+  statusCode?: number
+  executionTime?: number
+  logType?: string
+  severity?: string
+  user?: {
+    id: string
+    name?: string | null
+    email: string
+    image?: string | null
+  } | null
+  metadata?: any
+  stack?: string
+  resolved?: boolean
+}
+
+interface Pagination {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
+export function HealthTools() {
+  // State for all logs (combined)
+  const [allLogs, setAllLogs] = useState<LogEntry[]>([])
+  const [apiLogs, setApiLogs] = useState<LogEntry[]>([])
+  const [errorLogs, setErrorLogs] = useState<LogEntry[]>([])
+  const [activityLogs, setActivityLogs] = useState<LogEntry[]>([])
+  
+  // Pagination
+  const [pagination, setPagination] = useState<Pagination>({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 0,
+  })
+
+  // Loading states
+  const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'all' | 'api' | 'errors' | 'users'>('all')
+
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedLogTypes, setSelectedLogTypes] = useState<string[]>([])
+  const [selectedSeverities, setSelectedSeverities] = useState<string[]>([])
+  const [selectedRoutes, setSelectedRoutes] = useState<string[]>([])
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [errorsOnly, setErrorsOnly] = useState(false)
+  const [slowOnly, setSlowOnly] = useState(false)
+  const [apiUsageOnly, setApiUsageOnly] = useState(false)
+  const [resolvedFilter, setResolvedFilter] = useState<'all' | 'resolved' | 'unresolved'>('all')
+  const [logTypeSelectValue, setLogTypeSelectValue] = useState<string | undefined>(undefined)
+  const [severitySelectValue, setSeveritySelectValue] = useState<string | undefined>(undefined)
+  const [selectKey, setSelectKey] = useState(0)
+
+  // User search
+  const [users, setUsers] = useState<any[]>([])
+  const [userSearch, setUserSearch] = useState('')
+  const [userLoading, setUserLoading] = useState(false)
+
+  // Fetch logs based on current filters
+  const fetchLogs = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      
+      if (selectedLogTypes.length > 0) {
+        selectedLogTypes.forEach(type => params.append('logType', type))
+      }
+      if (selectedSeverities.length > 0) {
+        selectedSeverities.forEach(sev => params.append('severity', sev))
+      }
+      if (selectedRoutes.length > 0) {
+        params.append('route', selectedRoutes[0])
+      }
+      if (selectedUserIds.length > 0) {
+        params.append('userId', selectedUserIds[0])
+      }
+      if (startDate) params.append('startDate', startDate)
+      if (endDate) params.append('endDate', endDate)
+      if (apiUsageOnly) params.append('logType', 'API_USAGE')
+      
+      params.append('page', pagination.page.toString())
+      params.append('limit', pagination.limit.toString())
+
+      const [activityRes, apiRes, errorRes] = await Promise.all([
+        fetch(`/api/dev/logs?${params.toString()}`),
+        fetch(`/api/dev/api-logs?${params.toString()}${errorsOnly ? '&errorsOnly=true' : ''}${slowOnly ? '&slowOnly=true' : ''}`),
+        fetch(`/api/dev/error-logs?${params.toString()}${resolvedFilter !== 'all' ? `&resolved=${resolvedFilter === 'resolved'}` : ''}`),
+      ])
+
+      const [activityData, apiData, errorData] = await Promise.all([
+        activityRes.json(),
+        apiRes.json(),
+        errorRes.json(),
+      ])
+
+      setActivityLogs(activityData.logs || [])
+      setApiLogs(apiData.logs || [])
+      setErrorLogs(errorData.logs || [])
+
+      // Combine all logs
+      const combined = [
+        ...(activityData.logs || []).map((log: any) => ({ ...log, source: 'activity' })),
+        ...(apiData.logs || []).map((log: any) => ({ ...log, source: 'api' })),
+        ...(errorData.logs || []).map((log: any) => ({ ...log, source: 'error' })),
+      ].sort((a, b) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      )
+
+      setAllLogs(combined)
+
+      // Apply search filter
+      if (searchQuery) {
+        const filtered = combined.filter(log => 
+          log.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          log.message?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          log.route?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          log.action?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          log.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          log.user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        setAllLogs(filtered)
+      }
+    } catch (error) {
+      console.error('Failed to fetch logs:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [
+    selectedLogTypes,
+    selectedSeverities,
+    selectedRoutes,
+    selectedUserIds,
+    startDate,
+    endDate,
+    errorsOnly,
+    slowOnly,
+    apiUsageOnly,
+    resolvedFilter,
+    searchQuery,
+    pagination.page,
+    pagination.limit,
+  ])
+
+  // Fetch users
+  const fetchUsers = useCallback(async () => {
+    if (!userSearch && activeTab !== 'users') return
+    
+    setUserLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (userSearch) params.append('search', userSearch)
+      params.append('limit', '50')
+
+      const response = await fetch(`/api/dev/users?${params.toString()}`)
+      const data = await response.json()
+      setUsers(data.users || [])
+    } catch (error) {
+      console.error('Failed to fetch users:', error)
+    } finally {
+      setUserLoading(false)
+    }
+  }, [userSearch, activeTab])
+
+  // Initial load
+  useEffect(() => {
+    if (activeTab !== 'users') {
+      fetchLogs()
+    } else {
+      if (userSearch) {
+        fetchUsers()
+      }
+    }
+  }, [activeTab])
+
+  // Fetch when filters change (debounced search)
+  useEffect(() => {
+    if (activeTab === 'users') {
+      const timer = setTimeout(() => {
+        if (userSearch) {
+          fetchUsers()
+        } else {
+          setUsers([])
+        }
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [userSearch, activeTab, fetchUsers])
+
+  // Fetch logs when filters change
+  useEffect(() => {
+    if (activeTab !== 'users') {
+      const timer = setTimeout(() => {
+        fetchLogs()
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [
+    selectedLogTypes,
+    selectedSeverities,
+    selectedRoutes,
+    selectedUserIds,
+    startDate,
+    endDate,
+    errorsOnly,
+    slowOnly,
+    apiUsageOnly,
+    resolvedFilter,
+    activeTab,
+  ])
+  
+  // Search query changes trigger immediate fetch
+  useEffect(() => {
+    if (activeTab !== 'users' && searchQuery !== undefined) {
+      fetchLogs()
+    }
+  }, [searchQuery])
+
+  // Clear filters
+  const clearFilters = () => {
+    setSearchQuery('')
+    setSelectedLogTypes([])
+    setSelectedSeverities([])
+    setSelectedRoutes([])
+    setSelectedUserIds([])
+    setStartDate('')
+    setEndDate('')
+    setErrorsOnly(false)
+    setSlowOnly(false)
+    setApiUsageOnly(false)
+    setResolvedFilter('all')
+    setLogTypeSelectValue(undefined)
+    setSeveritySelectValue(undefined)
+    setSelectKey(prev => prev + 1) // Force remount of Select components
+  }
+
+  // Get logs to display based on active tab
+  const getDisplayLogs = () => {
+    switch (activeTab) {
+      case 'api':
+        return apiLogs
+      case 'errors':
+        return errorLogs
+      default:
+        return allLogs
+    }
+  }
+
+  // Get severity badge variant
+  const getSeverityBadge = (severity?: string) => {
+    switch (severity) {
+      case 'CRITICAL':
+      case 'ERROR':
+        return <Badge variant="destructive">{severity}</Badge>
+      case 'WARNING':
+        return <Badge variant="outline" className="border-yellow-500 text-yellow-600">{severity}</Badge>
+      case 'INFO':
+        return <Badge variant="secondary">{severity}</Badge>
+      case 'DEBUG':
+        return <Badge variant="outline">{severity}</Badge>
+      default:
+        return null
+    }
+  }
+
+  // Get status badge for API logs
+  const getStatusBadge = (statusCode?: number) => {
+    if (!statusCode) return null
+    if (statusCode >= 500) {
+      return <Badge variant="destructive">{statusCode}</Badge>
+    }
+    if (statusCode >= 400) {
+      return <Badge variant="outline" className="border-yellow-500 text-yellow-600">{statusCode}</Badge>
+    }
+    return <Badge variant="secondary" className="bg-green-100 text-green-700">{statusCode}</Badge>
+  }
+
+  return (
+    <div className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="all">All Logs</TabsTrigger>
+          <TabsTrigger value="api">API Activity</TabsTrigger>
+          <TabsTrigger value="errors">Errors</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+        </TabsList>
+
+        {/* All Logs Tab */}
+        <TabsContent value="all" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>All Logs & Activity</CardTitle>
+                  <CardDescription>
+                    Combined view of activity logs, API calls, and errors
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Filters */}
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Search</Label>
+                    <div className="relative">
+                      <Search 
+                        className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none z-10" 
+                        style={{ 
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          willChange: 'transform'
+                        }} 
+                      />
+                      <Input
+                        placeholder="Search logs..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Log Types</Label>
+                    <Select 
+                      key={`log-type-${selectKey}`}
+                      value={logTypeSelectValue}
+                      onValueChange={(v) => {
+                        setLogTypeSelectValue(v)
+                        if (v && !selectedLogTypes.includes(v)) {
+                          setSelectedLogTypes([...selectedLogTypes, v])
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Add type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USER_ACTION">User Actions</SelectItem>
+                        <SelectItem value="ADMIN_ACTION">Admin Actions</SelectItem>
+                        <SelectItem value="SYSTEM_EVENT">System Events</SelectItem>
+                        <SelectItem value="API_USAGE">API Usage</SelectItem>
+                        <SelectItem value="ERROR">Errors</SelectItem>
+                        <SelectItem value="WARNING">Warnings</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Severity</Label>
+                    <Select 
+                      key={`severity-${selectKey}`}
+                      value={severitySelectValue}
+                      onValueChange={(v) => {
+                        setSeveritySelectValue(v)
+                        if (v && !selectedSeverities.includes(v)) {
+                          setSelectedSeverities([...selectedSeverities, v])
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Add severity" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="DEBUG">Debug</SelectItem>
+                        <SelectItem value="INFO">Info</SelectItem>
+                        <SelectItem value="WARNING">Warning</SelectItem>
+                        <SelectItem value="ERROR">Error</SelectItem>
+                        <SelectItem value="CRITICAL">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Date Range</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        placeholder="Start"
+                        className="text-sm [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-3 [&::-webkit-calendar-picker-indicator]:w-4 [&::-webkit-calendar-picker-indicator]:h-4"
+                      />
+                      <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        placeholder="End"
+                        className="text-sm [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-3 [&::-webkit-calendar-picker-indicator]:w-4 [&::-webkit-calendar-picker-indicator]:h-4"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Active Filters & Options Row */}
+                <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-border/50">
+                  <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+                    {selectedLogTypes.map(type => (
+                      <Badge 
+                        key={type} 
+                        variant="secondary" 
+                        className="cursor-pointer hover:bg-secondary/80 transition-colors gap-1.5" 
+                        onClick={() => setSelectedLogTypes(selectedLogTypes.filter(t => t !== type))}
+                      >
+                        <span className="text-xs">{type.replace('_', ' ')}</span>
+                        <X className="h-3 w-3" />
+                      </Badge>
+                    ))}
+                    {selectedSeverities.map(sev => (
+                      <Badge 
+                        key={sev} 
+                        variant="secondary" 
+                        className="cursor-pointer hover:bg-secondary/80 transition-colors gap-1.5" 
+                        onClick={() => setSelectedSeverities(selectedSeverities.filter(s => s !== sev))}
+                      >
+                        <span className="text-xs">{sev}</span>
+                        <X className="h-3 w-3" />
+                      </Badge>
+                    ))}
+                    {(selectedLogTypes.length > 0 || selectedSeverities.length > 0 || startDate || endDate || apiUsageOnly) && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={clearFilters} 
+                        className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3 w-3 mr-1.5" />
+                        Clear All
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="api-only"
+                      checked={apiUsageOnly}
+                      onCheckedChange={(checked) => setApiUsageOnly(checked as boolean)}
+                    />
+                    <Label htmlFor="api-only" className="cursor-pointer text-sm font-normal">API Usage Only</Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Logs List */}
+              <ScrollArea className="h-[600px]">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : getDisplayLogs().length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No logs found
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {getDisplayLogs().map((log) => (
+                      <div
+                        key={log.id}
+                        className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              {log.source === 'api' && getStatusBadge(log.statusCode)}
+                              {getSeverityBadge(log.severity)}
+                              {log.logType && (
+                                <Badge variant="outline">{log.logType.replace('_', ' ')}</Badge>
+                              )}
+                              {log.source === 'api' && log.method && (
+                                <Badge variant="outline">{log.method}</Badge>
+                              )}
+                              {log.route && (
+                                <Badge variant="outline" className="font-mono text-xs">
+                                  {log.route}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="font-medium text-sm mb-1">
+                              {log.description || log.message || log.errorType || `${log.method} ${log.route}`}
+                            </p>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              {log.user && (
+                                <div className="flex items-center gap-1">
+                                  <Avatar className="h-4 w-4">
+                                    <AvatarImage src={log.user.image || ''} />
+                                    <AvatarFallback className="text-[8px]">
+                                      {log.user.name?.charAt(0) || log.user.email.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span>
+                                    {log.user.name 
+                                      ? `${log.user.name} (${log.user.email})` 
+                                      : log.user.email}
+                                  </span>
+                                </div>
+                              )}
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {format(new Date(log.timestamp), 'MMM d, yyyy HH:mm:ss')}
+                              </span>
+                              {log.executionTime && (
+                                <span>{log.executionTime}ms</span>
+                              )}
+                            </div>
+                            {log.metadata && (
+                              <details className="mt-2">
+                                <summary className="text-xs text-muted-foreground cursor-pointer">
+                                  View metadata
+                                </summary>
+                                <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-32">
+                                  {JSON.stringify(log.metadata, null, 2)}
+                                </pre>
+                              </details>
+                            )}
+                            {log.stack && (
+                              <details className="mt-2">
+                                <summary className="text-xs text-muted-foreground cursor-pointer">
+                                  View stack trace
+                                </summary>
+                                <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-32">
+                                  {log.stack}
+                                </pre>
+                              </details>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* API Activity Tab */}
+        <TabsContent value="api" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>API Activity</CardTitle>
+                  <CardDescription>
+                    Track all API route usage, response times, and status codes
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2 p-4 border rounded-lg bg-muted/50">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="errors-only"
+                    checked={errorsOnly}
+                    onCheckedChange={(checked) => setErrorsOnly(checked as boolean)}
+                  />
+                  <Label htmlFor="errors-only" className="cursor-pointer">Errors Only (4xx/5xx)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="slow-only"
+                    checked={slowOnly}
+                    onCheckedChange={(checked) => setSlowOnly(checked as boolean)}
+                  />
+                  <Label htmlFor="slow-only" className="cursor-pointer">Slow Responses (&gt;1s)</Label>
+                </div>
+              </div>
+
+              <ScrollArea className="h-[600px]">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : apiLogs.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No API logs found
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {apiLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              {getStatusBadge(log.statusCode)}
+                              <Badge variant="outline">{log.method}</Badge>
+                              <Badge variant="outline" className="font-mono text-xs">
+                                {log.route}
+                              </Badge>
+                              {log.executionTime && (
+                                <Badge variant={log.executionTime > 1000 ? 'destructive' : 'secondary'}>
+                                  {log.executionTime}ms
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              {log.user && (
+                                <div className="flex items-center gap-1">
+                                  <Avatar className="h-4 w-4">
+                                    <AvatarImage src={log.user.image || ''} />
+                                    <AvatarFallback className="text-[8px]">
+                                      {log.user.name?.charAt(0) || log.user.email.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span>
+                                    {log.user.name 
+                                      ? `${log.user.name} (${log.user.email})` 
+                                      : log.user.email}
+                                  </span>
+                                </div>
+                              )}
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {format(new Date(log.timestamp), 'MMM d, yyyy HH:mm:ss')}
+                              </span>
+                              {log.ipAddress && <span>IP: {log.ipAddress}</span>}
+                            </div>
+                            {log.error && (
+                              <div className="mt-2 text-sm text-destructive">
+                                Error: {log.error}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Errors Tab */}
+        <TabsContent value="errors" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Error Logs</CardTitle>
+                  <CardDescription>
+                    Backend errors, failed requests, and critical issues
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2 p-4 border rounded-lg bg-muted/50">
+                <Select value={resolvedFilter} onValueChange={(v: any) => setResolvedFilter(v)}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Errors</SelectItem>
+                    <SelectItem value="unresolved">Unresolved Only</SelectItem>
+                    <SelectItem value="resolved">Resolved Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <ScrollArea className="h-[600px]">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : errorLogs.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No errors found
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {errorLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              {getSeverityBadge(log.severity)}
+                              {log.errorType && (
+                                <Badge variant="outline">{log.errorType}</Badge>
+                              )}
+                              {log.route && (
+                                <Badge variant="outline" className="font-mono text-xs">
+                                  {log.route}
+                                </Badge>
+                              )}
+                              {log.resolved !== undefined && (
+                                <Badge variant={log.resolved ? 'default' : 'destructive'}>
+                                  {log.resolved ? 'Resolved' : 'Unresolved'}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="font-medium text-sm mb-1">{log.message}</p>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              {log.user && (
+                                <div className="flex items-center gap-1">
+                                  <Avatar className="h-4 w-4">
+                                    <AvatarImage src={log.user.image || ''} />
+                                    <AvatarFallback className="text-[8px]">
+                                      {log.user.name?.charAt(0) || log.user.email.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span>
+                                    {log.user.name 
+                                      ? `${log.user.name} (${log.user.email})` 
+                                      : log.user.email}
+                                  </span>
+                                </div>
+                              )}
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {format(new Date(log.timestamp), 'MMM d, yyyy HH:mm:ss')}
+                              </span>
+                            </div>
+                            {log.stack && (
+                              <details className="mt-2">
+                                <summary className="text-xs text-muted-foreground cursor-pointer">
+                                  View stack trace
+                                </summary>
+                                <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-64">
+                                  {log.stack}
+                                </pre>
+                              </details>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Users Tab */}
+        <TabsContent value="users" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>User Search</CardTitle>
+                  <CardDescription>
+                    Search users by name, email, user ID, or role
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchUsers} disabled={userLoading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${userLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <Search 
+                  className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none z-10" 
+                  style={{ 
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    willChange: 'transform'
+                  }} 
+                />
+                <Input
+                  placeholder="Search by name, email, or user ID..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              <ScrollArea className="h-[600px]">
+                {userLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : users.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {userSearch ? 'No users found' : 'Start typing to search users'}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {users.map((user) => (
+                      <div
+                        key={user.id}
+                        className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setSelectedUserIds([user.id])
+                          setActiveTab('all')
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarImage src={user.image || ''} />
+                            <AvatarFallback>
+                              {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="font-medium">{user.name || 'No name'}</p>
+                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                            <p className="text-xs text-muted-foreground mt-1">ID: {user.id}</p>
+                            {user.memberships && user.memberships.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {user.memberships.map((membership: any) => (
+                                  <Badge key={membership.id} variant="outline">
+                                    {membership.team.name} ({membership.role})
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+

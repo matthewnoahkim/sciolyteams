@@ -6,11 +6,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     
     // Filter parameters
-    const logType = searchParams.get('logType')
+    const errorType = searchParams.get('errorType')
     const severity = searchParams.get('severity')
     const route = searchParams.get('route')
     const userId = searchParams.get('userId')
-    const action = searchParams.get('action')
+    const resolved = searchParams.get('resolved')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
     const page = parseInt(searchParams.get('page') || '1', 10)
@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: any = {}
     
-    if (logType) {
-      where.logType = logType
+    if (errorType) {
+      where.errorType = { contains: errorType, mode: 'insensitive' }
     }
     
     if (severity) {
@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
       where.userId = userId
     }
     
-    if (action) {
-      where.action = { contains: action, mode: 'insensitive' }
+    if (resolved !== null && resolved !== undefined) {
+      where.resolved = resolved === 'true'
     }
     
     if (startDate || endDate) {
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [logs, total] = await Promise.all([
-      prisma.activityLog.findMany({
+      prisma.errorLog.findMany({
         where,
         include: {
           user: {
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
       }),
-      prisma.activityLog.count({ where }),
+      prisma.errorLog.count({ where }),
     ])
 
     return NextResponse.json({
@@ -82,10 +82,38 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error fetching logs:', error)
+    console.error('Error fetching error logs:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch logs', logs: [] },
+      { error: 'Failed to fetch error logs', logs: [] },
       { status: 500 }
     )
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { id, resolved } = body
+
+    if (!id || typeof resolved !== 'boolean') {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      )
+    }
+
+    const errorLog = await prisma.errorLog.update({
+      where: { id },
+      data: { resolved },
+    })
+
+    return NextResponse.json({ log: errorLog })
+  } catch (error) {
+    console.error('Error updating error log:', error)
+    return NextResponse.json(
+      { error: 'Failed to update error log' },
+      { status: 500 }
+    )
+  }
+}
+

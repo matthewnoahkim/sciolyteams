@@ -17,6 +17,8 @@ model User {
   updatedAt          DateTime            @updatedAt
   accounts           Account[]
   activityLogs       ActivityLog[]
+  apiLogs            ApiLog[]
+  errorLogs          ErrorLog[]
   attachments        Attachment[]
   attendanceCheckIns AttendanceCheckIn[]
   emailsReceived     EmailLog[]
@@ -660,11 +662,60 @@ model ActivityLog {
   userId      String?
   metadata    Json?
   timestamp   DateTime @default(now())
+  logType     LogType  @default(SYSTEM_EVENT)
+  severity    SeverityLevel @default(INFO)
+  route       String?
   user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([timestamp])
   @@index([action])
+  @@index([logType])
+  @@index([severity])
+  @@index([route])
+}
+
+model ApiLog {
+  id           String   @id @default(cuid())
+  method       String
+  route        String
+  statusCode   Int
+  userId       String?
+  executionTime Int     // in milliseconds
+  ipAddress    String?
+  userAgent    String?
+  requestBody  Json?
+  responseSize Int?     // in bytes
+  error        String?
+  timestamp    DateTime @default(now())
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([timestamp])
+  @@index([route])
+  @@index([method])
+  @@index([statusCode])
+  @@index([executionTime])
+}
+
+model ErrorLog {
+  id          String   @id @default(cuid())
+  errorType   String
+  message     String
+  stack       String?
+  userId      String?
+  route       String?
+  severity    SeverityLevel @default(ERROR)
+  metadata    Json?
+  timestamp   DateTime @default(now())
+  resolved    Boolean  @default(false)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([timestamp])
+  @@index([severity])
+  @@index([route])
+  @@index([resolved])
 }
 
 enum Division {
@@ -771,4 +822,21 @@ enum TestAuditAction {
   RESET_PASSWORD
   MANUAL_GRADE
   INVALIDATE_ATTEMPT
+}
+
+enum LogType {
+  USER_ACTION
+  ADMIN_ACTION
+  SYSTEM_EVENT
+  API_USAGE
+  ERROR
+  WARNING
+}
+
+enum SeverityLevel {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
 }

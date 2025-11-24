@@ -17,15 +17,21 @@ export async function DELETE(
     })
 
     // Log the deletion
-    await prisma.activityLog.create({
-      data: {
-        action: 'USER_DELETED',
-        description: `User with ID ${userId} was deleted from dev panel`,
-        metadata: { userId },
-      },
-    }).catch(() => {
-      // Ignore if ActivityLog table doesn't exist yet
-    })
+    try {
+      await prisma.activityLog.create({
+        data: {
+          action: 'USER_DELETED',
+          description: `User with ID ${userId} was deleted from dev panel`,
+          logType: 'ADMIN_ACTION',
+          severity: 'WARNING',
+          route: '/api/dev/users/[userId]',
+          metadata: { userId },
+        },
+      })
+    } catch (logError) {
+      // Ignore if ActivityLog table doesn't exist yet or logging fails
+      console.error('Failed to log user deletion:', logError)
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

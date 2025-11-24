@@ -6,11 +6,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     
     // Filter parameters
-    const logType = searchParams.get('logType')
-    const severity = searchParams.get('severity')
+    const method = searchParams.get('method')
     const route = searchParams.get('route')
+    const statusCode = searchParams.get('statusCode')
     const userId = searchParams.get('userId')
-    const action = searchParams.get('action')
+    const minExecutionTime = searchParams.get('minExecutionTime')
+    const errorsOnly = searchParams.get('errorsOnly') === 'true'
+    const slowOnly = searchParams.get('slowOnly') === 'true'
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
     const page = parseInt(searchParams.get('page') || '1', 10)
@@ -20,24 +22,32 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: any = {}
     
-    if (logType) {
-      where.logType = logType
-    }
-    
-    if (severity) {
-      where.severity = severity
+    if (method) {
+      where.method = method
     }
     
     if (route) {
       where.route = { contains: route, mode: 'insensitive' }
     }
     
+    if (statusCode) {
+      where.statusCode = parseInt(statusCode, 10)
+    }
+    
     if (userId) {
       where.userId = userId
     }
     
-    if (action) {
-      where.action = { contains: action, mode: 'insensitive' }
+    if (errorsOnly) {
+      where.statusCode = { gte: 400 }
+    }
+    
+    if (slowOnly) {
+      where.executionTime = { gte: 1000 } // 1 second or more
+    }
+    
+    if (minExecutionTime) {
+      where.executionTime = { gte: parseInt(minExecutionTime, 10) }
     }
     
     if (startDate || endDate) {
@@ -51,7 +61,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [logs, total] = await Promise.all([
-      prisma.activityLog.findMany({
+      prisma.apiLog.findMany({
         where,
         include: {
           user: {
@@ -69,7 +79,7 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
       }),
-      prisma.activityLog.count({ where }),
+      prisma.apiLog.count({ where }),
     ])
 
     return NextResponse.json({
@@ -82,10 +92,11 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error fetching logs:', error)
+    console.error('Error fetching API logs:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch logs', logs: [] },
+      { error: 'Failed to fetch API logs', logs: [] },
       { status: 500 }
     )
   }
 }
+
