@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ButtonLoading } from '@/components/ui/loading-spinner'
 import {
@@ -601,40 +603,40 @@ export function TakeTestClient({
                   <p className="text-lg whitespace-pre-wrap">{question.promptMd}</p>
                   
                   {question.type === 'MCQ_SINGLE' && (
-                    <div className="space-y-2">
+                    <RadioGroup 
+                      value={answers[question.id]?.selectedOptionIds?.[0] || ''} 
+                      onValueChange={(value) => handleAnswerChange(question.id, {
+                        selectedOptionIds: [value],
+                      })}
+                      className="space-y-2"
+                    >
                       {question.options.map((option: any) => (
-                        <label
+                        <div
                           key={option.id}
                           className="flex items-center gap-2 p-3 rounded border cursor-pointer hover:bg-muted"
                         >
-                          <input
-                            type="radio"
-                            name={`question-${question.id}`}
-                            value={option.id}
-                            checked={answers[question.id]?.selectedOptionIds?.[0] === option.id}
-                            onChange={() => handleAnswerChange(question.id, {
-                              selectedOptionIds: [option.id],
-                            })}
-                          />
-                          <span>{option.label}</span>
-                        </label>
+                          <RadioGroupItem value={option.id} id={`${question.id}-${option.id}`} />
+                          <Label htmlFor={`${question.id}-${option.id}`} className="cursor-pointer font-normal flex-1">
+                            {option.label}
+                          </Label>
+                        </div>
                       ))}
-                    </div>
+                    </RadioGroup>
                   )}
 
                   {question.type === 'MCQ_MULTI' && (
                     <div className="space-y-2">
                       {question.options.map((option: any) => (
-                        <label
+                        <div
                           key={option.id}
                           className="flex items-center gap-2 p-3 rounded border cursor-pointer hover:bg-muted"
                         >
-                          <input
-                            type="checkbox"
+                          <Checkbox
+                            id={`${question.id}-${option.id}`}
                             checked={answers[question.id]?.selectedOptionIds?.includes(option.id) || false}
-                            onChange={(e) => {
+                            onCheckedChange={(checked) => {
                               const current = answers[question.id]?.selectedOptionIds || []
-                              const newSelected = e.target.checked
+                              const newSelected = checked
                                 ? [...current, option.id]
                                 : current.filter((id: string) => id !== option.id)
                               handleAnswerChange(question.id, {
@@ -642,8 +644,10 @@ export function TakeTestClient({
                               })
                             }}
                           />
-                          <span>{option.label}</span>
-                        </label>
+                          <Label htmlFor={`${question.id}-${option.id}`} className="cursor-pointer font-normal flex-1">
+                            {option.label}
+                          </Label>
+                        </div>
                       ))}
                     </div>
                   )}

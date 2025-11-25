@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useToast } from '@/components/ui/use-toast'
@@ -903,48 +905,41 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
                 required
               />
             </div>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="scope"
-                  value="TEAM"
-                  checked={scope === 'TEAM'}
-                  onChange={() => setScope('TEAM')}
-                />
-                <span className="text-sm">Entire Club</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="scope"
-                  value="SUBTEAM"
-                  checked={scope === 'SUBTEAM'}
-                  onChange={() => setScope('SUBTEAM')}
-                />
-                <span className="text-sm">Selected Teams</span>
-              </label>
-            </div>
+            <RadioGroup value={scope} onValueChange={(value) => setScope(value as 'TEAM' | 'SUBTEAM')} className="flex gap-4">
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="TEAM" id="scope-team" />
+                <Label htmlFor="scope-team" className="cursor-pointer font-normal text-sm">
+                  Entire Club
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="SUBTEAM" id="scope-subteam" />
+                <Label htmlFor="scope-subteam" className="cursor-pointer font-normal text-sm">
+                  Selected Teams
+                </Label>
+              </div>
+            </RadioGroup>
             {scope === 'SUBTEAM' && (
               <div className="space-y-2">
                 <Label>Select Teams</Label>
                 <div className="flex flex-wrap gap-2">
                   {subteams.map((subteam) => (
-                    <label key={subteam.id} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        value={subteam.id}
+                    <div key={subteam.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`subteam-${subteam.id}`}
                         checked={selectedSubteams.includes(subteam.id)}
-                        onChange={(e) => {
+                        onCheckedChange={(checked) => {
                           setSelectedSubteams((prev) =>
-                            e.target.checked
+                            checked
                               ? [...prev, subteam.id]
                               : prev.filter((id) => id !== subteam.id)
                           )
                         }}
                       />
-                      <span className="text-sm">{subteam.name}</span>
-                    </label>
+                      <Label htmlFor={`subteam-${subteam.id}`} className="cursor-pointer font-normal text-sm">
+                        {subteam.name}
+                      </Label>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -954,21 +949,22 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
               <p className="text-xs text-muted-foreground">Select roles to target specific members</p>
               <div className="flex flex-wrap gap-2">
                 {['COACH', 'CAPTAIN', 'MEMBER'].map((role) => (
-                  <label key={role} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      value={role}
+                  <div key={role} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`role-${role}`}
                       checked={selectedRoles.includes(role)}
-                      onChange={(e) => {
+                      onCheckedChange={(checked) => {
                         setSelectedRoles((prev) =>
-                          e.target.checked
+                          checked
                             ? [...prev, role]
                             : prev.filter((r) => r !== role)
                         )
                       }}
                     />
-                    <span className="text-sm capitalize">{role.toLowerCase()}</span>
-                  </label>
+                    <Label htmlFor={`role-${role}`} className="cursor-pointer font-normal text-sm capitalize">
+                      {role.toLowerCase()}
+                    </Label>
+                  </div>
                 ))}
               </div>
             </div>
@@ -977,43 +973,42 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
               <p className="text-xs text-muted-foreground">Select events to target participants</p>
               <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                 {availableEvents.map((event) => (
-                  <label key={event.id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      value={event.id}
+                  <div key={event.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`event-${event.id}`}
                       checked={selectedEvents.includes(event.id)}
-                      onChange={(e) => {
+                      onCheckedChange={(checked) => {
                         setSelectedEvents((prev) =>
-                          e.target.checked
+                          checked
                             ? [...prev, event.id]
                             : prev.filter((id) => id !== event.id)
                         )
                       }}
                     />
-                    <span className="text-sm">{event.name}</span>
-                  </label>
+                    <Label htmlFor={`event-${event.id}`} className="cursor-pointer font-normal text-sm">
+                      {event.name}
+                    </Label>
+                  </div>
                 ))}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="sendEmail"
                 checked={sendEmail}
-                onChange={(e) => setSendEmail(e.target.checked)}
+                onCheckedChange={(checked) => setSendEmail(checked as boolean)}
               />
-              <Label htmlFor="sendEmail" className="cursor-pointer">
+              <Label htmlFor="sendEmail" className="cursor-pointer font-normal">
                 Send email notification to recipients
               </Label>
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="important"
                 checked={important}
-                onChange={(e) => setImportant(e.target.checked)}
+                onCheckedChange={(checked) => setImportant(checked as boolean)}
               />
-              <Label htmlFor="important" className="cursor-pointer">
+              <Label htmlFor="important" className="cursor-pointer font-normal">
                 Mark as important
               </Label>
             </div>
@@ -1464,13 +1459,12 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
               />
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="edit-important"
                 checked={editImportant}
-                onChange={(e) => setEditImportant(e.target.checked)}
+                onCheckedChange={(checked) => setEditImportant(checked as boolean)}
               />
-              <Label htmlFor="edit-important" className="cursor-pointer">
+              <Label htmlFor="edit-important" className="cursor-pointer font-normal">
                 Mark as important
               </Label>
             </div>

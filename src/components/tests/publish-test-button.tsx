@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -286,15 +287,16 @@ export function PublishTestButton({
             </div>
 
             <div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="publish-require-fullscreen"
                   checked={formData.requireFullscreen}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, requireFullscreen: e.target.checked }))}
-                  className="h-4 w-4 rounded border-input"
+                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, requireFullscreen: checked as boolean }))}
                 />
-                <span className="text-sm font-medium">Require fullscreen lockdown</span>
-              </label>
+                <Label htmlFor="publish-require-fullscreen" className="cursor-pointer text-sm font-medium">
+                  Require fullscreen lockdown
+                </Label>
+              </div>
               <p className="text-xs text-muted-foreground mt-1 ml-6">
                 Lockdown is best-effort. Students will be prompted to stay in fullscreen mode.
               </p>

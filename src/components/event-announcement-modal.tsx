@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -60,11 +61,10 @@ export function EventAnnouncementModal({
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
+            <Checkbox
               id="postToStream"
               checked={postToStream}
-              onChange={(e) => setPostToStream(e.target.checked)}
+              onCheckedChange={(checked) => setPostToStream(checked as boolean)}
             />
             <Label htmlFor="postToStream" className="cursor-pointer font-normal">
               Post this event to the team stream
@@ -72,11 +72,10 @@ export function EventAnnouncementModal({
           </div>
           {postToStream && (
             <div className="flex items-center gap-2 pl-6">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="sendEmail"
                 checked={sendEmail}
-                onChange={(e) => setSendEmail(e.target.checked)}
+                onCheckedChange={(checked) => setSendEmail(checked as boolean)}
               />
               <Label htmlFor="sendEmail" className="cursor-pointer font-normal">
                 Send email notification to everyone

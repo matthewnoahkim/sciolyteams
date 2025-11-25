@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Dialog,
   DialogContent,
@@ -1598,13 +1600,12 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
               </div>
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="isAllDay"
                     checked={formData.isAllDay}
-                    onChange={(e) => setFormData({ ...formData, isAllDay: e.target.checked })}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isAllDay: checked as boolean })}
                   />
-                  <Label htmlFor="isAllDay">All day event</Label>
+                  <Label htmlFor="isAllDay" className="cursor-pointer font-normal">All day event</Label>
                 </div>
                 
                 {formData.isAllDay ? (
@@ -1698,54 +1699,45 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   id="important"
                   checked={formData.important}
-                  onChange={(e) => setFormData({ ...formData, important: e.target.checked })}
+                  onCheckedChange={(checked) => setFormData({ ...formData, important: checked as boolean })}
                 />
-                <Label htmlFor="important" className="cursor-pointer">
+                <Label htmlFor="important" className="cursor-pointer font-normal">
                   Mark as important
                 </Label>
               </div>
               <div>
                 <Label>Scope</Label>
-                <div className="mt-2 space-y-2">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="scope"
-                      value="PERSONAL"
-                      checked={formData.scope === 'PERSONAL'}
-                      onChange={(e) => setFormData({ ...formData, scope: 'PERSONAL', subteamId: '' })}
-                    />
-                    <span className="text-sm">Personal event</span>
-                  </label>
+                <RadioGroup 
+                  value={formData.scope} 
+                  onValueChange={(value) => setFormData({ ...formData, scope: value as 'PERSONAL' | 'TEAM' | 'SUBTEAM', subteamId: '' })}
+                  className="mt-2 space-y-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="PERSONAL" id="scope-personal" />
+                    <Label htmlFor="scope-personal" className="cursor-pointer font-normal text-sm">
+                      Personal event
+                    </Label>
+                  </div>
                   {isAdmin && (
                     <>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="scope"
-                          value="TEAM"
-                          checked={formData.scope === 'TEAM'}
-                          onChange={(e) => setFormData({ ...formData, scope: 'TEAM', subteamId: '' })}
-                        />
-                        <span className="text-sm">Entire club</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="scope"
-                          value="SUBTEAM"
-                          checked={formData.scope === 'SUBTEAM'}
-                          onChange={(e) => setFormData({ ...formData, scope: 'SUBTEAM', subteamId: '' })}
-                        />
-                        <span className="text-sm">Specific team</span>
-                      </label>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="TEAM" id="scope-team" />
+                        <Label htmlFor="scope-team" className="cursor-pointer font-normal text-sm">
+                          Entire club
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="SUBTEAM" id="scope-subteam" />
+                        <Label htmlFor="scope-subteam" className="cursor-pointer font-normal text-sm">
+                          Specific team
+                        </Label>
+                      </div>
                     </>
                   )}
-                </div>
+                </RadioGroup>
                 {formData.scope === 'SUBTEAM' && (
                   <div className="mt-3">
                     <Label htmlFor="subteam">Select Team</Label>
@@ -1767,14 +1759,16 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                 )}
                 {(formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') && (
                   <div className="mt-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="rsvp-enabled"
                         checked={formData.rsvpEnabled}
-                        onChange={(e) => setFormData({ ...formData, rsvpEnabled: e.target.checked })}
+                        onCheckedChange={(checked) => setFormData({ ...formData, rsvpEnabled: checked as boolean })}
                       />
-                      <span className="text-sm">Enable RSVP for this event</span>
-                    </label>
+                      <Label htmlFor="rsvp-enabled" className="cursor-pointer font-normal text-sm">
+                        Enable RSVP for this event
+                      </Label>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1785,19 +1779,21 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                     <p className="text-xs text-muted-foreground mb-2">Select roles to target specific members</p>
                     <div className="flex flex-wrap gap-2">
                       {['COACH', 'CAPTAIN', 'MEMBER'].map((role) => (
-                        <label key={role} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
+                        <div key={role} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`calendar-role-${role}`}
                             checked={formData.targetRoles.includes(role)}
-                            onChange={(e) => {
-                              const newRoles = e.target.checked
+                            onCheckedChange={(checked) => {
+                              const newRoles = checked
                                 ? [...formData.targetRoles, role]
                                 : formData.targetRoles.filter((r: string) => r !== role)
                               setFormData({ ...formData, targetRoles: newRoles })
                             }}
                           />
-                          <span className="text-sm capitalize">{role.toLowerCase()}</span>
-                        </label>
+                          <Label htmlFor={`calendar-role-${role}`} className="cursor-pointer font-normal text-sm capitalize">
+                            {role.toLowerCase()}
+                          </Label>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -1806,19 +1802,21 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                     <p className="text-xs text-muted-foreground mb-2">Select events to target participants</p>
                     <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                       {availableEvents.map((event) => (
-                        <label key={event.id} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
+                        <div key={event.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`calendar-event-${event.id}`}
                             checked={formData.targetEvents.includes(event.id)}
-                            onChange={(e) => {
-                              const newEvents = e.target.checked
+                            onCheckedChange={(checked) => {
+                              const newEvents = checked
                                 ? [...formData.targetEvents, event.id]
                                 : formData.targetEvents.filter((id: string) => id !== event.id)
                               setFormData({ ...formData, targetEvents: newEvents })
                             }}
                           />
-                          <span className="text-sm">{event.name}</span>
-                        </label>
+                          <Label htmlFor={`calendar-event-${event.id}`} className="cursor-pointer font-normal text-sm">
+                            {event.name}
+                          </Label>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -2185,13 +2183,12 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
               </div>
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="edit-isAllDay"
                     checked={formData.isAllDay}
-                    onChange={(e) => setFormData({ ...formData, isAllDay: e.target.checked })}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isAllDay: checked as boolean })}
                   />
-                  <Label htmlFor="edit-isAllDay">All day event</Label>
+                  <Label htmlFor="edit-isAllDay" className="cursor-pointer font-normal">All day event</Label>
                 </div>
                 
                 {formData.isAllDay ? (
@@ -2285,54 +2282,45 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   id="edit-important"
                   checked={formData.important}
-                  onChange={(e) => setFormData({ ...formData, important: e.target.checked })}
+                  onCheckedChange={(checked) => setFormData({ ...formData, important: checked as boolean })}
                 />
-                <Label htmlFor="edit-important" className="cursor-pointer">
+                <Label htmlFor="edit-important" className="cursor-pointer font-normal">
                   Mark as important
                 </Label>
               </div>
               <div>
                 <Label>Scope</Label>
-                <div className="mt-2 space-y-2">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="edit-scope"
-                      value="PERSONAL"
-                      checked={formData.scope === 'PERSONAL'}
-                      onChange={(e) => setFormData({ ...formData, scope: 'PERSONAL', subteamId: '' })}
-                    />
-                    <span className="text-sm">Personal event</span>
-                  </label>
+                <RadioGroup 
+                  value={formData.scope} 
+                  onValueChange={(value) => setFormData({ ...formData, scope: value as 'PERSONAL' | 'TEAM' | 'SUBTEAM', subteamId: '' })}
+                  className="mt-2 space-y-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="PERSONAL" id="edit-scope-personal" />
+                    <Label htmlFor="edit-scope-personal" className="cursor-pointer font-normal text-sm">
+                      Personal event
+                    </Label>
+                  </div>
                   {isAdmin && (
                     <>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="edit-scope"
-                          value="TEAM"
-                          checked={formData.scope === 'TEAM'}
-                          onChange={(e) => setFormData({ ...formData, scope: 'TEAM', subteamId: '' })}
-                        />
-                        <span className="text-sm">Entire club</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="edit-scope"
-                          value="SUBTEAM"
-                          checked={formData.scope === 'SUBTEAM'}
-                          onChange={(e) => setFormData({ ...formData, scope: 'SUBTEAM', subteamId: '' })}
-                        />
-                        <span className="text-sm">Specific team</span>
-                      </label>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="TEAM" id="edit-scope-team" />
+                        <Label htmlFor="edit-scope-team" className="cursor-pointer font-normal text-sm">
+                          Entire club
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="SUBTEAM" id="edit-scope-subteam" />
+                        <Label htmlFor="edit-scope-subteam" className="cursor-pointer font-normal text-sm">
+                          Specific team
+                        </Label>
+                      </div>
                     </>
                   )}
-                </div>
+                </RadioGroup>
                 {formData.scope === 'SUBTEAM' && (
                   <div className="mt-3">
                     <Label htmlFor="edit-subteam">Select Team</Label>
@@ -2354,14 +2342,16 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                 )}
                 {(formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') && (
                   <div className="mt-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="edit-rsvp-enabled"
                         checked={formData.rsvpEnabled}
-                        onChange={(e) => setFormData({ ...formData, rsvpEnabled: e.target.checked })}
+                        onCheckedChange={(checked) => setFormData({ ...formData, rsvpEnabled: checked as boolean })}
                       />
-                      <span className="text-sm">Enable RSVP for this event</span>
-                    </label>
+                      <Label htmlFor="edit-rsvp-enabled" className="cursor-pointer font-normal text-sm">
+                        Enable RSVP for this event
+                      </Label>
+                    </div>
                   </div>
                 )}
               </div>

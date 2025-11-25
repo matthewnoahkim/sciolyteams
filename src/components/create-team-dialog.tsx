@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useToast } from '@/components/ui/use-toast'
 import { ButtonLoading } from '@/components/ui/loading-spinner'
 
@@ -86,28 +87,20 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
             </div>
             <div className="space-y-2">
               <Label htmlFor="division">Division</Label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="division"
-                    value="B"
-                    checked={division === 'B'}
-                    onChange={(e) => setDivision(e.target.value as 'B' | 'C')}
-                  />
-                  <span>Division B (Grades 6-9)</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="division"
-                    value="C"
-                    checked={division === 'C'}
-                    onChange={(e) => setDivision(e.target.value as 'B' | 'C')}
-                  />
-                  <span>Division C (Grades 9-12)</span>
-                </label>
-              </div>
+              <RadioGroup value={division} onValueChange={(value) => setDivision(value as 'B' | 'C')} className="flex gap-4">
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="B" id="division-b" />
+                  <Label htmlFor="division-b" className="cursor-pointer font-normal">
+                    Division B (Grades 6-9)
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="C" id="division-c" />
+                  <Label htmlFor="division-c" className="cursor-pointer font-normal">
+                    Division C (Grades 9-12)
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
           </div>
           <DialogFooter>

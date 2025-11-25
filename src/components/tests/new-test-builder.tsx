@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   AlertCircle,
   ChevronDown,
@@ -952,15 +954,16 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
             </div>
 
             <div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="require-fullscreen"
                   checked={publishFormData.requireFullscreen}
-                  onChange={(e) => setPublishFormData((prev) => ({ ...prev, requireFullscreen: e.target.checked }))}
-                  className="h-4 w-4 rounded border-input"
+                  onCheckedChange={(checked) => setPublishFormData((prev) => ({ ...prev, requireFullscreen: checked as boolean }))}
                 />
-                <span className="text-sm font-medium">Require fullscreen lockdown</span>
-              </label>
+                <Label htmlFor="require-fullscreen" className="cursor-pointer text-sm font-medium">
+                  Require fullscreen lockdown
+                </Label>
+              </div>
               <p className="text-xs text-muted-foreground mt-1 ml-6">
                 Lockdown is best-effort. Students will be prompted to stay in fullscreen mode.
               </p>
@@ -987,33 +990,20 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="assignmentScope"
-                  id="assign-club"
-                  checked={assignmentMode === 'CLUB'}
-                  onChange={() => setAssignmentMode('CLUB')}
-                  className="h-4 w-4"
-                />
-                <Label htmlFor="assign-club" className="cursor-pointer font-normal">
-                  Entire club
-                </Label>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <input
-                  type="radio"
-                  name="assignmentScope"
-                  id="assign-teams"
-                  checked={assignmentMode === 'TEAM'}
-                  onChange={() => setAssignmentMode('TEAM')}
-                  className="mt-1 h-4 w-4"
-                />
-                <div className="flex-1">
-                  <Label htmlFor="assign-teams" className="cursor-pointer font-normal">
-                    Specific teams
+              <RadioGroup value={assignmentMode} onValueChange={(value) => setAssignmentMode(value as 'CLUB' | 'TEAM' | 'EVENT')}>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="CLUB" id="assign-club" />
+                  <Label htmlFor="assign-club" className="cursor-pointer font-normal">
+                    Entire club
                   </Label>
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <RadioGroupItem value="TEAM" id="assign-teams" className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor="assign-teams" className="cursor-pointer font-normal">
+                      Specific teams
+                    </Label>
                   {assignmentMode === 'TEAM' && (
                     <div className="mt-2 space-y-2 rounded-md border border-input bg-muted/30 p-3 max-h-32 overflow-y-auto">
                       {subteams.length === 0 && (
@@ -1022,7 +1012,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                         </p>
                       )}
                       {subteams.map((subteam) => (
-                        <label
+                        <div
                           key={subteam.id}
                           className={cn(
                             'flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm transition',
@@ -1031,33 +1021,27 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                               : 'hover:bg-muted'
                           )}
                         >
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4"
+                          <Checkbox
+                            id={`subteam-${subteam.id}`}
                             checked={selectedSubteams.includes(subteam.id)}
-                            onChange={() => toggleSubteam(subteam.id)}
+                            onCheckedChange={() => toggleSubteam(subteam.id)}
                           />
-                          {subteam.name}
-                        </label>
+                          <Label htmlFor={`subteam-${subteam.id}`} className="cursor-pointer font-normal flex-1">
+                            {subteam.name}
+                          </Label>
+                        </div>
                       ))}
                     </div>
                   )}
                 </div>
-              </div>
+                </div>
 
-              <div className="flex items-start gap-2">
-                <input
-                  type="radio"
-                  name="assignmentScope"
-                  id="assign-event"
-                  checked={assignmentMode === 'EVENT'}
-                  onChange={() => setAssignmentMode('EVENT')}
-                  className="mt-1 h-4 w-4"
-                />
-                <div className="flex-1">
-                  <Label htmlFor="assign-event" className="cursor-pointer font-normal">
-                    Users assigned to a specific event
-                  </Label>
+                <div className="flex items-start gap-2">
+                  <RadioGroupItem value="EVENT" id="assign-event" className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor="assign-event" className="cursor-pointer font-normal">
+                      Users assigned to a specific event
+                    </Label>
                   {assignmentMode === 'EVENT' && (
                     <div className="mt-2">
                       <select
@@ -1086,7 +1070,8 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                     </div>
                   )}
                 </div>
-              </div>
+                </div>
+              </RadioGroup>
             </div>
 
           </div>
@@ -1346,73 +1331,112 @@ function QuestionCard({
               </div>
             </div>
             <div className="space-y-2">
-              {question.options.map((option, optionIndex) => (
-                <div
-                  key={option.id}
-                  className="flex flex-col gap-2 rounded-md border border-input bg-background p-3 sm:flex-row sm:items-center"
+              {question.type === 'MCQ_SINGLE' ? (
+                <RadioGroup
+                  value={question.options.find((opt) => opt.isCorrect)?.id || ''}
+                  onValueChange={(value) => {
+                    onChange((prev) => ({
+                      ...prev,
+                      options: prev.options.map((opt) => ({
+                        ...opt,
+                        isCorrect: opt.id === value,
+                      })),
+                    }))
+                  }}
+                  className="space-y-2"
                 >
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type={question.type === 'MCQ_SINGLE' ? 'radio' : 'checkbox'}
-                      name={`correct-${question.id}`}
-                      className="h-4 w-4"
-                      checked={option.isCorrect}
-                      onChange={(event) => {
-                        const checked = event.target.checked
-                        if (question.type === 'MCQ_SINGLE') {
-                          onChange((prev) => ({
-                            ...prev,
-                            options: prev.options.map((opt) => ({
-                              ...opt,
-                              isCorrect: opt.id === option.id ? checked : false,
-                            })),
-                          }))
-                        } else {
+                  {question.options.map((option, optionIndex) => (
+                    <div
+                      key={option.id}
+                      className="flex flex-col gap-2 rounded-md border border-input bg-background p-3 sm:flex-row sm:items-center"
+                    >
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value={option.id} id={`correct-${question.id}-${option.id}`} />
+                        <Label htmlFor={`correct-${question.id}-${option.id}`} className="cursor-pointer font-normal text-sm">
+                          Correct option
+                        </Label>
+                      </div>
+                      <Input
+                        value={option.label}
+                        onChange={(event) =>
                           handleOptionUpdate(option.id, (prev) => ({
                             ...prev,
-                            isCorrect: checked,
+                            label: event.target.value,
                           }))
                         }
-                      }}
-                    />
-                    {question.type === 'MCQ_SINGLE' ? 'Correct option' : 'Correct'}
-                  </label>
-                  <Input
-                    value={option.label}
-                    onChange={(event) =>
-                      handleOptionUpdate(option.id, (prev) => ({
-                        ...prev,
-                        label: event.target.value,
-                      }))
-                    }
-                    placeholder={`Option ${optionIndex + 1}`}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeOption(option.id)}
-                    disabled={question.options.length <= 1}
+                        placeholder={`Option ${optionIndex + 1}`}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeOption(option.id)}
+                        disabled={question.options.length <= 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </RadioGroup>
+              ) : (
+                question.options.map((option, optionIndex) => (
+                  <div
+                    key={option.id}
+                    className="flex flex-col gap-2 rounded-md border border-input bg-background p-3 sm:flex-row sm:items-center"
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`correct-${question.id}-${option.id}`}
+                        checked={option.isCorrect}
+                        onCheckedChange={(checked) => {
+                          handleOptionUpdate(option.id, (prev) => ({
+                            ...prev,
+                            isCorrect: checked as boolean,
+                          }))
+                        }}
+                      />
+                      <Label htmlFor={`correct-${question.id}-${option.id}`} className="cursor-pointer font-normal text-sm">
+                        Correct
+                      </Label>
+                    </div>
+                    <Input
+                      value={option.label}
+                      onChange={(event) =>
+                        handleOptionUpdate(option.id, (prev) => ({
+                          ...prev,
+                          label: event.target.value,
+                        }))
+                      }
+                      placeholder={`Option ${optionIndex + 1}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeOption(option.id)}
+                      disabled={question.options.length <= 1}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))
+              )}
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={`shuffle-${question.id}`}
                 checked={question.shuffleOptions}
-                onChange={(event) =>
+                onCheckedChange={(checked) =>
                   onChange((prev) => ({
                     ...prev,
-                    shuffleOptions: event.target.checked,
+                    shuffleOptions: checked as boolean,
                   }))
                 }
               />
-              Shuffle choices per student
-            </label>
+              <Label htmlFor={`shuffle-${question.id}`} className="cursor-pointer font-normal text-sm">
+                Shuffle choices per student
+              </Label>
+            </div>
           </div>
         )}
 

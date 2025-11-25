@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
@@ -2106,14 +2107,12 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                     <div className="flex-1">
                       <p className="text-sm text-yellow-800 dark:text-yellow-200">{reviewBudgetWarning}</p>
                       <div className="flex items-center gap-2 mt-2">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           id="admin-override"
                           checked={reviewForm.adminOverride}
-                          onChange={(e) => setReviewForm({ ...reviewForm, adminOverride: e.target.checked })}
-                          className="h-4 w-4"
+                          onCheckedChange={(checked) => setReviewForm({ ...reviewForm, adminOverride: checked as boolean })}
                         />
-                        <Label htmlFor="admin-override" className="cursor-pointer text-sm">
+                        <Label htmlFor="admin-override" className="cursor-pointer font-normal text-sm">
                           Admin Override (approve despite budget limit)
                         </Label>
                       </div>
