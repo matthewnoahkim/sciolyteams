@@ -598,7 +598,7 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
           open={editWidgetOpen}
           onOpenChange={setEditWidgetOpen}
           widget={selectedWidget}
-          onUpdate={(updates) => {
+          onUpdate={(updates: Record<string, unknown>) => {
             handleUpdateWidget(selectedWidget.id, updates)
             setEditWidgetOpen(false)
           }}
