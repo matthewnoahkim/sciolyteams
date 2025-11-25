@@ -272,5 +272,136 @@
   .animate-fade-in {
     animation: fadeIn 0.6s ease-out;
   }
+
+  /* Scroll animations - Enhanced with premium easing */
+  .scroll-animate {
+    opacity: 0;
+    will-change: opacity, transform, filter;
+    transition: 
+      opacity var(--animation-duration, 800ms) cubic-bezier(0.16, 1, 0.3, 1),
+      transform var(--animation-duration, 800ms) cubic-bezier(0.16, 1, 0.3, 1),
+      filter var(--animation-duration, 800ms) cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Fade up animation - More dramatic with blur */
+  .scroll-animate-fade-up {
+    transform: translateY(60px) scale(0.98);
+    filter: blur(4px);
+  }
+
+  .scroll-animate-fade-up.scroll-animate-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+
+  /* Fade in animation - Subtle scale */
+  .scroll-animate-fade-in {
+    transform: scale(0.98);
+    filter: blur(2px);
+  }
+
+  .scroll-animate-fade-in.scroll-animate-visible {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+
+  /* Slide left animation - Enhanced */
+  .scroll-animate-slide-left {
+    transform: translateX(80px) scale(0.96);
+    filter: blur(3px);
+  }
+
+  .scroll-animate-slide-left.scroll-animate-visible {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+
+  /* Slide right animation - Enhanced */
+  .scroll-animate-slide-right {
+    transform: translateX(-80px) scale(0.96);
+    filter: blur(3px);
+  }
+
+  .scroll-animate-slide-right.scroll-animate-visible {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+
+  /* Scale in animation - More dramatic */
+  .scroll-animate-scale-in {
+    transform: scale(0.85) translateY(20px);
+    filter: blur(4px);
+  }
+
+  .scroll-animate-scale-in.scroll-animate-visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+
+  /* Fade scale animation - Enhanced */
+  .scroll-animate-fade-scale {
+    transform: scale(0.92) translateY(40px) rotate(-1deg);
+    filter: blur(3px);
+  }
+
+  .scroll-animate-fade-scale.scroll-animate-visible {
+    opacity: 1;
+    transform: scale(1) translateY(0) rotate(0deg);
+    filter: blur(0);
+  }
+
+  /* New: Slide up with rotation */
+  .scroll-animate-slide-up-rotate {
+    transform: translateY(50px) rotate(2deg) scale(0.95);
+    filter: blur(3px);
+  }
+
+  .scroll-animate-slide-up-rotate.scroll-animate-visible {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg) scale(1);
+    filter: blur(0);
+  }
+
+  /* New: Bounce in effect */
+  .scroll-animate-bounce-in {
+    transform: scale(0.7) translateY(30px);
+    filter: blur(4px);
+  }
+
+  .scroll-animate-bounce-in.scroll-animate-visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+    animation: bounce-in var(--animation-duration, 800ms) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  @keyframes bounce-in {
+    0% {
+      transform: scale(0.7) translateY(30px);
+    }
+    50% {
+      transform: scale(1.05) translateY(-5px);
+    }
+    100% {
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  /* New: Elegant fade with slight zoom */
+  .scroll-animate-elegant {
+    transform: scale(0.94) translateY(30px);
+    filter: blur(2px) brightness(0.95);
+  }
+
+  .scroll-animate-elegant.scroll-animate-visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0) brightness(1);
+  }
 }
 
