@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ButtonLoading } from '@/components/ui/loading-spinner'
 import {
   Dialog,
   DialogContent,
@@ -527,6 +528,7 @@ export function TakeTestClient({
               </div>
             )}
             <Button onClick={handleStartTest} disabled={loading} className="w-full">
+              {loading && <ButtonLoading />}
               {loading ? 'Starting...' : 'Start Test'}
             </Button>
           </CardContent>
@@ -698,6 +700,7 @@ export function TakeTestClient({
                 }}
                 disabled={submitting}
               >
+                {submitting && <ButtonLoading />}
                 {submitting ? 'Submitting...' : 'Submit Test'}
               </Button>
             </div>
@@ -814,6 +817,7 @@ export function TakeTestClient({
               }}
               disabled={submitting}
             >
+              {submitting && <ButtonLoading />}
               {submitting ? 'Submitting...' : 'Submit'}
             </Button>
           </DialogFooter>

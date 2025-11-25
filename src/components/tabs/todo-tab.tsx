@@ -45,6 +45,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ButtonLoading, PageLoading } from '@/components/ui/loading-spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { format, isPast, isToday, isTomorrow } from 'date-fns'
 
@@ -392,17 +393,11 @@ export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabP
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-10 w-32" />
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3, 4].map(i => (
-            <Skeleton key={i} className="h-20 w-full rounded-xl" />
-          ))}
-        </div>
-      </div>
+      <PageLoading
+        title="Loading tasks"
+        description="Fetching your to-do list..."
+        variant="orbit"
+      />
     )
   }
 
@@ -640,6 +635,7 @@ export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabP
               Cancel
             </Button>
             <Button onClick={handleCreateTodo} disabled={submitting || !formData.title.trim()}>
+              {submitting && <ButtonLoading />}
               {submitting ? 'Creating...' : 'Create Task'}
             </Button>
           </DialogFooter>

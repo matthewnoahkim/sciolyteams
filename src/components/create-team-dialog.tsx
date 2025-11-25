@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
+import { ButtonLoading } from '@/components/ui/loading-spinner'
 
 interface CreateTeamDialogProps {
   open: boolean
@@ -114,6 +115,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !name}>
+              {loading && <ButtonLoading />}
               {loading ? 'Creating...' : 'Create Club'}
             </Button>
           </DialogFooter>

@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
+import { ButtonLoading } from '@/components/ui/loading-spinner'
 
 interface JoinTeamDialogProps {
   open: boolean
@@ -90,6 +91,7 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !code.trim()}>
+              {loading && <ButtonLoading />}
               {loading ? 'Joining...' : 'Join Club'}
             </Button>
           </DialogFooter>

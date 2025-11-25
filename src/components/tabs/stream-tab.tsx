@@ -14,6 +14,7 @@ import { AttachmentDisplay } from '@/components/ui/attachment-display'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { EmojiPicker } from '@/components/emoji-picker'
 import { Skeleton } from '@/components/ui/skeleton'
+import { PageLoading } from '@/components/ui/loading-spinner'
 
 interface StreamTabProps {
   teamId: string
@@ -1081,25 +1082,11 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
           </Button>
         </div>
         {loading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Card key={i}>
-                <CardContent className="p-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="space-y-2 flex-1">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-24" />
-                      </div>
-                    </div>
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <PageLoading
+            title="Loading announcements"
+            description="Fetching the latest updates from your team..."
+            variant="orbit"
+          />
         ) : (() => {
           const filteredAnnouncements = showImportantOnly 
             ? announcements.filter(a => a.important)

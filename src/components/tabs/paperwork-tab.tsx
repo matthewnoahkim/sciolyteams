@@ -34,6 +34,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { formatDateTime } from '@/lib/utils'
 import { format } from 'date-fns'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ButtonLoading, PageLoading } from '@/components/ui/loading-spinner'
 
 interface PaperworkTabProps {
   teamId: string
@@ -263,30 +264,11 @@ export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-4 w-64" />
-        </div>
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardHeader>
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-48" />
-                  <Skeleton className="h-4 w-64" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  <Skeleton className="h-9 w-32" />
-                  <Skeleton className="h-9 w-32" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+      <PageLoading
+        title="Loading paperwork"
+        description="Fetching forms and submissions..."
+        variant="orbit"
+      />
     )
   }
 
@@ -598,6 +580,7 @@ function UploadFormDialog({ open, onOpenChange, onUpload, teamId, uploading }: a
               Cancel
             </Button>
             <Button type="submit" disabled={!file || !title.trim() || uploading}>
+              {uploading && <ButtonLoading />}
               {uploading ? 'Uploading...' : 'Upload Form'}
             </Button>
           </DialogFooter>
@@ -679,6 +662,7 @@ function SubmitFormDialog({ open, onOpenChange, onSubmit, form, uploading }: any
               Cancel
             </Button>
             <Button type="submit" disabled={!file || uploading}>
+              {uploading && <ButtonLoading />}
               {uploading ? 'Submitting...' : 'Submit Form'}
             </Button>
           </DialogFooter>

@@ -12,6 +12,7 @@ import { DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Clock, ShoppingCa
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SaveIndicator } from '@/components/ui/save-indicator'
+import { ButtonLoading, PageLoading } from '@/components/ui/loading-spinner'
 
 interface FinanceTabProps {
   teamId: string
@@ -977,15 +978,11 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-4 w-64" />
-        </div>
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
+      <PageLoading
+        title="Loading finances"
+        description="Fetching expenses and budget information..."
+        variant="orbit"
+      />
     )
   }
 
@@ -1732,6 +1729,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                 Cancel
               </Button>
               <Button type="submit" disabled={updatingExpense}>
+                {updatingExpense && <ButtonLoading />}
                 {updatingExpense ? 'Updating...' : 'Update'}
               </Button>
             </DialogFooter>
@@ -1970,6 +1968,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                 Cancel
               </Button>
               <Button type="submit" disabled={submittingRequest}>
+                {submittingRequest && <ButtonLoading />}
                 {submittingRequest ? 'Submitting...' : 'Submit Request'}
               </Button>
             </DialogFooter>

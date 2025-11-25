@@ -51,6 +51,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card } from '@/components/ui/card'
+import { PageLoading } from '@/components/ui/loading-spinner'
 
 // Import all widget components
 import { WelcomeWidget } from '@/components/widgets/welcome-widget'
@@ -485,23 +486,11 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-4 w-64" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="p-6">
-              <div className="space-y-3">
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
+      <PageLoading
+        title="Loading your dashboard"
+        description="Setting up your personalized widgets..."
+        variant="orbit"
+      />
     )
   }
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { PageLoading, ButtonLoading } from '@/components/ui/loading-spinner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -1554,16 +1555,11 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
 
       {/* Calendar View */}
       {loading ? (
-        <div className="border rounded-lg p-6">
-          <div className="space-y-4">
-            <Skeleton className="h-8 w-64" />
-            <div className="grid grid-cols-7 gap-2">
-              {Array.from({ length: 35 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full" />
-              ))}
-            </div>
-          </div>
-        </div>
+        <PageLoading
+          title="Loading calendar"
+          description="Fetching your events and schedule..."
+          variant="orbit"
+        />
       ) : viewMode === 'month' ? (
         renderMonthView()
       ) : (
@@ -1877,6 +1873,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
                 Cancel
               </Button>
               <Button type="submit" disabled={loading || uploadingFiles}>
+                {(loading || uploadingFiles) && <ButtonLoading />}
                 {uploadingFiles ? 'Uploading...' : loading ? 'Creating...' : 'Create Event'}
               </Button>
             </DialogFooter>
@@ -2374,6 +2371,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
+                {loading && <ButtonLoading />}
                 {loading ? 'Updating...' : 'Update Event'}
               </Button>
             </DialogFooter>

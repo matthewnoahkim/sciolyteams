@@ -87,39 +87,30 @@ export async function GET(req: NextRequest) {
         test: { teamId },
         status: { in: ['SUBMITTED', 'GRADED'] },
       },
-      include: {
+      select: {
+        id: true,
+        membershipId: true,
+        gradeEarned: true,
+        submittedAt: true,
         test: {
           select: {
             id: true,
             name: true,
           },
         },
-        membership: {
-          select: {
-            id: true,
-          },
-        },
       },
     })
 
-    // Get attendance records
+    // Get attendance records  
     const attendanceRecords = await prisma.attendanceCheckIn.findMany({
       where: {
         attendance: { teamId },
       },
-      include: {
-        attendance: {
-          select: {
-            id: true,
-            name: true,
-            date: true,
-          },
-        },
-        membership: {
-          select: {
-            id: true,
-          },
-        },
+      select: {
+        id: true,
+        membershipId: true,
+        createdAt: true,
+        attendanceId: true,
       },
     })
 
@@ -149,13 +140,13 @@ export async function GET(req: NextRequest) {
     // Aggregate stats per member
     const memberStats = memberships.map(membership => {
       // Test stats
-      const memberAttempts = testAttempts.filter(a => a.membership?.id === membership.id)
+      const memberAttempts = testAttempts.filter(a => a.membershipId === membership.id)
       const testScores = memberAttempts.map(a => ({
         testId: a.test.id,
         testName: a.test.name,
-        score: a.score,
-        maxScore: a.maxScore,
-        percentage: a.maxScore ? ((a.score || 0) / a.maxScore) * 100 : null,
+        score: a.gradeEarned ? Number(a.gradeEarned) : null,
+        maxScore: 100, // TestAttempt stores gradeEarned as a percentage (Decimal 6,2)
+        percentage: a.gradeEarned ? Number(a.gradeEarned) : null,
         submittedAt: a.submittedAt,
       }))
       const avgTestScore = testScores.length > 0
@@ -163,7 +154,7 @@ export async function GET(req: NextRequest) {
         : null
 
       // Attendance stats
-      const memberAttendance = attendanceRecords.filter(a => a.membership?.id === membership.id)
+      const memberAttendance = attendanceRecords.filter(a => a.membershipId === membership.id)
       const attendanceCount = memberAttendance.length
 
       // Todo stats
@@ -193,9 +184,7 @@ export async function GET(req: NextRequest) {
           avgTestScore,
           attendanceCount,
           attendanceRecords: memberAttendance.map(a => ({
-            attendanceId: a.attendance.id,
-            name: a.attendance.name,
-            date: a.attendance.date,
+            attendanceId: a.attendanceId,
             checkedInAt: a.createdAt,
           })),
           completedTodos,

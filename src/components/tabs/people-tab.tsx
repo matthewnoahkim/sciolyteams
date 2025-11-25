@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
+import { ButtonLoading } from '@/components/ui/loading-spinner'
 import { Plus, Users, Pencil, Trash2, ArrowLeft, X, FileSpreadsheet, Mail, Grid3x3, Layers } from 'lucide-react'
 import { groupEventsByCategory, categoryOrder, type EventCategory } from '@/lib/event-categories'
 
@@ -1210,6 +1211,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
+                {loading && <ButtonLoading />}
                 {loading ? 'Creating...' : 'Create Team'}
               </Button>
             </DialogFooter>
@@ -1243,6 +1245,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
+                {loading && <ButtonLoading />}
                 {loading ? 'Updating...' : 'Update Team'}
               </Button>
             </DialogFooter>

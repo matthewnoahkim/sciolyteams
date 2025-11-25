@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/select'
 import { formatDateTime } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ButtonLoading, PageLoading } from '@/components/ui/loading-spinner'
 
 interface GalleryTabProps {
   teamId: string
@@ -245,17 +246,11 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-4 w-64" />
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <Skeleton key={i} className="aspect-square rounded-lg" />
-          ))}
-        </div>
-      </div>
+      <PageLoading
+        title="Loading gallery"
+        description="Fetching your photos and albums..."
+        variant="orbit"
+      />
     )
   }
 
@@ -278,7 +273,11 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
             New Album
           </Button>
           <Button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            <Upload className="h-4 w-4 mr-2" />
+            {uploading ? (
+              <ButtonLoading className="mr-2" />
+            ) : (
+              <Upload className="h-4 w-4 mr-2" />
+            )}
             {uploading ? 'Uploading...' : 'Upload'}
           </Button>
           <input
