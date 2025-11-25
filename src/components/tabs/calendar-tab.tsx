@@ -1491,31 +1491,31 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
   return (
     <div className="space-y-4">
       {/* Header Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={goToToday}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+          <Button variant="outline" size="sm" onClick={goToToday} className="text-xs sm:text-sm">
             Today
           </Button>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={navigatePrevious}>
-              <ChevronLeft className="h-4 w-4" />
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="outline" size="icon" onClick={navigatePrevious} className="h-8 w-8 sm:h-10 sm:w-10">
+              <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={navigateNext}>
-              <ChevronRight className="h-4 w-4" />
+            <Button variant="outline" size="icon" onClick={navigateNext} className="h-8 w-8 sm:h-10 sm:w-10">
+              <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </div>
-          <h2 className="text-2xl font-bold">
+          <h2 className="text-lg sm:text-2xl font-bold">
             {viewMode === 'month' ? getMonthYear(currentDate) : getWeekRange(currentDate)}
           </h2>
         </div>
 
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
           <div className="flex border rounded-lg overflow-hidden">
             <Button
               variant={viewMode === 'month' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('month')}
-              className="rounded-none"
+              className="rounded-none text-xs sm:text-sm"
             >
               Month
             </Button>
@@ -1523,7 +1523,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
               variant={viewMode === 'week' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('week')}
-              className="rounded-none"
+              className="rounded-none text-xs sm:text-sm"
             >
               Week
             </Button>
@@ -1532,16 +1532,21 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
             variant={showImportantOnly ? 'default' : 'outline'}
             size="sm"
             onClick={() => setShowImportantOnly(!showImportantOnly)}
+            className="text-xs sm:text-sm"
           >
-            Important Only
+            <span className="hidden sm:inline">Important Only</span>
+            <span className="sm:hidden">Important</span>
           </Button>
-          <Button onClick={() => {
-            setFormData(getInitialFormData())
-            setCreateOpen(true)
-          }}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Event
-          </Button>
+          {isAdmin && (
+            <Button onClick={() => {
+              setFormData(getInitialFormData())
+              setCreateOpen(true)
+            }} size="sm" className="text-xs sm:text-sm">
+              <Plus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">New Event</span>
+              <span className="sm:hidden">Event</span>
+            </Button>
+          )}
         </div>
       </div>
 

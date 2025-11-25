@@ -505,30 +505,34 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Home</h2>
-          <p className="text-gray-600 dark:text-gray-400">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xl sm:text-2xl font-bold truncate">Home</h2>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 truncate">
             Welcome back to {team.name}
           </p>
         </div>
         {isAdmin && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0">
             <Button
               variant={isConfigMode ? 'default' : 'outline'}
               onClick={() => setIsConfigMode(!isConfigMode)}
+              size="sm"
+              className="text-xs sm:text-sm"
             >
               {isConfigMode ? (
-                <Check className="h-4 w-4 mr-2" />
+                <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               ) : (
-                <Settings className="h-4 w-4 mr-2" />
+                <Settings className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               )}
-              {isConfigMode ? 'Done' : 'Configure'}
+              <span className="hidden sm:inline">{isConfigMode ? 'Done' : 'Configure'}</span>
+              <span className="sm:hidden">{isConfigMode ? 'Done' : 'Config'}</span>
             </Button>
             {isConfigMode && (
-              <Button onClick={() => setAddWidgetOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Widget
+              <Button onClick={() => setAddWidgetOpen(true)} size="sm" className="text-xs sm:text-sm">
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Add Widget</span>
+                <span className="sm:hidden">Add</span>
               </Button>
             )}
           </div>
@@ -538,13 +542,14 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
       {/* Widgets Grid */}
       {visibleWidgets.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800">
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-gray-600 dark:text-gray-400 mb-4 px-4">
             No widgets configured yet
           </p>
           {isAdmin && (
-            <Button onClick={() => setAddWidgetOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Your First Widget
+            <Button onClick={() => setAddWidgetOpen(true)} size="sm" className="text-xs sm:text-sm">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Add Your First Widget</span>
+              <span className="sm:hidden">Add Widget</span>
             </Button>
           )}
         </div>

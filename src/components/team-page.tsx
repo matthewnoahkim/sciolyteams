@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Home, MessageSquare, Users, Calendar, Settings, ClipboardCheck, DollarSign, FileText, Pencil, Image, File } from 'lucide-react'
+import { ArrowLeft, Home, MessageSquare, Users, Calendar, Settings, ClipboardCheck, DollarSign, FileText, Pencil, Image, File, Menu } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { HomePageTab } from '@/components/tabs/homepage-tab'
 import { StreamTab } from '@/components/tabs/stream-tab'
@@ -23,6 +23,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
@@ -50,6 +56,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const [updatingClubName, setUpdatingClubName] = useState(false)
   const [tabNotifications, setTabNotifications] = useState<Record<string, boolean>>({})
   const [totalUnreadCount, setTotalUnreadCount] = useState(0)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const isAdmin = currentMembership.role === 'ADMIN'
 
   // Update favicon badge with total unread count across all tabs
@@ -311,6 +318,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
     // Clear notification when tab is clicked
     clearTabNotification(newTab)
     setActiveTab(newTab)
+    setMobileMenuOpen(false) // Close mobile menu when tab changes
     const url = new URL(window.location.href)
     url.searchParams.set('tab', newTab)
     router.replace(url.pathname + url.search, { scroll: false })
@@ -387,6 +395,141 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const showGridPattern = bgType === 'grid'
   const showAnimatedBlobs = bgType === 'grid' // Only show animated blobs with grid
 
+  // Render navigation buttons (reusable for sidebar and mobile menu)
+  const renderNavigationButtons = () => (
+    <>
+      <Button
+        variant={activeTab === 'home' ? 'default' : 'ghost'}
+        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        onClick={() => handleTabChange('home')}
+      >
+        <Home className="mr-3 h-4 w-4" />
+        Home
+      </Button>
+      <Button
+        variant={activeTab === 'stream' ? 'default' : 'ghost'}
+        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        onClick={() => handleTabChange('stream')}
+      >
+        <MessageSquare className="mr-3 h-4 w-4" />
+        Stream
+        {tabNotifications.stream && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+          </span>
+        )}
+      </Button>
+      <Button
+        variant={activeTab === 'people' ? 'default' : 'ghost'}
+        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        onClick={() => handleTabChange('people')}
+      >
+        <Users className="mr-3 h-4 w-4" />
+        People
+        {tabNotifications.people && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+          </span>
+        )}
+      </Button>
+      <Button
+        variant={activeTab === 'calendar' ? 'default' : 'ghost'}
+        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        onClick={() => handleTabChange('calendar')}
+      >
+        <Calendar className="mr-3 h-4 w-4" />
+        Calendar
+        {tabNotifications.calendar && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+          </span>
+        )}
+      </Button>
+      <Button
+        variant={activeTab === 'attendance' ? 'default' : 'ghost'}
+        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        onClick={() => handleTabChange('attendance')}
+      >
+        <ClipboardCheck className="mr-3 h-4 w-4" />
+        Attendance
+        {tabNotifications.attendance && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+          </span>
+        )}
+      </Button>
+      <Button
+        variant={activeTab === 'finance' ? 'default' : 'ghost'}
+        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        onClick={() => handleTabChange('finance')}
+      >
+        <DollarSign className="mr-3 h-4 w-4" />
+        Finance
+        {tabNotifications.finance && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+          </span>
+        )}
+      </Button>
+      <Button
+        variant={activeTab === 'tests' ? 'default' : 'ghost'}
+        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        onClick={() => handleTabChange('tests')}
+      >
+        <FileText className="mr-3 h-4 w-4" />
+        Tests
+        {tabNotifications.tests && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+          </span>
+        )}
+      </Button>
+      <Button
+        variant={activeTab === 'gallery' ? 'default' : 'ghost'}
+        className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
+        onClick={() => handleTabChange('gallery')}
+      >
+        <Image className="mr-3 h-4 w-4" />
+        Gallery
+      </Button>
+      <Button
+        variant={activeTab === 'paperwork' ? 'default' : 'ghost'}
+        className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
+        onClick={() => handleTabChange('paperwork')}
+      >
+        <File className="mr-3 h-4 w-4" />
+        Paperwork
+      </Button>
+      <div className="h-px bg-border my-2" />
+      <Button
+        variant={activeTab === 'settings' ? 'default' : 'ghost'}
+        className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
+        onClick={() => handleTabChange('settings')}
+      >
+        <Settings className="mr-3 h-4 w-4" />
+        Settings
+      </Button>
+    </>
+  )
+
   return (
     <div className="min-h-screen" style={getBackgroundStyle()}>
       {/* Animated background elements - only show for grid */}
@@ -407,145 +550,42 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
 
       <AppHeader user={user} showBackButton={true} backHref="/dashboard" title={currentClubName} />
 
-      <main className="relative z-10 container mx-auto px-4 py-6 md:py-8">
+      <main className="relative z-10 container mx-auto px-4 py-6 md:py-8 max-w-full overflow-x-hidden">
         <div className="flex gap-6 lg:gap-8">
           {/* Vertical Navigation Sidebar */}
           <aside className="w-52 flex-shrink-0 hidden md:block">
             <nav className="sticky top-24 space-y-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 p-3 rounded-2xl shadow-lg">
-              <Button
-                variant={activeTab === 'home' ? 'default' : 'ghost'}
-                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
-                onClick={() => handleTabChange('home')}
-              >
-                <Home className="mr-3 h-4 w-4" />
-                Home
-              </Button>
-              <Button
-                variant={activeTab === 'stream' ? 'default' : 'ghost'}
-                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
-                onClick={() => handleTabChange('stream')}
-              >
-                <MessageSquare className="mr-3 h-4 w-4" />
-                Stream
-                {tabNotifications.stream && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                    </span>
-                  </span>
-                )}
-              </Button>
-              <Button
-                variant={activeTab === 'people' ? 'default' : 'ghost'}
-                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
-                onClick={() => handleTabChange('people')}
-              >
-                <Users className="mr-3 h-4 w-4" />
-                People
-                {tabNotifications.people && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                    </span>
-                  </span>
-                )}
-              </Button>
-              <Button
-                variant={activeTab === 'calendar' ? 'default' : 'ghost'}
-                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
-                onClick={() => handleTabChange('calendar')}
-              >
-                <Calendar className="mr-3 h-4 w-4" />
-                Calendar
-                {tabNotifications.calendar && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                    </span>
-                  </span>
-                )}
-              </Button>
-              <Button
-                variant={activeTab === 'attendance' ? 'default' : 'ghost'}
-                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
-                onClick={() => handleTabChange('attendance')}
-              >
-                <ClipboardCheck className="mr-3 h-4 w-4" />
-                Attendance
-                {tabNotifications.attendance && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                    </span>
-                  </span>
-                )}
-              </Button>
-              <Button
-                variant={activeTab === 'finance' ? 'default' : 'ghost'}
-                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
-                onClick={() => handleTabChange('finance')}
-              >
-                <DollarSign className="mr-3 h-4 w-4" />
-                Finance
-                {tabNotifications.finance && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                    </span>
-                  </span>
-                )}
-              </Button>
-              <Button
-                variant={activeTab === 'tests' ? 'default' : 'ghost'}
-                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
-                onClick={() => handleTabChange('tests')}
-              >
-                <FileText className="mr-3 h-4 w-4" />
-                Tests
-                {tabNotifications.tests && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                    </span>
-                  </span>
-                )}
-              </Button>
-              <Button
-                variant={activeTab === 'gallery' ? 'default' : 'ghost'}
-                className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
-                onClick={() => handleTabChange('gallery')}
-              >
-                <Image className="mr-3 h-4 w-4" />
-                Gallery
-              </Button>
-              <Button
-                variant={activeTab === 'paperwork' ? 'default' : 'ghost'}
-                className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
-                onClick={() => handleTabChange('paperwork')}
-              >
-                <File className="mr-3 h-4 w-4" />
-                Paperwork
-              </Button>
-              <div className="h-px bg-border my-2" />
-              <Button
-                variant={activeTab === 'settings' ? 'default' : 'ghost'}
-                className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
-                onClick={() => handleTabChange('settings')}
-              >
-                <Settings className="mr-3 h-4 w-4" />
-                Settings
-              </Button>
+              {renderNavigationButtons()}
             </nav>
           </aside>
 
+          {/* Mobile Menu Button */}
+          <div className="md:hidden fixed top-20 left-2 z-40">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMobileMenuOpen(true)}
+              className="h-8 w-8 p-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 shadow-lg hover:bg-white dark:hover:bg-gray-900"
+            >
+              <Menu className="h-4 w-4" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </div>
+
+          {/* Mobile Navigation Sheet */}
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetContent side="left" className="w-[280px] sm:w-[300px] p-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm">
+              <SheetHeader className="p-6 pb-4 border-b border-gray-200/50 dark:border-gray-800/50">
+                <SheetTitle className="text-lg font-semibold">Navigation</SheetTitle>
+              </SheetHeader>
+              <nav className="p-4 space-y-2 overflow-y-auto max-h-[calc(100vh-100px)]">
+                {renderNavigationButtons()}
+              </nav>
+            </SheetContent>
+          </Sheet>
+
           {/* Main Content Area */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 md:pl-0 pl-12">
             {/* Team Info Header - Only visible on settings tab */}
             {activeTab === 'settings' && (
               <div className="mb-6 p-6 rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50">
