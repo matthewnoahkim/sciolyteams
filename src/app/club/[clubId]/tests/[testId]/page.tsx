@@ -218,6 +218,25 @@ export default async function TeamTestDetailPage({
         })
         .join(', ')
 
+  // Serialize test object with date fields as ISO strings
+  const serializedTest = {
+    id: test.id,
+    name: test.name,
+    description: test.description,
+    status: test.status,
+    durationMinutes: test.durationMinutes,
+    startAt: test.startAt ? test.startAt.toISOString() : null,
+    endAt: test.endAt ? test.endAt.toISOString() : null,
+    allowLateUntil: test.allowLateUntil ? test.allowLateUntil.toISOString() : null,
+    maxAttempts: test.maxAttempts,
+    instructions: test.instructions,
+    randomizeQuestionOrder: test.randomizeQuestionOrder,
+    randomizeOptionOrder: test.randomizeOptionOrder,
+    requireFullscreen: test.requireFullscreen,
+    releaseScoresAt: test.releaseScoresAt ? test.releaseScoresAt.toISOString() : null,
+    testPasswordPlaintext: test.testPasswordPlaintext,
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
       {/* Animated background elements */}
@@ -265,7 +284,7 @@ export default async function TeamTestDetailPage({
       <TestDetailWrapper
         testId={test.id}
         testName={test.name}
-        test={test}
+        test={serializedTest}
         assignmentSummary={assignmentSummary}
         overviewContent={
           <Card>
