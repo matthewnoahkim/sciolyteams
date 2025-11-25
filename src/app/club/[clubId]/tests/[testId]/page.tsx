@@ -207,19 +207,16 @@ export default async function TeamTestDetailPage({
   const statusConfig = STATUS_CONFIG[test.status]
 
   const assignmentSummary =
-    test.assignments.length === 0
-      ? 'Everyone on the team'
-      : test.assignments
-          .map((assignment) => {
-            if (assignment.assignedScope === 'TEAM') {
-              return 'Everyone on the team'
-            }
-            if (assignment.assignedScope === 'SUBTEAM') {
-              return assignment.subteam?.name ?? 'Subteam assignment'
-            }
-            return 'Specific member'
-          })
-          .join(', ')
+  test.assignments.length === 0
+    ? 'Everyone on the team'
+    : test.assignments
+        .map((assignment) => {
+          if (assignment.assignedScope === 'CLUB') {
+            return 'Everyone on the team'
+          }
+          return 'Specific member'
+        })
+        .join(', ')
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
