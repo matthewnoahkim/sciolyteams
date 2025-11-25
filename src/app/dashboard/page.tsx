@@ -16,6 +16,11 @@ export default async function DashboardPage() {
     include: {
       team: true,
       subteam: true,
+      rosterAssignments: {
+        include: {
+          event: true,
+        },
+      },
     },
     orderBy: {
       createdAt: 'desc',

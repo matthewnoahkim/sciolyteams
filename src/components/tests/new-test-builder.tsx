@@ -67,7 +67,7 @@ interface NewTestBuilderProps {
     requireFullscreen: boolean
     status: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
     assignments: Array<{
-      assignedScope: 'TEAM' | 'SUBTEAM' | 'PERSONAL'
+      assignedScope: 'CLUB' | 'TEAM' | 'PERSONAL'
       subteamId: string | null
       subteam: { id: string; name: string } | null
     }>
@@ -121,18 +121,18 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
 
   const isEditMode = !!test
 
-  const [assignmentMode, setAssignmentMode] = useState<'TEAM' | 'SUBTEAMS' | 'EVENT'>(() => {
+  const [assignmentMode, setAssignmentMode] = useState<'CLUB' | 'TEAM' | 'EVENT'>(() => {
     if (test) {
-      const hasSubteamAssignments = test.assignments.some(a => a.assignedScope === 'SUBTEAM')
-      return hasSubteamAssignments ? 'SUBTEAMS' : 'TEAM'
+      const hasTeamAssignments = test.assignments.some(a => a.assignedScope === 'TEAM')
+      return hasTeamAssignments ? 'TEAM' : 'CLUB'
     }
-    return 'TEAM'
+    return 'CLUB'
   })
   
   const [selectedSubteams, setSelectedSubteams] = useState<string[]>(() => {
     if (test) {
       return test.assignments
-        .filter(a => a.assignedScope === 'SUBTEAM' && a.subteamId)
+        .filter(a => a.assignedScope === 'TEAM' && a.subteamId)
         .map(a => a.subteamId!)
     }
     return []
@@ -303,7 +303,8 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
     }
   }, [publishDialogOpen, teamDivision, events.length, loadingEvents, toast])
 
-  const validationSummary = useMemo(() => {
+  // Draft validation - basic requirements for saving (no assignment validation)
+  const draftValidation = useMemo(() => {
     const errors: string[] = []
 
     if (!details.name.trim()) {
@@ -313,15 +314,6 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
     if (!details.durationMinutes || details.durationMinutes < 1 || details.durationMinutes > 720) {
       errors.push('Duration must be between 1 and 720 minutes.')
     }
-
-    if (assignmentMode === 'SUBTEAMS' && selectedSubteams.length === 0) {
-      errors.push('Select at least one subteam or assign to the entire team.')
-    }
-
-    if (assignmentMode === 'EVENT' && !selectedEventId) {
-      errors.push('Select an event or choose a different assignment option.')
-    }
-
 
     if (questions.length === 0) {
       errors.push('Add at least one question before saving.')
@@ -358,7 +350,27 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
     return {
       errors,
     }
-  }, [assignmentMode, details, questions, selectedSubteams, selectedEventId])
+  }, [details, questions])
+
+  // Publish validation - includes assignment requirements
+  const publishValidation = useMemo(() => {
+    const errors: string[] = [...draftValidation.errors]
+
+    if (assignmentMode === 'TEAM' && selectedSubteams.length === 0) {
+      errors.push('Select at least one team or assign to the entire club.')
+    }
+
+    if (assignmentMode === 'EVENT' && !selectedEventId) {
+      errors.push('Select an event or choose a different assignment option.')
+    }
+
+    return {
+      errors,
+    }
+  }, [draftValidation.errors, assignmentMode, selectedSubteams, selectedEventId])
+
+  // Use publish validation for backward compatibility with existing code that references validationSummary
+  const validationSummary = publishValidation
 
   const composePrompt = (question: QuestionDraft) => {
     const context = question.context.trim()
@@ -371,20 +383,23 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
   }
 
   const handleSave = async (andPublish: boolean = false) => {
-    if (validationSummary.errors.length > 0) {
+    // Use draft validation when just saving, publish validation when publishing
+    const validation = andPublish ? publishValidation : draftValidation
+    
+    if (validation.errors.length > 0) {
       toast({
         title: 'Please fix the highlighted issues',
-        description: validationSummary.errors.join('\n'),
+        description: validation.errors.join('\n'),
         variant: 'destructive',
       })
       return
     }
 
     const assignments =
-      assignmentMode === 'TEAM'
-        ? [{ assignedScope: 'TEAM' as const }]
+      assignmentMode === 'CLUB'
+        ? [{ assignedScope: 'CLUB' as const }]
         : selectedSubteams.map((subteamId) => ({
-            assignedScope: 'SUBTEAM' as const,
+            assignedScope: 'TEAM' as const,
             subteamId,
           }))
 
@@ -639,7 +654,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
           scoreReleaseMode: publishFormData.scoreReleaseMode,
           requireFullscreen: publishFormData.requireFullscreen,
           assignmentMode,
-          selectedSubteams: assignmentMode === 'SUBTEAMS' ? selectedSubteams : undefined,
+          selectedSubteams: assignmentMode === 'TEAM' ? selectedSubteams : undefined,
           selectedEventId: assignmentMode === 'EVENT' ? selectedEventId : undefined,
         }),
       })
@@ -710,12 +725,12 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
               teamId={teamId}
             />
           )}
-          <Button onClick={() => handleSave(false)} disabled={saving} variant="outline">
+          <Button onClick={() => handleSave(false)} disabled={saving || draftValidation.errors.length > 0} variant="outline">
             {saving ? 'Saving…' : isEditMode ? 'Save Changes' : 'Save as Draft'}
           </Button>
           <Button 
             onClick={() => handleSave(true)} 
-            disabled={saving || validationSummary.errors.length > 0}
+            disabled={saving || publishValidation.errors.length > 0}
           >
             <Send className="h-4 w-4 mr-2" />
             {saving ? 'Saving…' : 'Save & Publish'}
@@ -976,13 +991,13 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                 <input
                   type="radio"
                   name="assignmentScope"
-                  id="assign-team"
-                  checked={assignmentMode === 'TEAM'}
-                  onChange={() => setAssignmentMode('TEAM')}
+                  id="assign-club"
+                  checked={assignmentMode === 'CLUB'}
+                  onChange={() => setAssignmentMode('CLUB')}
                   className="h-4 w-4"
                 />
-                <Label htmlFor="assign-team" className="cursor-pointer font-normal">
-                  Entire team
+                <Label htmlFor="assign-club" className="cursor-pointer font-normal">
+                  Entire club
                 </Label>
               </div>
 
@@ -990,20 +1005,20 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                 <input
                   type="radio"
                   name="assignmentScope"
-                  id="assign-subteams"
-                  checked={assignmentMode === 'SUBTEAMS'}
-                  onChange={() => setAssignmentMode('SUBTEAMS')}
+                  id="assign-teams"
+                  checked={assignmentMode === 'TEAM'}
+                  onChange={() => setAssignmentMode('TEAM')}
                   className="mt-1 h-4 w-4"
                 />
                 <div className="flex-1">
-                  <Label htmlFor="assign-subteams" className="cursor-pointer font-normal">
-                    Specific subteams
+                  <Label htmlFor="assign-teams" className="cursor-pointer font-normal">
+                    Specific teams
                   </Label>
-                  {assignmentMode === 'SUBTEAMS' && (
+                  {assignmentMode === 'TEAM' && (
                     <div className="mt-2 space-y-2 rounded-md border border-input bg-muted/30 p-3 max-h-32 overflow-y-auto">
                       {subteams.length === 0 && (
                         <p className="text-sm text-muted-foreground">
-                          No subteams yet—everyone will receive this test.
+                          No teams yet—everyone will receive this test.
                         </p>
                       )}
                       {subteams.map((subteam) => (
@@ -1073,6 +1088,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                 </div>
               </div>
             </div>
+
           </div>
 
           <DialogFooter>

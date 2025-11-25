@@ -24,11 +24,12 @@ import {
   ShieldAlert,
   FileText,
   Key,
+  Eye,
 } from 'lucide-react'
 import { PasswordCopyButton } from '@/components/tests/password-copy-button'
 import { EditTestSchedule } from '@/components/tests/edit-test-schedule'
 import { DuplicateTestButton } from '@/components/tests/duplicate-test-button'
-import { TestAttemptsView } from '@/components/tests/test-attempts-view'
+import { TestDetailWrapper } from '@/components/tests/test-detail-wrapper'
 import { NewTestBuilder } from '@/components/tests/new-test-builder'
 
 const STATUS_CONFIG: Record<
@@ -264,7 +265,12 @@ export default async function TeamTestDetailPage({
         </div>
       </div>
 
-      <div className="space-y-6">
+      <TestDetailWrapper
+        testId={test.id}
+        testName={test.name}
+        test={test}
+        assignmentSummary={assignmentSummary}
+        overviewContent={
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -309,6 +315,24 @@ export default async function TeamTestDetailPage({
                   value={`${test.maxAttempts} per user`}
                 />
               )}
+              <InfoItem
+                icon={<Eye className="h-4 w-4 text-muted-foreground" />}
+                label="Score Release Mode"
+                value={
+                  test.scoreReleaseMode === 'NONE'
+                    ? 'No scores released'
+                    : test.scoreReleaseMode === 'SCORE_ONLY'
+                    ? 'Score only'
+                    : test.scoreReleaseMode === 'SCORE_WITH_WRONG'
+                    ? 'Score + wrong questions'
+                    : 'Full test'
+                }
+              />
+              <InfoItem
+                icon={<Clock className="h-4 w-4 text-muted-foreground" />}
+                label="Scores Released At"
+                value={test.releaseScoresAt ? formatDateTime(test.releaseScoresAt) : 'After manual release'}
+              />
               {test.status === 'PUBLISHED' && test.testPasswordHash && (
                 <div className="flex gap-3 sm:col-span-2">
                   <div className="mt-1">
@@ -340,7 +364,8 @@ export default async function TeamTestDetailPage({
               )}
             </CardContent>
           </Card>
-
+        }
+        instructionsContent={
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -357,7 +382,8 @@ export default async function TeamTestDetailPage({
               </div>
             </CardContent>
           </Card>
-
+        }
+        deliverySettingsContent={
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -400,7 +426,8 @@ export default async function TeamTestDetailPage({
               />
             </CardContent>
           </Card>
-
+        }
+        assignmentContent={
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -466,10 +493,8 @@ export default async function TeamTestDetailPage({
               ))}
             </CardContent>
           </Card>
-
-          {/* Attempts View - Admin Only */}
-          <TestAttemptsView testId={test.id} testName={test.name} />
-      </div>
+        }
+      />
     </div>
     </div>
   )

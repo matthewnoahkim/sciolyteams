@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, MessageSquare, Users, Calendar, Settings, ClipboardCheck, DollarSign, FileText, Pencil } from 'lucide-react'
+import { ArrowLeft, Home, MessageSquare, Users, Calendar, Settings, ClipboardCheck, DollarSign, FileText, Pencil, Image, File } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
+import { HomePageTab } from '@/components/tabs/homepage-tab'
 import { StreamTab } from '@/components/tabs/stream-tab'
 import { PeopleTab } from '@/components/tabs/people-tab'
 import { CalendarTab } from '@/components/tabs/calendar-tab'
@@ -13,6 +14,8 @@ import { AttendanceTab } from '@/components/tabs/attendance-tab'
 import { SettingsTab } from '@/components/tabs/settings-tab'
 import FinanceTab from '@/components/tabs/finance-tab'
 import TestsTab from '@/components/tabs/tests-tab'
+import { GalleryTab } from '@/components/tabs/gallery-tab'
+import { PaperworkTab } from '@/components/tabs/paperwork-tab'
 import {
   Dialog,
   DialogContent,
@@ -40,7 +43,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'stream')
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'home')
   const [editClubNameOpen, setEditClubNameOpen] = useState(false)
   const [currentClubName, setCurrentClubName] = useState(team.name)
   const [newClubName, setNewClubName] = useState(team.name)
@@ -380,6 +383,14 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
           <aside className="w-52 flex-shrink-0 hidden md:block">
             <nav className="sticky top-24 space-y-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 p-3 rounded-2xl shadow-lg">
               <Button
+                variant={activeTab === 'home' ? 'default' : 'ghost'}
+                className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+                onClick={() => handleTabChange('home')}
+              >
+                <Home className="mr-3 h-4 w-4" />
+                Home
+              </Button>
+              <Button
                 variant={activeTab === 'stream' ? 'default' : 'ghost'}
                 className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
                 onClick={() => handleTabChange('stream')}
@@ -475,6 +486,22 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                   </span>
                 )}
               </Button>
+              <Button
+                variant={activeTab === 'gallery' ? 'default' : 'ghost'}
+                className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
+                onClick={() => handleTabChange('gallery')}
+              >
+                <Image className="mr-3 h-4 w-4" />
+                Gallery
+              </Button>
+              <Button
+                variant={activeTab === 'paperwork' ? 'default' : 'ghost'}
+                className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
+                onClick={() => handleTabChange('paperwork')}
+              >
+                <File className="mr-3 h-4 w-4" />
+                Paperwork
+              </Button>
               <div className="h-px bg-border my-2" />
               <Button
                 variant={activeTab === 'settings' ? 'default' : 'ghost'}
@@ -489,36 +516,47 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
 
           {/* Main Content Area */}
           <div className="flex-1 min-w-0">
-            {/* Team Info Header */}
-            <div className="mb-6 p-6 rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{currentClubName}</h2>
-                    {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setNewClubName(currentClubName)
-                          setEditClubNameOpen(true)
-                        }}
-                        className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Badge variant="outline" className="border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold">
-                      Division {team.division}
-                    </Badge>
+            {/* Team Info Header - Only visible on settings tab */}
+            {activeTab === 'settings' && (
+              <div className="mb-6 p-6 rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                      <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{currentClubName}</h2>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setNewClubName(currentClubName)
+                            setEditClubNameOpen(true)
+                          }}
+                          className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Badge variant="outline" className="border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold">
+                        Division {team.division}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      {team.memberships.length} member{team.memberships.length !== 1 ? 's' : ''}
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    {team.memberships.length} member{team.memberships.length !== 1 ? 's' : ''}
-                  </p>
                 </div>
               </div>
-            </div>
+            )}
+
+            {activeTab === 'home' && (
+              <HomePageTab
+                teamId={team.id}
+                team={team}
+                isAdmin={isAdmin}
+                user={user}
+              />
+            )}
 
             {activeTab === 'stream' && (
               <StreamTab
@@ -568,6 +606,22 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
             {activeTab === 'tests' && (
               <TestsTab
                 teamId={team.id}
+                isAdmin={isAdmin}
+              />
+            )}
+
+            {activeTab === 'gallery' && (
+              <GalleryTab
+                teamId={team.id}
+                user={user}
+                isAdmin={isAdmin}
+              />
+            )}
+
+            {activeTab === 'paperwork' && (
+              <PaperworkTab
+                teamId={team.id}
+                user={user}
                 isAdmin={isAdmin}
               />
             )}

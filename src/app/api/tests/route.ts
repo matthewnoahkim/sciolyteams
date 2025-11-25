@@ -27,15 +27,15 @@ const questionSchema = z.object({
 
 const assignmentSchema = z
   .object({
-    assignedScope: z.enum(['TEAM', 'SUBTEAM', 'PERSONAL']),
+    assignedScope: z.enum(['CLUB', 'TEAM', 'PERSONAL']),
     subteamId: z.string().optional(),
     targetMembershipId: z.string().optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.assignedScope === 'SUBTEAM' && !value.subteamId) {
+    if (value.assignedScope === 'TEAM' && !value.subteamId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'subteamId is required when assignedScope is SUBTEAM',
+        message: 'subteamId is required when assignedScope is TEAM',
         path: ['subteamId'],
       })
     }
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
           assignments: {
             some: {
               OR: [
-                { assignedScope: 'TEAM' },
+                { assignedScope: 'CLUB' },
                 { subteamId: membership.subteamId },
                 { targetMembershipId: membership.id },
               ],
@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
       const assignmentPayload: AssignmentInput[] =
         assignments && assignments.length > 0
           ? assignments
-          : [{ assignedScope: 'TEAM', subteamId: undefined, targetMembershipId: undefined }]
+          : [{ assignedScope: 'CLUB', subteamId: undefined, targetMembershipId: undefined }]
 
       await tx.testAssignment.createMany({
         data: assignmentPayload.map((assignment) => ({

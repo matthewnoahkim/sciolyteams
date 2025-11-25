@@ -17,7 +17,7 @@ const publishSchema = z.object({
   maxAttempts: z.number().min(1).optional().nullable(),
   scoreReleaseMode: z.enum(['NONE', 'SCORE_ONLY', 'SCORE_WITH_WRONG', 'FULL_TEST']).optional(),
   requireFullscreen: z.boolean().optional(),
-  assignmentMode: z.enum(['TEAM', 'SUBTEAMS', 'EVENT']).optional(),
+  assignmentMode: z.enum(['CLUB', 'TEAM', 'EVENT']).optional(),
   selectedSubteams: z.array(z.string()).optional(),
   selectedEventId: z.string().optional(),
 })
@@ -116,18 +116,18 @@ export async function POST(
       })
 
       // Create new assignments based on mode
-      if (validatedData.assignmentMode === 'TEAM') {
+      if (validatedData.assignmentMode === 'CLUB') {
         await prisma.testAssignment.create({
           data: {
             testId,
-            assignedScope: 'TEAM',
+            assignedScope: 'CLUB',
           },
         })
-      } else if (validatedData.assignmentMode === 'SUBTEAMS' && validatedData.selectedSubteams) {
+      } else if (validatedData.assignmentMode === 'TEAM' && validatedData.selectedSubteams) {
         await prisma.testAssignment.createMany({
           data: validatedData.selectedSubteams.map(subteamId => ({
             testId,
-            assignedScope: 'SUBTEAM' as const,
+            assignedScope: 'TEAM' as const,
             subteamId,
           })),
         })

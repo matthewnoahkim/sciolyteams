@@ -198,20 +198,20 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row justify-center gap-4 pb-12">
               <Button 
-                onClick={() => setCreateOpen(true)} 
+                onClick={() => setJoinOpen(true)} 
                 size="lg" 
                 className="text-base px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                <Plus className="mr-2 h-5 w-5" />
-                Create Club
+                Join Club
               </Button>
               <Button 
                 variant="outline" 
-                onClick={() => setJoinOpen(true)} 
+                onClick={() => setCreateOpen(true)} 
                 size="lg" 
                 className="text-base px-8 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300"
               >
-                Join Club
+                <Plus className="mr-2 h-5 w-5" />
+                Create Club
               </Button>
             </CardContent>
           </Card>
@@ -219,20 +219,20 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
           <>
             <div className="mb-8 flex flex-col sm:flex-row justify-end gap-4">
               <Button 
-                onClick={() => setCreateOpen(true)} 
+                onClick={() => setJoinOpen(true)} 
                 size="lg" 
                 className="text-base px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                <Plus className="mr-2 h-5 w-5" />
-                Create Club
+                Join Club
               </Button>
               <Button 
                 variant="outline" 
-                onClick={() => setJoinOpen(true)} 
+                onClick={() => setCreateOpen(true)} 
                 size="lg" 
                 className="text-base px-8 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300"
               >
-                Join Club
+                <Plus className="mr-2 h-5 w-5" />
+                Create Club
               </Button>
             </div>
 
@@ -277,6 +277,22 @@ export function HomeClient({ memberships, user }: HomeClientProps) {
                       <div className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
                         <Users className="h-4 w-4" />
                         <span>Team: <span className="font-semibold text-gray-900 dark:text-white">{membership.subteam.name}</span></span>
+                      </div>
+                    )}
+                    {membership.rosterAssignments && membership.rosterAssignments.length > 0 && (
+                      <div className="text-sm text-gray-600 dark:text-gray-300">
+                        <p className="font-medium mb-2 text-gray-900 dark:text-white">{membership.rosterAssignments.length} Event{membership.rosterAssignments.length !== 1 ? 's' : ''}:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {membership.rosterAssignments.map((assignment: any) => (
+                            <Badge 
+                              key={assignment.id} 
+                              variant="secondary" 
+                              className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                            >
+                              {assignment.event.name}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     )}
                     <div className="flex flex-wrap gap-2">

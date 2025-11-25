@@ -714,8 +714,8 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
   // Calculate subteam expenses based on purchaser's subteam
   const subteamExpenses = expenses.reduce((acc, exp) => {
     const purchaserSubteam = exp.addedBy?.subteam
-    const subteamId = purchaserSubteam?.id || 'team-wide'
-    const subteamName = purchaserSubteam?.name || 'Team-wide'
+    const subteamId = purchaserSubteam?.id || 'club-wide'
+    const subteamName = purchaserSubteam?.name || 'Club-wide'
     
     if (!acc[subteamId]) {
       acc[subteamId] = {
@@ -735,7 +735,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         id: exp.id,
         description: exp.description,
         amount: exp.amount,
-        purchaserSubteam: exp.addedBy?.subteam?.name || 'Team-wide',
+        purchaserSubteam: exp.addedBy?.subteam?.name || 'Club-wide',
         fromPurchaseRequest: !!exp.purchaseRequest,
       })))
       console.log('Subteam expenses breakdown:', subteamExpenses)
@@ -743,9 +743,9 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
   }, [expenses, subteamExpenses])
 
   const subteamExpensesList = Object.values(subteamExpenses).sort((a, b) => {
-    // Put "Team-wide" at the end
-    if (a.id === 'team-wide') return 1
-    if (b.id === 'team-wide') return -1
+    // Put "Club-wide" at the end
+    if (a.id === 'club-wide') return 1
+    if (b.id === 'club-wide') return -1
     return a.name.localeCompare(b.name)
   })
 
@@ -1128,7 +1128,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                             {expense.addedBy.subteam.name}
                           </Badge>
                         ) : (
-                          <span className="text-muted-foreground text-sm">Team-wide</span>
+                          <span className="text-muted-foreground text-sm">Club-wide</span>
                         )}
                       </td>
                       <td className="p-3 text-right font-medium">${expense.amount.toFixed(2)}</td>
@@ -1405,14 +1405,14 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                         // Admins can see all events
                         if (isAdmin) return true
                         
-                        // Members can only see events that have budgets for their subteam (or team-wide)
+                        // Members can only see events that have budgets for their team (or club-wide)
                         if (!currentMembershipSubteamId) {
-                          // Member without subteam - only show events with team-wide budgets
+                          // Member without team - only show events with club-wide budgets
                           return budgets.some(
                             (b) => b.eventId === event.id && b.subteamId === null
                           )
                         } else {
-                          // Member with subteam - show events with their subteam's budget OR team-wide budget
+                          // Member with team - show events with their team's budget OR club-wide budget
                           return budgets.some(
                             (b) =>
                               b.eventId === event.id &&
@@ -1438,7 +1438,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                 const selectedEvent = events.find(e => e.id === purchaseRequestForm.eventId)
                 const budget = budgets.find(b => {
                   if (b.eventId !== purchaseRequestForm.eventId) return false
-                  // For members, find their subteam's budget or team-wide budget
+                  // For members, find their team's budget or club-wide budget
                   if (!isAdmin && currentMembershipSubteamId) {
                     return b.subteamId === currentMembershipSubteamId || b.subteamId === null
                   } else if (!isAdmin) {
@@ -1764,7 +1764,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                     value={budgetForm.subteamId}
                     onChange={(e) => setBudgetForm({ ...budgetForm, subteamId: e.target.value })}
                   >
-                    <option value="">Team-wide (all subteams)</option>
+                    <option value="">Club-wide (all teams)</option>
                     {subteams.map((subteam) => (
                       <option key={subteam.id} value={subteam.id}>
                         {subteam.name}
@@ -1772,7 +1772,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                     ))}
                   </select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Leave empty for team-wide budget, or select a specific subteam
+                    Leave empty for club-wide budget, or select a specific team
                   </p>
                 </div>
               )}

@@ -20,6 +20,8 @@ const createEventSchema = z.object({
   important: z.boolean().optional(),
   subteamId: z.string().optional(),
   attendeeId: z.string().optional(),
+  targetRoles: z.array(z.enum(['COACH', 'CAPTAIN', 'MEMBER'])).optional(),
+  targetEvents: z.array(z.string()).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -166,6 +168,42 @@ export async function POST(req: NextRequest) {
         // Delete the event we just created since attendance creation failed
         await prisma.calendarEvent.delete({ where: { id: event.id } })
         throw new Error('Failed to create attendance record: ' + (attendanceError instanceof Error ? attendanceError.message : 'Unknown error'))
+      }
+    }
+
+    // Create calendar event targets for role and event targeting
+    if (validated.scope === 'TEAM' || validated.scope === 'SUBTEAM') {
+      try {
+        // Create target records for roles
+        if (validated.targetRoles && validated.targetRoles.length > 0) {
+          await Promise.all(
+            validated.targetRoles.map((role) =>
+              prisma.calendarEventTarget.create({
+                data: {
+                  calendarEventId: event.id,
+                  targetRole: role,
+                },
+              })
+            )
+          )
+        }
+
+        // Create target records for events
+        if (validated.targetEvents && validated.targetEvents.length > 0) {
+          await Promise.all(
+            validated.targetEvents.map((eventId) =>
+              prisma.calendarEventTarget.create({
+                data: {
+                  calendarEventId: event.id,
+                  eventId,
+                },
+              })
+            )
+          )
+        }
+      } catch (targetError) {
+        console.error('Failed to create event targets:', targetError)
+        // Don't fail the whole operation, just log the error
       }
     }
 

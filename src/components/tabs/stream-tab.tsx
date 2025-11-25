@@ -20,6 +20,7 @@ interface StreamTabProps {
   subteams: any[]
   isAdmin: boolean
   user: {
+    id: string
     name?: string | null
     email: string
     image?: string | null
@@ -54,6 +55,9 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
   const [content, setContent] = useState('')
   const [scope, setScope] = useState<'TEAM' | 'SUBTEAM'>('TEAM')
   const [selectedSubteams, setSelectedSubteams] = useState<string[]>([])
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([])
+  const [selectedEvents, setSelectedEvents] = useState<string[]>([])
+  const [availableEvents, setAvailableEvents] = useState<any[]>([])
   const [sendEmail, setSendEmail] = useState(false)
   const [important, setImportant] = useState(false)
   const [isPostSectionCollapsed, setIsPostSectionCollapsed] = useState(true)
@@ -122,6 +126,32 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
     fetchAnnouncements()
   }, [fetchAnnouncements])
 
+  // Fetch events for the team's division
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        // Get team's division from first membership
+        const teamResponse = await fetch(`/api/teams/${teamId}`)
+        if (teamResponse.ok) {
+          const teamData = await teamResponse.json()
+          const division = teamData.team?.division
+          
+          if (division) {
+            const eventsResponse = await fetch(`/api/events?division=${division}`)
+            if (eventsResponse.ok) {
+              const eventsData = await eventsResponse.json()
+              setAvailableEvents(eventsData.events || [])
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch events:', error)
+      }
+    }
+    
+    fetchEvents()
+  }, [teamId])
+
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault()
     setPosting(true)
@@ -132,6 +162,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
       content,
       scope,
       selectedSubteams,
+      selectedRoles,
+      selectedEvents,
       sendEmail,
       important,
       selectedFiles,
@@ -172,6 +204,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
     // Clear form immediately
     setTitle('')
     setContent('')
+    setSelectedRoles([])
+    setSelectedEvents([])
     setSendEmail(false)
     setImportant(false)
     setSelectedFiles([])
@@ -187,6 +221,8 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
           content: formDataToPost.content,
           scope: formDataToPost.scope,
           subteamIds: formDataToPost.scope === 'SUBTEAM' ? formDataToPost.selectedSubteams : undefined,
+          targetRoles: formDataToPost.selectedRoles.length > 0 ? formDataToPost.selectedRoles : undefined,
+          targetEvents: formDataToPost.selectedEvents.length > 0 ? formDataToPost.selectedEvents : undefined,
           sendEmail: formDataToPost.sendEmail,
           important: formDataToPost.important,
         }),
@@ -911,6 +947,52 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
                 </div>
               </div>
             )}
+            <div className="space-y-2">
+              <Label>Target by Role (Optional)</Label>
+              <p className="text-xs text-muted-foreground">Select roles to target specific members</p>
+              <div className="flex flex-wrap gap-2">
+                {['COACH', 'CAPTAIN', 'MEMBER'].map((role) => (
+                  <label key={role} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      value={role}
+                      checked={selectedRoles.includes(role)}
+                      onChange={(e) => {
+                        setSelectedRoles((prev) =>
+                          e.target.checked
+                            ? [...prev, role]
+                            : prev.filter((r) => r !== role)
+                        )
+                      }}
+                    />
+                    <span className="text-sm capitalize">{role.toLowerCase()}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Target by Event (Optional)</Label>
+              <p className="text-xs text-muted-foreground">Select events to target participants</p>
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                {availableEvents.map((event) => (
+                  <label key={event.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      value={event.id}
+                      checked={selectedEvents.includes(event.id)}
+                      onChange={(e) => {
+                        setSelectedEvents((prev) =>
+                          e.target.checked
+                            ? [...prev, event.id]
+                            : prev.filter((id) => id !== event.id)
+                        )
+                      }}
+                    />
+                    <span className="text-sm">{event.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"

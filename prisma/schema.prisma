@@ -27,6 +27,8 @@ model User {
   reactions          Reaction[]
   sessions           Session[]
   teamsCreated       Team[]              @relation("TeamCreator")
+  mediaUploads       MediaItem[]         @relation("MediaUploads")
+  formSubmissions    FormSubmission[]    @relation("FormSubmissions")
 }
 
 model Account {
@@ -86,6 +88,9 @@ model Team {
   subteams                  Subteam[]
   createdBy                 User              @relation("TeamCreator", fields: [createdById], references: [id])
   tests                     Test[]
+  homePageWidgets           HomePageWidget[]
+  albums                    Album[]
+  forms                     Form[]
 
   @@index([createdById])
 }
@@ -134,18 +139,21 @@ model Subteam {
 }
 
 model Event {
-  id                  String               @id @default(cuid())
-  division            Division
-  name                String
-  slug                String
-  maxCompetitors      Int                  @default(2)
-  selfScheduled       Boolean              @default(false)
-  createdAt           DateTime             @default(now())
-  conflictGroupEvents ConflictGroupEvent[]
-  eventBudgets        EventBudget[]
-  expenses            Expense[]
-  purchaseRequests    PurchaseRequest[]
-  rosterAssignments   RosterAssignment[]
+  id                       String                   @id @default(cuid())
+  division                 Division
+  name                     String
+  slug                     String
+  maxCompetitors           Int                      @default(2)
+  selfScheduled            Boolean                  @default(false)
+  createdAt                DateTime                 @default(now())
+  conflictGroupEvents      ConflictGroupEvent[]
+  eventBudgets             EventBudget[]
+  expenses                 Expense[]
+  purchaseRequests         PurchaseRequest[]
+  rosterAssignments        RosterAssignment[]
+  announcementVisibilities AnnouncementVisibility[]
+  calendarEventTargets     CalendarEventTarget[]
+  testAssignments          TestAssignment[]
 
   @@unique([division, slug])
   @@index([division])
@@ -259,16 +267,21 @@ model AnnouncementVisibility {
   announcementId String
   scope          AnnouncementScope
   subteamId      String?
+  targetRole     String?           // COACH, CAPTAIN, MEMBER, or null for all
+  eventId        String?           // Target specific Science Olympiad event participants
   createdAt      DateTime          @default(now())
   announcement   Announcement      @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   subteam        Subteam?          @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+  event          Event?            @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([announcementId])
   @@index([subteamId])
+  @@index([eventId])
+  @@index([targetRole])
 }
 
 model CalendarEvent {
-  id           String        @id @default(cuid())
+  id           String                @id @default(cuid())
   teamId       String
   creatorId    String
   scope        CalendarScope
@@ -280,25 +293,40 @@ model CalendarEvent {
   color        String?
   subteamId    String?
   attendeeId   String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  rsvpEnabled  Boolean       @default(true)
-  important    Boolean       @default(false)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  rsvpEnabled  Boolean               @default(true)
+  important    Boolean               @default(false)
   announcement Announcement?
   attachments  Attachment[]
   attendance   Attendance?
-  attendee     Membership?   @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
-  creator      Membership    @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
-  subteam      Subteam?      @relation(fields: [subteamId], references: [id], onDelete: Cascade)
-  team         Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  attendee     Membership?           @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
+  creator      Membership            @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
+  subteam      Subteam?              @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+  team         Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
   rsvps        EventRSVP[]
   reactions    Reaction[]
+  targets      CalendarEventTarget[]
 
   @@index([teamId])
   @@index([creatorId])
   @@index([subteamId])
   @@index([attendeeId])
   @@index([startUTC])
+}
+
+model CalendarEventTarget {
+  id              String        @id @default(cuid())
+  calendarEventId String
+  targetRole      String?       // COACH, CAPTAIN, MEMBER, or null for all
+  eventId         String?       // Target specific Science Olympiad event participants
+  createdAt       DateTime      @default(now())
+  calendarEvent   CalendarEvent @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  event           Event?        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([calendarEventId])
+  @@index([eventId])
+  @@index([targetRole])
 }
 
 model EventRSVP {
@@ -562,13 +590,18 @@ model TestAssignment {
   assignedScope      TestAssignmentScope
   subteamId          String?
   targetMembershipId String?
+  targetRole         String?             // COACH, CAPTAIN, MEMBER, or null for all
+  eventId            String?             // Target specific Science Olympiad event participants
   createdAt          DateTime            @default(now())
   subteam            Subteam?            @relation(fields: [subteamId], references: [id], onDelete: Cascade)
   test               Test                @relation(fields: [testId], references: [id], onDelete: Cascade)
+  event              Event?              @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([testId])
   @@index([subteamId])
   @@index([targetMembershipId])
+  @@index([eventId])
+  @@index([targetRole])
 }
 
 model TestAttempt {
@@ -757,6 +790,121 @@ model ErrorLog {
   @@index([resolved])
 }
 
+model HomePageWidget {
+  id            String           @id @default(cuid())
+  teamId        String
+  widgetType    HomeWidgetType
+  title         String?
+  position      Int              @default(0)
+  width         WidgetWidth      @default(MEDIUM)
+  height        WidgetHeight     @default(MEDIUM)
+  isVisible     Boolean          @default(true)
+  config        Json?            // Widget-specific configuration (e.g., number of items to show, filters, etc.)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  team          Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([position])
+  @@index([isVisible])
+}
+
+model Album {
+  id          String      @id @default(cuid())
+  teamId      String
+  name        String
+  description String?
+  coverImageUrl String?
+  createdById String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  team        Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  media       MediaItem[]
+
+  @@index([teamId])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+model MediaItem {
+  id               String        @id @default(cuid())
+  albumId          String?
+  teamId           String
+  filename         String
+  originalFilename String
+  fileSize         Int
+  mimeType         String
+  filePath         String
+  mediaType        MediaType
+  width            Int?
+  height           Int?
+  duration         Int?          // Duration in seconds for videos
+  thumbnailPath    String?
+  caption          String?
+  uploadedById     String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  album            Album?        @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  uploadedBy       User          @relation("MediaUploads", fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([albumId])
+  @@index([teamId])
+  @@index([uploadedById])
+  @@index([createdAt])
+  @@index([mediaType])
+}
+
+model Form {
+  id               String           @id @default(cuid())
+  teamId           String
+  title            String
+  description      String?
+  filename         String
+  originalFilename String
+  fileSize         Int
+  mimeType         String
+  filePath         String
+  dueDate          DateTime?
+  isRequired       Boolean          @default(false)
+  uploadedById     String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  team             Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  submissions      FormSubmission[]
+
+  @@index([teamId])
+  @@index([uploadedById])
+  @@index([dueDate])
+  @@index([isRequired])
+}
+
+model FormSubmission {
+  id               String           @id @default(cuid())
+  formId           String
+  userId           String
+  membershipId     String
+  filename         String
+  originalFilename String
+  fileSize         Int
+  mimeType         String
+  filePath         String
+  status           SubmissionStatus @default(PENDING)
+  notes            String?
+  submittedAt      DateTime         @default(now())
+  reviewedAt       DateTime?
+  reviewedById     String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  form             Form             @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user             User             @relation("FormSubmissions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, userId])
+  @@index([formId])
+  @@index([userId])
+  @@index([membershipId])
+  @@index([status])
+}
+
 enum Division {
   B
   C
@@ -817,8 +965,8 @@ enum QuestionType {
 }
 
 enum TestAssignmentScope {
+  CLUB
   TEAM
-  SUBTEAM
   PERSONAL
 }
 
@@ -887,4 +1035,44 @@ enum SeverityLevel {
   WARNING
   ERROR
   CRITICAL
+}
+
+enum HomeWidgetType {
+  WELCOME_MESSAGE
+  RECENT_ANNOUNCEMENTS
+  UPCOMING_EVENTS
+  TEAM_STATS
+  QUICK_ACTIONS
+  RECENT_ACTIVITY
+  UPCOMING_TESTS
+  CALENDAR_PREVIEW
+  ATTENDANCE_SUMMARY
+  FINANCE_OVERVIEW
+  IMPORTANT_LINKS
+  CUSTOM_TEXT
+}
+
+enum WidgetWidth {
+  SMALL      // 1 column
+  MEDIUM     // 2 columns
+  LARGE      // 3 columns
+  FULL       // Full width
+}
+
+enum WidgetHeight {
+  SMALL      // Compact
+  MEDIUM     // Standard
+  LARGE      // Extended
+  AUTO       // Auto-size based on content
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

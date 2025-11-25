@@ -13,6 +13,8 @@ const createAnnouncementSchema = z.object({
   content: z.string().min(1),
   scope: z.enum(['TEAM', 'SUBTEAM']),
   subteamIds: z.array(z.string()).optional(),
+  targetRoles: z.array(z.enum(['COACH', 'CAPTAIN', 'MEMBER'])).optional(),
+  targetEvents: z.array(z.string()).optional(),
   sendEmail: z.boolean().default(true),
   calendarEventId: z.string().optional(),
   important: z.boolean().optional(),
@@ -78,6 +80,36 @@ export async function POST(req: NextRequest) {
                 announcementId: ann.id,
                 scope: AnnouncementScope.SUBTEAM,
                 subteamId,
+              },
+            })
+          )
+        )
+      }
+
+      // Create additional visibility records for role targeting
+      if (validated.targetRoles && validated.targetRoles.length > 0) {
+        await Promise.all(
+          validated.targetRoles.map((role) =>
+            tx.announcementVisibility.create({
+              data: {
+                announcementId: ann.id,
+                scope: validated.scope === 'TEAM' ? AnnouncementScope.TEAM : AnnouncementScope.SUBTEAM,
+                targetRole: role,
+              },
+            })
+          )
+        )
+      }
+
+      // Create additional visibility records for event targeting
+      if (validated.targetEvents && validated.targetEvents.length > 0) {
+        await Promise.all(
+          validated.targetEvents.map((eventId) =>
+            tx.announcementVisibility.create({
+              data: {
+                announcementId: ann.id,
+                scope: validated.scope === 'TEAM' ? AnnouncementScope.TEAM : AnnouncementScope.SUBTEAM,
+                eventId,
               },
             })
           )

@@ -38,6 +38,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
   const { toast } = useToast()
   const [events, setEvents] = useState<any[]>([])
   const [subteams, setSubteams] = useState<any[]>([])
+  const [availableEvents, setAvailableEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -131,6 +132,8 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
       attendeeId: currentMembership.id,
       rsvpEnabled: true, // Default to enabled
       important: false,
+      targetRoles: [] as string[],
+      targetEvents: [] as string[],
     }
   }
   
@@ -163,10 +166,32 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
     }
   }, [teamId])
 
+  const fetchAvailableEvents = useCallback(async () => {
+    try {
+      // Get team info to determine division
+      const teamResponse = await fetch(`/api/teams/${teamId}`)
+      if (teamResponse.ok) {
+        const teamData = await teamResponse.json()
+        const division = teamData.team?.division
+        
+        if (division) {
+          const eventsResponse = await fetch(`/api/events?division=${division}`)
+          if (eventsResponse.ok) {
+            const eventsData = await eventsResponse.json()
+            setAvailableEvents(eventsData.events || [])
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch Science Olympiad events:', error)
+    }
+  }, [teamId])
+
   useEffect(() => {
     fetchEvents()
     fetchSubteams()
-  }, [fetchEvents, fetchSubteams])
+    fetchAvailableEvents()
+  }, [fetchEvents, fetchSubteams, fetchAvailableEvents])
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -223,13 +248,23 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
       if (formData.location) {
         payload.location = formData.location
       }
-      
+
       if (formData.scope === 'SUBTEAM') {
         if (formData.subteamId) {
           payload.subteamId = formData.subteamId
         }
       } else if (formData.scope === 'PERSONAL') {
         payload.attendeeId = formData.attendeeId
+      }
+
+      // Add role and event targeting for team/subteam events
+      if (isAdmin && (formData.scope === 'TEAM' || formData.scope === 'SUBTEAM')) {
+        if (formData.targetRoles && formData.targetRoles.length > 0) {
+          payload.targetRoles = formData.targetRoles
+        }
+        if (formData.targetEvents && formData.targetEvents.length > 0) {
+          payload.targetEvents = formData.targetEvents
+        }
       }
 
       const response = await fetch('/api/calendar', {
@@ -1736,6 +1771,52 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
                   </div>
                 )}
               </div>
+              {isAdmin && (formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') && (
+                <>
+                  <div>
+                    <Label>Target by Role (Optional)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">Select roles to target specific members</p>
+                    <div className="flex flex-wrap gap-2">
+                      {['COACH', 'CAPTAIN', 'MEMBER'].map((role) => (
+                        <label key={role} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={formData.targetRoles.includes(role)}
+                            onChange={(e) => {
+                              const newRoles = e.target.checked
+                                ? [...formData.targetRoles, role]
+                                : formData.targetRoles.filter((r: string) => r !== role)
+                              setFormData({ ...formData, targetRoles: newRoles })
+                            }}
+                          />
+                          <span className="text-sm capitalize">{role.toLowerCase()}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Target by Event (Optional)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">Select events to target participants</p>
+                    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                      {availableEvents.map((event) => (
+                        <label key={event.id} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={formData.targetEvents.includes(event.id)}
+                            onChange={(e) => {
+                              const newEvents = e.target.checked
+                                ? [...formData.targetEvents, event.id]
+                                : formData.targetEvents.filter((id: string) => id !== event.id)
+                              setFormData({ ...formData, targetEvents: newEvents })
+                            }}
+                          />
+                          <span className="text-sm">{event.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
               <div>
                 <Label htmlFor="files" className="flex items-center gap-2 cursor-pointer">
                   <Paperclip className="h-4 w-4" />

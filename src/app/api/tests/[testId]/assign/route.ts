@@ -7,7 +7,7 @@ import { z } from 'zod'
 
 const assignSchema = z.object({
   assignments: z.array(z.object({
-    assignedScope: z.enum(['TEAM', 'SUBTEAM', 'PERSONAL']),
+    assignedScope: z.enum(['CLUB', 'TEAM', 'PERSONAL']),
     subteamId: z.string().optional(),
     targetMembershipId: z.string().optional(),
   })),

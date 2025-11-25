@@ -67,19 +67,21 @@ export async function POST(
       )
     }
 
-    // Check assignment
-    const hasAccess = test.assignments.some(
-      (a) =>
-        a.assignedScope === 'TEAM' ||
-        a.subteamId === membership.subteamId ||
-        a.targetMembershipId === membership.id
-    )
-
-    if (!hasAccess) {
-      return NextResponse.json(
-        { error: 'Test not assigned to you' },
-        { status: 403 }
+    // Check assignment (admins bypass this check)
+    if (!isAdminUser) {
+      const hasAccess = test.assignments.some(
+        (a) =>
+          a.assignedScope === 'CLUB' ||
+          a.subteamId === membership.subteamId ||
+          a.targetMembershipId === membership.id
       )
+
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: 'Test not assigned to you' },
+          { status: 403 }
+        )
+      }
     }
 
     // Check for existing in-progress or not-started attempt

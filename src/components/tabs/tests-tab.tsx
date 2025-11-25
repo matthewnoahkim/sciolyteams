@@ -81,9 +81,8 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
         const data = await response.json()
         setTests(data.tests)
 
-        // For non-admins, fetch attempt counts for each test
-        // We need this for ALL tests (not just limited attempts) to show "View Results" button
-        if (!isAdmin && data.tests.length > 0) {
+        // Fetch attempt counts for each test to show "Take Test" and "View Results" buttons
+        if (data.tests.length > 0) {
           const attemptMap = new Map<string, UserAttemptInfo>()
           for (const test of data.tests) {
             try {
@@ -344,7 +343,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
           </div>
           <div className="flex items-center gap-2 text-sm">
             <Users className="h-4 w-4 text-muted-foreground" />
-            <span>{test._count.attempts} attempt{test._count.attempts !== 1 ? 's' : ''}</span>
+            <span>{userAttempts.get(test.id)?.attemptsUsed || 0} attempt{(userAttempts.get(test.id)?.attemptsUsed || 0) !== 1 ? 's' : ''}</span>
           </div>
           {test.maxAttempts && (
             <div className="flex items-center gap-2 text-sm">
@@ -357,45 +356,23 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
           </div>
         </div>
 
-        {!isAdmin && test.status === 'PUBLISHED' && (
+        {test.status === 'PUBLISHED' && (
           <div className="flex gap-2">
             {(() => {
               const attemptInfo = userAttempts.get(test.id)
               const hasCompletedAttempt = attemptInfo && attemptInfo.attemptsUsed > 0
+              const canTakeTest = isTestAvailable(test) && !attemptInfo?.hasReachedLimit
               
-              // For unlimited attempts, show "View Results" if user has any completed attempts
-              // For limited attempts, only show if test is completed (past end date OR reached limit)
-              const shouldShowResults = (() => {
-                // If unlimited attempts, show results if user has any completed attempts
-                if (test.maxAttempts === null && hasCompletedAttempt) {
-                  return true
-                }
-                
-                // For limited attempts, check if test is completed
-                const now = new Date()
-                const endAt = test.endAt ? new Date(test.endAt) : null
-                const allowLateUntil = test.allowLateUntil ? new Date(test.allowLateUntil) : null
-                const deadline = allowLateUntil || endAt
-                const isPastEnd = deadline ? now > deadline : false
-                const userReachedLimit = test.maxAttempts !== null && (attemptInfo?.hasReachedLimit || false)
-                const isCompleted = isPastEnd || userReachedLimit
-                
-                return isCompleted && hasCompletedAttempt
-              })()
-
-              // For unlimited attempts, show both buttons if user has completed attempts
-              // For limited attempts, show either "Take Test" or "View Results" based on completion
-              if (test.maxAttempts === null && hasCompletedAttempt) {
-                // Unlimited attempts with completed attempts - show both buttons
+              // Show both buttons if user has completed attempt(s) and can still take more
+              if (hasCompletedAttempt && canTakeTest) {
                 return (
                   <div className="flex gap-2 w-full">
                     <Button
                       onClick={() => handleTakeTest(test)}
-                      disabled={!isTestAvailable(test)}
                       className="flex-1"
                     >
                       <Play className="h-4 w-4 mr-2" />
-                      {isTestAvailable(test) ? 'Retake Test' : 'Not Available'}
+                      {test.maxAttempts === null ? 'Retake Test' : 'Take Test'}
                     </Button>
                     <Button
                       onClick={() => router.push(`/club/${teamId}/tests/${test.id}/results`)}
@@ -409,7 +386,8 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
                 )
               }
 
-              if (shouldShowResults) {
+              // Show only "View Results" if user has completed attempts but can't take more
+              if (hasCompletedAttempt) {
                 return (
                   <Button
                     onClick={() => router.push(`/club/${teamId}/tests/${test.id}/results`)}
@@ -422,6 +400,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
                 )
               }
 
+              // Show only "Take Test" if user hasn't completed any attempts yet
               return (
                 <Button
                   onClick={() => handleTakeTest(test)}

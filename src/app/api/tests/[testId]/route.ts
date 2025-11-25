@@ -85,7 +85,7 @@ export async function GET(
       // Check assignment
       const hasAccess = test.assignments.some(
         (a) =>
-          a.assignedScope === 'TEAM' ||
+          a.assignedScope === 'CLUB' ||
           a.subteamId === membership.subteamId ||
           a.targetMembershipId === membership.id
       )

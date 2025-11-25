@@ -389,21 +389,21 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
     }
   }
 
-  const handleUpdateRole = async (membershipId: string, role: 'COACH' | 'CAPTAIN' | null) => {
+  const handleUpdateRole = async (membershipId: string, role: 'COACH' | 'CAPTAIN' | 'MEMBER' | 'UNASSIGNED') => {
     setLoading(true)
 
     try {
       const response = await fetch(`/api/memberships/${membershipId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roles: role ? [role] : [] }),
+        body: JSON.stringify({ roles: (role !== 'MEMBER' && role !== 'UNASSIGNED') ? [role] : [] }),
       })
 
       if (!response.ok) throw new Error('Failed to update role')
 
       toast({
         title: 'Role updated',
-        description: role ? `Assigned ${role.toLowerCase()} role` : 'Removed roles',
+        description: role === 'UNASSIGNED' ? 'Role unassigned' : role === 'MEMBER' ? 'Set to member role' : `Assigned ${role.toLowerCase()} role`,
       })
 
       router.refresh()
@@ -598,6 +598,9 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                             {Array.isArray(member.roles) && member.roles.includes('CAPTAIN') && (
                               <Badge variant="outline" className="text-[10px] uppercase">Captain</Badge>
                             )}
+                            {(!Array.isArray(member.roles) || member.roles.length === 0) && String(member.role).toUpperCase() === 'ADMIN' && (
+                              <Badge variant="outline" className="text-[10px] uppercase">Member</Badge>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -679,7 +682,10 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
               {memberRoles.includes('CAPTAIN') && (
                 <Badge variant="outline" className="text-[10px] uppercase">Captain</Badge>
               )}
-              <span>• {eventCount} event{eventCount !== 1 ? 's' : ''}</span>
+              {memberRoles.length === 0 && String(member.role).toUpperCase() === 'ADMIN' && (
+                <Badge variant="outline" className="text-[10px] uppercase">Member</Badge>
+              )}
+              <span>{memberRoles.length > 0 || String(member.role).toUpperCase() === 'ADMIN' ? '• ' : ''}{eventCount} event{eventCount !== 1 ? 's' : ''}</span>
             </div>
           </div>
         </div>
@@ -695,23 +701,41 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
             <Mail className="h-4 w-4" />
           </Button>
           {isAdmin && (
-                        <select
-                          className="rounded-md border p-2 text-sm"
-                          value={member.subteamId || ''}
-                          onChange={(e) => handleAssignToTeamFromMenu(member.id, e.target.value || null, member.user.name || member.user.email)}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <option value="">Unassigned</option>
-                          {team.subteams.map((subteam: any) => (
-                            <option 
-                              key={subteam.id} 
-                              value={subteam.id}
-                              disabled={subteam.id !== member.subteamId && subteam.members.length >= 15}
-                            >
-                              {subteam.name} ({subteam.members.length}/15)
-                            </option>
-                          ))}
-                        </select>
+                        <>
+                          <select
+                            className="rounded-md border p-2 text-sm"
+                            value={
+                              memberRoles.includes('COACH') ? 'COACH' :
+                              memberRoles.includes('CAPTAIN') ? 'CAPTAIN' :
+                              memberRoles.length === 0 && String(member.role).toUpperCase() === 'MEMBER' ? 'UNASSIGNED' :
+                              'MEMBER'
+                            }
+                            onChange={(e) => handleUpdateRole(member.id, e.target.value as 'COACH' | 'CAPTAIN' | 'MEMBER' | 'UNASSIGNED')}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="UNASSIGNED">Unassigned</option>
+                            <option value="MEMBER">Member</option>
+                            <option value="CAPTAIN">Captain</option>
+                            <option value="COACH">Coach</option>
+                          </select>
+                          <select
+                            className="rounded-md border p-2 text-sm"
+                            value={member.subteamId || ''}
+                            onChange={(e) => handleAssignToTeamFromMenu(member.id, e.target.value || null, member.user.name || member.user.email)}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="">Unassigned</option>
+                            {team.subteams.map((subteam: any) => (
+                              <option 
+                                key={subteam.id} 
+                                value={subteam.id}
+                                disabled={subteam.id !== member.subteamId && subteam.members.length >= 15}
+                              >
+                                {subteam.name} ({subteam.members.length}/15)
+                              </option>
+                            ))}
+                          </select>
+                        </>
                       )}
                     </div>
                   </div>
