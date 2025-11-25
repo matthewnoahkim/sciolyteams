@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Users, Eye, AlertTriangle, CheckCircle, XCircle, Clock, Info, Save, Sparkles, Bot, Loader2, Download, Search, X } from 'lucide-react'
+import { Users, Eye, AlertTriangle, CheckCircle, XCircle, Clock, Info, Save } from 'lucide-react'
 
 interface TestAttemptsViewProps {
   testId: string
@@ -26,7 +26,6 @@ interface Attempt {
   proctoringScore: number | null
   tabSwitchCount: number
   timeOffPageSeconds: number
-  attemptNumber?: number // Added for display purposes
   user: {
     id: string
     name: string | null
@@ -67,30 +66,11 @@ interface GradeEdit {
   answerId: string
   pointsAwarded: number
   graderNote: string
-  aiSuggestionId?: string | null
 }
 
 interface Section {
   id: string
   title: string | null
-}
-
-type AiSuggestionStatus = 'REQUESTED' | 'SUGGESTED' | 'FAILED' | 'ACCEPTED' | 'OVERRIDDEN' | 'DISMISSED'
-
-interface AiSuggestion {
-  id: string
-  answerId: string
-  questionId: string
-  suggestedPoints: number
-  maxPoints: number
-  explanation: string
-  strengths?: string | null
-  gaps?: string | null
-  rubricAlignment?: string | null
-  status: AiSuggestionStatus
-  createdAt: string
-  acceptedAt?: string | null
-  acceptedPoints?: number | null
 }
 
 export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
@@ -105,81 +85,12 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [gradeEdits, setGradeEdits] = useState<Record<string, GradeEdit>>({})
   const [saving, setSaving] = useState(false)
-  const [aiSuggestions, setAiSuggestions] = useState<Record<string, AiSuggestion | null>>({})
-  const [aiLoadingByAnswer, setAiLoadingByAnswer] = useState<Record<string, boolean>>({})
-  const [aiErrors, setAiErrors] = useState<Record<string, string | null>>({})
-  const [bulkAiLoading, setBulkAiLoading] = useState(false)
-  
-  // Filtering state
-  const [filterUserName, setFilterUserName] = useState('')
-  const [filterAttemptNumber, setFilterAttemptNumber] = useState('')
 
-  const exportToCSV = () => {
-    // Create CSV header
-    const headers = [
-      'User Name',
-      'User Email',
-      'Attempt #',
-      'Status',
-      'Started At',
-      'Submitted At',
-      'Score',
-      'Time Taken (minutes)',
-      'Tab Switches',
-      'Time Off Page (seconds)',
-      'Proctoring Score'
-    ]
+  useEffect(() => {
+    fetchAttempts()
+  }, [testId])
 
-    // Create CSV rows
-    const rows = sortedAttempts.map(attempt => {
-      const timeTaken = attempt.startedAt && attempt.submittedAt
-        ? Math.round((new Date(attempt.submittedAt).getTime() - new Date(attempt.startedAt).getTime()) / 60000)
-        : ''
-      
-      return [
-        attempt.user?.name || '',
-        attempt.user?.email || '',
-        attempt.attemptNumber || '',
-        attempt.status,
-        attempt.startedAt ? new Date(attempt.startedAt).toLocaleString() : '',
-        attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleString() : '',
-        attempt.gradeEarned !== null ? attempt.gradeEarned : '',
-        timeTaken,
-        attempt.tabSwitchCount || 0,
-        attempt.timeOffPageSeconds || 0,
-        attempt.proctoringScore !== null ? attempt.proctoringScore : ''
-      ]
-    })
-
-    // Combine headers and rows
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => 
-        // Escape commas and quotes in cell content
-        typeof cell === 'string' && (cell.includes(',') || cell.includes('"')) 
-          ? `"${cell.replace(/"/g, '""')}"` 
-          : cell
-      ).join(','))
-    ].join('\n')
-
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `${testName.replace(/[^a-z0-9]/gi, '_')}_results_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
-    toast({
-      title: 'Export Successful',
-      description: `Exported ${sortedAttempts.length} attempt(s) to CSV`,
-    })
-  }
-
-  const fetchAttempts = useCallback(async () => {
+  const fetchAttempts = async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/tests/${testId}/attempts`)
@@ -200,14 +111,9 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
     } finally {
       setLoading(false)
     }
-  }, [testId, toast])
-
-  useEffect(() => {
-    fetchAttempts()
-  }, [fetchAttempts])
+  }
 
   const handleViewDetails = (attempt: Attempt) => {
-    resetAiAssistantState()
     setSelectedAttempt(attempt)
     setDetailDialogOpen(true)
     // Initialize grade edits from current attempt
@@ -217,43 +123,19 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
         answerId: answer.id,
         pointsAwarded: answer.pointsAwarded !== null ? answer.pointsAwarded : 0,
         graderNote: answer.graderNote || '',
-        aiSuggestionId: null,
       }
     })
     setGradeEdits(edits)
-    void loadAiSuggestionsForAttempt(attempt.id)
   }
 
   const handleGradeEdit = (answerId: string, field: 'pointsAwarded' | 'graderNote', value: number | string) => {
-    setGradeEdits((prev) => {
-      const existing = prev[answerId] || { answerId, pointsAwarded: 0, graderNote: '', aiSuggestionId: null }
-      let updated: GradeEdit
-
-      if (field === 'pointsAwarded' && typeof value === 'number') {
-        const suggestion = aiSuggestions[answerId]
-        const shouldClearSuggestion =
-          existing.aiSuggestionId &&
-          (!suggestion ||
-            suggestion.id !== existing.aiSuggestionId ||
-            Math.abs(value - suggestion.suggestedPoints) > 0.01)
-
-        updated = {
-          ...existing,
-          pointsAwarded: value,
-          aiSuggestionId: shouldClearSuggestion ? null : existing.aiSuggestionId,
-        }
-      } else {
-        updated = {
-          ...existing,
-          graderNote: value as string,
-        }
-      }
-
-      return {
-        ...prev,
-        [answerId]: updated,
-      }
-    })
+    setGradeEdits((prev) => ({
+      ...prev,
+      [answerId]: {
+        ...prev[answerId],
+        [field]: value,
+      },
+    }))
   }
 
   const handleSaveGrades = async () => {
@@ -366,284 +248,20 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
     return `${diffMins}m ${diffSecs}s`
   }
 
-  const isFrqQuestion = (type: string) => type === 'SHORT_TEXT' || type === 'LONG_TEXT'
-
-  const resetAiAssistantState = () => {
-    setAiSuggestions({})
-    setAiErrors({})
-    setAiLoadingByAnswer({})
-    setBulkAiLoading(false)
-  }
-
-  const loadAiSuggestionsForAttempt = async (attemptId: string) => {
-    try {
-      const response = await fetch(`/api/tests/${testId}/attempts/${attemptId}/ai/suggestions`)
-      if (!response.ok) {
-        throw new Error('Failed to load AI suggestions')
-      }
-      const data = await response.json()
-      const latest: Record<string, AiSuggestion | null> = {}
-      ;(data.suggestions || []).forEach((suggestion: AiSuggestion) => {
-        if (!latest[suggestion.answerId]) {
-          latest[suggestion.answerId] = suggestion
-        }
-      })
-      setAiSuggestions(latest)
-    } catch (error) {
-      console.error('Failed to load AI suggestions', error)
-    }
-  }
-
-  const renderAiStatusBadge = (status: AiSuggestionStatus) => {
-    const config: Record<
-      AiSuggestionStatus,
-      { label: string; variant: 'default' | 'secondary' | 'destructive'; className?: string }
-    > = {
-      REQUESTED: { label: 'Requested', variant: 'secondary' },
-      SUGGESTED: { label: 'Suggested', variant: 'secondary' },
-      FAILED: { label: 'Errored', variant: 'destructive' },
-      ACCEPTED: { label: 'Accepted', variant: 'default', className: 'bg-green-600 text-white' },
-      OVERRIDDEN: { label: 'Overridden', variant: 'destructive' },
-      DISMISSED: { label: 'Dismissed', variant: 'secondary' },
-    }
-    const badge = config[status] || config.SUGGESTED
-    return (
-      <Badge variant={badge.variant} className={badge.className}>
-        {badge.label}
-      </Badge>
-    )
-  }
-
-  const requestAiSuggestions = async ({ mode, answerId }: { mode: 'single' | 'all'; answerId?: string }) => {
-    if (!selectedAttempt) return
-    if (mode === 'single' && !answerId) return
-
-    const targetAnswerIds =
-      mode === 'all'
-        ? selectedAttempt.answers.filter((answer) => isFrqQuestion(answer.question.type)).map((answer) => answer.id)
-        : answerId
-        ? [answerId]
-        : []
-
-    if (targetAnswerIds.length === 0) return
-
-    setAiErrors((prev) => {
-      const next = { ...prev }
-      targetAnswerIds.forEach((id) => {
-        next[id] = null
-      })
-      return next
-    })
-
-    setAiLoadingByAnswer((prev) => {
-      const next = { ...prev }
-      targetAnswerIds.forEach((id) => {
-        next[id] = true
-      })
-      return next
-    })
-
-    if (mode === 'all') {
-      setBulkAiLoading(true)
-    }
-
-    try {
-      const response = await fetch(`/api/tests/${testId}/attempts/${selectedAttempt.id}/ai/grade`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, answerId }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to request AI grading')
-      }
-
-      const data = await response.json()
-      setAiSuggestions((prev) => {
-        const next = { ...prev }
-        ;(data.suggestions || []).forEach((suggestion: AiSuggestion) => {
-          next[suggestion.answerId] = suggestion
-        })
-        return next
-      })
-
-      const suggestionCount = data.suggestions?.length || 0
-      if (suggestionCount > 0) {
-        toast({
-          title: 'AI Assist ready',
-          description: `Generated ${suggestionCount} suggestion${suggestionCount > 1 ? 's' : ''}. Review before applying.`,
-        })
-      } else {
-        toast({
-          title: 'No suggestions returned',
-          description: 'AI did not return any suggestions for this request.',
-          variant: 'destructive',
-        })
-      }
-    } catch (error: any) {
-      const message = error.message || 'AI Assist request failed'
-      setAiErrors((prev) => {
-        const next = { ...prev }
-        targetAnswerIds.forEach((id) => {
-          next[id] = message
-        })
-        return next
-      })
-      toast({
-        title: 'AI Assist error',
-        description: message,
-        variant: 'destructive',
-      })
-    } finally {
-      setAiLoadingByAnswer((prev) => {
-        const next = { ...prev }
-        targetAnswerIds.forEach((id) => {
-          next[id] = false
-        })
-        return next
-      })
-      if (mode === 'all') {
-        setBulkAiLoading(false)
-      }
-    }
-  }
-
-  const handleAcceptSuggestion = (answerId: string) => {
-    const suggestion = aiSuggestions[answerId]
-    if (!suggestion) return
-
-    setGradeEdits((prev) => {
-      const existing = prev[answerId] || { answerId, pointsAwarded: 0, graderNote: '', aiSuggestionId: null }
-      const feedbackParts = [suggestion.explanation]
-      if (suggestion.strengths) {
-        feedbackParts.push(`Strengths: ${suggestion.strengths}`)
-      }
-      if (suggestion.gaps) {
-        feedbackParts.push(`Gaps: ${suggestion.gaps}`)
-      }
-      if (suggestion.rubricAlignment) {
-        feedbackParts.push(`Rubric: ${suggestion.rubricAlignment}`)
-      }
-      const autoNote = feedbackParts.filter(Boolean).join('\n')
-
-      return {
-        ...prev,
-        [answerId]: {
-          ...existing,
-          pointsAwarded: suggestion.suggestedPoints,
-          graderNote: existing.graderNote || autoNote,
-          aiSuggestionId: suggestion.id,
-        },
-      }
-    })
-
-    toast({
-      title: 'AI suggestion applied',
-      description: 'Score and feedback fields were filled in. Review before saving.',
-    })
-  }
-
-  const handleDismissSuggestion = async (answerId: string) => {
-    if (!selectedAttempt) return
-    const suggestion = aiSuggestions[answerId]
-    if (!suggestion) return
-
-    try {
-      const response = await fetch(
-        `/api/tests/${testId}/attempts/${selectedAttempt.id}/ai/suggestions/${suggestion.id}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'dismiss' }),
-        }
-      )
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to dismiss suggestion')
-      }
-
-      setAiSuggestions((prev) => ({
-        ...prev,
-        [answerId]: suggestion ? { ...suggestion, status: 'DISMISSED' as AiSuggestionStatus } : null,
-      }))
-
-      toast({
-        title: 'Suggestion dismissed',
-        description: 'AI suggestion was marked as dismissed for this answer.',
-      })
-    } catch (error: any) {
-      toast({
-        title: 'Could not dismiss suggestion',
-        description: error.message || 'Something went wrong.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  // Group attempts by user to calculate attempt numbers
-  const attemptsByUser = attempts.reduce((acc, attempt) => {
-    const userId = attempt.membershipId
-    if (!acc[userId]) {
-      acc[userId] = []
-    }
-    acc[userId].push(attempt)
-    return acc
-  }, {} as Record<string, Attempt[]>)
-
-  // Sort each user's attempts by submission date and assign attempt numbers
-  Object.keys(attemptsByUser).forEach(userId => {
-    attemptsByUser[userId].sort((a, b) => {
+  // Sort attempts based on selected criteria
+  const sortedAttempts = [...attempts].sort((a, b) => {
+    if (sortBy === 'submission') {
+      // Sort by submission date
       const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0
       const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0
-      return dateA - dateB // Oldest first for numbering
-    })
+      return sortDirection === 'desc' ? dateB - dateA : dateA - dateB
+    } else {
+      // Sort by score
+      const scoreA = a.gradeEarned ?? -1
+      const scoreB = b.gradeEarned ?? -1
+      return sortDirection === 'desc' ? scoreB - scoreA : scoreA - scoreB
+    }
   })
-
-  const attemptsWithNumbers = attempts.map(attempt => {
-    const userAttempts = attemptsByUser[attempt.membershipId]
-    const attemptNumber = userAttempts.findIndex(a => a.id === attempt.id) + 1
-    return { ...attempt, attemptNumber }
-  })
-
-  // Filter and sort attempts
-  const filteredAndSortedAttempts = attemptsWithNumbers
-    .filter(attempt => {
-      // Filter by user name
-      if (filterUserName) {
-        const userName = (attempt.user?.name || attempt.user?.email || '').toLowerCase()
-        if (!userName.includes(filterUserName.toLowerCase())) {
-          return false
-        }
-      }
-      // Filter by attempt number
-      if (filterAttemptNumber) {
-        const attemptNum = parseInt(filterAttemptNumber)
-        if (isNaN(attemptNum) || attempt.attemptNumber !== attemptNum) {
-          return false
-        }
-      }
-      return true
-    })
-    .sort((a, b) => {
-      if (sortBy === 'submission') {
-        // Sort by submission date
-        const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0
-        const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0
-        return sortDirection === 'desc' ? dateB - dateA : dateA - dateB
-      } else {
-        // Sort by score
-        const scoreA = a.gradeEarned ?? -1
-        const scoreB = b.gradeEarned ?? -1
-        return sortDirection === 'desc' ? scoreB - scoreA : scoreA - scoreB
-      }
-    })
-
-  const sortedAttempts = filteredAndSortedAttempts
-
-  const selectedAttemptHasFrq =
-    selectedAttempt?.answers.some((answer) => isFrqQuestion(answer.question.type)) ?? false
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' }> = {
@@ -691,92 +309,20 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Attempts ({sortedAttempts.length}{sortedAttempts.length !== attempts.length ? ` of ${attempts.length}` : ''})
-                </CardTitle>
-                <CardDescription>
-                  View all student attempts for {testName}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exportToCSV}
-                  className="gap-2"
-                  disabled={sortedAttempts.length === 0}
-                >
-                  <Download className="h-4 w-4" />
-                  Export CSV
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setScoringKeyOpen(true)}
-                  className="gap-2"
-                >
-                  <Info className="h-4 w-4" />
-                  Proctoring Key
-                </Button>
-              </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Attempts ({attempts.length})
+              </CardTitle>
+              <CardDescription>
+                View all student attempts for {testName}
+              </CardDescription>
             </div>
-
-            {/* Filters Row */}
-            <div className="flex items-center gap-3 flex-wrap">
-              {/* User Name Filter */}
-              <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Filter by user name..."
-                  value={filterUserName}
-                  onChange={(e) => setFilterUserName(e.target.value)}
-                  className="h-9"
-                />
-                {filterUserName && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setFilterUserName('')}
-                    className="h-9 px-2"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-
-              {/* Attempt Number Filter */}
-              <div className="flex items-center gap-2">
-                <label htmlFor="attemptFilter" className="text-sm text-muted-foreground whitespace-nowrap">
-                  Attempt #:
-                </label>
-                <Input
-                  id="attemptFilter"
-                  type="number"
-                  min="1"
-                  placeholder="All"
-                  value={filterAttemptNumber}
-                  onChange={(e) => setFilterAttemptNumber(e.target.value)}
-                  className="h-9 w-24"
-                />
-                {filterAttemptNumber && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setFilterAttemptNumber('')}
-                    className="h-9 px-2"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-
+            <div className="flex items-center gap-2">
               {/* Sort By Dropdown */}
               <div className="flex items-center gap-2">
-                <label htmlFor="sortBy" className="text-sm text-muted-foreground whitespace-nowrap">
+                <label htmlFor="sortBy" className="text-sm text-muted-foreground">
                   Sort by:
                 </label>
                 <select
@@ -803,6 +349,16 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                   {sortBy === 'submission' ? 'Oldest First' : 'Low to High'}
                 </option>
               </select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setScoringKeyOpen(true)}
+                className="gap-2"
+              >
+                <Info className="h-4 w-4" />
+                Scoring Key
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -818,13 +374,10 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                   <CardContent className="pt-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
                           <p className="font-medium">
                             {attempt.user?.name || attempt.user?.email || 'Unknown User'}
                           </p>
-                          <Badge variant="outline" className="text-xs">
-                            Attempt #{attempt.attemptNumber}
-                          </Badge>
                           {getStatusBadge(attempt.status)}
                           {getProctoringBadge(attempt.proctoringScore)}
                         </div>
@@ -845,8 +398,8 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                           {attempt.submittedAt && (
                             <div className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(attempt.submittedAt).toLocaleString()}
+                              <span>
+                                {new Date(attempt.submittedAt).toLocaleDateString()}
                               </span>
                             </div>
                           )}
@@ -999,74 +552,45 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
 
               {/* Answers */}
               <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-lg">Responses</h3>
-                  {selectedAttemptHasFrq && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => requestAiSuggestions({ mode: 'all' })}
-                        disabled={bulkAiLoading}
-                        className="gap-2"
-                      >
-                        {bulkAiLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="h-4 w-4" />
-                            AI Grade All FRQs
-                          </>
-                        )}
-                      </Button>
-                      <Button onClick={handleSaveGrades} disabled={saving} className="gap-2">
-                        <Save className="h-4 w-4" />
-                        {saving ? 'Saving...' : 'Save Grades'}
-                      </Button>
-                    </div>
+                  {selectedAttempt.answers.some(a => a.question.type === 'SHORT_TEXT' || a.question.type === 'LONG_TEXT') && (
+                    <Button 
+                      onClick={handleSaveGrades} 
+                      disabled={saving}
+                      className="gap-2"
+                    >
+                      <Save className="h-4 w-4" />
+                      {saving ? 'Saving...' : 'Save Grades'}
+                    </Button>
                   )}
                 </div>
-                {selectedAttemptHasFrq && (
-                  <p className="text-xs text-muted-foreground">
-                    Manual scores remain the source of truth. AI Assist only fills draft values until you press
-                    &quot;Save Grades&quot;.
-                  </p>
-                )}
                 {selectedAttempt.answers && selectedAttempt.answers.length > 0 ? (
-                  selectedAttempt.answers.map((answer, index) => {
-                    const suggestion = aiSuggestions[answer.id]
-                    const aiLoading = aiLoadingByAnswer[answer.id]
-                    const aiError = aiErrors[answer.id]
-                    const isFrq = isFrqQuestion(answer.question.type)
-
-                    return (
-                      <Card key={answer.id} className="border-border">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <CardTitle className="text-base">
-                                Question {index + 1}
-                              </CardTitle>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {answer.question.promptMd}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline">
-                                {answer.question.type.replace('MCQ_', '').replace('_', ' ')}
-                              </Badge>
-                              {answer.pointsAwarded !== null && (
-                                <Badge variant={answer.pointsAwarded > 0 ? 'default' : 'destructive'}>
-                                  {answer.pointsAwarded} / {answer.question.points} pts
-                                </Badge>
-                              )}
-                            </div>
+                  selectedAttempt.answers.map((answer, index) => (
+                    <Card key={answer.id} className="border-border">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <CardTitle className="text-base">
+                              Question {index + 1}
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {answer.question.promptMd}
+                            </p>
                           </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">
+                              {answer.question.type.replace('MCQ_', '').replace('_', ' ')}
+                            </Badge>
+                            {answer.pointsAwarded !== null && (
+                              <Badge variant={answer.pointsAwarded > 0 ? 'default' : 'destructive'}>
+                                {answer.pointsAwarded} / {answer.question.points} pts
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
                         {/* Student's Answer */}
                         {answer.question.type.startsWith('MCQ') && answer.selectedOptionIds && (
                           <div>
@@ -1114,7 +638,7 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                         )}
 
                         {/* FRQ Questions - Show Grading Interface */}
-                        {isFrq && (
+                        {(answer.question.type === 'SHORT_TEXT' || answer.question.type === 'LONG_TEXT') && (
                           <div className="space-y-4">
                             {/* Student's Answer */}
                             <div>
@@ -1178,95 +702,6 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                                 </div>
                               )}
                             </div>
-
-                            <div className="space-y-3 rounded-lg border border-dashed border-blue-300 bg-blue-50/40 dark:bg-slate-900/40 p-4">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div>
-                                  <p className="text-xs font-semibold uppercase text-blue-900 dark:text-blue-100 flex items-center gap-1">
-                                    <Bot className="h-3.5 w-3.5" />
-                                    AI Assist (optional)
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Suggestions never auto-apply. Review before accepting.
-                                  </p>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => requestAiSuggestions({ mode: 'single', answerId: answer.id })}
-                                  disabled={aiLoading}
-                                  className="gap-1"
-                                >
-                                  {aiLoading ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                      Working...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Sparkles className="h-4 w-4" />
-                                      AI Suggestion
-                                    </>
-                                  )}
-                                </Button>
-                              </div>
-                              {aiError && (
-                                <p className="text-xs text-red-600">
-                                  {aiError}
-                                </p>
-                              )}
-                              {suggestion ? (
-                                <div className="space-y-2 text-sm">
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div className="font-semibold">
-                                      Suggested: {suggestion.suggestedPoints} / {suggestion.maxPoints} pts
-                                    </div>
-                                    {renderAiStatusBadge(suggestion.status)}
-                                  </div>
-                                  <p className="text-sm whitespace-pre-wrap">
-                                    {suggestion.explanation}
-                                  </p>
-                                  {suggestion.strengths && (
-                                    <p className="text-xs text-green-700 dark:text-green-300 whitespace-pre-wrap">
-                                      <span className="font-semibold">Strengths:</span> {suggestion.strengths}
-                                    </p>
-                                  )}
-                                  {suggestion.gaps && (
-                                    <p className="text-xs text-amber-700 dark:text-amber-300 whitespace-pre-wrap">
-                                      <span className="font-semibold">Needs work:</span> {suggestion.gaps}
-                                    </p>
-                                  )}
-                                  {suggestion.rubricAlignment && (
-                                    <p className="text-xs text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
-                                      <span className="font-semibold">Rubric map:</span> {suggestion.rubricAlignment}
-                                    </p>
-                                  )}
-                                  <p className="text-[11px] text-muted-foreground">
-                                    Suggested {new Date(suggestion.createdAt).toLocaleString()}
-                                  </p>
-                                  <div className="flex flex-wrap gap-2">
-                                    <Button size="sm" onClick={() => handleAcceptSuggestion(answer.id)} className="gap-1">
-                                      <CheckCircle className="h-3.5 w-3.5" />
-                                      Accept &amp; fill form
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleDismissSuggestion(answer.id)}
-                                      disabled={suggestion.status === 'DISMISSED'}
-                                      className="gap-1"
-                                    >
-                                      <XCircle className="h-3.5 w-3.5" />
-                                      Dismiss
-                                    </Button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <p className="text-xs text-muted-foreground">
-                                  No AI suggestion yet. Use the button above to get a rubric-aligned draft grade.
-                                </p>
-                              )}
-                            </div>
                           </div>
                         )}
 
@@ -1280,9 +715,8 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                           </div>
                         )}
                       </CardContent>
-                      </Card>
-                    )
-                  })
+                    </Card>
+                  ))
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No answers recorded
@@ -1294,13 +728,13 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Proctoring Key Dialog */}
+      {/* Proctoring Scoring Key Dialog */}
       <Dialog open={scoringKeyOpen} onOpenChange={setScoringKeyOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-orange-600" />
-              Proctoring Key
+              Proctoring Risk Score Guide
             </DialogTitle>
             <DialogDescription>
               Understanding how suspicious activity is measured

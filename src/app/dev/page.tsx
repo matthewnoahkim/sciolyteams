@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { HealthTools } from '@/components/dev/health-tools'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // WARNING: This is a development-only page
 // DO NOT use this pattern in production environments
@@ -81,7 +82,10 @@ export default function DevPage() {
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
+        <div className="space-y-4 w-full max-w-md">
+          <Skeleton className="h-8 w-32 mx-auto" />
+          <Skeleton className="h-4 w-48 mx-auto" />
+        </div>
       </div>
     )
   }

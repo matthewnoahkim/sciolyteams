@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { TeamPage } from '@/components/team-page'
 import { Suspense } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default async function TeamDetailPage({ params }: { params: { clubId: string } }) {
   const session = await getServerSession(authOptions)
@@ -76,7 +77,24 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
   }
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div className="space-y-6 p-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="p-6 border rounded-lg">
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    }>
       <TeamPage
         team={team}
         currentMembership={membership}

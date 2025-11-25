@@ -655,7 +655,10 @@ export function AttendanceTab({ teamId, isAdmin, user }: AttendanceTabProps) {
                     </div>
 
                     {loadingRoster ? (
-                      <p className="text-sm text-muted-foreground">Loading roster...</p>
+                      <div className="space-y-3">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-20 w-full" />
+                      </div>
                     ) : (
                       <div className="space-y-4">
                         {/* Checked In */}
