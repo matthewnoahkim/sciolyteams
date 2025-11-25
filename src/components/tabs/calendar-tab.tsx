@@ -727,6 +727,8 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
       scope: event.scope,
       subteamId: event.subteamId || '',
       attendeeId: event.attendeeId || currentMembership.id,
+      targetRoles: event.targetRoles || [],
+      targetEvents: event.targetEvents || [],
     })
     setEventDetailsOpen(false)
     setEditOpen(true)
