@@ -56,6 +56,9 @@ interface LogEntry {
   executionTime?: number
   logType?: string
   severity?: string
+  ipAddress?: string
+  userAgent?: string
+  error?: string
   user?: {
     id: string
     name?: string | null
