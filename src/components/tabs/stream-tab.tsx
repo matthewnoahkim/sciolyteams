@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDateTime } from '@/lib/utils'
-import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit, MessageCircle, X, Calendar, MapPin, Check, X as XIcon, Paperclip } from 'lucide-react'
+import { Plus, Send, Trash2, ChevronDown, ChevronUp, Edit, MessageCircle, X, Calendar, MapPin, Check, X as XIcon, Paperclip, Mail } from 'lucide-react'
 import { AttachmentDisplay } from '@/components/ui/attachment-display'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { EmojiPicker } from '@/components/emoji-picker'
@@ -883,182 +884,210 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
         </CardHeader>
         {!isPostSectionCollapsed && (
           <CardContent>
-          <form onSubmit={handlePost} className="space-y-4">
-            <div>
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Announcement title"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="content">Message</Label>
-              <textarea
-                id="content"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Write your message..."
-                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                required
-              />
-            </div>
-            <RadioGroup value={scope} onValueChange={(value) => setScope(value as 'TEAM' | 'SUBTEAM')} className="flex gap-4">
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="TEAM" id="scope-team" />
-                <Label htmlFor="scope-team" className="cursor-pointer font-normal text-sm">
-                  Entire Club
-                </Label>
+          <form onSubmit={handlePost} className="space-y-6">
+            {/* Main Content Section */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="title" className="text-sm font-medium">Title</Label>
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="What's this announcement about?"
+                  required
+                  className="mt-1.5"
+                />
               </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="SUBTEAM" id="scope-subteam" />
-                <Label htmlFor="scope-subteam" className="cursor-pointer font-normal text-sm">
-                  Selected Teams
-                </Label>
+              <div>
+                <Label htmlFor="content" className="text-sm font-medium">Message</Label>
+                <textarea
+                  id="content"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Write your message here..."
+                  className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mt-1.5"
+                  required
+                />
               </div>
-            </RadioGroup>
-            {scope === 'SUBTEAM' && (
-              <div className="space-y-2">
-                <Label>Select Teams</Label>
-                <div className="flex flex-wrap gap-2">
-                  {subteams.map((subteam) => (
-                    <div key={subteam.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`subteam-${subteam.id}`}
-                        checked={selectedSubteams.includes(subteam.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedSubteams((prev) =>
-                            checked
-                              ? [...prev, subteam.id]
-                              : prev.filter((id) => id !== subteam.id)
-                          )
-                        }}
-                      />
-                      <Label htmlFor={`subteam-${subteam.id}`} className="cursor-pointer font-normal text-sm">
-                        {subteam.name}
-                      </Label>
-                    </div>
-                  ))}
+            </div>
+
+            {/* Audience Section */}
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              <h4 className="text-sm font-semibold">Audience</h4>
+              <RadioGroup value={scope} onValueChange={(value) => setScope(value as 'TEAM' | 'SUBTEAM')} className="flex gap-4">
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="TEAM" id="scope-team" />
+                  <Label htmlFor="scope-team" className="cursor-pointer font-normal text-sm">
+                    Entire Club
+                  </Label>
                 </div>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>Target by Role (Optional)</Label>
-              <p className="text-xs text-muted-foreground">Select roles to target specific members</p>
-              <div className="flex flex-wrap gap-2">
-                {['COACH', 'CAPTAIN', 'MEMBER'].map((role) => (
-                  <div key={role} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`role-${role}`}
-                      checked={selectedRoles.includes(role)}
-                      onCheckedChange={(checked) => {
-                        setSelectedRoles((prev) =>
-                          checked
-                            ? [...prev, role]
-                            : prev.filter((r) => r !== role)
-                        )
-                      }}
-                    />
-                    <Label htmlFor={`role-${role}`} className="cursor-pointer font-normal text-sm capitalize">
-                      {role.toLowerCase()}
-                    </Label>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="SUBTEAM" id="scope-subteam" />
+                  <Label htmlFor="scope-subteam" className="cursor-pointer font-normal text-sm">
+                    Specific Teams
+                  </Label>
+                </div>
+              </RadioGroup>
+              {scope === 'SUBTEAM' && (
+                <div className="pt-2">
+                  <Label className="text-xs text-muted-foreground mb-2 block">Select Teams</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {subteams.map((subteam) => (
+                      <label key={subteam.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-background cursor-pointer hover:bg-accent transition-colors">
+                        <Checkbox
+                          id={`subteam-${subteam.id}`}
+                          checked={selectedSubteams.includes(subteam.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedSubteams((prev) =>
+                              checked
+                                ? [...prev, subteam.id]
+                                : prev.filter((id) => id !== subteam.id)
+                            )
+                          }}
+                        />
+                        <span className="text-sm">{subteam.name}</span>
+                      </label>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Target by Event (Optional)</Label>
-              <p className="text-xs text-muted-foreground">Select events to target participants</p>
-              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                {availableEvents.map((event) => (
-                  <div key={event.id} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`event-${event.id}`}
-                      checked={selectedEvents.includes(event.id)}
-                      onCheckedChange={(checked) => {
-                        setSelectedEvents((prev) =>
-                          checked
-                            ? [...prev, event.id]
-                            : prev.filter((id) => id !== event.id)
-                        )
-                      }}
-                    />
-                    <Label htmlFor={`event-${event.id}`} className="cursor-pointer font-normal text-sm">
-                      {event.name}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="sendEmail"
-                checked={sendEmail}
-                onCheckedChange={(checked) => setSendEmail(checked as boolean)}
-              />
-              <Label htmlFor="sendEmail" className="cursor-pointer font-normal">
-                Send email notification to recipients
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="important"
-                checked={important}
-                onCheckedChange={(checked) => setImportant(checked as boolean)}
-              />
-              <Label htmlFor="important" className="cursor-pointer font-normal">
-                Mark as important
-              </Label>
-            </div>
-            <div>
-              <Label htmlFor="files" className="flex items-center gap-2 cursor-pointer">
-                <Paperclip className="h-4 w-4" />
-                Attach Files
-              </Label>
-              <Input
-                id="files"
-                type="file"
-                multiple
-                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
-                onChange={(e) => {
-                  const files = Array.from(e.target.files || [])
-                  if (files.length > 0) {
-                    setSelectedFiles((prev) => [...prev, ...files])
-                  }
-                }}
-                className="mt-2"
-              />
-              {selectedFiles.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {selectedFiles.map((file, index) => {
-                    const key = file.name ? `${file.name}-${index}` : `file-${index}`
-                    return (
-                    <div key={key} className="flex items-center gap-2 text-sm">
-                      <Paperclip className="h-3 w-3" />
-                      <span className="truncate">{file.name}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() =>
-                          setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
-                        }
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    )
-                  })}
                 </div>
               )}
+              
+              {/* Email Notification Toggle */}
+              <div className="pt-3 border-t border-border/50">
+                <label className="inline-flex items-center gap-2.5 cursor-pointer group">
+                  <Checkbox
+                    id="sendEmail"
+                    checked={sendEmail}
+                    onCheckedChange={(checked) => setSendEmail(checked as boolean)}
+                  />
+                  <Mail className="h-4 w-4 text-primary flex-shrink-0" />
+                  <div>
+                    <span className="text-sm font-medium group-hover:text-primary transition-colors block">Send email notification</span>
+                    <span className="text-xs text-muted-foreground">Recipients will be notified via email</span>
+                  </div>
+                </label>
+              </div>
             </div>
-            <Button type="submit" disabled={posting || uploadingFiles}>
-              <Send className="mr-2 h-4 w-4" />
-              {uploadingFiles ? 'Uploading...' : posting ? 'Posting...' : 'Post Announcement'}
-            </Button>
+
+            {/* Advanced Targeting Section - Collapsible */}
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium hover:underline">
+                <ChevronDown className="h-4 w-4" />
+                Advanced Targeting (Optional)
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-3 space-y-4 pl-6 border-l-2 border-muted">
+                <div>
+                  <Label className="text-sm font-medium">Target by Role</Label>
+                  <p className="text-xs text-muted-foreground mb-2">Only notify members with these roles</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['COACH', 'CAPTAIN', 'MEMBER'].map((role) => (
+                      <label key={role} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-background cursor-pointer hover:bg-accent transition-colors">
+                        <Checkbox
+                          id={`role-${role}`}
+                          checked={selectedRoles.includes(role)}
+                          onCheckedChange={(checked) => {
+                            setSelectedRoles((prev) =>
+                              checked
+                                ? [...prev, role]
+                                : prev.filter((r) => r !== role)
+                            )
+                          }}
+                        />
+                        <span className="text-sm capitalize">{role.toLowerCase()}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-medium">Target by Event</Label>
+                  <p className="text-xs text-muted-foreground mb-2">Only notify participants of these events</p>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 rounded-md border bg-background/50">
+                    {availableEvents.map((event) => (
+                      <label key={event.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border bg-background cursor-pointer hover:bg-accent transition-colors text-xs">
+                        <Checkbox
+                          id={`event-${event.id}`}
+                          checked={selectedEvents.includes(event.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedEvents((prev) =>
+                              checked
+                                ? [...prev, event.id]
+                                : prev.filter((id) => id !== event.id)
+                            )
+                          }}
+                        />
+                        <span>{event.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            {/* Options Section */}
+            <div className="space-y-3 pt-2">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  id="important"
+                  checked={important}
+                  onCheckedChange={(checked) => setImportant(checked as boolean)}
+                />
+                <span className="text-sm font-medium">Mark as important</span>
+              </label>
+
+              {/* File Attachments */}
+              <div className="space-y-2">
+                <Label htmlFor="files" className="flex items-center gap-2 cursor-pointer text-sm font-medium">
+                  <Paperclip className="h-4 w-4" />
+                  Attach Files
+                </Label>
+                <Input
+                  id="files"
+                  type="file"
+                  multiple
+                  accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || [])
+                    if (files.length > 0) {
+                      setSelectedFiles((prev) => [...prev, ...files])
+                    }
+                  }}
+                  className="cursor-pointer"
+                />
+                {selectedFiles.length > 0 && (
+                  <div className="mt-2 space-y-1.5 p-2 rounded-md border bg-muted/30">
+                    {selectedFiles.map((file, index) => {
+                      const key = file.name ? `${file.name}-${index}` : `file-${index}`
+                      return (
+                      <div key={key} className="flex items-center gap-2 text-sm bg-background px-2 py-1.5 rounded">
+                        <Paperclip className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="truncate flex-1">{file.name}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() =>
+                            setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
+                          }
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-2">
+              <Button type="submit" disabled={posting || uploadingFiles} className="w-full sm:w-auto">
+                <Send className="mr-2 h-4 w-4" />
+                {uploadingFiles ? 'Uploading Files...' : posting ? 'Posting...' : 'Post Announcement'}
+              </Button>
+            </div>
           </form>
         </CardContent>
         )}

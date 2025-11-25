@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -18,7 +19,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Pencil, Check, X as XIcon, User, Paperclip, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Check, X as XIcon, User, Paperclip, X } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { EventAnnouncementModal } from '@/components/event-announcement-modal'
 import { AttachmentDisplay } from '@/components/ui/attachment-display'
@@ -138,6 +139,13 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
       important: false,
       targetRoles: [] as string[],
       targetEvents: [] as string[],
+      isRecurring: false,
+      recurrenceRule: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY',
+      recurrenceInterval: 1,
+      recurrenceDaysOfWeek: [] as number[],
+      recurrenceEndType: 'date' as 'date' | 'count',
+      recurrenceEndDate: formatDateLocal(new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000)), // 30 days from now
+      recurrenceCount: 10,
     }
   }
   
@@ -271,6 +279,23 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
         }
         if (formData.targetEvents && formData.targetEvents.length > 0) {
           payload.targetEvents = formData.targetEvents
+        }
+      }
+
+      // Add recurrence data if event is recurring
+      if (formData.isRecurring) {
+        payload.isRecurring = true
+        payload.recurrenceRule = formData.recurrenceRule
+        payload.recurrenceInterval = formData.recurrenceInterval
+        
+        if (formData.recurrenceRule === 'WEEKLY' && formData.recurrenceDaysOfWeek.length > 0) {
+          payload.recurrenceDaysOfWeek = formData.recurrenceDaysOfWeek
+        }
+        
+        if (formData.recurrenceEndType === 'date') {
+          payload.recurrenceEndDate = new Date(formData.recurrenceEndDate + 'T23:59:59').toISOString()
+        } else {
+          payload.recurrenceCount = formData.recurrenceCount
         }
       }
 
@@ -1574,123 +1599,274 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
 
       {/* Create Event Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleCreate}>
             <DialogHeader>
               <DialogTitle>Create Calendar Event</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div>
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Description (optional)</Label>
-                <textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
+            <div className="space-y-5 py-4">
+              {/* Basic Info Section */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="isAllDay"
-                    checked={formData.isAllDay}
-                    onCheckedChange={(checked) => setFormData({ ...formData, isAllDay: checked as boolean })}
+                <div>
+                  <Label htmlFor="title" className="text-sm font-medium">Title</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Event name"
+                    required
+                    className="mt-1.5"
                   />
-                  <Label htmlFor="isAllDay" className="cursor-pointer font-normal">All day event</Label>
+                </div>
+                <div>
+                  <Label htmlFor="description" className="text-sm font-medium">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                  <textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Add details about this event..."
+                    className="flex min-h-[70px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+              </div>
+
+              {/* Date & Time Section */}
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold">Date & Time</h4>
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      id="isAllDay"
+                      checked={formData.isAllDay}
+                      onCheckedChange={(checked) => setFormData({ ...formData, isAllDay: checked as boolean })}
+                    />
+                    <span className="text-sm">All day</span>
+                  </label>
                 </div>
                 
                 {formData.isAllDay ? (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="startDate">Start Date</Label>
+                      <Label htmlFor="startDate" className="text-xs text-muted-foreground">Start Date</Label>
                       <Input
                         id="startDate"
                         type="date"
                         value={formData.startDate}
                         onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                         required
+                        className="mt-1"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="endDate">End Date</Label>
+                      <Label htmlFor="endDate" className="text-xs text-muted-foreground">End Date</Label>
                       <Input
                         id="endDate"
                         type="date"
                         value={formData.endDate}
                         onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                         required
+                        className="mt-1"
                       />
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-3">
                     <div>
-                      <Label htmlFor="date">Date</Label>
+                      <Label htmlFor="date" className="text-xs text-muted-foreground">Date</Label>
                       <Input
                         id="date"
                         type="date"
                         value={formData.date}
                         onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                         required
+                        className="mt-1"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="startTime">Start Time</Label>
-                      <Input
-                        id="startTime"
-                        type="time"
-                        value={formData.startTime}
-                        onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="endTime">End Time</Label>
-                      <Input
-                        id="endTime"
-                        type="time"
-                        value={formData.endTime}
-                        onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                        required
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="startTime" className="text-xs text-muted-foreground">Start Time</Label>
+                        <Input
+                          id="startTime"
+                          type="time"
+                          value={formData.startTime}
+                          onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                          required
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="endTime" className="text-xs text-muted-foreground">End Time</Label>
+                        <Input
+                          id="endTime"
+                          type="time"
+                          value={formData.endTime}
+                          onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                          required
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
-              <div>
-                <Label htmlFor="location">Location (optional)</Label>
-                <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="color">Event Color</Label>
-                <div className="flex items-center gap-2 mt-2">
-                  <input
-                    type="color"
-                    id="color"
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="h-10 w-20 rounded cursor-pointer border border-input"
+
+              {/* Recurrence Section */}
+              <div className="space-y-3">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    id="isRecurring"
+                    checked={formData.isRecurring}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isRecurring: checked as boolean })}
                   />
-                  <div className="flex gap-2 flex-wrap">
+                  <span className="text-sm font-medium">Repeat event</span>
+                </label>
+
+                {formData.isRecurring && (
+                  <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+                    <div>
+                      <Label className="text-sm font-medium">Repeats</Label>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <select
+                          value={formData.recurrenceRule}
+                          onChange={(e) => setFormData({ ...formData, recurrenceRule: e.target.value as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' })}
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <option value="DAILY">Daily</option>
+                          <option value="WEEKLY">Weekly</option>
+                          <option value="MONTHLY">Monthly</option>
+                          <option value="YEARLY">Yearly</option>
+                        </select>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Every</span>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="99"
+                            value={formData.recurrenceInterval}
+                            onChange={(e) => setFormData({ ...formData, recurrenceInterval: parseInt(e.target.value) || 1 })}
+                            className="w-20"
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {formData.recurrenceRule === 'DAILY' ? 'day(s)' : 
+                             formData.recurrenceRule === 'WEEKLY' ? 'week(s)' :
+                             formData.recurrenceRule === 'MONTHLY' ? 'month(s)' : 'year(s)'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {formData.recurrenceRule === 'WEEKLY' && (
+                      <div>
+                        <Label className="text-sm font-medium mb-2 block">Repeat on</Label>
+                        <div className="flex gap-2 flex-wrap">
+                          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => {
+                                const days = formData.recurrenceDaysOfWeek || []
+                                const newDays = days.includes(index)
+                                  ? days.filter(d => d !== index)
+                                  : [...days, index].sort((a, b) => a - b)
+                                setFormData({ ...formData, recurrenceDaysOfWeek: newDays })
+                              }}
+                              className={`w-8 h-8 rounded-full text-sm font-medium transition-all ${
+                                (formData.recurrenceDaysOfWeek || []).includes(index)
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted hover:bg-muted/70'
+                              }`}
+                              title={['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][index]}
+                            >
+                              {day}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">Ends</Label>
+                      <RadioGroup
+                        value={formData.recurrenceEndType}
+                        onValueChange={(value) => setFormData({ ...formData, recurrenceEndType: value as 'date' | 'count' })}
+                        className="space-y-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="date" id="end-date" />
+                          <Label htmlFor="end-date" className="cursor-pointer font-normal text-sm flex-1 flex items-center gap-2">
+                            <span>On</span>
+                            {formData.recurrenceEndType === 'date' && (
+                              <Input
+                                type="date"
+                                value={formData.recurrenceEndDate}
+                                onChange={(e) => setFormData({ ...formData, recurrenceEndDate: e.target.value })}
+                                className="max-w-[180px]"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            )}
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="count" id="end-count" />
+                          <Label htmlFor="end-count" className="cursor-pointer font-normal text-sm flex-1 flex items-center gap-2">
+                            <span>After</span>
+                            {formData.recurrenceEndType === 'count' && (
+                              <Input
+                                type="number"
+                                min="1"
+                                max="999"
+                                value={formData.recurrenceCount}
+                                onChange={(e) => setFormData({ ...formData, recurrenceCount: parseInt(e.target.value) || 1 })}
+                                className="w-20"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            )}
+                            <span>occurrence(s)</span>
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {/* Summary */}
+                    <div className="pt-2 border-t border-border/50">
+                      <p className="text-xs text-muted-foreground">
+                        {formData.recurrenceInterval > 1 ? `Every ${formData.recurrenceInterval} ` : 'Every '}
+                        {formData.recurrenceRule === 'DAILY' ? (formData.recurrenceInterval > 1 ? 'days' : 'day') :
+                         formData.recurrenceRule === 'WEEKLY' ? (formData.recurrenceInterval > 1 ? 'weeks' : 'week') :
+                         formData.recurrenceRule === 'MONTHLY' ? (formData.recurrenceInterval > 1 ? 'months' : 'month') :
+                         (formData.recurrenceInterval > 1 ? 'years' : 'year')}
+                        {formData.recurrenceRule === 'WEEKLY' && formData.recurrenceDaysOfWeek.length > 0 && 
+                          ` on ${formData.recurrenceDaysOfWeek.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}`}
+                        , until {formData.recurrenceEndType === 'date' 
+                          ? new Date(formData.recurrenceEndDate).toLocaleDateString() 
+                          : `${formData.recurrenceCount} occurrences`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Location & Appearance */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="location" className="text-sm font-medium">Location <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                  <Input
+                    id="location"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="Where is this happening?"
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="color" className="text-sm font-medium">Color</Label>
+                  <div className="flex gap-2 mt-1.5">
                     {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'].map((color) => (
                       <button
                         key={color}
                         type="button"
                         onClick={() => setFormData({ ...formData, color })}
-                        className={`w-8 h-8 rounded border-2 ${formData.color === color ? 'border-foreground' : 'border-transparent'}`}
+                        className={`w-8 h-8 rounded-md border-2 transition-all hover:scale-110 ${formData.color === color ? 'border-foreground ring-2 ring-offset-2 ring-foreground/20' : 'border-border'}`}
                         style={{ backgroundColor: color }}
                         aria-label={`Select ${color}`}
                       />
@@ -1698,27 +1874,19 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="important"
-                  checked={formData.important}
-                  onCheckedChange={(checked) => setFormData({ ...formData, important: checked as boolean })}
-                />
-                <Label htmlFor="important" className="cursor-pointer font-normal">
-                  Mark as important
-                </Label>
-              </div>
-              <div>
-                <Label>Scope</Label>
+
+              {/* Visibility Section */}
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                <h4 className="text-sm font-semibold">Visibility</h4>
                 <RadioGroup 
                   value={formData.scope} 
                   onValueChange={(value) => setFormData({ ...formData, scope: value as 'PERSONAL' | 'TEAM' | 'SUBTEAM', subteamId: '' })}
-                  className="mt-2 space-y-2"
+                  className="space-y-2"
                 >
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="PERSONAL" id="scope-personal" />
                     <Label htmlFor="scope-personal" className="cursor-pointer font-normal text-sm">
-                      Personal event
+                      Personal event (only you can see)
                     </Label>
                   </div>
                   {isAdmin && (
@@ -1739,14 +1907,14 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                   )}
                 </RadioGroup>
                 {formData.scope === 'SUBTEAM' && (
-                  <div className="mt-3">
-                    <Label htmlFor="subteam">Select Team</Label>
+                  <div className="pt-2">
+                    <Label htmlFor="subteam" className="text-xs text-muted-foreground">Select Team</Label>
                     <select
                       id="subteam"
                       value={formData.subteamId}
                       onChange={(e) => setFormData({ ...formData, subteamId: e.target.value })}
                       required
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <option value="">Select a team...</option>
                       {subteams.map((subteam) => (
@@ -1758,74 +1926,90 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                   </div>
                 )}
                 {(formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') && (
-                  <div className="mt-3">
-                    <div className="flex items-center gap-2">
+                  <div className="pt-1">
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
                       <Checkbox
                         id="rsvp-enabled"
                         checked={formData.rsvpEnabled}
                         onCheckedChange={(checked) => setFormData({ ...formData, rsvpEnabled: checked as boolean })}
                       />
-                      <Label htmlFor="rsvp-enabled" className="cursor-pointer font-normal text-sm">
-                        Enable RSVP for this event
-                      </Label>
-                    </div>
+                      <span className="text-sm">Enable RSVP tracking</span>
+                    </label>
                   </div>
                 )}
               </div>
+
+              {/* Options */}
+              <div className="flex items-center gap-4">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    id="important"
+                    checked={formData.important}
+                    onCheckedChange={(checked) => setFormData({ ...formData, important: checked as boolean })}
+                  />
+                  <span className="text-sm font-medium">Mark as important</span>
+                </label>
+              </div>
+
+              {/* Advanced Targeting - Collapsible */}
               {isAdmin && (formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') && (
-                <>
-                  <div>
-                    <Label>Target by Role (Optional)</Label>
-                    <p className="text-xs text-muted-foreground mb-2">Select roles to target specific members</p>
-                    <div className="flex flex-wrap gap-2">
-                      {['COACH', 'CAPTAIN', 'MEMBER'].map((role) => (
-                        <div key={role} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`calendar-role-${role}`}
-                            checked={formData.targetRoles.includes(role)}
-                            onCheckedChange={(checked) => {
-                              const newRoles = checked
-                                ? [...formData.targetRoles, role]
-                                : formData.targetRoles.filter((r: string) => r !== role)
-                              setFormData({ ...formData, targetRoles: newRoles })
-                            }}
-                          />
-                          <Label htmlFor={`calendar-role-${role}`} className="cursor-pointer font-normal text-sm capitalize">
-                            {role.toLowerCase()}
-                          </Label>
-                        </div>
-                      ))}
+                <Collapsible>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium hover:underline">
+                    <ChevronDown className="h-4 w-4" />
+                    Advanced Targeting (Optional)
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-3 space-y-4 pl-6 border-l-2 border-muted">
+                    <div>
+                      <Label className="text-sm font-medium">Target by Role</Label>
+                      <p className="text-xs text-muted-foreground mb-2">Only notify members with these roles</p>
+                      <div className="flex flex-wrap gap-2">
+                        {['COACH', 'CAPTAIN', 'MEMBER'].map((role) => (
+                          <label key={role} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-background cursor-pointer hover:bg-accent transition-colors">
+                            <Checkbox
+                              id={`calendar-role-${role}`}
+                              checked={formData.targetRoles.includes(role)}
+                              onCheckedChange={(checked) => {
+                                const newRoles = checked
+                                  ? [...formData.targetRoles, role]
+                                  : formData.targetRoles.filter((r: string) => r !== role)
+                                setFormData({ ...formData, targetRoles: newRoles })
+                              }}
+                            />
+                            <span className="text-sm capitalize">{role.toLowerCase()}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <Label>Target by Event (Optional)</Label>
-                    <p className="text-xs text-muted-foreground mb-2">Select events to target participants</p>
-                    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                      {availableEvents.map((event) => (
-                        <div key={event.id} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`calendar-event-${event.id}`}
-                            checked={formData.targetEvents.includes(event.id)}
-                            onCheckedChange={(checked) => {
-                              const newEvents = checked
-                                ? [...formData.targetEvents, event.id]
-                                : formData.targetEvents.filter((id: string) => id !== event.id)
-                              setFormData({ ...formData, targetEvents: newEvents })
-                            }}
-                          />
-                          <Label htmlFor={`calendar-event-${event.id}`} className="cursor-pointer font-normal text-sm">
-                            {event.name}
-                          </Label>
-                        </div>
-                      ))}
+                    <div>
+                      <Label className="text-sm font-medium">Target by Event</Label>
+                      <p className="text-xs text-muted-foreground mb-2">Only notify participants of these events</p>
+                      <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 rounded-md border bg-background/50">
+                        {availableEvents.map((event) => (
+                          <label key={event.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border bg-background cursor-pointer hover:bg-accent transition-colors text-xs">
+                            <Checkbox
+                              id={`calendar-event-${event.id}`}
+                              checked={formData.targetEvents.includes(event.id)}
+                              onCheckedChange={(checked) => {
+                                const newEvents = checked
+                                  ? [...formData.targetEvents, event.id]
+                                  : formData.targetEvents.filter((id: string) => id !== event.id)
+                                setFormData({ ...formData, targetEvents: newEvents })
+                              }}
+                            />
+                            <span>{event.name}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </>
+                  </CollapsibleContent>
+                </Collapsible>
               )}
-              <div>
-                <Label htmlFor="files" className="flex items-center gap-2 cursor-pointer">
+
+              {/* File Attachments */}
+              <div className="space-y-2">
+                <Label htmlFor="files" className="flex items-center gap-2 cursor-pointer text-sm font-medium">
                   <Paperclip className="h-4 w-4" />
-                  Attach Files
+                  Attach Files <span className="text-muted-foreground font-normal text-xs">(optional)</span>
                 </Label>
                 <Input
                   id="files"
@@ -1838,26 +2022,26 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                       setSelectedFiles((prev) => [...prev, ...files])
                     }
                   }}
-                  className="mt-2"
+                  className="cursor-pointer"
                 />
                 {selectedFiles.length > 0 && (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-2 space-y-1.5 p-2 rounded-md border bg-muted/30">
                     {selectedFiles.map((file, index) => {
                       const key = file.name ? `${file.name}-${index}` : `file-${index}`
                       return (
-                        <div key={key} className="flex items-center gap-2 text-sm">
-                          <Paperclip className="h-3 w-3" />
-                          <span className="truncate">{file.name}</span>
+                        <div key={key} className="flex items-center gap-2 text-sm bg-background px-2 py-1.5 rounded">
+                          <Paperclip className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate flex-1">{file.name}</span>
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-6 p-0"
+                            className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
                             onClick={() =>
                               setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
                             }
                           >
-                            <X className="h-3 w-3" />
+                            <X className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       )
@@ -1866,7 +2050,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                 )}
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="gap-2">
               <Button type="button" variant="outline" onClick={() => {
                 setCreateOpen(false)
                 setFormData(getInitialFormData())

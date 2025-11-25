@@ -7,6 +7,63 @@ import { generateAttendanceCode, hashAttendanceCode } from '@/lib/attendance'
 import { z } from 'zod'
 import { CalendarScope } from '@prisma/client'
 
+// Helper function to generate recurring event occurrences
+function generateRecurrenceInstances(
+  startDate: Date,
+  endDate: Date,
+  recurrenceRule: string,
+  recurrenceInterval: number,
+  recurrenceDaysOfWeek: number[] | undefined,
+  recurrenceEndDate: Date | undefined,
+  recurrenceCount: number | undefined
+): Date[] {
+  const instances: Date[] = []
+  const eventDuration = endDate.getTime() - startDate.getTime()
+  let currentDate = new Date(startDate)
+  let count = 0
+  const maxIterations = recurrenceCount || 365 // Safety limit
+  const endLimit = recurrenceEndDate || new Date(startDate.getTime() + 365 * 24 * 60 * 60 * 1000) // 1 year max
+
+  while (count < maxIterations && currentDate <= endLimit) {
+    // For weekly recurrence, check if current day matches selected days
+    if (recurrenceRule === 'WEEKLY' && recurrenceDaysOfWeek && recurrenceDaysOfWeek.length > 0) {
+      const dayOfWeek = currentDate.getDay()
+      if (recurrenceDaysOfWeek.includes(dayOfWeek)) {
+        instances.push(new Date(currentDate))
+        count++
+      }
+      // Always increment by 1 day for weekly with specific days
+      currentDate.setDate(currentDate.getDate() + 1)
+    } else {
+      // Add current instance
+      instances.push(new Date(currentDate))
+      count++
+
+      // Move to next occurrence
+      switch (recurrenceRule) {
+        case 'DAILY':
+          currentDate.setDate(currentDate.getDate() + recurrenceInterval)
+          break
+        case 'WEEKLY':
+          currentDate.setDate(currentDate.getDate() + (7 * recurrenceInterval))
+          break
+        case 'MONTHLY':
+          currentDate.setMonth(currentDate.getMonth() + recurrenceInterval)
+          break
+        case 'YEARLY':
+          currentDate.setFullYear(currentDate.getFullYear() + recurrenceInterval)
+          break
+      }
+    }
+
+    // Stop if we've reached the count limit or end date
+    if (recurrenceCount && count >= recurrenceCount) break
+    if (recurrenceEndDate && currentDate > recurrenceEndDate) break
+  }
+
+  return instances
+}
+
 const createEventSchema = z.object({
   teamId: z.string(),
   scope: z.enum(['PERSONAL', 'SUBTEAM', 'TEAM']),
@@ -22,6 +79,12 @@ const createEventSchema = z.object({
   attendeeId: z.string().optional(),
   targetRoles: z.array(z.enum(['COACH', 'CAPTAIN', 'MEMBER'])).optional(),
   targetEvents: z.array(z.string()).optional(),
+  isRecurring: z.boolean().optional(),
+  recurrenceRule: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']).optional(),
+  recurrenceInterval: z.number().int().min(1).max(99).optional(),
+  recurrenceDaysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
+  recurrenceEndDate: z.string().datetime().optional(),
+  recurrenceCount: z.number().int().min(1).max(999).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -93,6 +156,24 @@ export async function POST(req: NextRequest) {
       eventData.attendeeId = validated.attendeeId
     }
 
+    // Handle recurring events
+    if (validated.isRecurring && validated.recurrenceRule) {
+      // Add recurrence fields to parent event
+      eventData.isRecurring = true
+      eventData.recurrenceRule = validated.recurrenceRule
+      eventData.recurrenceInterval = validated.recurrenceInterval || 1
+      
+      if (validated.recurrenceDaysOfWeek) {
+        eventData.recurrenceDaysOfWeek = validated.recurrenceDaysOfWeek
+      }
+      if (validated.recurrenceEndDate) {
+        eventData.recurrenceEndDate = new Date(validated.recurrenceEndDate)
+      }
+      if (validated.recurrenceCount) {
+        eventData.recurrenceCount = validated.recurrenceCount
+      }
+    }
+
     const event = await prisma.calendarEvent.create({
       data: eventData,
       include: {
@@ -147,6 +228,48 @@ export async function POST(req: NextRequest) {
         },
       },
     })
+
+    // Create child events for recurring events
+    if (validated.isRecurring && validated.recurrenceRule) {
+      const instances = generateRecurrenceInstances(
+        new Date(validated.startUTC),
+        new Date(validated.endUTC),
+        validated.recurrenceRule,
+        validated.recurrenceInterval || 1,
+        validated.recurrenceDaysOfWeek,
+        validated.recurrenceEndDate ? new Date(validated.recurrenceEndDate) : undefined,
+        validated.recurrenceCount
+      )
+
+      // Skip the first instance (that's the parent event)
+      const childInstances = instances.slice(1)
+      const eventDuration = new Date(validated.endUTC).getTime() - new Date(validated.startUTC).getTime()
+
+      // Create child events
+      if (childInstances.length > 0) {
+        await prisma.calendarEvent.createMany({
+          data: childInstances.map((instanceStart) => {
+            const instanceEnd = new Date(instanceStart.getTime() + eventDuration)
+            return {
+              teamId: validated.teamId,
+              creatorId: membership.id,
+              scope: validated.scope as CalendarScope,
+              title: validated.title,
+              description: validated.description,
+              startUTC: instanceStart,
+              endUTC: instanceEnd,
+              location: validated.location,
+              color: validated.color || '#3b82f6',
+              rsvpEnabled,
+              important: validated.important || false,
+              subteamId: validated.subteamId,
+              attendeeId: validated.attendeeId,
+              parentEventId: event.id,
+            }
+          }),
+        })
+      }
+    }
 
     // Automatically create attendance record for TEAM and SUBTEAM events
     if (validated.scope === 'TEAM' || validated.scope === 'SUBTEAM') {
