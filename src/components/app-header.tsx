@@ -25,7 +25,7 @@ interface AppHeaderProps {
 export function AppHeader({ user, showBackButton = false, backHref, title }: AppHeaderProps) {
   const router = useRouter()
   const [editUsernameOpen, setEditUsernameOpen] = useState(false)
-  const [currentUserName, setCurrentUserName] = useState(user.name)
+  const [currentUserName, setCurrentUserName] = useState(user.name ?? null)
 
   const handleSignOut = async () => {
     try {
