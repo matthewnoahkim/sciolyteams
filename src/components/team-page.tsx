@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Home, MessageSquare, Users, Calendar, Settings, ClipboardCheck, DollarSign, FileText, Pencil, Image, File, Menu } from 'lucide-react'
+import { ArrowLeft, Home, MessageSquare, Users, Calendar, Settings, ClipboardCheck, DollarSign, FileText, Pencil, Image, File, Menu, CheckSquare, BarChart3 } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { HomePageTab } from '@/components/tabs/homepage-tab'
 import { StreamTab } from '@/components/tabs/stream-tab'
@@ -16,6 +16,8 @@ import FinanceTab from '@/components/tabs/finance-tab'
 import TestsTab from '@/components/tabs/tests-tab'
 import { GalleryTab } from '@/components/tabs/gallery-tab'
 import { PaperworkTab } from '@/components/tabs/paperwork-tab'
+import { TodoTab } from '@/components/tabs/todo-tab'
+import { StatsTab } from '@/components/tabs/stats-tab'
 import {
   Dialog,
   DialogContent,
@@ -518,15 +520,43 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
         <File className="mr-3 h-4 w-4" />
         Paperwork
       </Button>
-      <div className="h-px bg-border my-2" />
       <Button
-        variant={activeTab === 'settings' ? 'default' : 'ghost'}
-        className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
-        onClick={() => handleTabChange('settings')}
+        variant={activeTab === 'todos' ? 'default' : 'ghost'}
+        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        onClick={() => handleTabChange('todos')}
       >
-        <Settings className="mr-3 h-4 w-4" />
-        Settings
+        <CheckSquare className="mr-3 h-4 w-4" />
+        To-Do List
+        {tabNotifications.todos && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+          </span>
+        )}
       </Button>
+      {isAdmin && (
+        <>
+          <div className="h-px bg-border my-2" />
+          <Button
+            variant={activeTab === 'stats' ? 'default' : 'ghost'}
+            className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
+            onClick={() => handleTabChange('stats')}
+          >
+            <BarChart3 className="mr-3 h-4 w-4" />
+            Stats & Analytics
+          </Button>
+          <Button
+            variant={activeTab === 'settings' ? 'default' : 'ghost'}
+            className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
+            onClick={() => handleTabChange('settings')}
+          >
+            <Settings className="mr-3 h-4 w-4" />
+            Settings
+          </Button>
+        </>
+      )}
     </>
   )
 
@@ -586,8 +616,8 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
 
           {/* Main Content Area */}
           <div className="flex-1 min-w-0 md:pl-0 pl-12">
-            {/* Team Info Header - Only visible on settings tab */}
-            {activeTab === 'settings' && (
+            {/* Team Info Header - Only visible on settings tab for admins */}
+            {activeTab === 'settings' && isAdmin && (
               <div className="mb-6 p-6 rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div>
@@ -696,7 +726,23 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               />
             )}
 
-            {activeTab === 'settings' && (
+            {activeTab === 'todos' && (
+              <TodoTab
+                teamId={team.id}
+                currentMembershipId={currentMembership.id}
+                user={user}
+                isAdmin={isAdmin}
+              />
+            )}
+
+            {activeTab === 'stats' && isAdmin && (
+              <StatsTab
+                teamId={team.id}
+                division={team.division}
+              />
+            )}
+
+            {activeTab === 'settings' && isAdmin && (
               <SettingsTab
                 team={team}
                 currentMembership={currentMembership}

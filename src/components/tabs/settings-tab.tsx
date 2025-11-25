@@ -317,7 +317,6 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
     setSavingBackground(true)
 
     try {
-      // Validate color format if needed
       const hexColorRegex = /^#[0-9A-Fa-f]{6}$/
       if (backgroundType === 'solid' && backgroundColor && !hexColorRegex.test(backgroundColor)) {
         toast({
@@ -373,7 +372,6 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
         description: 'The club background has been updated successfully',
       })
 
-      // Refresh the page to apply the new background
       router.refresh()
     } catch (error: any) {
       toast({
@@ -412,122 +410,120 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
         </CardContent>
       </Card>
 
-      {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Background Customization</CardTitle>
-            <CardDescription>
-              Customize the background that all members will see when viewing this club
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="background-type">Background Type</Label>
-              <Select value={backgroundType} onValueChange={setBackgroundType}>
-                <SelectTrigger id="background-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="grid">Grid Pattern (Default)</SelectItem>
-                  <SelectItem value="solid">Solid Color</SelectItem>
-                  <SelectItem value="gradient">Gradient</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Background Customization</CardTitle>
+          <CardDescription>
+            Customize the background that all members will see when viewing this club
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="background-type">Background Type</Label>
+            <Select value={backgroundType} onValueChange={setBackgroundType}>
+              <SelectTrigger id="background-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="grid">Grid Pattern (Default)</SelectItem>
+                <SelectItem value="solid">Solid Color</SelectItem>
+                <SelectItem value="gradient">Gradient</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            {backgroundType === 'solid' && (
+          {backgroundType === 'solid' && (
+            <div className="space-y-2">
+              <Label htmlFor="background-color">Background Color</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="background-color"
+                  type="color"
+                  value={backgroundColor}
+                  onChange={(e) => setBackgroundColor(e.target.value)}
+                  className="w-20 h-12 cursor-pointer"
+                />
+                <Input
+                  type="text"
+                  value={backgroundColor}
+                  onChange={(e) => setBackgroundColor(e.target.value)}
+                  placeholder="#f8fafc"
+                  className="flex-1"
+                />
+              </div>
+            </div>
+          )}
+
+          {backgroundType === 'gradient' && (
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="background-color">Background Color</Label>
+                <Label htmlFor="gradient-start">Start Color</Label>
                 <div className="flex items-center gap-3">
                   <Input
-                    id="background-color"
+                    id="gradient-start"
                     type="color"
-                    value={backgroundColor}
-                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    value={gradientStartColor}
+                    onChange={(e) => setGradientStartColor(e.target.value)}
                     className="w-20 h-12 cursor-pointer"
                   />
                   <Input
                     type="text"
-                    value={backgroundColor}
-                    onChange={(e) => setBackgroundColor(e.target.value)}
-                    placeholder="#f8fafc"
+                    value={gradientStartColor}
+                    onChange={(e) => setGradientStartColor(e.target.value)}
+                    placeholder="#e0e7ff"
                     className="flex-1"
                   />
                 </div>
               </div>
-            )}
-
-            {backgroundType === 'gradient' && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="gradient-start">Start Color</Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      id="gradient-start"
-                      type="color"
-                      value={gradientStartColor}
-                      onChange={(e) => setGradientStartColor(e.target.value)}
-                      className="w-20 h-12 cursor-pointer"
-                    />
-                    <Input
-                      type="text"
-                      value={gradientStartColor}
-                      onChange={(e) => setGradientStartColor(e.target.value)}
-                      placeholder="#e0e7ff"
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="gradient-end">End Color</Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      id="gradient-end"
-                      type="color"
-                      value={gradientEndColor}
-                      onChange={(e) => setGradientEndColor(e.target.value)}
-                      className="w-20 h-12 cursor-pointer"
-                    />
-                    <Input
-                      type="text"
-                      value={gradientEndColor}
-                      onChange={(e) => setGradientEndColor(e.target.value)}
-                      placeholder="#fce7f3"
-                      className="flex-1"
-                    />
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="gradient-end">End Color</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    id="gradient-end"
+                    type="color"
+                    value={gradientEndColor}
+                    onChange={(e) => setGradientEndColor(e.target.value)}
+                    className="w-20 h-12 cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={gradientEndColor}
+                    onChange={(e) => setGradientEndColor(e.target.value)}
+                    placeholder="#fce7f3"
+                    className="flex-1"
+                  />
                 </div>
               </div>
-            )}
-
-            {/* Preview */}
-            <div className="space-y-2">
-              <Label>Preview</Label>
-              <div
-                className="h-32 rounded-lg border-2 border-border overflow-hidden"
-                style={{
-                  background:
-                    backgroundType === 'grid'
-                      ? 'linear-gradient(to right, #80808012 1px, transparent 1px), linear-gradient(to bottom, #80808012 1px, transparent 1px)'
-                      : backgroundType === 'solid'
-                      ? backgroundColor
-                      : `linear-gradient(135deg, ${gradientStartColor} 0%, ${gradientEndColor} 100%)`,
-                  backgroundSize: backgroundType === 'grid' ? '24px 24px' : 'auto',
-                }}
-              />
             </div>
+          )}
 
-            <Button
-              onClick={handleSaveBackground}
-              disabled={savingBackground}
-              className="w-full"
-            >
-              <Save className="mr-2 h-4 w-4" />
-              {savingBackground ? 'Saving...' : 'Save Background'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          {/* Preview */}
+          <div className="space-y-2">
+            <Label>Preview</Label>
+            <div
+              className="h-32 rounded-lg border-2 border-border overflow-hidden"
+              style={{
+                background:
+                  backgroundType === 'grid'
+                    ? 'linear-gradient(to right, #80808012 1px, transparent 1px), linear-gradient(to bottom, #80808012 1px, transparent 1px)'
+                    : backgroundType === 'solid'
+                    ? backgroundColor
+                    : `linear-gradient(135deg, ${gradientStartColor} 0%, ${gradientEndColor} 100%)`,
+                backgroundSize: backgroundType === 'grid' ? '24px 24px' : 'auto',
+              }}
+            />
+          </div>
+
+          <Button
+            onClick={handleSaveBackground}
+            disabled={savingBackground}
+            className="w-full"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {savingBackground ? 'Saving...' : 'Save Background'}
+          </Button>
+        </CardContent>
+      </Card>
 
       {isAdmin && (
         <Card>

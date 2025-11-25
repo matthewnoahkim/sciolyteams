@@ -95,6 +95,7 @@ model Team {
   homePageWidgets           HomePageWidget[]
   albums                    Album[]
   forms                     Form[]
+  todos                     Todo[]
 
   @@index([createdById])
 }
@@ -117,6 +118,8 @@ model Membership {
   team                Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   rosterAssignments   RosterAssignment[]
+  todos               Todo[]
+  preferences         MemberPreferences?
 
   @@unique([userId, teamId])
   @@index([teamId])
@@ -1079,4 +1082,66 @@ enum SubmissionStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum TodoPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Todo {
+  id            String       @id @default(cuid())
+  teamId        String
+  membershipId  String       // The owner of this todo
+  title         String
+  description   String?
+  completed     Boolean      @default(false)
+  priority      TodoPriority @default(MEDIUM)
+  dueDate       DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  team          Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  membership    Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([membershipId])
+  @@index([completed])
+  @@index([priority])
+  @@index([dueDate])
+}
+
+model MemberPreferences {
+  id                String     @id @default(cuid())
+  membershipId      String     @unique
+  preferredEvents   String[]   // Array of event slugs
+  avoidEvents       String[]   // Events they want to avoid
+  adminNotes        String?    @db.Text
+  strengths         String?    @db.Text
+  weaknesses        String?    @db.Text
+  availability      String?    // JSON string for availability info
+  experienceLevel   String?    // BEGINNER, INTERMEDIATE, ADVANCED
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  membership        Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([membershipId])
+}
+
+model AIRosterGeneration {
+  id              String   @id @default(cuid())
+  teamId          String
+  subteamId       String?
+  prompt          String   @db.Text
+  response        String   @db.Text
+  generatedRoster Json     // The generated roster data
+  appliedAt       DateTime?
+  createdAt       DateTime @default(now())
+  createdById     String   // Membership ID of who generated it
+
+  @@index([teamId])
+  @@index([subteamId])
+  @@index([createdAt])
 }
