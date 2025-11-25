@@ -77,6 +77,10 @@ model Team {
   memberInviteCodeHash      String
   adminInviteCodeEncrypted  String
   memberInviteCodeEncrypted String
+  backgroundType            String            @default("grid") // "grid", "solid", "gradient"
+  backgroundColor           String?           // Hex color for solid background
+  gradientStartColor        String?          // First color for gradient
+  gradientEndColor          String?          // Second color for gradient
   createdAt                 DateTime          @default(now())
   updatedAt                 DateTime          @updatedAt
   announcements             Announcement[]

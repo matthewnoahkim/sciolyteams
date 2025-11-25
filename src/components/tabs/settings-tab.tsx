@@ -17,7 +17,14 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Copy, RefreshCw, Eye, EyeOff, Trash2, UserX, X } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Copy, RefreshCw, Eye, EyeOff, Trash2, UserX, X, Save } from 'lucide-react'
 
 interface SettingsTabProps {
   team: any
@@ -44,6 +51,13 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null)
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false)
   const [codeTypeToRegenerate, setCodeTypeToRegenerate] = useState<'admin' | 'member' | null>(null)
+  
+  // Background customization state
+  const [backgroundType, setBackgroundType] = useState<string>(team.backgroundType || 'grid')
+  const [backgroundColor, setBackgroundColor] = useState<string>(team.backgroundColor || '#f8fafc')
+  const [gradientStartColor, setGradientStartColor] = useState<string>(team.gradientStartColor || '#e0e7ff')
+  const [gradientEndColor, setGradientEndColor] = useState<string>(team.gradientEndColor || '#fce7f3')
+  const [savingBackground, setSavingBackground] = useState(false)
 
   const openRemoveMemberDialog = (membershipId: string, memberName: string) => {
     setMemberToRemove({ id: membershipId, name: memberName })
@@ -279,6 +293,79 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
     }
   }
 
+  const handleSaveBackground = async () => {
+    setSavingBackground(true)
+
+    try {
+      // Validate color format if needed
+      const hexColorRegex = /^#[0-9A-Fa-f]{6}$/
+      if (backgroundType === 'solid' && backgroundColor && !hexColorRegex.test(backgroundColor)) {
+        toast({
+          title: 'Invalid color',
+          description: 'Please enter a valid hex color (e.g., #ffffff)',
+          variant: 'destructive',
+        })
+        setSavingBackground(false)
+        return
+      }
+      if (backgroundType === 'gradient') {
+        if (gradientStartColor && !hexColorRegex.test(gradientStartColor)) {
+          toast({
+            title: 'Invalid start color',
+            description: 'Please enter a valid hex color (e.g., #ffffff)',
+            variant: 'destructive',
+          })
+          setSavingBackground(false)
+          return
+        }
+        if (gradientEndColor && !hexColorRegex.test(gradientEndColor)) {
+          toast({
+            title: 'Invalid end color',
+            description: 'Please enter a valid hex color (e.g., #ffffff)',
+            variant: 'destructive',
+          })
+          setSavingBackground(false)
+          return
+        }
+      }
+
+      const response = await fetch(`/api/teams/${team.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          backgroundType,
+          backgroundColor: backgroundType === 'solid' && backgroundColor ? backgroundColor : null,
+          gradientStartColor: backgroundType === 'gradient' && gradientStartColor ? gradientStartColor : null,
+          gradientEndColor: backgroundType === 'gradient' && gradientEndColor ? gradientEndColor : null,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        const errorMessage = data.details 
+          ? `${data.error}: ${JSON.stringify(data.details)}`
+          : data.message || data.error || 'Failed to update background'
+        throw new Error(errorMessage)
+      }
+
+      toast({
+        title: 'Background updated',
+        description: 'The club background has been updated successfully',
+      })
+
+      // Refresh the page to apply the new background
+      router.refresh()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update background',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingBackground(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -304,6 +391,123 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
           </div>
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Background Customization</CardTitle>
+            <CardDescription>
+              Customize the background that all members will see when viewing this club
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="background-type">Background Type</Label>
+              <Select value={backgroundType} onValueChange={setBackgroundType}>
+                <SelectTrigger id="background-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="grid">Grid Pattern (Default)</SelectItem>
+                  <SelectItem value="solid">Solid Color</SelectItem>
+                  <SelectItem value="gradient">Gradient</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {backgroundType === 'solid' && (
+              <div className="space-y-2">
+                <Label htmlFor="background-color">Background Color</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    id="background-color"
+                    type="color"
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    className="w-20 h-12 cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    placeholder="#f8fafc"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+            )}
+
+            {backgroundType === 'gradient' && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gradient-start">Start Color</Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="gradient-start"
+                      type="color"
+                      value={gradientStartColor}
+                      onChange={(e) => setGradientStartColor(e.target.value)}
+                      className="w-20 h-12 cursor-pointer"
+                    />
+                    <Input
+                      type="text"
+                      value={gradientStartColor}
+                      onChange={(e) => setGradientStartColor(e.target.value)}
+                      placeholder="#e0e7ff"
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gradient-end">End Color</Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="gradient-end"
+                      type="color"
+                      value={gradientEndColor}
+                      onChange={(e) => setGradientEndColor(e.target.value)}
+                      className="w-20 h-12 cursor-pointer"
+                    />
+                    <Input
+                      type="text"
+                      value={gradientEndColor}
+                      onChange={(e) => setGradientEndColor(e.target.value)}
+                      placeholder="#fce7f3"
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Preview */}
+            <div className="space-y-2">
+              <Label>Preview</Label>
+              <div
+                className="h-32 rounded-lg border-2 border-border overflow-hidden"
+                style={{
+                  background:
+                    backgroundType === 'grid'
+                      ? 'linear-gradient(to right, #80808012 1px, transparent 1px), linear-gradient(to bottom, #80808012 1px, transparent 1px)'
+                      : backgroundType === 'solid'
+                      ? backgroundColor
+                      : `linear-gradient(135deg, ${gradientStartColor} 0%, ${gradientEndColor} 100%)`,
+                  backgroundSize: backgroundType === 'grid' ? '24px 24px' : 'auto',
+                }}
+              />
+            </div>
+
+            <Button
+              onClick={handleSaveBackground}
+              disabled={savingBackground}
+              className="w-full"
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {savingBackground ? 'Saving...' : 'Save Background'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {isAdmin && (
         <Card>

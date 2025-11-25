@@ -6,7 +6,11 @@ import { requireMember, requireAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const updateTeamSchema = z.object({
-  name: z.string().min(1).max(100),
+  name: z.string().min(1).max(100).optional(),
+  backgroundType: z.enum(['grid', 'solid', 'gradient']).optional(),
+  backgroundColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(),
+  gradientStartColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(),
+  gradientEndColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(),
 })
 
 export async function GET(
@@ -89,7 +93,7 @@ export async function PATCH(
     await requireAdmin(session.user.id, params.teamId)
 
     const body = await req.json()
-    const { name } = updateTeamSchema.parse(body)
+    const validatedData = updateTeamSchema.parse(body)
 
     // Verify team exists
     const existingTeam = await prisma.team.findUnique({
@@ -100,22 +104,47 @@ export async function PATCH(
       return NextResponse.json({ error: 'Team not found' }, { status: 404 })
     }
 
-    // Update team name
+    // Build update data object
+    const updateData: any = {}
+    if (validatedData.name !== undefined) {
+      updateData.name = validatedData.name
+    }
+    if (validatedData.backgroundType !== undefined) {
+      updateData.backgroundType = validatedData.backgroundType
+    }
+    if (validatedData.backgroundColor !== undefined) {
+      updateData.backgroundColor = validatedData.backgroundColor
+    }
+    if (validatedData.gradientStartColor !== undefined) {
+      updateData.gradientStartColor = validatedData.gradientStartColor
+    }
+    if (validatedData.gradientEndColor !== undefined) {
+      updateData.gradientEndColor = validatedData.gradientEndColor
+    }
+
+    // Update team
     const updatedTeam = await prisma.team.update({
       where: { id: params.teamId },
-      data: { name },
+      data: updateData,
     })
 
     return NextResponse.json({ team: updatedTeam })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
+      console.error('Validation error:', error.errors)
+      return NextResponse.json({ 
+        error: 'Invalid input', 
+        details: error.errors 
+      }, { status: 400 })
     }
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
     console.error('Update team error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 
