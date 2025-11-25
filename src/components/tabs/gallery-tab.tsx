@@ -255,30 +255,37 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">Gallery</h2>
-          <p className="text-gray-600 dark:text-gray-400">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex-1">
+          <h2 className="text-xl sm:text-2xl font-bold">Gallery</h2>
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
             Photos and videos from your team
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <Button
             variant="outline"
             onClick={() => setCreateAlbumDialogOpen(true)}
+            size="sm"
+            className="flex-1 sm:flex-none"
           >
-            <FolderPlus className="h-4 w-4 mr-2" />
-            New Album
+            <FolderPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+            <span className="hidden sm:inline">New Album</span>
           </Button>
-          <Button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+          <Button 
+            onClick={() => fileInputRef.current?.click()} 
+            disabled={uploading}
+            size="sm"
+            className="flex-1 sm:flex-none"
+          >
             {uploading ? (
-              <ButtonLoading className="mr-2" />
+              <ButtonLoading className="sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
             ) : (
-              <Upload className="h-4 w-4 mr-2" />
+              <Upload className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
             )}
-            {uploading ? 'Uploading...' : 'Upload'}
+            <span className="hidden sm:inline">{uploading ? 'Uploading...' : 'Upload'}</span>
           </Button>
           <input
             ref={fileInputRef}
@@ -331,12 +338,13 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
       )}
 
       {/* Filters */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex gap-2 flex-1 sm:flex-none">
           <Button
             variant={filterType === 'all' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilterType('all')}
+            className="flex-1 sm:flex-none text-xs sm:text-sm px-3"
           >
             All
           </Button>
@@ -344,20 +352,22 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
             variant={filterType === 'images' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilterType('images')}
+            className="flex-1 sm:flex-none text-xs sm:text-sm"
           >
-            <ImageIcon className="h-4 w-4 mr-2" />
-            Images
+            <ImageIcon className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Images</span>
           </Button>
           <Button
             variant={filterType === 'videos' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilterType('videos')}
+            className="flex-1 sm:flex-none text-xs sm:text-sm"
           >
-            <Video className="h-4 w-4 mr-2" />
-            Videos
+            <Video className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Videos</span>
           </Button>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <Button
             variant={viewMode === 'grid' ? 'default' : 'outline'}
             size="sm"

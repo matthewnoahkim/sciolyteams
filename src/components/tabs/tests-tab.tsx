@@ -15,6 +15,7 @@ import { PageLoading } from '@/components/ui/loading-spinner'
 interface TestsTabProps {
   teamId: string
   isAdmin: boolean
+  initialTests?: any[]
 }
 
 interface Test {
@@ -43,11 +44,11 @@ interface UserAttemptInfo {
   hasReachedLimit: boolean
 }
 
-export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
+export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
-  const [tests, setTests] = useState<Test[]>([])
-  const [loading, setLoading] = useState(true)
+  const [tests, setTests] = useState<Test[]>(initialTests || [])
+  const [loading, setLoading] = useState(!initialTests)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'scheduled' | 'opened' | 'completed'>('all')
   const [userAttempts, setUserAttempts] = useState<Map<string, UserAttemptInfo>>(new Map())
@@ -119,8 +120,11 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
   }, [teamId, isAdmin, toast])
 
   useEffect(() => {
-    fetchTests()
-  }, [fetchTests])
+    // Skip initial fetch if we already have data from server
+    if (!initialTests) {
+      fetchTests()
+    }
+  }, [fetchTests, initialTests])
 
   const handleDeleteClick = (test: Test) => {
     setTestToDelete(test)
@@ -478,24 +482,24 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
       {/* Warning Banner - Admin Only */}
       {isAdmin && !warningDismissed && (
         <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
-          <CardContent className="pt-6">
-            <div className="flex gap-3">
-              <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 space-y-1">
-                <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+          <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
+            <div className="flex gap-2 sm:gap-3">
+              <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-1.5 sm:space-y-1">
+                <p className="text-xs sm:text-sm font-medium text-orange-900 dark:text-orange-100">
                   Browser Lockdown Limitations
                 </p>
-                <p className="text-sm text-orange-800 dark:text-orange-200">
+                <p className="text-xs sm:text-sm text-orange-800 dark:text-orange-200 leading-relaxed">
                   The test lockdown is <strong>best-effort</strong> and cannot prevent all cheating methods 
                   (secondary devices, physical notes, screen sharing). For high-stakes tests, combine with 
                   live proctoring or supervised testing environments.
                 </p>
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-2 mt-2 sm:mt-2">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDismissWarning(false)}
-                    className="h-7 text-xs text-orange-800 dark:text-orange-200 hover:text-orange-900 dark:hover:text-orange-100"
+                    className="h-7 sm:h-7 text-[10px] sm:text-xs text-orange-800 dark:text-orange-200 hover:text-orange-900 dark:hover:text-orange-100 px-2 sm:px-3"
                   >
                     Dismiss
                   </Button>
@@ -503,7 +507,7 @@ export default function TestsTab({ teamId, isAdmin }: TestsTabProps) {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDismissWarning(true)}
-                    className="h-7 text-xs text-orange-800 dark:text-orange-200 hover:text-orange-900 dark:hover:text-orange-100"
+                    className="h-7 sm:h-7 text-[10px] sm:text-xs text-orange-800 dark:text-orange-200 hover:text-orange-900 dark:hover:text-orange-100 px-2 sm:px-3"
                   >
                     Don&apos;t show again
                   </Button>

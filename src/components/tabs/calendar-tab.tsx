@@ -31,16 +31,17 @@ interface CalendarTabProps {
     email: string
     image?: string | null
   }
+  initialEvents?: any[]
 }
 
 type ViewMode = 'month' | 'week'
 
-export function CalendarTab({ teamId, currentMembership, isAdmin, user }: CalendarTabProps) {
+export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialEvents }: CalendarTabProps) {
   const { toast } = useToast()
-  const [events, setEvents] = useState<any[]>([])
+  const [events, setEvents] = useState<any[]>(initialEvents || [])
   const [subteams, setSubteams] = useState<any[]>([])
   const [availableEvents, setAvailableEvents] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(!initialEvents)
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('month')
@@ -189,10 +190,13 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user }: Calend
   }, [teamId])
 
   useEffect(() => {
-    fetchEvents()
+    // Skip initial fetch if we already have data from server
+    if (!initialEvents) {
+      fetchEvents()
+    }
     fetchSubteams()
     fetchAvailableEvents()
-  }, [fetchEvents, fetchSubteams, fetchAvailableEvents])
+  }, [fetchEvents, fetchSubteams, fetchAvailableEvents, initialEvents])
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()

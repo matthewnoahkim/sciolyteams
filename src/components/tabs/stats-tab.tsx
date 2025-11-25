@@ -390,12 +390,12 @@ export function StatsTab({ teamId, division }: StatsTabProps) {
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-4">
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
-              <Label className="text-sm">Subteam:</Label>
+              <Label className="text-xs sm:text-sm whitespace-nowrap">Subteam:</Label>
               <Select value={selectedSubteam} onValueChange={setSelectedSubteam}>
-                <SelectTrigger className="w-[150px]">
+                <SelectTrigger className="w-full sm:w-[180px] h-9 text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -407,9 +407,9 @@ export function StatsTab({ teamId, division }: StatsTabProps) {
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Label className="text-sm">Sort by:</Label>
+              <Label className="text-xs sm:text-sm whitespace-nowrap">Sort by:</Label>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[150px]">
+                <SelectTrigger className="flex-1 sm:w-[180px] h-9 text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -423,6 +423,7 @@ export function StatsTab({ teamId, division }: StatsTabProps) {
                 variant="ghost" 
                 size="sm"
                 onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}
+                className="h-9 w-9 p-0 flex-shrink-0"
               >
                 {sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>

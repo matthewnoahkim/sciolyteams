@@ -42,11 +42,12 @@ interface AttendanceTabProps {
     email: string
     image?: string | null
   }
+  initialAttendances?: any[]
 }
 
-export function AttendanceTab({ teamId, isAdmin, user }: AttendanceTabProps) {
+export function AttendanceTab({ teamId, isAdmin, user, initialAttendances }: AttendanceTabProps) {
   const { toast } = useToast()
-  const [attendances, setAttendances] = useState<any[]>([])
+  const [attendances, setAttendances] = useState<any[]>(initialAttendances || [])
   const [loading, setLoading] = useState(false)
   const [selectedAttendance, setSelectedAttendance] = useState<any>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -88,8 +89,11 @@ export function AttendanceTab({ teamId, isAdmin, user }: AttendanceTabProps) {
   }, [teamId, toast])
 
   useEffect(() => {
-    fetchAttendances()
-  }, [fetchAttendances])
+    // Skip initial fetch if we already have data from server
+    if (!initialAttendances) {
+      fetchAttendances()
+    }
+  }, [fetchAttendances, initialAttendances])
 
   const fetchRoster = async (attendanceId: string) => {
     if (!isAdmin) return

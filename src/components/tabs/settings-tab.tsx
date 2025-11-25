@@ -589,95 +589,107 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
       {isAdmin && (
         <>
           <Card>
-            <CardHeader>
-              <CardTitle>Admin Invite Code</CardTitle>
-              <CardDescription>
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-lg sm:text-xl">Admin Invite Code</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
                 Share this code with users who should have admin permissions
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <code className="flex-1 rounded bg-muted px-4 py-2 font-mono text-sm">
+            <CardContent className="space-y-3 sm:space-y-4">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
+                <code className="flex-1 rounded bg-muted px-3 sm:px-4 py-2.5 sm:py-2 font-mono text-xs sm:text-sm break-all">
                   {showAdminCode ? adminCode : '••••••••••••'}
                 </code>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleShowAdminCode}
-                >
-                  {showAdminCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleCopy(adminCode, 'Admin')}
-                >
-                  <Copy className="h-4 w-4" />
-                  <span className="sr-only">Copy admin code</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleCopy(adminCode, 'Admin', 'link')}
-                >
-                  <LinkIcon className="h-4 w-4" />
-                  <span className="sr-only">Copy admin invite link</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleRegenerateClick('admin')}
-                  disabled={loading}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleShowAdminCode}
+                    className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+                  >
+                    {showAdminCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleCopy(adminCode, 'Admin')}
+                    className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                    <span className="sr-only">Copy admin code</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleCopy(adminCode, 'Admin', 'link')}
+                    className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+                  >
+                    <LinkIcon className="h-4 w-4" />
+                    <span className="sr-only">Copy admin invite link</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleRegenerateClick('admin')}
+                    disabled={loading}
+                    className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Member Invite Code</CardTitle>
-              <CardDescription>
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-lg sm:text-xl">Member Invite Code</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
                 Share this code with users who should join as regular members
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <code className="flex-1 rounded bg-muted px-4 py-2 font-mono text-sm">
+            <CardContent className="space-y-3 sm:space-y-4">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
+                <code className="flex-1 rounded bg-muted px-3 sm:px-4 py-2.5 sm:py-2 font-mono text-xs sm:text-sm break-all">
                   {showMemberCode ? memberCode : '••••••••••••'}
                 </code>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleShowMemberCode}
-                >
-                  {showMemberCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleCopy(memberCode, 'Member')}
-                >
-                  <Copy className="h-4 w-4" />
-                  <span className="sr-only">Copy member code</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleCopy(memberCode, 'Member', 'link')}
-                >
-                  <LinkIcon className="h-4 w-4" />
-                  <span className="sr-only">Copy member invite link</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleRegenerateClick('member')}
-                  disabled={loading}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleShowMemberCode}
+                    className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+                  >
+                    {showMemberCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleCopy(memberCode, 'Member')}
+                    className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                    <span className="sr-only">Copy member code</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleCopy(memberCode, 'Member', 'link')}
+                    className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+                  >
+                    <LinkIcon className="h-4 w-4" />
+                    <span className="sr-only">Copy member invite link</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleRegenerateClick('member')}
+                    disabled={loading}
+                    className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

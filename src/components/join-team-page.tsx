@@ -81,31 +81,31 @@ export function JoinTeamPage({ initialCode = '', autoJoin = false }: JoinTeamPag
   }, [autoJoin, handleJoin, initialCode])
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100 to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 py-12 px-4">
-      <div className="mx-auto max-w-xl space-y-8">
-        <div className="text-center space-y-3">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-300">
-            <ShieldCheck className="h-6 w-6" />
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100 to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 py-8 sm:py-10 md:py-12 px-3 sm:px-4">
+      <div className="mx-auto max-w-xl space-y-6 sm:space-y-8">
+        <div className="text-center space-y-2.5 sm:space-y-3">
+          <div className="mx-auto flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-300">
+            <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight">Join your club</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight px-2">Join your club</h1>
+          <p className="text-muted-foreground text-sm sm:text-base px-2">
             Enter the invite code that was shared with you or use the invite link you received.
           </p>
         </div>
 
         <Card className="shadow-xl">
-          <CardHeader>
-            <CardTitle>Enter invite code</CardTitle>
-            <CardDescription>Codes can also be shared as invite links and your club admins can regenerate them at any time.</CardDescription>
+          <CardHeader className="px-4 sm:px-6 pt-5 sm:pt-6">
+            <CardTitle className="text-lg sm:text-xl">Enter invite code</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Codes can also be shared as invite links and your club admins can regenerate them at any time.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-5 sm:space-y-6 px-4 sm:px-6">
             {initialCode && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50/60 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-100">
+              <div className="rounded-lg border border-blue-200 bg-blue-50/60 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-blue-900 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-100">
                 Invite link detected. We&apos;ve pre-filled the code below and will automatically join once you&apos;re signed in.
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="inviteCode">Invite Code</Label>
+              <Label htmlFor="inviteCode" className="text-sm">Invite Code</Label>
               <Input
                 id="inviteCode"
                 placeholder="Enter 12-character code"
@@ -116,23 +116,24 @@ export function JoinTeamPage({ initialCode = '', autoJoin = false }: JoinTeamPag
                 spellCheck={false}
                 maxLength={24}
                 required
+                className="text-sm sm:text-base"
               />
             </div>
 
             {error && (
-              <p className="text-sm text-destructive" role="alert">
+              <p className="text-xs sm:text-sm text-destructive" role="alert">
                 {error}
               </p>
             )}
 
             <Button
-              className="w-full"
+              className="w-full text-sm sm:text-base"
               onClick={() => handleJoin()}
               disabled={joining || !code.trim()}
             >
               {joining ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
                   Joining...
                 </>
               ) : (
@@ -143,7 +144,7 @@ export function JoinTeamPage({ initialCode = '', autoJoin = false }: JoinTeamPag
             <Button
               type="button"
               variant="ghost"
-              className="w-full"
+              className="w-full text-sm sm:text-base"
               onClick={() => router.push('/dashboard')}
               disabled={joining}
             >
@@ -152,7 +153,7 @@ export function JoinTeamPage({ initialCode = '', autoJoin = false }: JoinTeamPag
           </CardContent>
         </Card>
 
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-xs sm:text-sm text-muted-foreground px-2">
           Need a code? Ask your coach or an admin for the latest invite link from the club settings page.
           {' '}
           <Link href="/privacy" className="text-blue-600 hover:underline dark:text-blue-300">

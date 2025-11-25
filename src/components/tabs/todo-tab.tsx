@@ -422,14 +422,14 @@ export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabP
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-4">
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4">
             {isAdmin && (
-              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'my' | 'all')} className="w-auto">
-                <TabsList>
-                  <TabsTrigger value="my">My Tasks</TabsTrigger>
-                  <TabsTrigger value="all">
-                    <Users className="mr-2 h-4 w-4" />
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'my' | 'all')} className="w-full sm:w-auto">
+                <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:inline-grid">
+                  <TabsTrigger value="my" className="text-xs sm:text-sm">My Tasks</TabsTrigger>
+                  <TabsTrigger value="all" className="text-xs sm:text-sm">
+                    <Users className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     All Tasks
                   </TabsTrigger>
                 </TabsList>
@@ -438,7 +438,7 @@ export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabP
 
             {viewMode === 'all' && isAdmin && (
               <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px] h-9 text-xs sm:text-sm">
                   <SelectValue placeholder="Filter by member" />
                 </SelectTrigger>
                 <SelectContent>
@@ -453,8 +453,8 @@ export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabP
             )}
 
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-[150px]">
-                <Filter className="mr-2 h-4 w-4" />
+              <SelectTrigger className="w-full sm:w-[180px] h-9 text-xs sm:text-sm">
+                <Filter className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <SelectValue placeholder="Priority" />
               </SelectTrigger>
               <SelectContent>
@@ -466,13 +466,14 @@ export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabP
               </SelectContent>
             </Select>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 py-1">
               <Checkbox
                 id="show-completed"
                 checked={showCompleted}
                 onCheckedChange={(checked) => setShowCompleted(checked as boolean)}
+                className="h-5 w-5 sm:h-4 sm:w-4"
               />
-              <Label htmlFor="show-completed" className="text-sm cursor-pointer">
+              <Label htmlFor="show-completed" className="text-xs sm:text-sm cursor-pointer">
                 Show completed
               </Label>
             </div>

@@ -216,32 +216,32 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
 
       <AppHeader user={user} />
 
-      <main className="relative z-10 container mx-auto px-4 py-8 md:py-12">
-        <div className="mb-12">
-          <h1 className="mb-4 text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white leading-tight">
+      <main className="relative z-10 container mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12">
+        <div className="mb-8 sm:mb-10 md:mb-12">
+          <h1 className="mb-3 sm:mb-4 text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white leading-tight">
             Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Clubs</span>
           </h1>
-          <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 leading-relaxed">
+          <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 leading-relaxed">
             Manage your teams, events, and schedules
           </p>
         </div>
 
         {memberships.length === 0 ? (
           <Card className="border-dashed border-2 border-gray-200/50 dark:border-gray-800/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-            <CardHeader className="text-center py-12">
-              <div className="inline-flex p-4 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 mx-auto mb-4 shadow-lg">
-                <Users className="h-12 w-12 text-white" />
+            <CardHeader className="text-center py-8 sm:py-10 md:py-12 px-4">
+              <div className="inline-flex p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 mx-auto mb-3 sm:mb-4 shadow-lg">
+                <Users className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 text-white" />
               </div>
-              <CardTitle className="text-3xl md:text-4xl mb-3 text-gray-900 dark:text-white">No Clubs Yet</CardTitle>
-              <CardDescription className="text-base md:text-lg text-gray-600 dark:text-gray-300">
+              <CardTitle className="text-2xl sm:text-3xl md:text-4xl mb-2 sm:mb-3 text-gray-900 dark:text-white">No Clubs Yet</CardTitle>
+              <CardDescription className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-300 px-2">
                 Create your first club or join an existing one to get started
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col sm:flex-row justify-center gap-4 pb-12">
+            <CardContent className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 pb-8 sm:pb-10 md:pb-12 px-4">
               <Button 
                 onClick={() => setJoinOpen(true)} 
                 size="lg" 
-                className="text-base px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                className="text-sm sm:text-base px-6 sm:px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto"
               >
                 Join Club
               </Button>
@@ -249,20 +249,20 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
                 variant="outline" 
                 onClick={() => setCreateOpen(true)} 
                 size="lg" 
-                className="text-base px-8 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300"
+                className="text-sm sm:text-base px-6 sm:px-8 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 w-full sm:w-auto"
               >
-                <Plus className="mr-2 h-5 w-5" />
+                <Plus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                 Create Club
               </Button>
             </CardContent>
           </Card>
         ) : (
           <>
-            <div className="mb-8 flex flex-col sm:flex-row justify-end gap-4">
+            <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row justify-end gap-3 sm:gap-4">
               <Button 
                 onClick={() => setJoinOpen(true)} 
                 size="lg" 
-                className="text-base px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                className="text-sm sm:text-base px-6 sm:px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto"
               >
                 Join Club
               </Button>
@@ -270,14 +270,14 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
                 variant="outline" 
                 onClick={() => setCreateOpen(true)} 
                 size="lg" 
-                className="text-base px-8 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300"
+                className="text-sm sm:text-base px-6 sm:px-8 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 w-full sm:w-auto"
               >
-                <Plus className="mr-2 h-5 w-5" />
+                <Plus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                 Create Club
               </Button>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:gap-5 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {memberships.map((membership) => (
                 <Card
                   key={membership.id}
@@ -299,36 +299,36 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
                     </div>
                   )}
                   
-                  <CardHeader className="relative">
+                  <CardHeader className="relative pb-3 sm:pb-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-xl md:text-2xl mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-gray-900 dark:text-white">
+                        <CardTitle className="text-lg sm:text-xl md:text-2xl mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-gray-900 dark:text-white break-words">
                           {membership.team.name}
                         </CardTitle>
-                        <CardDescription className="text-base flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-semibold">
+                        <CardDescription className="text-sm sm:text-base flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-semibold">
                             Division {membership.team.division}
                           </span>
                         </CardDescription>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="relative space-y-3">
+                  <CardContent className="relative space-y-2.5 sm:space-y-3 pt-0">
                     {membership.subteam && (
-                      <div className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        <span>Team: <span className="font-semibold text-gray-900 dark:text-white">{membership.subteam.name}</span></span>
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                        <span className="break-words">Team: <span className="font-semibold text-gray-900 dark:text-white">{membership.subteam.name}</span></span>
                       </div>
                     )}
                     {membership.rosterAssignments && membership.rosterAssignments.length > 0 && (
-                      <div className="text-sm text-gray-600 dark:text-gray-300">
-                        <p className="font-medium mb-2 text-gray-900 dark:text-white">{membership.rosterAssignments.length} Event{membership.rosterAssignments.length !== 1 ? 's' : ''}:</p>
-                        <div className="flex flex-wrap gap-1.5">
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+                        <p className="font-medium mb-1.5 sm:mb-2 text-gray-900 dark:text-white">{membership.rosterAssignments.length} Event{membership.rosterAssignments.length !== 1 ? 's' : ''}:</p>
+                        <div className="flex flex-wrap gap-1 sm:gap-1.5">
                           {membership.rosterAssignments.map((assignment: any) => (
                             <Badge 
                               key={assignment.id} 
                               variant="secondary" 
-                              className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                              className="text-[9px] sm:text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-1.5 py-0.5"
                             >
                               {assignment.event.name}
                             </Badge>
@@ -336,19 +336,19 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
                         </div>
                       </div>
                     )}
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
                       {membership.role === 'ADMIN' && (
-                        <Badge variant="outline" className="text-xs uppercase font-semibold border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300">
+                        <Badge variant="outline" className="text-[10px] sm:text-xs uppercase font-semibold border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300 px-2 py-0.5">
                           Admin
                         </Badge>
                       )}
                       {Array.isArray(membership.roles) && membership.roles.includes('COACH') && (
-                        <Badge variant="outline" className="text-xs uppercase font-semibold border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300">
+                        <Badge variant="outline" className="text-[10px] sm:text-xs uppercase font-semibold border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 px-2 py-0.5">
                           Coach
                         </Badge>
                       )}
                       {Array.isArray(membership.roles) && membership.roles.includes('CAPTAIN') && (
-                        <Badge variant="outline" className="text-xs uppercase font-semibold border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
+                        <Badge variant="outline" className="text-[10px] sm:text-xs uppercase font-semibold border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 px-2 py-0.5">
                           Captain
                         </Badge>
                       )}

@@ -7,11 +7,21 @@ const nextConfig = {
         hostname: 'lh3.googleusercontent.com',
       },
     ],
+    formats: ['image/avif', 'image/webp'], // Use modern formats for better compression
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   // Production optimizations
   output: process.env.BUILD_STANDALONE === 'true' ? 'standalone' : undefined,
   poweredByHeader: false,
   compress: true,
+  // Enable SWC minification for faster builds
+  swcMinify: true,
+  // Optimize build performance
+  experimental: {
+    optimizeCss: true, // Enable CSS optimization
+    scrollRestoration: true, // Better scroll behavior on navigation
+  },
   // Webpack configuration for native modules
   webpack: (config, { isServer }) => {
     if (isServer) {

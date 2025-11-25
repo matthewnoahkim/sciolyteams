@@ -4,7 +4,11 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { TeamPage } from '@/components/team-page'
 import { Suspense } from 'react'
-import { Skeleton } from '@/components/ui/skeleton'
+import { PageLoading } from '@/components/ui/loading-spinner'
+
+// Enable ISR (Incremental Static Regeneration) for faster page loads
+// Revalidate every 60 seconds in production
+export const revalidate = 60
 
 export default async function TeamDetailPage({ params }: { params: { clubId: string } }) {
   const session = await getServerSession(authOptions)
@@ -76,29 +80,239 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
     redirect('/dashboard')
   }
 
+  // Fetch all tab data in parallel for instant loading
+  const [attendances, expenses, purchaseRequests, eventBudgets, calendarEvents, tests] = await Promise.all([
+    // Attendance data
+    prisma.attendance.findMany({
+      where: { calendarEvent: { teamId: params.clubId } },
+      include: {
+        calendarEvent: {
+          include: {
+            subteam: true,
+          },
+        },
+        checkIns: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            checkIns: true,
+          },
+        },
+      },
+      orderBy: {
+        calendarEvent: {
+          startUTC: 'desc',
+        },
+      },
+    }),
+    // Expenses data
+    prisma.expense.findMany({
+      where: { teamId: params.clubId },
+      include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        subteam: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        purchaseRequest: {
+          select: {
+            id: true,
+            requesterId: true,
+            description: true,
+          },
+        },
+      },
+      orderBy: {
+        date: 'desc',
+      },
+    }),
+    // Purchase requests data
+    prisma.purchaseRequest.findMany({
+      where: { teamId: params.clubId },
+      include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        subteam: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        expense: {
+          select: {
+            id: true,
+            amount: true,
+            date: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    }),
+    // Event budgets data
+    prisma.eventBudget.findMany({
+      where: { teamId: params.clubId },
+      include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            division: true,
+          },
+        },
+        subteam: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    }),
+    // Calendar events data
+    prisma.calendarEvent.findMany({
+      where: { teamId: params.clubId },
+      include: {
+        creator: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
+        subteam: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        rsvps: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        startUTC: 'desc',
+      },
+    }),
+    // Tests data
+    prisma.test.findMany({
+      where: { teamId: params.clubId },
+      include: {
+        _count: {
+          select: {
+            attempts: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    }),
+  ])
+
+  // Calculate budget totals (same logic as API)
+  const budgetsWithTotals = await Promise.all(
+    eventBudgets.map(async (budget) => {
+      const totalSpent = await prisma.expense.aggregate({
+        where: {
+          teamId: params.clubId,
+          eventId: budget.eventId,
+          ...(budget.subteamId && {
+            addedBy: {
+              subteamId: budget.subteamId,
+            },
+          }),
+        },
+        _sum: {
+          amount: true,
+        },
+      })
+
+      const totalRequested = await prisma.purchaseRequest.aggregate({
+        where: {
+          teamId: params.clubId,
+          eventId: budget.eventId,
+          status: 'PENDING',
+          ...(budget.subteamId && {
+            subteamId: budget.subteamId,
+          }),
+        },
+        _sum: {
+          estimatedAmount: true,
+        },
+      })
+
+      const spent = totalSpent._sum.amount || 0
+      const requested = totalRequested._sum.estimatedAmount || 0
+      const remaining = budget.maxBudget - spent - requested
+
+      return {
+        ...budget,
+        totalSpent: spent,
+        totalRequested: requested,
+        remaining,
+      }
+    })
+  )
+
   return (
     <Suspense fallback={
-      <div className="space-y-6 p-6">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-4 w-64" />
-        </div>
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="p-6 border rounded-lg">
-              <div className="space-y-3">
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-32" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <PageLoading 
+        title="Loading club" 
+        description="Fetching team data and member information..." 
+        variant="orbit" 
+      />
     }>
       <TeamPage
         team={team}
         currentMembership={membership}
         user={session.user}
+        initialData={{
+          attendances,
+          expenses,
+          purchaseRequests,
+          eventBudgets: budgetsWithTotals,
+          calendarEvents,
+          tests,
+        }}
       />
     </Suspense>
   )

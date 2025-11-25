@@ -536,29 +536,29 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
 
   // Render Team Grid View
   const renderGridView = () => (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2 items-center">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
             {isAdmin && (
-              <Button onClick={() => setCreateOpen(true)}>
+              <Button onClick={() => setCreateOpen(true)} size="sm" className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Team
               </Button>
             )}
             {isAdmin && (
-              <Button variant="outline" onClick={handleEmailAll}>
+              <Button variant="outline" onClick={handleEmailAll} size="sm" className="w-full sm:w-auto">
                 <Mail className="mr-2 h-4 w-4" />
                 Email All
               </Button>
             )}
           </div>
-          <Button variant="outline" onClick={handleExportToGoogleSheet}>
+          <Button variant="outline" onClick={handleExportToGoogleSheet} size="sm" className="w-full sm:w-auto">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Export to CSV
           </Button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {team.subteams.map((subteam: any) => (
             <Card 
               key={subteam.id}
@@ -569,50 +569,50 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                 }
               }}
             >
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  {subteam.name}
-                  <span className="text-sm font-normal text-muted-foreground">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <span className="break-words">{subteam.name}</span>
+                  <span className="text-xs sm:text-sm font-normal text-muted-foreground whitespace-nowrap">
                     ({subteam.members.length} / 15)
                   </span>
                 </CardTitle>
               </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
+                <CardContent className="pt-0">
+                  <div className="space-y-2.5">
                     {subteam.members.slice(0, 5).map((member: any) => (
-                      <div key={member.id} className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
+                      <div key={member.id} className="flex items-center gap-2.5">
+                        <Avatar className="h-9 w-9 sm:h-8 sm:w-8 flex-shrink-0">
                           <AvatarImage src={member.user.image || ''} />
-                          <AvatarFallback>
+                          <AvatarFallback className="text-xs">
                             {member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="flex-1 text-sm">
-                          <p className="font-medium truncate">{member.user.name || member.user.email}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="flex-1 text-sm min-w-0">
+                          <p className="font-medium truncate text-sm">{member.user.name || member.user.email}</p>
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {String(member.role).toUpperCase() === 'ADMIN' && (
-                              <Badge variant="outline" className="text-[10px] uppercase">Admin</Badge>
+                              <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase px-1.5 py-0">Admin</Badge>
                             )}
                             {Array.isArray(member.roles) && member.roles.includes('COACH') && (
-                              <Badge variant="outline" className="text-[10px] uppercase">Coach</Badge>
+                              <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase px-1.5 py-0">Coach</Badge>
                             )}
                             {Array.isArray(member.roles) && member.roles.includes('CAPTAIN') && (
-                              <Badge variant="outline" className="text-[10px] uppercase">Captain</Badge>
+                              <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase px-1.5 py-0">Captain</Badge>
                             )}
                             {(!Array.isArray(member.roles) || member.roles.length === 0) && String(member.role).toUpperCase() === 'ADMIN' && (
-                              <Badge variant="outline" className="text-[10px] uppercase">Member</Badge>
+                              <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase px-1.5 py-0">Member</Badge>
                             )}
                           </div>
                         </div>
                       </div>
                     ))}
                     {subteam.members.length > 5 && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs sm:text-sm text-muted-foreground pl-11 sm:pl-10">
                         +{subteam.members.length - 5} more
                       </p>
                     )}
                     {subteam.members.length === 0 && (
-                      <p className="text-sm text-muted-foreground">No members assigned</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground text-center py-2">No members assigned</p>
                     )}
                   </div>
                 </CardContent>
@@ -622,21 +622,21 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
         </div>
 
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CardTitle>All Club Members</CardTitle>
+          <CardHeader className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex flex-col gap-2">
+                <CardTitle className="text-xl sm:text-2xl">All Club Members</CardTitle>
                 {isAdmin && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Use the actions menu to manage teams and roles
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex items-center gap-2">
-                  <Label className="text-sm text-muted-foreground">Sort by:</Label>
+                  <Label className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">Sort by:</Label>
                   <select
-                    className="rounded-md border p-2 text-sm"
+                    className="rounded-md border p-2 text-xs sm:text-sm flex-1 sm:flex-none"
                     value={memberSortBy}
                     onChange={(e) => setMemberSortBy(e.target.value as any)}
                   >
@@ -647,7 +647,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                   </select>
                 </div>
                 <select
-                  className="rounded-md border p-2 text-sm"
+                  className="rounded-md border p-2 text-xs sm:text-sm"
                   value={memberSortDirection}
                   onChange={(e) => setMemberSortDirection(e.target.value as any)}
                 >
@@ -658,39 +658,39 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-3 sm:space-y-2">
               {getSortedMembers().map((member: any) => {
                 const eventCount = member.rosterAssignments?.length || 0
                 const memberRoles: string[] = Array.isArray(member.roles) ? member.roles : []
   return (
-                  <div key={member.id} className="flex items-center justify-between rounded-lg border p-3">
-        <div className="flex items-center gap-3 flex-1">
-          <Avatar className="h-10 w-10">
+                  <div key={member.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-lg border p-4 sm:p-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <Avatar className="h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0">
             <AvatarImage src={member.user.image || ''} />
-            <AvatarFallback>
+            <AvatarFallback className="text-sm sm:text-base">
               {member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <p className="font-medium">{member.user.name || member.user.email}</p>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-base sm:text-sm break-words">{member.user.name || member.user.email}</p>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground mt-1">
               {String(member.role).toUpperCase() === 'ADMIN' && (
-                            <Badge variant="outline" className="text-[10px] uppercase">Admin</Badge>
+                            <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5">Admin</Badge>
               )}
               {memberRoles.includes('COACH') && (
-                <Badge variant="outline" className="text-[10px] uppercase">Coach</Badge>
+                <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5">Coach</Badge>
               )}
               {memberRoles.includes('CAPTAIN') && (
-                <Badge variant="outline" className="text-[10px] uppercase">Captain</Badge>
+                <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5">Captain</Badge>
               )}
               {memberRoles.length === 0 && String(member.role).toUpperCase() === 'ADMIN' && (
-                <Badge variant="outline" className="text-[10px] uppercase">Member</Badge>
+                <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5">Member</Badge>
               )}
-              <span>{memberRoles.length > 0 || String(member.role).toUpperCase() === 'ADMIN' ? '• ' : ''}{eventCount} event{eventCount !== 1 ? 's' : ''}</span>
+              <span className="whitespace-nowrap">{memberRoles.length > 0 || String(member.role).toUpperCase() === 'ADMIN' ? '• ' : ''}{eventCount} event{eventCount !== 1 ? 's' : ''}</span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 sm:flex-shrink-0">
           <Button
             variant="ghost"
             size="sm"
@@ -698,13 +698,15 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
               e.stopPropagation()
               window.location.href = `mailto:${member.user.email}`
             }}
+            className="w-full sm:w-auto justify-start sm:justify-center h-9"
           >
-            <Mail className="h-4 w-4" />
+            <Mail className="h-4 w-4 sm:mr-0 mr-2" />
+            <span className="sm:hidden">Email</span>
           </Button>
           {isAdmin && (
                         <>
                           <select
-                            className="rounded-md border p-2 text-sm"
+                            className="rounded-md border p-2 text-xs sm:text-sm h-9 w-full sm:w-auto"
                             value={
                               memberRoles.includes('COACH') ? 'COACH' :
                               memberRoles.includes('CAPTAIN') ? 'CAPTAIN' :
@@ -720,7 +722,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                             <option value="COACH">Coach</option>
                           </select>
                           <select
-                            className="rounded-md border p-2 text-sm"
+                            className="rounded-md border p-2 text-xs sm:text-sm h-9 w-full sm:w-auto"
                             value={member.subteamId || ''}
                             onChange={(e) => handleAssignToTeamFromMenu(member.id, e.target.value || null, member.user.name || member.user.email)}
                             onClick={(e) => e.stopPropagation()}

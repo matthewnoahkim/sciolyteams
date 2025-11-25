@@ -20,6 +20,10 @@ interface FinanceTabProps {
   currentMembershipId: string
   currentMembershipSubteamId?: string | null
   division?: 'B' | 'C'
+  initialExpenses?: Expense[]
+  initialPurchaseRequests?: PurchaseRequest[]
+  initialBudgets?: EventBudget[]
+  initialSubteams?: Subteam[]
 }
 
 interface Expense {
@@ -135,14 +139,14 @@ interface EventBudget {
   remaining: number
 }
 
-export default function FinanceTab({ teamId, isAdmin, currentMembershipId, currentMembershipSubteamId, division }: FinanceTabProps) {
+export default function FinanceTab({ teamId, isAdmin, currentMembershipId, currentMembershipSubteamId, division, initialExpenses, initialPurchaseRequests, initialBudgets, initialSubteams }: FinanceTabProps) {
   const { toast } = useToast()
-  const [expenses, setExpenses] = useState<Expense[]>([])
-  const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([])
+  const [expenses, setExpenses] = useState<Expense[]>(initialExpenses || [])
+  const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>(initialPurchaseRequests || [])
   const [events, setEvents] = useState<Event[]>([])
-  const [subteams, setSubteams] = useState<Subteam[]>([])
-  const [budgets, setBudgets] = useState<EventBudget[]>([])
-  const [loading, setLoading] = useState(true)
+  const [subteams, setSubteams] = useState<Subteam[]>(initialSubteams || [])
+  const [budgets, setBudgets] = useState<EventBudget[]>(initialBudgets || [])
+  const [loading, setLoading] = useState(!initialExpenses && !initialPurchaseRequests && !initialBudgets)
 
   // Add Expense Dialog
   const [addExpenseOpen, setAddExpenseOpen] = useState(false)
@@ -219,14 +223,50 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'completed'>('all')
 
   const fetchData = useCallback(async () => {
+    // Skip if we have all initial data
+    if (initialExpenses && initialPurchaseRequests && initialBudgets && initialSubteams) {
+      // Still need to fetch events if division is provided
+      if (division && events.length === 0) {
+        try {
+          const eventsRes = await fetch(`/api/events?division=${division}`)
+          if (eventsRes.ok) {
+            const data = await eventsRes.json()
+            setEvents(data.events || [])
+          }
+        } catch (error) {
+          console.error('Failed to fetch events:', error)
+        }
+      }
+      return
+    }
+
     setLoading(true)
     try {
-      const promises = [
-        fetch(`/api/expenses?teamId=${teamId}`),
-        fetch(`/api/purchase-requests?teamId=${teamId}`),
-        fetch(`/api/event-budgets?teamId=${teamId}`),
-        fetch(`/api/teams/${teamId}/subteams`),
-      ]
+      const promises = []
+      
+      if (!initialExpenses) {
+        promises.push(fetch(`/api/expenses?teamId=${teamId}`))
+      } else {
+        promises.push(Promise.resolve(null))
+      }
+      
+      if (!initialPurchaseRequests) {
+        promises.push(fetch(`/api/purchase-requests?teamId=${teamId}`))
+      } else {
+        promises.push(Promise.resolve(null))
+      }
+      
+      if (!initialBudgets) {
+        promises.push(fetch(`/api/event-budgets?teamId=${teamId}`))
+      } else {
+        promises.push(Promise.resolve(null))
+      }
+      
+      if (!initialSubteams) {
+        promises.push(fetch(`/api/teams/${teamId}/subteams`))
+      } else {
+        promises.push(Promise.resolve(null))
+      }
 
       if (division) {
         promises.push(fetch(`/api/events?division=${division}`))
@@ -234,25 +274,25 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
 
       const [expensesRes, requestsRes, budgetsRes, subteamsRes, eventsRes] = await Promise.all(promises)
 
-      if (expensesRes.ok) {
+      if (expensesRes && expensesRes.ok) {
         const data = await expensesRes.json()
         setExpenses(data.expenses)
       }
 
-      if (requestsRes.ok) {
+      if (requestsRes && requestsRes.ok) {
         const data = await requestsRes.json()
         setPurchaseRequests(data.purchaseRequests)
       }
 
-      if (budgetsRes.ok) {
+      if (budgetsRes && budgetsRes.ok) {
         const data = await budgetsRes.json()
         console.log('Fetched budgets:', data.budgets)
         setBudgets(data.budgets || [])
-      } else {
+      } else if (budgetsRes) {
         console.error('Failed to fetch budgets:', budgetsRes.status, await budgetsRes.text())
       }
 
-      if (subteamsRes.ok) {
+      if (subteamsRes && subteamsRes.ok) {
         const data = await subteamsRes.json()
         setSubteams(data.subteams || [])
       }
@@ -271,7 +311,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
     } finally {
       setLoading(false)
     }
-  }, [teamId, division, toast])
+  }, [teamId, division, toast, initialExpenses, initialPurchaseRequests, initialBudgets, initialSubteams, events.length])
 
   useEffect(() => {
     fetchData()
@@ -996,20 +1036,30 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
     <div className="space-y-6">
       {/* Header with Quick Stats */}
       <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold">Finance</h2>
+            <h2 className="text-xl sm:text-2xl font-bold">Finance</h2>
             <SaveIndicator show={saveIndicator} />
           </div>
-          <div className="flex gap-2">
-            <Button onClick={() => setRequestPurchaseOpen(true)}>
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Request Purchase
+          <div className="flex gap-2 flex-shrink-0">
+            <Button 
+              onClick={() => setRequestPurchaseOpen(true)}
+              size="sm"
+              className="flex-1 sm:flex-none text-xs sm:text-sm whitespace-nowrap"
+            >
+              <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />
+              <span className="hidden md:inline">Request Purchase</span>
+              <span className="md:hidden">Request</span>
             </Button>
             {isAdmin && (
-              <Button onClick={() => setAddExpenseOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Expense
+              <Button 
+                onClick={() => setAddExpenseOpen(true)}
+                size="sm"
+                className="flex-1 sm:flex-none text-xs sm:text-sm whitespace-nowrap"
+              >
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />
+                <span className="hidden md:inline">Add Expense</span>
+                <span className="md:hidden">Expense</span>
               </Button>
             )}
           </div>

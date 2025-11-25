@@ -1,23 +1,49 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Home, MessageSquare, Users, Calendar, Settings, ClipboardCheck, DollarSign, FileText, Pencil, Image, File, Menu, CheckSquare, BarChart3 } from 'lucide-react'
 import { AppHeader } from '@/components/app-header'
 import { HomePageTab } from '@/components/tabs/homepage-tab'
-import { StreamTab } from '@/components/tabs/stream-tab'
-import { PeopleTab } from '@/components/tabs/people-tab'
-import { CalendarTab } from '@/components/tabs/calendar-tab'
-import { AttendanceTab } from '@/components/tabs/attendance-tab'
-import { SettingsTab } from '@/components/tabs/settings-tab'
-import FinanceTab from '@/components/tabs/finance-tab'
-import TestsTab from '@/components/tabs/tests-tab'
-import { GalleryTab } from '@/components/tabs/gallery-tab'
-import { PaperworkTab } from '@/components/tabs/paperwork-tab'
-import { TodoTab } from '@/components/tabs/todo-tab'
-import { StatsTab } from '@/components/tabs/stats-tab'
+import { PageLoading } from '@/components/ui/loading-spinner'
+import dynamic from 'next/dynamic'
+
+// Lazy load heavy tab components for better initial load performance
+const StreamTab = dynamic(() => import('@/components/tabs/stream-tab').then(mod => ({ default: mod.StreamTab })), {
+  loading: () => <PageLoading title="Loading stream" description="Fetching announcements and posts..." variant="orbit" />
+})
+const PeopleTab = dynamic(() => import('@/components/tabs/people-tab').then(mod => ({ default: mod.PeopleTab })), {
+  loading: () => <PageLoading title="Loading people" description="Fetching team members and rosters..." variant="orbit" />
+})
+const CalendarTab = dynamic(() => import('@/components/tabs/calendar-tab').then(mod => ({ default: mod.CalendarTab })), {
+  loading: () => <PageLoading title="Loading calendar" description="Fetching events and schedules..." variant="orbit" />
+})
+const AttendanceTab = dynamic(() => import('@/components/tabs/attendance-tab').then(mod => ({ default: mod.AttendanceTab })), {
+  loading: () => <PageLoading title="Loading attendance" description="Fetching attendance records..." variant="orbit" />
+})
+const SettingsTab = dynamic(() => import('@/components/tabs/settings-tab').then(mod => ({ default: mod.SettingsTab })), {
+  loading: () => <PageLoading title="Loading settings" description="Fetching club configuration..." variant="orbit" />
+})
+const FinanceTab = dynamic(() => import('@/components/tabs/finance-tab'), {
+  loading: () => <PageLoading title="Loading finance" description="Fetching expenses and budgets..." variant="orbit" />
+})
+const TestsTab = dynamic(() => import('@/components/tabs/tests-tab'), {
+  loading: () => <PageLoading title="Loading tests" description="Fetching assessments and submissions..." variant="orbit" />
+})
+const GalleryTab = dynamic(() => import('@/components/tabs/gallery-tab').then(mod => ({ default: mod.GalleryTab })), {
+  loading: () => <PageLoading title="Loading gallery" description="Fetching photos and videos..." variant="orbit" />
+})
+const PaperworkTab = dynamic(() => import('@/components/tabs/paperwork-tab').then(mod => ({ default: mod.PaperworkTab })), {
+  loading: () => <PageLoading title="Loading paperwork" description="Fetching forms and submissions..." variant="orbit" />
+})
+const TodoTab = dynamic(() => import('@/components/tabs/todo-tab').then(mod => ({ default: mod.TodoTab })), {
+  loading: () => <PageLoading title="Loading to-do list" description="Fetching tasks and reminders..." variant="orbit" />
+})
+const StatsTab = dynamic(() => import('@/components/tabs/stats-tab').then(mod => ({ default: mod.StatsTab })), {
+  loading: () => <PageLoading title="Loading stats" description="Fetching analytics and insights..." variant="orbit" />
+})
 import {
   Dialog,
   DialogContent,
@@ -45,9 +71,17 @@ interface TeamPageProps {
     email: string
     image?: string | null
   }
+  initialData?: {
+    attendances?: any[]
+    expenses?: any[]
+    purchaseRequests?: any[]
+    eventBudgets?: any[]
+    calendarEvents?: any[]
+    tests?: any[]
+  }
 }
 
-export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
+export function TeamPage({ team, currentMembership, user, initialData }: TeamPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -402,18 +436,18 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
     <>
       <Button
         variant={activeTab === 'home' ? 'default' : 'ghost'}
-        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        className="w-full justify-start relative text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
         onClick={() => handleTabChange('home')}
       >
-        <Home className="mr-3 h-4 w-4" />
+        <Home className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
         Home
       </Button>
       <Button
         variant={activeTab === 'stream' ? 'default' : 'ghost'}
-        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        className="w-full justify-start relative text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
         onClick={() => handleTabChange('stream')}
       >
-        <MessageSquare className="mr-3 h-4 w-4" />
+        <MessageSquare className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
         Stream
         {tabNotifications.stream && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -426,10 +460,10 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
       </Button>
       <Button
         variant={activeTab === 'people' ? 'default' : 'ghost'}
-        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        className="w-full justify-start relative text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
         onClick={() => handleTabChange('people')}
       >
-        <Users className="mr-3 h-4 w-4" />
+        <Users className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
         People
         {tabNotifications.people && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -442,10 +476,10 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
       </Button>
       <Button
         variant={activeTab === 'calendar' ? 'default' : 'ghost'}
-        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        className="w-full justify-start relative text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
         onClick={() => handleTabChange('calendar')}
       >
-        <Calendar className="mr-3 h-4 w-4" />
+        <Calendar className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
         Calendar
         {tabNotifications.calendar && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -458,10 +492,10 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
       </Button>
       <Button
         variant={activeTab === 'attendance' ? 'default' : 'ghost'}
-        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        className="w-full justify-start relative text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
         onClick={() => handleTabChange('attendance')}
       >
-        <ClipboardCheck className="mr-3 h-4 w-4" />
+        <ClipboardCheck className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
         Attendance
         {tabNotifications.attendance && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -474,10 +508,10 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
       </Button>
       <Button
         variant={activeTab === 'finance' ? 'default' : 'ghost'}
-        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        className="w-full justify-start relative text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
         onClick={() => handleTabChange('finance')}
       >
-        <DollarSign className="mr-3 h-4 w-4" />
+        <DollarSign className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
         Finance
         {tabNotifications.finance && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -490,10 +524,10 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
       </Button>
       <Button
         variant={activeTab === 'tests' ? 'default' : 'ghost'}
-        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        className="w-full justify-start relative text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
         onClick={() => handleTabChange('tests')}
       >
-        <FileText className="mr-3 h-4 w-4" />
+        <FileText className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
         Tests
         {tabNotifications.tests && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -506,26 +540,26 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
       </Button>
       <Button
         variant={activeTab === 'gallery' ? 'default' : 'ghost'}
-        className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
+        className="w-full justify-start text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
         onClick={() => handleTabChange('gallery')}
       >
-        <Image className="mr-3 h-4 w-4" />
+        <Image className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
         Gallery
       </Button>
       <Button
         variant={activeTab === 'paperwork' ? 'default' : 'ghost'}
-        className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
+        className="w-full justify-start text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
         onClick={() => handleTabChange('paperwork')}
       >
-        <File className="mr-3 h-4 w-4" />
+        <File className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
         Paperwork
       </Button>
       <Button
         variant={activeTab === 'todos' ? 'default' : 'ghost'}
-        className="w-full justify-start relative text-sm font-semibold h-11 rounded-2xl"
+        className="w-full justify-start relative text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
         onClick={() => handleTabChange('todos')}
       >
-        <CheckSquare className="mr-3 h-4 w-4" />
+        <CheckSquare className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
         To-Do List
         {tabNotifications.todos && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -541,18 +575,18 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
           <div className="h-px bg-border my-2" />
           <Button
             variant={activeTab === 'stats' ? 'default' : 'ghost'}
-            className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
+            className="w-full justify-start text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
             onClick={() => handleTabChange('stats')}
           >
-            <BarChart3 className="mr-3 h-4 w-4" />
+            <BarChart3 className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
             Stats & Analytics
           </Button>
           <Button
             variant={activeTab === 'settings' ? 'default' : 'ghost'}
-            className="w-full justify-start text-sm font-semibold h-11 rounded-2xl"
+            className="w-full justify-start text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
             onClick={() => handleTabChange('settings')}
           >
-            <Settings className="mr-3 h-4 w-4" />
+            <Settings className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
             Settings
           </Button>
         </>
@@ -580,10 +614,10 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
 
       <AppHeader user={user} showBackButton={true} backHref="/dashboard" title={currentClubName} />
 
-      <main className="relative z-10 container mx-auto px-4 py-6 md:py-8 max-w-full overflow-x-hidden">
-        <div className="flex gap-6 lg:gap-8 items-start">
+      <main className="relative z-10 container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 max-w-full overflow-x-hidden">
+        <div className="flex gap-4 sm:gap-6 lg:gap-8 items-start">
           {/* Vertical Navigation Sidebar */}
-          <aside className="w-52 flex-shrink-0 hidden md:block self-start">
+          <aside className="w-48 lg:w-52 flex-shrink-0 hidden md:block self-start">
             <div className="sticky top-24 will-change-transform">
               <nav className="space-y-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 p-3 rounded-2xl shadow-lg">
                 {renderNavigationButtons()}
@@ -592,39 +626,39 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
           </aside>
 
           {/* Mobile Menu Button */}
-          <div className="md:hidden fixed top-20 left-2 z-40">
+          <div className="md:hidden fixed top-[4.5rem] left-1.5 sm:left-2 z-40">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setMobileMenuOpen(true)}
-              className="h-8 w-8 p-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 shadow-lg hover:bg-white dark:hover:bg-gray-900"
+              className="h-7 w-7 sm:h-8 sm:w-8 p-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 shadow-lg hover:bg-white dark:hover:bg-gray-900"
             >
-              <Menu className="h-4 w-4" />
+              <Menu className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="sr-only">Open menu</span>
             </Button>
           </div>
 
           {/* Mobile Navigation Sheet */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <SheetContent side="left" className="w-[280px] sm:w-[300px] p-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm">
-              <SheetHeader className="p-6 pb-4 border-b border-gray-200/50 dark:border-gray-800/50">
-                <SheetTitle className="text-lg font-semibold">Navigation</SheetTitle>
+            <SheetContent side="left" className="w-[260px] sm:w-[280px] p-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm">
+              <SheetHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-gray-200/50 dark:border-gray-800/50">
+                <SheetTitle className="text-base sm:text-lg font-semibold">Navigation</SheetTitle>
               </SheetHeader>
-              <nav className="p-4 space-y-2 overflow-y-auto max-h-[calc(100vh-100px)]">
+              <nav className="p-3 sm:p-4 space-y-1.5 sm:space-y-2 overflow-y-auto max-h-[calc(100vh-100px)]">
                 {renderNavigationButtons()}
               </nav>
             </SheetContent>
           </Sheet>
 
           {/* Main Content Area */}
-          <div className="flex-1 min-w-0 md:pl-0 pl-12">
+          <div className="flex-1 min-w-0 md:pl-0 pl-9 sm:pl-10">
             {/* Team Info Header - Only visible on settings tab for admins */}
             {activeTab === 'settings' && isAdmin && (
-              <div className="mb-6 p-6 rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50">
-                <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="mb-4 sm:mb-5 md:mb-6 p-4 sm:p-5 md:p-6 rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50">
+                <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
                   <div>
-                    <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{currentClubName}</h2>
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
+                      <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white break-words">{currentClubName}</h2>
                       {isAdmin && (
                         <Button
                           variant="ghost"
@@ -633,17 +667,17 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                             setNewClubName(currentClubName)
                             setEditClubNameOpen(true)
                           }}
-                          className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
+                          className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800 flex-shrink-0"
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </Button>
                       )}
-                      <Badge variant="outline" className="border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold">
+                      <Badge variant="outline" className="border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold text-xs sm:text-sm">
                         Division {team.division}
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
-                      <Users className="h-4 w-4" />
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                      <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       {team.memberships.length} member{team.memberships.length !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -684,6 +718,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                 currentMembership={currentMembership}
                 isAdmin={isAdmin}
                 user={user}
+                initialEvents={initialData?.calendarEvents}
               />
             )}
 
@@ -692,6 +727,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                 teamId={team.id}
                 isAdmin={isAdmin}
                 user={user}
+                initialAttendances={initialData?.attendances}
               />
             )}
 
@@ -702,6 +738,10 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
                 currentMembershipId={currentMembership.id}
                 currentMembershipSubteamId={currentMembership.subteamId}
                 division={team.division}
+                initialExpenses={initialData?.expenses}
+                initialPurchaseRequests={initialData?.purchaseRequests}
+                initialBudgets={initialData?.eventBudgets}
+                initialSubteams={team.subteams}
               />
             )}
 
@@ -709,6 +749,7 @@ export function TeamPage({ team, currentMembership, user }: TeamPageProps) {
               <TestsTab
                 teamId={team.id}
                 isAdmin={isAdmin}
+                initialTests={initialData?.tests}
               />
             )}
 
