@@ -720,12 +720,12 @@ export function HealthTools() {
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              {log.source === 'api' && getStatusBadge(log.statusCode)}
+                              {log.statusCode !== undefined && getStatusBadge(log.statusCode)}
                               {getSeverityBadge(log.severity)}
                               {log.logType && (
                                 <Badge variant="outline">{log.logType.replace('_', ' ')}</Badge>
                               )}
-                              {log.source === 'api' && log.method && (
+                              {log.method && (
                                 <Badge variant="outline">{log.method}</Badge>
                               )}
                               {log.route && (
