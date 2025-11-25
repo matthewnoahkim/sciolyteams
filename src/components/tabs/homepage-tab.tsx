@@ -460,22 +460,25 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
     }
   }
 
-  const getWidgetClassName = (widget: any) => {
-    const widthClasses = {
+  const getWidgetClassName = (widget: { width?: string; height?: string }) => {
+    const widthClasses: Record<string, string> = {
       SMALL: 'col-span-1',
       MEDIUM: 'col-span-1 md:col-span-2',
       LARGE: 'col-span-1 md:col-span-3',
       FULL: 'col-span-1 md:col-span-4',
     }
 
-    const heightClasses = {
+    const heightClasses: Record<string, string> = {
       SMALL: 'row-span-1',
       MEDIUM: 'row-span-1',
       LARGE: 'row-span-2',
       AUTO: 'row-span-auto',
     }
 
-    return `${widthClasses[widget.width] || widthClasses.MEDIUM} ${heightClasses[widget.height] || heightClasses.MEDIUM}`
+    const widthKey = widget.width && widget.width in widthClasses ? widget.width : 'MEDIUM'
+    const heightKey = widget.height && widget.height in heightClasses ? widget.height : 'MEDIUM'
+
+    return `${widthClasses[widthKey]} ${heightClasses[heightKey]}`
   }
 
   const visibleWidgets = widgets.filter(w => w.isVisible || isConfigMode)
