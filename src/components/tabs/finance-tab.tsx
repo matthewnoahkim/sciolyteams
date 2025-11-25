@@ -386,6 +386,9 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
       ...updateData,
       date: editExpenseForm.date,
       amount: parseFloat(editExpenseForm.amount),
+      category: updateData.category ?? editingExpense.category ?? null,
+      notes: updateData.notes ?? editingExpense.notes ?? null,
+      eventId: updateData.eventId ?? editingExpense.eventId ?? null,
       event: editExpenseForm.eventId ? events.find(e => e.id === editExpenseForm.eventId) : undefined,
       updatedAt: new Date().toISOString(),
     }
