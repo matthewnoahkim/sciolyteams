@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -21,15 +21,56 @@ interface HomeClientProps {
   }
 }
 
-export function HomeClient({ memberships, user }: HomeClientProps) {
+export function HomeClient({ memberships: initialMemberships, user }: HomeClientProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const [createOpen, setCreateOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
+  const [memberships, setMemberships] = useState(initialMemberships)
   const [teamNotifications, setTeamNotifications] = useState<Record<string, boolean>>({})
   const [totalUnreadCount, setTotalUnreadCount] = useState(0)
+  const [loading, setLoading] = useState(false)
 
   // Update favicon badge with total unread count
   useFaviconBadge(totalUnreadCount)
+
+  // Refetch memberships
+  const fetchMemberships = useCallback(async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/teams')
+      if (response.ok) {
+        const data = await response.json()
+        setMemberships(data.memberships || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch memberships:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Refetch when pathname changes to dashboard (user navigates back)
+  useEffect(() => {
+    if (pathname === '/dashboard') {
+      fetchMemberships()
+    }
+  }, [pathname, fetchMemberships])
+
+  // Refetch when component becomes visible (user navigates back to tab/window)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && pathname === '/dashboard') {
+        fetchMemberships()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [pathname, fetchMemberships])
 
   // Get last cleared time for a team from localStorage
   const getLastClearedTime = (teamId: string): Date => {

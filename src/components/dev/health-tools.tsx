@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,9 +30,19 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Download,
+  Trash2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 interface LogEntry {
   id: string
@@ -63,6 +73,27 @@ interface Pagination {
   limit: number
   total: number
   totalPages: number
+}
+
+// Helper function to highlight search terms in text
+const highlightText = (text: string | null | undefined, searchQuery: string): string | (string | JSX.Element)[] => {
+  if (!text || !searchQuery) return text || ''
+  
+  const query = searchQuery.trim()
+  if (!query) return text
+  
+  // Escape special regex characters
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escapedQuery})`, 'gi')
+  const parts = text.split(regex)
+  
+  return parts.map((part, index) => 
+    regex.test(part) ? (
+      <mark key={index} className="bg-yellow-200 dark:bg-yellow-900 text-foreground px-0.5 rounded">
+        {part}
+      </mark>
+    ) : part
+  )
 }
 
 export function HealthTools() {
@@ -104,10 +135,33 @@ export function HealthTools() {
   const [users, setUsers] = useState<any[]>([])
   const [userSearch, setUserSearch] = useState('')
   const [userLoading, setUserLoading] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<any>(null)
 
-  // Fetch logs based on current filters
-  const fetchLogs = useCallback(async () => {
-    setLoading(true)
+  // Scroll detection for pausing auto-refresh
+  const [isScrolling, setIsScrolling] = useState(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const scrollAreaRefs = useRef<Map<string, HTMLElement>>(new Map())
+  const scrollListenersRef = useRef<Map<string, HTMLElement>>(new Map())
+  
+  // Callback ref to store ScrollArea root elements and find viewport
+  const setScrollAreaRef = useCallback((tab: string) => (element: HTMLElement | null) => {
+    if (element) {
+      // Use setTimeout to ensure viewport is rendered
+      setTimeout(() => {
+        const viewport = element.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement
+        if (viewport) {
+          scrollAreaRefs.current.set(tab, viewport)
+        }
+      }, 0)
+    } else {
+      scrollAreaRefs.current.delete(tab)
+    }
+  }, [])
+
+  // Fetch logs based on current filters (with loading state)
+  const fetchLogs = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true)
     try {
       const params = new URLSearchParams()
       
@@ -172,7 +226,7 @@ export function HealthTools() {
     } catch (error) {
       console.error('Failed to fetch logs:', error)
     } finally {
-      setLoading(false)
+      if (showLoading) setLoading(false)
     }
   }, [
     selectedLogTypes,
@@ -192,7 +246,7 @@ export function HealthTools() {
 
   // Fetch users
   const fetchUsers = useCallback(async () => {
-    if (!userSearch && activeTab !== 'users') return
+    if (activeTab !== 'users') return
     
     setUserLoading(true)
     try {
@@ -215,9 +269,7 @@ export function HealthTools() {
     if (activeTab !== 'users') {
       fetchLogs()
     } else {
-      if (userSearch) {
-        fetchUsers()
-      }
+      fetchUsers()
     }
   }, [activeTab])
 
@@ -225,11 +277,7 @@ export function HealthTools() {
   useEffect(() => {
     if (activeTab === 'users') {
       const timer = setTimeout(() => {
-        if (userSearch) {
-          fetchUsers()
-        } else {
-          setUsers([])
-        }
+        fetchUsers()
       }, 300)
       return () => clearTimeout(timer)
     }
@@ -263,6 +311,68 @@ export function HealthTools() {
       fetchLogs()
     }
   }, [searchQuery])
+
+  // Handle scroll detection to pause auto-refresh
+  useEffect(() => {
+    if (activeTab === 'users') return
+
+    const handleScroll = () => {
+      setIsScrolling(true)
+      
+      // Clear existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+      
+      // Set scrolling to false after 500ms of no scrolling
+      scrollTimeoutRef.current = setTimeout(() => {
+        setIsScrolling(false)
+      }, 500)
+    }
+
+    // Get viewport from stored refs
+    const viewport = scrollAreaRefs.current.get(activeTab)
+    
+    if (viewport) {
+      viewport.addEventListener('scroll', handleScroll, { passive: true })
+      scrollListenersRef.current.set(activeTab, viewport)
+    }
+    
+    // Retry after a short delay if viewport not found yet (for initial render)
+    const retryTimeout = !viewport ? setTimeout(() => {
+      const foundViewport = scrollAreaRefs.current.get(activeTab)
+      if (foundViewport && !scrollListenersRef.current.has(activeTab)) {
+        foundViewport.addEventListener('scroll', handleScroll, { passive: true })
+        scrollListenersRef.current.set(activeTab, foundViewport)
+      }
+    }, 300) : null
+    
+    return () => {
+      if (retryTimeout) clearTimeout(retryTimeout)
+      const listenerViewport = scrollListenersRef.current.get(activeTab)
+      if (listenerViewport) {
+        listenerViewport.removeEventListener('scroll', handleScroll)
+        scrollListenersRef.current.delete(activeTab)
+      }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [activeTab])
+
+  // Auto-refresh logs every 1 second when on logs tabs (silent, no loading indicator)
+  // Pauses when user is scrolling
+  useEffect(() => {
+    if (activeTab === 'users' || isScrolling) return
+
+    // Set up interval to refresh every 1 second (silent refresh)
+    const interval = setInterval(() => {
+      fetchLogs(false) // false = don't show loading indicator
+    }, 1000) // 1 second
+
+    // Cleanup interval on unmount or tab change
+    return () => clearInterval(interval)
+  }, [activeTab, fetchLogs, isScrolling])
 
   // Clear filters
   const clearFilters = () => {
@@ -321,6 +431,91 @@ export function HealthTools() {
       return <Badge variant="outline" className="border-yellow-500 text-yellow-600">{statusCode}</Badge>
     }
     return <Badge variant="secondary" className="bg-green-100 text-green-700">{statusCode}</Badge>
+  }
+
+  // Handle delete user
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return
+
+    try {
+      const response = await fetch(`/api/dev/users/${userToDelete.id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        // Refresh users list
+        fetchUsers()
+        // Refresh logs to show the deletion activity
+        fetchLogs()
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        alert(errorData.error || 'Failed to delete user')
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert('Error deleting user')
+    } finally {
+      setDeleteDialogOpen(false)
+      setUserToDelete(null)
+    }
+  }
+
+  // Handle export user
+  const handleExportUser = (user: any) => {
+    // Helper function to escape CSV fields
+    const escapeCSV = (value: any): string => {
+      if (value === null || value === undefined) return ''
+      const str = String(value)
+      // If contains comma, quote, or newline, wrap in quotes and escape quotes
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`
+      }
+      return str
+    }
+
+    // User Basic Information
+    const userSection = [
+      ['User Information'],
+      ['User ID', user.id],
+      ['Name', user.name || 'No name'],
+      ['Email', user.email],
+      ['Created At', new Date(user.createdAt).toLocaleString()],
+      [''],
+      ['Teams'],
+      ['Team Name', 'Team ID', 'Role', 'Subteam', 'Joined At']
+    ]
+
+    // Add team memberships
+    const membershipRows = (user.memberships || []).map((m: any) => [
+      escapeCSV(m.team?.name || 'N/A'),
+      escapeCSV(m.team?.id || 'N/A'),
+      escapeCSV(m.role || 'N/A'),
+      escapeCSV(m.subteam?.name || 'None'),
+      escapeCSV(new Date(m.createdAt).toLocaleString()),
+    ])
+
+    if (membershipRows.length === 0) {
+      membershipRows.push(['No teams', '', '', '', ''])
+    }
+
+    // Combine all sections
+    const csvContent = [
+      ...userSection.map((row) => row.map(escapeCSV).join(',')),
+      ...membershipRows.map((row: string[]) => row.join(',')),
+    ].join('\n')
+
+    // Add BOM for Excel compatibility with special characters
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const safeName = (user.name || user.email || 'user').replace(/[^a-z0-9]/gi, '-').toLowerCase()
+    link.download = `${safeName}-${user.id.substring(0, 8)}-export-${new Date().toISOString().split('T')[0]}.csv`
+    link.href = url
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
   }
 
   return (
@@ -495,7 +690,7 @@ export function HealthTools() {
               </div>
 
               {/* Logs List */}
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="h-[600px]" ref={setScrollAreaRef('all')}>
                 {loading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin" />
@@ -524,12 +719,12 @@ export function HealthTools() {
                               )}
                               {log.route && (
                                 <Badge variant="outline" className="font-mono text-xs">
-                                  {log.route}
+                                  {highlightText(log.route, searchQuery)}
                                 </Badge>
                               )}
                             </div>
                             <p className="font-medium text-sm mb-1">
-                              {log.description || log.message || log.errorType || `${log.method} ${log.route}`}
+                              {highlightText(log.description || log.message || log.errorType || `${log.method} ${log.route}`, searchQuery)}
                             </p>
                             <div className="flex items-center gap-4 text-xs text-muted-foreground">
                               {log.user && (
@@ -542,8 +737,12 @@ export function HealthTools() {
                                   </Avatar>
                                   <span>
                                     {log.user.name 
-                                      ? `${log.user.name} (${log.user.email})` 
-                                      : log.user.email}
+                                      ? (
+                                        <>
+                                          {highlightText(log.user.name, searchQuery)} ({highlightText(log.user.email, searchQuery)})
+                                        </>
+                                      )
+                                      : highlightText(log.user.email, searchQuery)}
                                   </span>
                                 </div>
                               )}
@@ -623,7 +822,7 @@ export function HealthTools() {
                 </div>
               </div>
 
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="h-[600px]" ref={setScrollAreaRef('api')}>
                 {loading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin" />
@@ -645,7 +844,7 @@ export function HealthTools() {
                               {getStatusBadge(log.statusCode)}
                               <Badge variant="outline">{log.method}</Badge>
                               <Badge variant="outline" className="font-mono text-xs">
-                                {log.route}
+                                {highlightText(log.route, searchQuery)}
                               </Badge>
                               {log.executionTime && (
                                 <Badge variant={log.executionTime > 1000 ? 'destructive' : 'secondary'}>
@@ -664,8 +863,12 @@ export function HealthTools() {
                                   </Avatar>
                                   <span>
                                     {log.user.name 
-                                      ? `${log.user.name} (${log.user.email})` 
-                                      : log.user.email}
+                                      ? (
+                                        <>
+                                          {highlightText(log.user.name, searchQuery)} ({highlightText(log.user.email, searchQuery)})
+                                        </>
+                                      )
+                                      : highlightText(log.user.email, searchQuery)}
                                   </span>
                                 </div>
                               )}
@@ -722,7 +925,7 @@ export function HealthTools() {
                 </Select>
               </div>
 
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="h-[600px]" ref={setScrollAreaRef('errors')}>
                 {loading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin" />
@@ -747,7 +950,7 @@ export function HealthTools() {
                               )}
                               {log.route && (
                                 <Badge variant="outline" className="font-mono text-xs">
-                                  {log.route}
+                                  {highlightText(log.route, searchQuery)}
                                 </Badge>
                               )}
                               {log.resolved !== undefined && (
@@ -756,7 +959,7 @@ export function HealthTools() {
                                 </Badge>
                               )}
                             </div>
-                            <p className="font-medium text-sm mb-1">{log.message}</p>
+                            <p className="font-medium text-sm mb-1">{highlightText(log.message, searchQuery)}</p>
                             <div className="flex items-center gap-4 text-xs text-muted-foreground">
                               {log.user && (
                                 <div className="flex items-center gap-1">
@@ -768,8 +971,12 @@ export function HealthTools() {
                                   </Avatar>
                                   <span>
                                     {log.user.name 
-                                      ? `${log.user.name} (${log.user.email})` 
-                                      : log.user.email}
+                                      ? (
+                                        <>
+                                          {highlightText(log.user.name, searchQuery)} ({highlightText(log.user.email, searchQuery)})
+                                        </>
+                                      )
+                                      : highlightText(log.user.email, searchQuery)}
                                   </span>
                                 </div>
                               )}
@@ -848,13 +1055,9 @@ export function HealthTools() {
                     {users.map((user) => (
                       <div
                         key={user.id}
-                        className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => {
-                          setSelectedUserIds([user.id])
-                          setActiveTab('all')
-                        }}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1">
                           <Avatar>
                             <AvatarImage src={user.image || ''} />
                             <AvatarFallback>
@@ -862,9 +1065,9 @@ export function HealthTools() {
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
-                            <p className="font-medium">{user.name || 'No name'}</p>
-                            <p className="text-sm text-muted-foreground">{user.email}</p>
-                            <p className="text-xs text-muted-foreground mt-1">ID: {user.id}</p>
+                            <p className="font-medium">{highlightText(user.name || 'No name', userSearch)}</p>
+                            <p className="text-sm text-muted-foreground">{highlightText(user.email, userSearch)}</p>
+                            <p className="text-xs text-muted-foreground mt-1">ID: {highlightText(user.id, userSearch)}</p>
                             {user.memberships && user.memberships.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {user.memberships.map((membership: any) => (
@@ -876,6 +1079,31 @@ export function HealthTools() {
                             )}
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleExportUser(user)
+                            }}
+                            title="Export user data"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setUserToDelete(user)
+                              setDeleteDialogOpen(true)
+                            }}
+                            title="Delete user"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -885,6 +1113,28 @@ export function HealthTools() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {userToDelete?.name || userToDelete?.email}?
+              This will permanently delete all their data including memberships, events, and posts.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteUser}>
+              Delete User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

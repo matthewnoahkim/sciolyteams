@@ -47,7 +47,9 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
         title: 'Club created!',
         description: `${name} (Division ${division})`,
       })
-      // Navigate without refresh - Next.js will handle the route transition smoothly
+      // Refresh the router to update server-side data
+      router.refresh()
+      // Navigate to the new team
       router.push(`/club/${data.team.id}`)
     } catch (error) {
       toast({
