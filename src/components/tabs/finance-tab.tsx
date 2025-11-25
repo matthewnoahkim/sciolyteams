@@ -296,6 +296,8 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
       ...expenseData,
       date: expenseForm.date,
       event: expenseForm.eventId ? events.find(e => e.id === expenseForm.eventId) : undefined,
+      purchaseRequestId: null,
+      addedById: currentMembershipId,
       addedBy: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
