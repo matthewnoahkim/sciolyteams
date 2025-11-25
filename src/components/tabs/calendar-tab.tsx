@@ -19,7 +19,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Check, X as XIcon, User, Paperclip, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Check, X as XIcon, User, Paperclip, X, Calendar } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { EventAnnouncementModal } from '@/components/event-announcement-modal'
 import { AttachmentDisplay } from '@/components/ui/attachment-display'
@@ -1723,93 +1723,105 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
 
                 {formData.isRecurring && (
                   <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
-                    <div>
+                    {/* Frequency and Interval */}
+                    <div className="space-y-2">
                       <Label className="text-sm font-medium">Repeats</Label>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className="flex items-center gap-3">
                         <select
                           value={formData.recurrenceRule}
-                          onChange={(e) => setFormData({ ...formData, recurrenceRule: e.target.value as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' })}
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onChange={(e) => setFormData({ ...formData, recurrenceRule: e.target.value as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY', recurrenceDaysOfWeek: [] })}
+                          className="flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <option value="DAILY">Daily</option>
                           <option value="WEEKLY">Weekly</option>
                           <option value="MONTHLY">Monthly</option>
                           <option value="YEARLY">Yearly</option>
                         </select>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Every</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">every</span>
                           <Input
                             type="number"
                             min="1"
                             max="99"
                             value={formData.recurrenceInterval}
                             onChange={(e) => setFormData({ ...formData, recurrenceInterval: parseInt(e.target.value) || 1 })}
-                            className="w-20"
+                            className="w-16 text-center"
                           />
-                          <span className="text-sm text-muted-foreground">
-                            {formData.recurrenceRule === 'DAILY' ? 'day(s)' : 
-                             formData.recurrenceRule === 'WEEKLY' ? 'week(s)' :
-                             formData.recurrenceRule === 'MONTHLY' ? 'month(s)' : 'year(s)'}
-                          </span>
                         </div>
                       </div>
                     </div>
 
+                    {/* Days of Week (Weekly only) */}
                     {formData.recurrenceRule === 'WEEKLY' && (
-                      <div>
-                        <Label className="text-sm font-medium mb-2 block">Repeat on</Label>
-                        <div className="flex gap-2 flex-wrap">
-                          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                            <button
-                              key={index}
-                              type="button"
-                              onClick={() => {
-                                const days = formData.recurrenceDaysOfWeek || []
-                                const newDays = days.includes(index)
-                                  ? days.filter(d => d !== index)
-                                  : [...days, index].sort((a, b) => a - b)
-                                setFormData({ ...formData, recurrenceDaysOfWeek: newDays })
-                              }}
-                              className={`w-8 h-8 rounded-full text-sm font-medium transition-all ${
-                                (formData.recurrenceDaysOfWeek || []).includes(index)
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted hover:bg-muted/70'
-                              }`}
-                              title={['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][index]}
-                            >
-                              {day}
-                            </button>
-                          ))}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">On days</Label>
+                        <div className="flex gap-1.5 justify-between">
+                          {[
+                            { label: 'S', full: 'Sunday', index: 0 },
+                            { label: 'M', full: 'Monday', index: 1 },
+                            { label: 'T', full: 'Tuesday', index: 2 },
+                            { label: 'W', full: 'Wednesday', index: 3 },
+                            { label: 'T', full: 'Thursday', index: 4 },
+                            { label: 'F', full: 'Friday', index: 5 },
+                            { label: 'S', full: 'Saturday', index: 6 },
+                          ].map(({ label, full, index }) => {
+                            const isSelected = (formData.recurrenceDaysOfWeek || []).includes(index)
+                            return (
+                              <button
+                                key={index}
+                                type="button"
+                                onClick={() => {
+                                  const days = formData.recurrenceDaysOfWeek || []
+                                  const newDays = days.includes(index)
+                                    ? days.filter(d => d !== index)
+                                    : [...days, index].sort((a, b) => a - b)
+                                  setFormData({ ...formData, recurrenceDaysOfWeek: newDays })
+                                }}
+                                className={`flex-1 h-9 rounded-md text-xs font-semibold transition-all hover:scale-105 ${
+                                  isSelected
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'bg-background border border-input hover:bg-accent hover:border-primary/50'
+                                }`}
+                                title={full}
+                              >
+                                {label}
+                              </button>
+                            )
+                          })}
                         </div>
+                        {(formData.recurrenceDaysOfWeek || []).length === 0 && (
+                          <p className="text-xs text-muted-foreground">Select at least one day</p>
+                        )}
                       </div>
                     )}
 
-                    <div>
-                      <Label className="text-sm font-medium mb-2 block">Ends</Label>
+                    {/* End Condition */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Ends</Label>
                       <RadioGroup
                         value={formData.recurrenceEndType}
                         onValueChange={(value) => setFormData({ ...formData, recurrenceEndType: value as 'date' | 'count' })}
                         className="space-y-2"
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3 p-2 rounded-md border border-transparent hover:bg-accent/50 transition-colors">
                           <RadioGroupItem value="date" id="end-date" />
                           <Label htmlFor="end-date" className="cursor-pointer font-normal text-sm flex-1 flex items-center gap-2">
-                            <span>On</span>
+                            <span className="whitespace-nowrap">On date:</span>
                             {formData.recurrenceEndType === 'date' && (
                               <Input
                                 type="date"
                                 value={formData.recurrenceEndDate}
                                 onChange={(e) => setFormData({ ...formData, recurrenceEndDate: e.target.value })}
-                                className="max-w-[180px]"
+                                className="flex-1 max-w-[180px]"
                                 onClick={(e) => e.stopPropagation()}
                               />
                             )}
                           </Label>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3 p-2 rounded-md border border-transparent hover:bg-accent/50 transition-colors">
                           <RadioGroupItem value="count" id="end-count" />
                           <Label htmlFor="end-count" className="cursor-pointer font-normal text-sm flex-1 flex items-center gap-2">
-                            <span>After</span>
+                            <span className="whitespace-nowrap">After:</span>
                             {formData.recurrenceEndType === 'count' && (
                               <Input
                                 type="number"
@@ -1821,26 +1833,33 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                                 onClick={(e) => e.stopPropagation()}
                               />
                             )}
-                            <span>occurrence(s)</span>
+                            <span className="whitespace-nowrap">occurrence{formData.recurrenceCount !== 1 ? 's' : ''}</span>
                           </Label>
                         </div>
                       </RadioGroup>
                     </div>
 
-                    {/* Summary */}
-                    <div className="pt-2 border-t border-border/50">
-                      <p className="text-xs text-muted-foreground">
-                        {formData.recurrenceInterval > 1 ? `Every ${formData.recurrenceInterval} ` : 'Every '}
-                        {formData.recurrenceRule === 'DAILY' ? (formData.recurrenceInterval > 1 ? 'days' : 'day') :
-                         formData.recurrenceRule === 'WEEKLY' ? (formData.recurrenceInterval > 1 ? 'weeks' : 'week') :
-                         formData.recurrenceRule === 'MONTHLY' ? (formData.recurrenceInterval > 1 ? 'months' : 'month') :
-                         (formData.recurrenceInterval > 1 ? 'years' : 'year')}
-                        {formData.recurrenceRule === 'WEEKLY' && formData.recurrenceDaysOfWeek.length > 0 && 
-                          ` on ${formData.recurrenceDaysOfWeek.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}`}
-                        , until {formData.recurrenceEndType === 'date' 
-                          ? new Date(formData.recurrenceEndDate).toLocaleDateString() 
-                          : `${formData.recurrenceCount} occurrences`}
-                      </p>
+                    {/* Summary Preview */}
+                    <div className="pt-3 border-t border-border/50">
+                      <div className="flex items-start gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-foreground mb-0.5">Preview</p>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {formData.recurrenceInterval > 1 ? `Every ${formData.recurrenceInterval} ` : 'Every '}
+                            {formData.recurrenceRule === 'DAILY' ? (formData.recurrenceInterval > 1 ? 'days' : 'day') :
+                             formData.recurrenceRule === 'WEEKLY' ? (formData.recurrenceInterval > 1 ? 'weeks' : 'week') :
+                             formData.recurrenceRule === 'MONTHLY' ? (formData.recurrenceInterval > 1 ? 'months' : 'month') :
+                             (formData.recurrenceInterval > 1 ? 'years' : 'year')}
+                            {formData.recurrenceRule === 'WEEKLY' && formData.recurrenceDaysOfWeek && formData.recurrenceDaysOfWeek.length > 0 && 
+                              ` on ${formData.recurrenceDaysOfWeek.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}`}
+                            {formData.recurrenceRule === 'WEEKLY' && (!formData.recurrenceDaysOfWeek || formData.recurrenceDaysOfWeek.length === 0) && ' (select days)'}
+                            {formData.recurrenceEndType === 'date' 
+                              ? ` until ${new Date(formData.recurrenceEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                              : ` for ${formData.recurrenceCount} occurrence${formData.recurrenceCount !== 1 ? 's' : ''}`}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
