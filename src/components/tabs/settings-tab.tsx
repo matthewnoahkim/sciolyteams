@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Copy, RefreshCw, Eye, EyeOff, Trash2, UserX, X, Save } from 'lucide-react'
+import { Copy, RefreshCw, Eye, EyeOff, Trash2, UserX, X, Save, Link as LinkIcon } from 'lucide-react'
 
 interface SettingsTabProps {
   team: any
@@ -191,7 +191,14 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
     }
   }
 
-  const handleCopy = async (code: string, type: string) => {
+  const getInviteLink = (codeValue: string) => {
+    if (typeof window === 'undefined') {
+      return `/join?code=${encodeURIComponent(codeValue)}`
+    }
+    return `${window.location.origin}/join?code=${encodeURIComponent(codeValue)}`
+  }
+
+  const handleCopy = async (code: string, type: 'Admin' | 'Member', variant: 'code' | 'link' = 'code') => {
     let realCode = code
     // If code is hidden or codes not fetched, fetch codes first
     if (code === '••••••••••••' || !codesFetched) {
@@ -216,11 +223,24 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
         return
       }
     }
-    navigator.clipboard.writeText(realCode)
-    toast({
-      title: 'Copied!',
-      description: `${type} invite code copied to clipboard`,
-    })
+    const valueToCopy = variant === 'link' ? getInviteLink(realCode) : realCode
+
+    try {
+      await navigator.clipboard.writeText(valueToCopy)
+      toast({
+        title: 'Copied!',
+        description:
+          variant === 'link'
+            ? `${type} invite link copied to clipboard`
+            : `${type} invite code copied to clipboard`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to copy to clipboard',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleDeleteTeam = async () => {
@@ -597,6 +617,15 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
                   onClick={() => handleCopy(adminCode, 'Admin')}
                 >
                   <Copy className="h-4 w-4" />
+                  <span className="sr-only">Copy admin code</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleCopy(adminCode, 'Admin', 'link')}
+                >
+                  <LinkIcon className="h-4 w-4" />
+                  <span className="sr-only">Copy admin invite link</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -635,6 +664,15 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
                   onClick={() => handleCopy(memberCode, 'Member')}
                 >
                   <Copy className="h-4 w-4" />
+                  <span className="sr-only">Copy member code</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleCopy(memberCode, 'Member', 'link')}
+                >
+                  <LinkIcon className="h-4 w-4" />
+                  <span className="sr-only">Copy member invite link</span>
                 </Button>
                 <Button
                   variant="outline"

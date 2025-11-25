@@ -13,6 +13,7 @@ A comprehensive team management platform built with Next.js 14, TypeScript, and 
 - **Create teams** for Division B (Grades 6-9) or Division C (Grades 9-12)
 - **Dual role system**: Admins and Members
 - **Invite codes**: Separate rotating codes for admins and members
+- **Invite links**: Share single-click join URLs that securely wrap invite codes
 - **Team size cap**: Maximum 15 users per team
 - **Subteams**: Create multiple subteams within a team (e.g., Varsity, JV)
 - Assign members to subteams for better organization
@@ -85,7 +86,7 @@ A comprehensive team management platform built with Next.js 14, TypeScript, and 
 ### Settings
 - **Team settings**: Edit team name, view team details
 - **Member management**: Remove members, change roles
-- **Invite code management**: Regenerate admin/member invite codes
+- **Invite code management**: Regenerate admin/member invite codes and copy shareable links
 - **Leave team**: Members can leave teams
 - Team information display
 
