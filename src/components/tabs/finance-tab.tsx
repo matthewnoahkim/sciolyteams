@@ -1520,7 +1520,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                               <div className="space-y-1">
                                 <p className="text-xs text-muted-foreground font-medium">Comment:</p>
                                 <p className="text-sm text-muted-foreground italic">
-                                  "{request.reviewNote}"
+                                  &ldquo;{request.reviewNote}&rdquo;
                                 </p>
                               </div>
                             )}
