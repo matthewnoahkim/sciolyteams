@@ -81,7 +81,7 @@ export default function DevPage() {
   // Show loading state while checking authentication to prevent flash
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-apple-light dark:bg-gradient-apple-dark">
         <div className="space-y-4 w-full max-w-md">
           <Skeleton className="h-8 w-32 mx-auto" />
           <Skeleton className="h-4 w-48 mx-auto" />
@@ -92,10 +92,13 @@ export default function DevPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-apple-light dark:bg-gradient-apple-dark p-8">
+        <Card className="w-full max-w-md animate-fade-in">
           <CardHeader>
-            <CardTitle>Dev Access</CardTitle>
+            <CardTitle className="gradient-text dark:gradient-text-dark">Dev Access</CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              Enter your development password to access the panel
+            </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
@@ -106,6 +109,7 @@ export default function DevPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="apple-focus"
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isVerifying}>
@@ -117,7 +121,7 @@ export default function DevPage() {
 
         {/* Incorrect Password Error Dialog */}
         <Dialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
-          <DialogContent>
+          <DialogContent className="animate-fade-in">
             <DialogHeader>
               <div className="flex items-center gap-3">
                 <div className="rounded-full bg-destructive/10 p-2">
@@ -130,7 +134,7 @@ export default function DevPage() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button onClick={() => setErrorDialogOpen(false)}>
+              <Button onClick={() => setErrorDialogOpen(false)} className="apple-button-hover">
                 Try Again
               </Button>
             </DialogFooter>
@@ -141,29 +145,27 @@ export default function DevPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
+    <div className="min-h-screen bg-gradient-apple-light dark:bg-gradient-apple-dark p-8">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Development Panel</h1>
+          <div>
+            <h1 className="text-4xl font-bold gradient-text dark:gradient-text-dark mb-2">
+              Development Panel
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Monitor system activity, API usage, and user management
+            </p>
+          </div>
           <Button
             variant="outline"
             onClick={() => {
               setIsAuthenticated(false)
               sessionStorage.removeItem('dev_auth')
             }}
+            className="apple-button-hover"
           >
             Logout
           </Button>
-        </div>
-
-        <div className="bg-destructive/10 border border-destructive p-4 rounded-lg flex items-start gap-2">
-          <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
-          <div className="flex-1">
-            <p className="font-semibold text-destructive">Development Only</p>
-            <p className="text-sm text-muted-foreground">
-              This page contains sensitive data and should be removed before production deployment.
-            </p>
-          </div>
         </div>
 
         <HealthTools />

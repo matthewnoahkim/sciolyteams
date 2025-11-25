@@ -20,7 +20,6 @@ import {
   RefreshCw,
   Search,
   Filter,
-  AlertTriangle,
   Activity,
   Users,
   Server,
@@ -519,13 +518,25 @@ export function HealthTools() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="all">All Logs</TabsTrigger>
-          <TabsTrigger value="api">API Activity</TabsTrigger>
-          <TabsTrigger value="errors">Errors</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="all" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            All Logs
+          </TabsTrigger>
+          <TabsTrigger value="api" className="flex items-center gap-2">
+            <Server className="h-4 w-4" />
+            API Activity
+          </TabsTrigger>
+          <TabsTrigger value="errors" className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            Errors
+          </TabsTrigger>
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Users
+          </TabsTrigger>
         </TabsList>
 
         {/* All Logs Tab */}
@@ -547,7 +558,7 @@ export function HealthTools() {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Filters */}
-              <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+              <div className="space-y-4 p-4 border rounded-xl bg-muted/30 backdrop-blur-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Search</Label>
@@ -704,7 +715,7 @@ export function HealthTools() {
                     {getDisplayLogs().map((log) => (
                       <div
                         key={log.id}
-                        className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="p-4 border rounded-xl hover:bg-muted/50 transition-all duration-200 hover:shadow-md apple-hover"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
@@ -803,7 +814,7 @@ export function HealthTools() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-2 p-4 border rounded-lg bg-muted/50">
+              <div className="flex gap-2 p-4 border rounded-xl bg-muted/30 backdrop-blur-sm">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="errors-only"
@@ -836,7 +847,7 @@ export function HealthTools() {
                     {apiLogs.map((log) => (
                       <div
                         key={log.id}
-                        className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="p-4 border rounded-xl hover:bg-muted/50 transition-all duration-200 hover:shadow-md apple-hover"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
@@ -912,7 +923,7 @@ export function HealthTools() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-2 p-4 border rounded-lg bg-muted/50">
+              <div className="flex gap-2 p-4 border rounded-xl bg-muted/30 backdrop-blur-sm">
                 <Select value={resolvedFilter} onValueChange={(v: any) => setResolvedFilter(v)}>
                   <SelectTrigger className="w-[200px]">
                     <SelectValue />
@@ -939,7 +950,7 @@ export function HealthTools() {
                     {errorLogs.map((log) => (
                       <div
                         key={log.id}
-                        className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="p-4 border rounded-xl hover:bg-muted/50 transition-all duration-200 hover:shadow-md apple-hover"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
@@ -1055,7 +1066,7 @@ export function HealthTools() {
                     {users.map((user) => (
                       <div
                         key={user.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="flex items-center justify-between p-4 border rounded-xl hover:bg-muted/50 transition-all duration-200 hover:shadow-md apple-hover"
                       >
                         <div className="flex items-center gap-3 flex-1">
                           <Avatar>
