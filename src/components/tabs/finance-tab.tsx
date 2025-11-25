@@ -294,6 +294,9 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
     const tempExpense: Expense = {
       id: `temp-${Date.now()}`,
       ...expenseData,
+      category: expenseData.category || null,
+      notes: expenseData.notes || null,
+      eventId: expenseData.eventId || null,
       date: expenseForm.date,
       event: expenseForm.eventId ? events.find(e => e.id === expenseForm.eventId) : undefined,
       purchaseRequestId: null,
