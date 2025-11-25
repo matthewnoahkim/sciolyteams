@@ -58,7 +58,33 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ purchaseRequests })
+    // Get requester user info for all purchase requests
+    const requesterIds = [...new Set(purchaseRequests.map(req => req.requesterId))]
+    const requesterMemberships = await prisma.membership.findMany({
+      where: {
+        id: { in: requesterIds },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+    })
+
+    const requesterMap = new Map(requesterMemberships.map(m => [m.id, m.user]))
+
+    // Attach requester user info to each purchase request
+    const purchaseRequestsWithRequester = purchaseRequests.map(request => ({
+      ...request,
+      requester: requesterMap.get(request.requesterId) || null,
+    }))
+
+    return NextResponse.json({ purchaseRequests: purchaseRequestsWithRequester })
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })

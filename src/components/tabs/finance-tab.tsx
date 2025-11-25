@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Clock, ShoppingCart, Download, Settings, AlertTriangle, Wallet } from 'lucide-react'
+import { DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Clock, ShoppingCart, Download, Settings, AlertTriangle, Wallet, Search, Filter, Cloud, Building2, Briefcase, FileText } from 'lucide-react'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SaveIndicator } from '@/components/ui/save-indicator'
 
@@ -49,6 +50,12 @@ interface Expense {
       id: string
       name: string
     } | null
+    user?: {
+      id: string
+      name: string | null
+      image: string | null
+      email: string
+    } | null
   } | null
 }
 
@@ -83,6 +90,12 @@ interface PurchaseRequest {
     amount: number
     date: string
   }
+  requester?: {
+    id: string
+    name: string | null
+    email: string
+    image: string | null
+  } | null
 }
 
 interface Event {
@@ -178,7 +191,6 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
   const [reviewForm, setReviewForm] = useState({
     status: 'APPROVED' as 'APPROVED' | 'DENIED',
     reviewNote: '',
-    addToExpenses: true,
     actualAmount: '',
     expenseDate: new Date().toISOString().split('T')[0],
     expenseNotes: '',
@@ -197,6 +209,13 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
   const [savingBudget, setSavingBudget] = useState(false)
   const [submittingReview, setSubmittingReview] = useState(false)
   const [saveIndicator, setSaveIndicator] = useState(false)
+  
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const [filterCategory, setFilterCategory] = useState<string | null>(null)
+  const [filterEvent, setFilterEvent] = useState<string | null>(null)
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'completed'>('all')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -308,16 +327,8 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
       }
 
       const data = await response.json()
-      // Refetch expenses to get full data with addedBy field
-      // The API POST doesn't return addedBy, so we need to refetch
-      const expensesRes = await fetch(`/api/expenses?teamId=${teamId}`)
-      if (expensesRes.ok) {
-        const expensesData = await expensesRes.json()
-        setExpenses(expensesData.expenses)
-      } else {
-        // Fallback: replace temp expense with response (may be missing addedBy)
-        setExpenses(prev => prev.map(e => e.id === tempExpense.id ? data.expense : e))
-      }
+      // Always refetch expenses to get full data with addedBy field and user info
+      await fetchData()
       setSaveIndicator(true)
       
       toast({
@@ -393,15 +404,8 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
       }
 
       const data = await response.json()
-      // Refetch expenses to get full data with addedBy field
-      const expensesRes = await fetch(`/api/expenses?teamId=${teamId}`)
-      if (expensesRes.ok) {
-        const expensesData = await expensesRes.json()
-        setExpenses(expensesData.expenses)
-      } else {
-        // Fallback: update with response
-        setExpenses(prev => prev.map(e => e.id === editingExpense.id ? data.expense : e))
-      }
+      // Always refetch to get full data with addedBy field and user info
+      await fetchData()
       setSaveIndicator(true)
       
       toast({
@@ -500,13 +504,8 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
 
       const data = await response.json()
       
-      // Optimistically add the new request
-      if (data.purchaseRequest) {
-        setPurchaseRequests(prev => [data.purchaseRequest, ...prev])
-      } else {
-        // If response doesn't include purchaseRequest, refetch
-        await fetchData()
-      }
+      // Always refetch to get full data with requester user info
+      await fetchData()
 
       setPurchaseRequestForm({
         description: '',
@@ -551,7 +550,6 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
     setReviewForm({
       status: 'APPROVED',
       reviewNote: '',
-      addToExpenses: true,
       actualAmount: request.estimatedAmount.toString(),
       expenseDate: new Date().toISOString().split('T')[0],
       expenseNotes: '',
@@ -573,10 +571,10 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         body: JSON.stringify({
           status: reviewForm.status,
           reviewNote: reviewForm.reviewNote || undefined,
-          addToExpenses: reviewForm.status === 'APPROVED' ? reviewForm.addToExpenses : false,
-          actualAmount: reviewForm.addToExpenses ? parseFloat(reviewForm.actualAmount) : undefined,
-          expenseDate: reviewForm.addToExpenses ? new Date(reviewForm.expenseDate).toISOString() : undefined,
-          expenseNotes: reviewForm.addToExpenses ? reviewForm.expenseNotes || undefined : undefined,
+          addToExpenses: reviewForm.status === 'APPROVED',
+          actualAmount: reviewForm.status === 'APPROVED' ? parseFloat(reviewForm.actualAmount) : undefined,
+          expenseDate: reviewForm.status === 'APPROVED' ? new Date(reviewForm.expenseDate).toISOString() : undefined,
+          expenseNotes: reviewForm.status === 'APPROVED' ? reviewForm.expenseNotes || undefined : undefined,
           adminOverride: reviewForm.adminOverride,
         }),
       })
@@ -595,22 +593,8 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
 
       const data = await response.json()
       
-      // Optimistically update the request
-      if (data.purchaseRequest) {
-        setPurchaseRequests(prev => prev.map(r => 
-          r.id === reviewingRequest.id ? data.purchaseRequest : r
-        ))
-      }
-      
-      // If expense was created, add it optimistically
-      if (data.expense) {
-        setExpenses(prev => [data.expense, ...prev])
-      }
-      
-      // If response structure is different, refetch to ensure consistency
-      if (!data.purchaseRequest && !data.expense) {
-        await fetchData()
-      }
+      // Always refetch to get full data with user info and updated relationships
+      await fetchData()
 
       setReviewRequestOpen(false)
       setReviewingRequest(null)
@@ -631,7 +615,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
       PENDING: { label: 'Pending', icon: Clock, variant: 'secondary' as const },
       APPROVED: { label: 'Approved', icon: CheckCircle, variant: 'default' as const },
       DENIED: { label: 'Denied', icon: XCircle, variant: 'destructive' as const },
-      COMPLETED: { label: 'Completed', icon: CheckCircle, variant: 'default' as const },
+      COMPLETED: { label: 'Approved', icon: CheckCircle, variant: 'default' as const },
     }
     const config = statusConfig[status]
     const Icon = config.icon
@@ -710,6 +694,199 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
   }
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0)
+  
+  // Calculate account balance
+  // Since we only track expenses (no income), balance starts at 0 and goes negative
+  // In a real system with income tracking, this would be: startingBalance + income - expenses
+  const accountBalance = -totalExpenses
+  const displayBalance = Math.abs(accountBalance)
+  
+  // Get current date for display
+  const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  
+  // Keyboard shortcut for search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '/' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault()
+          const searchInput = document.querySelector('input[placeholder*="search"]') as HTMLInputElement
+          if (searchInput) {
+            searchInput.focus()
+          }
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+  
+  // Combine expenses and purchase requests into transactions
+  type Transaction = {
+    id: string
+    type: 'expense' | 'purchase_request'
+    date: string
+    description: string
+    amount: number
+    category: string | null
+    event?: { id: string; name: string; slug: string }
+    subteam?: { id: string; name: string } | null
+    status?: 'PENDING' | 'APPROVED' | 'DENIED' | 'COMPLETED'
+    isPending?: boolean
+    addedBy?: { 
+      id: string
+      subteamId: string | null
+      subteam: { id: string; name: string } | null
+      user?: {
+        id: string
+        name: string | null
+        image: string | null
+        email: string
+      } | null
+    } | null
+  }
+  
+  const transactions: Transaction[] = [
+    ...expenses.map(exp => ({
+      id: exp.id,
+      type: 'expense' as const,
+      date: exp.date,
+      description: exp.description,
+      amount: -exp.amount, // Negative for expenses
+      category: exp.category,
+      event: exp.event,
+      subteam: exp.addedBy?.subteam || null,
+      isPending: false,
+      addedBy: exp.addedBy,
+    })),
+    ...purchaseRequests
+      .filter(req => req.status === 'PENDING')
+      .map(req => ({
+        id: req.id,
+        type: 'purchase_request' as const,
+        date: req.createdAt,
+        description: req.description,
+        amount: -req.estimatedAmount, // Negative for pending requests
+        category: req.category,
+        event: req.event || undefined,
+        subteam: req.subteam || null,
+        status: req.status,
+        isPending: true,
+        addedBy: req.requester ? {
+          id: req.requesterId,
+          subteamId: req.subteamId,
+          subteam: req.subteam || null,
+          user: req.requester,
+        } : null,
+      })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  
+  // Filter transactions based on search and filters
+  const filteredTransactions = transactions.filter(transaction => {
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      const matchesSearch = (
+        transaction.description.toLowerCase().includes(query) ||
+        transaction.category?.toLowerCase().includes(query) ||
+        transaction.event?.name.toLowerCase().includes(query) ||
+        transaction.subteam?.name.toLowerCase().includes(query)
+      )
+      if (!matchesSearch) return false
+    }
+    
+    // Category filter
+    if (filterCategory && transaction.category !== filterCategory) {
+      return false
+    }
+    
+    // Event filter
+    if (filterEvent && transaction.event?.id !== filterEvent) {
+      return false
+    }
+    
+    // Status filter
+    if (filterStatus === 'pending' && !transaction.isPending) {
+      return false
+    }
+    if (filterStatus === 'completed' && transaction.isPending) {
+      return false
+    }
+    
+    return true
+  })
+  
+  // Get unique categories and events for filter dropdown
+  const uniqueCategories = Array.from(new Set(
+    transactions
+      .map(t => t.category)
+      .filter((c): c is string => c !== null)
+  )).sort()
+  
+  const uniqueEvents = Array.from(new Set(
+    transactions
+      .map(t => t.event?.id)
+      .filter((id): id is string => id !== undefined)
+  ))
+  
+  const eventMap = new Map(events.map(e => [e.id, e]))
+  
+  // Calculate expense history for simple trend visualization
+  const expenseHistory = expenses
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .reduce((acc, exp) => {
+      const date = new Date(exp.date).toISOString().split('T')[0]
+      const lastTotal = acc.length > 0 ? acc[acc.length - 1].total : 0
+      acc.push({ date, total: lastTotal + exp.amount })
+      return acc
+    }, [] as { date: string; total: number }[])
+  
+  // Get last 7 data points for trend
+  const recentExpenseHistory = expenseHistory.slice(-7)
+  const minExpense = Math.min(...recentExpenseHistory.map(h => h.total), 0)
+  const maxExpense = Math.max(...recentExpenseHistory.map(h => h.total), 0)
+  const expenseRange = maxExpense - minExpense || 1
+  
+  // Get transaction icon
+  const getTransactionIcon = (transaction: Transaction) => {
+    if (transaction.type === 'purchase_request') {
+      return ShoppingCart
+    }
+    if (transaction.category?.toLowerCase().includes('fiscal') || transaction.description.toLowerCase().includes('fiscal')) {
+      return Building2
+    }
+    if (transaction.description.toLowerCase().includes('invoice') || transaction.description.toLowerCase().includes('invoice to')) {
+      return Briefcase
+    }
+    return FileText
+  }
+  
+  // Get initials for tags
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+  
+  // Get color for tag
+  const getTagColor = (name: string) => {
+    const colors = [
+      'bg-blue-500',
+      'bg-orange-500',
+      'bg-red-500',
+      'bg-green-500',
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-yellow-500',
+      'bg-indigo-500',
+    ]
+    const index = name.charCodeAt(0) % colors.length
+    return colors[index]
+  }
 
   // Calculate subteam expenses based on purchaser's subteam
   const subteamExpenses = expenses.reduce((acc, exp) => {
@@ -804,103 +981,369 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
     )
   }
 
+  // Calculate pending purchase requests count
+  const pendingRequestsCount = purchaseRequests.filter(req => req.status === 'PENDING').length
+  const userPendingRequests = purchaseRequests.filter(req => 
+    req.requesterId === currentMembershipId && req.status === 'PENDING'
+  ).length
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold">Finance</h2>
-          <SaveIndicator show={saveIndicator} />
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setRequestPurchaseOpen(true)}>
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Request Purchase
-          </Button>
-              {isAdmin && (
-            <Button onClick={() => setAddExpenseOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Expense
+      {/* Header with Quick Stats */}
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold">Finance</h2>
+            <SaveIndicator show={saveIndicator} />
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => setRequestPurchaseOpen(true)}>
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Request Purchase
             </Button>
+            {isAdmin && (
+              <Button onClick={() => setAddExpenseOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Expense
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Quick Stats Bar */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Total Expenses</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                    ${displayBalance.toFixed(2)}
+                  </p>
+                </div>
+                {recentExpenseHistory.length > 1 && (
+                  <div className="flex items-end gap-0.5 h-10 w-16">
+                    {recentExpenseHistory.map((point, idx) => {
+                      const height = ((point.total - minExpense) / expenseRange) * 100
+                      return (
+                        <div
+                          key={idx}
+                          className="flex-1 rounded-t bg-red-500 dark:bg-red-400"
+                          style={{ height: `${Math.max(height, 5)}%` }}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {subteamExpensesList.length > 0 && subteamExpensesList.length <= 3 && (
+            subteamExpensesList.map((subteamExp) => (
+              <Card key={subteamExp.id}>
+                <CardContent className="pt-6">
+                  <p className="text-xs text-muted-foreground mb-1">{subteamExp.name}</p>
+                  <p className="text-xl font-semibold">${subteamExp.total.toFixed(2)}</p>
+                </CardContent>
+              </Card>
+            ))
+          )}
+
+          {budgets.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-xs text-muted-foreground mb-1">Active Budgets</p>
+                <p className="text-xl font-semibold">{budgets.length}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {(pendingRequestsCount > 0 || userPendingRequests > 0) && (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-xs text-muted-foreground mb-1">
+                  {isAdmin ? 'Pending Requests' : 'Your Requests'}
+                </p>
+                <p className="text-xl font-semibold">
+                  {isAdmin ? pendingRequestsCount : userPendingRequests}
+                </p>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
 
-      {/* Expense Summary */}
+      {/* Transactions Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
-            Expense Summary
-          </CardTitle>
+          <CardTitle>Transactions</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Total Team Expense */}
-          <div className="p-4 border rounded-lg bg-muted/30">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Team Expense</p>
-                <p className="text-2xl font-bold mt-1">${totalExpenses.toFixed(2)}</p>
+        <CardContent>
+          {/* Search Bar */}
+          <div className="mb-4">
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                <Search className="h-4 w-4 text-muted-foreground" style={{ imageRendering: 'crisp-edges', WebkitFontSmoothing: 'antialiased' }} />
+              </div>
+              <Input
+                type="text"
+                placeholder="Type / to search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === '/' && e.target === document.activeElement) {
+                    e.preventDefault()
+                  }
+                }}
+                className="pl-11 pr-24 h-11 bg-background/50 border-border/50 focus:bg-background focus:border-border"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`h-7 w-7 p-0 ${showFilters ? 'bg-accent' : ''}`}
+                  title="Filter transactions"
+                >
+                  <Filter className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExportCSV}
+                  className="h-7 w-7 p-0"
+                  title="Export to CSV"
+                >
+                  <Cloud className="h-4 w-4" />
+                </Button>
               </div>
             </div>
+            
+            {/* Filter Panel */}
+            {showFilters && (
+              <div className="mt-3 p-4 border rounded-lg bg-card space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium">Filters</h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setFilterCategory(null)
+                      setFilterEvent(null)
+                      setFilterStatus('all')
+                    }}
+                    className="h-7 text-xs"
+                  >
+                    Clear all
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <Label htmlFor="filter-status" className="text-xs text-muted-foreground mb-1 block">Status</Label>
+                    <select
+                      id="filter-status"
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value as 'all' | 'pending' | 'completed')}
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="all">All</option>
+                      <option value="pending">Pending</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
+                  {uniqueCategories.length > 0 && (
+                    <div>
+                      <Label htmlFor="filter-category" className="text-xs text-muted-foreground mb-1 block">Category</Label>
+                      <select
+                        id="filter-category"
+                        value={filterCategory || ''}
+                        onChange={(e) => setFilterCategory(e.target.value || null)}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      >
+                        <option value="">All categories</option>
+                        {uniqueCategories.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {uniqueEvents.length > 0 && (
+                    <div>
+                      <Label htmlFor="filter-event" className="text-xs text-muted-foreground mb-1 block">Event</Label>
+                      <select
+                        id="filter-event"
+                        value={filterEvent || ''}
+                        onChange={(e) => setFilterEvent(e.target.value || null)}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      >
+                        <option value="">All events</option>
+                        {uniqueEvents.map(eventId => {
+                          const event = eventMap.get(eventId)
+                          return event ? (
+                            <option key={eventId} value={eventId}>{event.name}</option>
+                          ) : null
+                        })}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Subteam Expenses */}
-          {subteamExpensesList.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Subteam Expenses</p>
-              <div className="grid gap-2">
-                {subteamExpensesList.map((subteamExp) => (
-                  <div
-                    key={subteamExp.id}
-                    className="p-3 border rounded-lg flex items-center justify-between"
-                  >
-                    <span className="font-medium">{subteamExp.name}</span>
-                    <span className="text-lg font-semibold">${subteamExp.total.toFixed(2)}</span>
-                  </div>
-                ))}
+          {/* Transactions Table */}
+          <div className="space-y-1">
+            {filteredTransactions.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                {searchQuery ? 'No transactions match your search' : 'No transactions yet'}
               </div>
-            </div>
-          )}
+            ) : (
+              filteredTransactions.map((transaction) => {
+                const Icon = getTransactionIcon(transaction)
+                const isExpense = transaction.amount < 0
+                const amount = Math.abs(transaction.amount)
+                const date = new Date(transaction.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                
+                return (
+                  <div
+                    key={transaction.id}
+                    className={`group flex items-center gap-4 p-4 rounded-lg border transition-colors ${
+                      isExpense
+                        ? 'bg-red-50/50 dark:bg-red-950/20 border-red-200/50 dark:border-red-900/50 hover:bg-red-100/50 dark:hover:bg-red-950/30'
+                        : 'bg-green-50/50 dark:bg-green-950/20 border-green-200/50 dark:border-green-900/50 hover:bg-green-100/50 dark:hover:bg-green-950/30'
+                    }`}
+                  >
+                    {/* Icon */}
+                    <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+                      isExpense
+                        ? 'bg-red-100 dark:bg-red-900/50'
+                        : 'bg-green-100 dark:bg-green-900/50'
+                    }`}>
+                      <Icon className={`h-5 w-5 ${
+                        isExpense
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-green-600 dark:text-green-400'
+                      }`} />
+                    </div>
+
+                    {/* Transaction Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        {transaction.isPending && (
+                          <Badge variant="secondary" className="text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
+                            Pending
+                          </Badge>
+                        )}
+                        <span className="font-medium truncate">{transaction.description}</span>
+                      </div>
+                      {transaction.event && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">
+                            {transaction.event.name}
+                          </Badge>
+                          {transaction.subteam && (
+                            <Badge variant="outline" className="text-xs">
+                              {transaction.subteam.name}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Date and Amount */}
+                    <div className="flex items-center gap-4 flex-shrink-0">
+                      <span className="text-sm text-muted-foreground">{date}</span>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-lg font-semibold ${
+                          isExpense
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-green-600 dark:text-green-400'
+                        }`}>
+                          {isExpense ? '-' : '+'}${amount.toFixed(2)}
+                        </span>
+                        {transaction.addedBy?.user && (
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={transaction.addedBy.user.image || ''} />
+                              <AvatarFallback className="text-xs">
+                                {transaction.addedBy.user.name?.charAt(0)?.toUpperCase() || 
+                                 transaction.addedBy.user.email?.charAt(0)?.toUpperCase() || 
+                                 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            {transaction.subteam && (
+                              <span className="text-sm text-muted-foreground font-medium">
+                                {transaction.subteam.name}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {isAdmin && transaction.type === 'expense' && (
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              const expense = expenses.find(e => e.id === transaction.id)
+                              if (expense) handleEditExpenseClick(expense)
+                            }}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              const expense = expenses.find(e => e.id === transaction.id)
+                              if (expense) handleDeleteExpenseClick(expense)
+                            }}
+                            className="h-8 w-8 p-0 text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Event Budgets Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Wallet className="h-5 w-5" />
-              <CardTitle>Event Budgets</CardTitle>
+      {/* Event Budgets Section - Compact */}
+      {budgets.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5" />
+                <CardTitle>Event Budgets</CardTitle>
+              </div>
+              {isAdmin && (
+                <Button onClick={() => setBudgetDialogOpen(true)} size="sm" variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Set Budget
+                </Button>
+              )}
             </div>
-            {isAdmin && (
-              <Button onClick={() => setBudgetDialogOpen(true)} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Set Budget
-              </Button>
-            )}
-          </div>
-          <CardDescription>
-            Budget tracking for each event team
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {budgets.length === 0 ? (
-            <p className="text-muted-foreground text-sm text-center py-8">
-              No event budgets set yet. {isAdmin && 'Click "Set Budget" to create one.'}
-            </p>
-          ) : (
-            <div className="space-y-4">
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {budgets.map((budget) => {
                 const spentPercentage = Math.min((budget.totalSpent / budget.maxBudget) * 100, 100)
                 return (
                   <div
                     key={budget.id}
-                    className="p-4 border rounded-lg space-y-3"
+                    className="p-3 border rounded-lg space-y-2 group"
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-base mb-1">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm truncate">
                           {budget.event.name}
                           {budget.subteam && (
                             <Badge variant="outline" className="ml-2 text-xs">
@@ -910,14 +1353,14 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                         </h4>
                       </div>
                       {isAdmin && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => handleEditBudgetClick(budget)}
-                            className="h-8 w-8 p-0"
+                            className="h-7 w-7 p-0"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-3 w-3" />
                           </Button>
                           <Button
                             size="sm"
@@ -929,7 +1372,6 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                                     method: 'DELETE',
                                   })
                                   if (response.ok) {
-                                    // Optimistically remove budget
                                     setBudgets(prev => prev.filter(b => b.id !== budget.id))
                                     setSaveIndicator(true)
                                     toast({
@@ -948,21 +1390,31 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                                 }
                               }
                             }}
-                            className="h-8 w-8 p-0 text-red-600"
+                            className="h-7 w-7 p-0 text-red-600"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       )}
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Budget: <span className="font-medium text-foreground">${budget.maxBudget.toFixed(2)}</span></span>
-                        <span className="text-muted-foreground">Spent: <span className="font-medium text-foreground">${budget.totalSpent.toFixed(2)}</span></span>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          ${budget.totalSpent.toFixed(2)} / ${budget.maxBudget.toFixed(2)}
+                        </span>
+                        <span className={`font-medium ${
+                          budget.remaining < 0
+                            ? 'text-red-600 dark:text-red-400'
+                            : budget.remaining < budget.maxBudget * 0.2
+                            ? 'text-yellow-600 dark:text-yellow-400'
+                            : 'text-green-600 dark:text-green-400'
+                        }`}>
+                          ${budget.remaining.toFixed(2)} left
+                        </span>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-2">
+                      <div className="w-full bg-muted rounded-full h-1.5">
                         <div
-                          className={`h-2 rounded-full ${
+                          className={`h-1.5 rounded-full transition-all ${
                             spentPercentage > 100
                               ? 'bg-red-500'
                               : spentPercentage > 80
@@ -972,196 +1424,130 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                           style={{ width: `${Math.min(spentPercentage, 100)}%` }}
                         />
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium">
-                            ${budget.remaining.toFixed(2)} <span className="text-muted-foreground font-normal">remaining</span>
-                          </p>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Requested: ${(budget.totalRequested || 0).toFixed(2)}
-                        </div>
-                      </div>
                     </div>
                   </div>
                 )
               })}
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Purchase Requests Section */}
-      {(isAdmin || purchaseRequests.some(req => req.requesterId === currentMembershipId)) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Purchase Requests</CardTitle>
-            <CardDescription>
-              {isAdmin ? 'Review and approve purchase requests from team members' : 'Your purchase requests'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {purchaseRequests.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No purchase requests</p>
-              ) : (
-                purchaseRequests
-                  .filter(req => isAdmin || req.requesterId === currentMembershipId)
-                  .map((request) => (
-                    <div
-                      key={request.id}
-                      className="flex items-start justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium">{request.description}</h4>
-                          {getStatusBadge(request.status)}
-                        </div>
-                        {request.event && (
-                          <p className="text-sm text-muted-foreground mb-1">
-                            Event: {request.event.name}
-                            {request.subteam && (
-                              <Badge variant="outline" className="ml-2 text-xs">
-                                {request.subteam.name}
-                              </Badge>
-                            )}
-                          </p>
-                        )}
-                        {request.category && (
-                          <p className="text-sm text-muted-foreground mb-1">
-                            Category: {request.category}
-                          </p>
-                        )}
-                        <p className="text-sm font-medium">
-                          Estimated: ${request.estimatedAmount.toFixed(2)}
-                        </p>
-                        {request.adminOverride && (
-                          <Badge variant="outline" className="mt-1 text-xs">
-                            Admin Override
-                          </Badge>
-                        )}
-                        {request.justification && (
-                          <p className="text-sm text-muted-foreground mt-1">{request.justification}</p>
-                        )}
-                        {request.reviewNote && (
-                          <p className="text-sm text-muted-foreground mt-1 italic">
-                            Review: {request.reviewNote}
-                          </p>
-                        )}
-                        {request.expense && (
-                          <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                            ✓ Added to expenses: ${request.expense.amount.toFixed(2)} on{' '}
-                            {new Date(request.expense.date).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                      {isAdmin && request.status === 'PENDING' && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleReviewRequestClick(request)}
-                        >
-                          Review
-                        </Button>
-                      )}
-                    </div>
-                  ))
-              )}
-            </div>
+            {isAdmin && budgets.length === 0 && (
+              <div className="text-center py-6">
+                <p className="text-muted-foreground text-sm mb-3">No event budgets set yet.</p>
+                <Button onClick={() => setBudgetDialogOpen(true)} size="sm" variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Set Budget
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {/* Expenses Spreadsheet */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Expense Spreadsheet</CardTitle>
-              <CardDescription>
-                {isAdmin ? 'View and manage all team expenses' : 'View team expenses'}
-              </CardDescription>
-            </div>
-            <Button onClick={handleExportCSV} variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="border rounded-lg overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="text-left p-3 font-medium">Date</th>
-                  <th className="text-left p-3 font-medium">Description</th>
-                  <th className="text-left p-3 font-medium">Event</th>
-                  <th className="text-left p-3 font-medium">Category</th>
-                  <th className="text-left p-3 font-medium">Subteam</th>
-                  <th className="text-right p-3 font-medium">Amount</th>
-                  {isAdmin && <th className="text-right p-3 font-medium">Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.length === 0 ? (
-                  <tr>
-                    <td colSpan={isAdmin ? 7 : 6} className="p-8 text-center text-muted-foreground">
-                      No expenses recorded yet
-                    </td>
-                  </tr>
-                ) : (
-                  expenses.map((expense) => (
-                    <tr key={expense.id} className="border-t hover:bg-muted/50">
-                      <td className="p-3">{new Date(expense.date).toLocaleDateString()}</td>
-                      <td className="p-3">
-                        {expense.description}
-                        {expense.purchaseRequest && (
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            From Request
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="p-3">{expense.event?.name || '-'}</td>
-                      <td className="p-3">{expense.category || '-'}</td>
-                      <td className="p-3">
-                        {expense.addedBy?.subteam ? (
-                          <Badge variant="outline" className="text-xs">
-                            {expense.addedBy.subteam.name}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">Club-wide</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right font-medium">${expense.amount.toFixed(2)}</td>
-                      {isAdmin && (
-                        <td className="p-3 text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleEditExpenseClick(expense)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteExpenseClick(expense)}
-                              className="h-8 w-8 p-0 text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
+      {/* Purchase Requests - Show pending for admins, all for members */}
+      {((isAdmin && pendingRequestsCount > 0) || (!isAdmin && purchaseRequests.some(req => req.requesterId === currentMembershipId))) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {isAdmin ? 'Pending Purchase Requests' : 'Your Purchase Requests'}
+            </CardTitle>
+            <CardDescription>
+              {isAdmin 
+                ? `${pendingRequestsCount} request${pendingRequestsCount !== 1 ? 's' : ''} awaiting review`
+                : `View the status of your purchase requests`
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {purchaseRequests
+                .filter(req => {
+                  if (isAdmin) return req.status === 'PENDING'
+                  return req.requesterId === currentMembershipId
+                })
+                .map((request) => (
+                  <div
+                    key={request.id}
+                    className="flex items-start justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      {request.requester && (
+                        <Avatar className="h-8 w-8 flex-shrink-0">
+                          <AvatarImage src={request.requester.image || ''} />
+                          <AvatarFallback className="text-xs">
+                            {request.requester.name?.charAt(0)?.toUpperCase() || 
+                             request.requester.email?.charAt(0)?.toUpperCase() || 
+                             'U'}
+                          </AvatarFallback>
+                        </Avatar>
                       )}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium truncate">{request.description}</h4>
+                          {getStatusBadge(request.status)}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">${request.estimatedAmount.toFixed(2)}</span>
+                          {request.event && (
+                            <>
+                              <span>•</span>
+                              <span>{request.event.name}</span>
+                            </>
+                          )}
+                          {request.category && (
+                            <>
+                              <span>•</span>
+                              <span>{request.category}</span>
+                            </>
+                          )}
+                        </div>
+                        {request.justification && (
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{request.justification}</p>
+                        )}
+                        {/* Show review decision for members */}
+                        {!isAdmin && request.status !== 'PENDING' && (
+                          <div className="mt-2 pt-2 border-t space-y-1">
+                            {request.status === 'APPROVED' && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                <span className="font-medium text-green-600 dark:text-green-400">Approved</span>
+                                {request.expense && (
+                                  <span className="text-muted-foreground">
+                                    • Added to expenses: ${request.expense.amount.toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {request.reviewNote && (
+                              <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground font-medium">Comment:</p>
+                                <p className="text-sm text-muted-foreground italic">
+                                  "{request.reviewNote}"
+                                </p>
+                              </div>
+                            )}
+                            {request.reviewedAt && (
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(request.reviewedAt).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {isAdmin && request.status === 'PENDING' && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleReviewRequestClick(request)}
+                        className="ml-4 flex-shrink-0"
+                      >
+                        Review
+                      </Button>
+                    )}
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add Expense Dialog */}
       <Dialog open={addExpenseOpen} onOpenChange={setAddExpenseOpen}>
@@ -1596,6 +1982,24 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
             <div className="space-y-4 py-4">
               {reviewingRequest && (
                 <div className="p-3 bg-muted rounded-lg space-y-2">
+                  {reviewingRequest.requester && (
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={reviewingRequest.requester.image || ''} />
+                        <AvatarFallback className="text-xs">
+                          {reviewingRequest.requester.name?.charAt(0)?.toUpperCase() || 
+                           reviewingRequest.requester.email?.charAt(0)?.toUpperCase() || 
+                           'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Requested by</p>
+                        <p className="font-medium">
+                          {reviewingRequest.requester.name || reviewingRequest.requester.email}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <p><strong>Description:</strong> {reviewingRequest.description}</p>
                   {reviewingRequest.category && <p><strong>Category:</strong> {reviewingRequest.category}</p>}
                   <p><strong>Estimated Amount:</strong> ${reviewingRequest.estimatedAmount.toFixed(2)}</p>
@@ -1626,15 +2030,17 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                 </Button>
               </div>
 
-              <div>
-                <Label htmlFor="review-note">Review Note</Label>
-                <Input
-                  id="review-note"
-                  value={reviewForm.reviewNote}
-                  onChange={(e) => setReviewForm({ ...reviewForm, reviewNote: e.target.value })}
-                  placeholder="Optional feedback for the requester"
-                />
-              </div>
+              {reviewForm.status === 'DENIED' && (
+                <div>
+                  <Label htmlFor="review-note">Review Note</Label>
+                  <Input
+                    id="review-note"
+                    value={reviewForm.reviewNote}
+                    onChange={(e) => setReviewForm({ ...reviewForm, reviewNote: e.target.value })}
+                    placeholder="Optional feedback for the requester"
+                  />
+                </div>
+              )}
 
               {reviewBudgetWarning && (
                 <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
@@ -1660,56 +2066,42 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
               )}
               {reviewForm.status === 'APPROVED' && (
                 <>
-                  <div className="flex items-center gap-2 p-3 border rounded-lg">
-                    <input
-                      type="checkbox"
-                      id="add-to-expenses"
-                      checked={reviewForm.addToExpenses}
-                      onChange={(e) => setReviewForm({ ...reviewForm, addToExpenses: e.target.checked })}
-                      className="h-4 w-4"
-                    />
-                    <Label htmlFor="add-to-expenses" className="cursor-pointer">
-                      Add to expenses immediately
-                    </Label>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    This request will be automatically added to expenses. You can adjust the values below if needed.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="actual-amount">Actual Amount ($) *</Label>
+                      <Input
+                        id="actual-amount"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={reviewForm.actualAmount}
+                        onChange={(e) => setReviewForm({ ...reviewForm, actualAmount: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="expense-date">Expense Date *</Label>
+                      <Input
+                        id="expense-date"
+                        type="date"
+                        value={reviewForm.expenseDate}
+                        onChange={(e) => setReviewForm({ ...reviewForm, expenseDate: e.target.value })}
+                        required
+                      />
+                    </div>
                   </div>
-
-                  {reviewForm.addToExpenses && (
-                    <>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="actual-amount">Actual Amount ($) *</Label>
-                          <Input
-                            id="actual-amount"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={reviewForm.actualAmount}
-                            onChange={(e) => setReviewForm({ ...reviewForm, actualAmount: e.target.value })}
-                            required={reviewForm.addToExpenses}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="expense-date">Expense Date *</Label>
-                          <Input
-                            id="expense-date"
-                            type="date"
-                            value={reviewForm.expenseDate}
-                            onChange={(e) => setReviewForm({ ...reviewForm, expenseDate: e.target.value })}
-                            required={reviewForm.addToExpenses}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="expense-notes">Expense Notes</Label>
-                        <Input
-                          id="expense-notes"
-                          value={reviewForm.expenseNotes}
-                          onChange={(e) => setReviewForm({ ...reviewForm, expenseNotes: e.target.value })}
-                          placeholder="Additional details for the expense record"
-                        />
-                      </div>
-                    </>
-                  )}
+                  <div>
+                    <Label htmlFor="expense-notes">Expense Notes</Label>
+                    <Input
+                      id="expense-notes"
+                      value={reviewForm.expenseNotes}
+                      onChange={(e) => setReviewForm({ ...reviewForm, expenseNotes: e.target.value })}
+                      placeholder="Additional details for the expense record"
+                    />
+                  </div>
                 </>
               )}
             </div>

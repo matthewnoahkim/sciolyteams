@@ -66,6 +66,14 @@ export async function GET(req: NextRequest) {
             name: true,
           },
         },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+            email: true,
+          },
+        },
       },
     })
 
@@ -82,6 +90,14 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             name: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+            email: true,
           },
         },
       },
