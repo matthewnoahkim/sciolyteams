@@ -20,7 +20,14 @@ import { HealthTools } from '@/components/dev/health-tools'
 // This page should be removed or properly secured before deployment
 
 export default function DevPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  // Check sessionStorage immediately on mount to avoid flash of login screen
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('dev_auth') === 'true'
+    }
+    return false
+  })
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [password, setPassword] = useState('')
   const [errorDialogOpen, setErrorDialogOpen] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
@@ -63,10 +70,21 @@ export default function DevPage() {
 
   useEffect(() => {
     // Check if already authenticated in this session
-    if (sessionStorage.getItem('dev_auth') === 'true') {
-      setIsAuthenticated(true)
+    if (typeof window !== 'undefined') {
+      const authStatus = sessionStorage.getItem('dev_auth') === 'true'
+      setIsAuthenticated(authStatus)
     }
+    setIsCheckingAuth(false)
   }, [])
+
+  // Show loading state while checking authentication to prevent flash
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
 
   if (!isAuthenticated) {
     return (
