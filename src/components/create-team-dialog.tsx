@@ -75,7 +75,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
               <Label htmlFor="name">Club Name</Label>
               <Input
                 id="name"
-                placeholder="e.g., Lincoln High School"
+                placeholder="e.g., Los Altos High School"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required

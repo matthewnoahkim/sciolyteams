@@ -10,8 +10,27 @@ import {
   EyeOff, 
   Trash2, 
   GripVertical,
-  Edit
+  Edit,
+  Check
 } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  rectIntersection,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import {
   Dialog,
   DialogContent,
@@ -46,6 +65,104 @@ interface HomePageTabProps {
   team: any
   isAdmin: boolean
   user: any
+}
+
+// Sortable Widget Item Component
+function SortableWidgetItem({
+  widget,
+  isConfigMode,
+  getWidgetClassName,
+  renderWidget,
+  toggleVisibility,
+  setSelectedWidget,
+  setEditWidgetOpen,
+  handleDeleteWidget,
+}: {
+  widget: any
+  isConfigMode: boolean
+  getWidgetClassName: (widget: any) => string
+  renderWidget: (widget: any) => React.ReactNode
+  toggleVisibility: (widget: any) => void
+  setSelectedWidget: (widget: any) => void
+  setEditWidgetOpen: (open: boolean) => void
+  handleDeleteWidget: (id: string) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: widget.id, disabled: !isConfigMode })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`relative ${getWidgetClassName(widget)} ${isDragging ? 'z-50' : ''}`}
+    >
+      {isConfigMode && (
+        <>
+          <div
+            {...attributes}
+            {...listeners}
+            className="absolute top-2 left-2 z-20 cursor-grab active:cursor-grabbing p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          >
+            <GripVertical className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+          </div>
+          <div className="absolute top-2 right-2 z-10 flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => toggleVisibility(widget)}
+              className="h-8 w-8 p-0"
+            >
+              {widget.isVisible ? (
+                <Eye className="h-4 w-4" />
+              ) : (
+                <EyeOff className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setSelectedWidget(widget)
+                setEditWidgetOpen(true)
+              }}
+              className="h-8 w-8 p-0"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => handleDeleteWidget(widget.id)}
+              className="h-8 w-8 p-0"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </>
+      )}
+      {widget.isVisible ? (
+        renderWidget(widget)
+      ) : (
+        <div className="h-full border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg flex items-center justify-center p-6 bg-gray-50 dark:bg-gray-900">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Hidden Widget
+          </p>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
@@ -128,12 +245,16 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
 
   const handleAddWidget = async (widgetData: any) => {
     try {
+      // Set position to the end of the list
+      const newPosition = widgets.length
+
       const response = await fetch('/api/widgets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           teamId,
           ...widgetData,
+          position: newPosition,
         }),
       })
 
@@ -206,6 +327,79 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
   const toggleVisibility = async (widget: any) => {
     await handleUpdateWidget(widget.id, { isVisible: !widget.isVisible })
   }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (!over || active.id === over.id) {
+      return
+    }
+
+    const oldIndex = visibleWidgets.findIndex((w) => w.id === active.id)
+    const newIndex = visibleWidgets.findIndex((w) => w.id === over.id)
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return
+    }
+
+    // Reorder visible widgets
+    const reorderedVisibleWidgets = arrayMove(visibleWidgets, oldIndex, newIndex)
+    
+    // Optimistically update the UI - assign sequential positions to visible widgets
+    setWidgets((prev) => {
+      const updated = [...prev]
+      
+      // Update visible widgets' positions to be sequential (0, 1, 2, ...)
+      reorderedVisibleWidgets.forEach((widget, index) => {
+        const widgetInArray = updated.find((w) => w.id === widget.id)
+        if (widgetInArray) {
+          widgetInArray.position = index
+        }
+      })
+      
+      // Keep hidden widgets' positions but offset them after visible ones
+      const hiddenWidgets = updated.filter((w) => !w.isVisible && !isConfigMode)
+      hiddenWidgets.forEach((widget) => {
+        const currentPosition = widget.position ?? 0
+        if (currentPosition < reorderedVisibleWidgets.length) {
+          widget.position = reorderedVisibleWidgets.length + currentPosition
+        }
+      })
+      
+      return updated.sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    })
+
+    // Update positions in the backend
+    try {
+      // Update visible widgets with sequential positions
+      const visibleUpdates = reorderedVisibleWidgets.map((widget, index) => ({
+        id: widget.id,
+        position: index,
+      }))
+
+      // Update all visible widgets' positions
+      await Promise.all(
+        visibleUpdates.map((update) =>
+          handleUpdateWidget(update.id, { position: update.position })
+        )
+      )
+    } catch (error) {
+      // Revert on error
+      fetchWidgets()
+      toast({
+        title: 'Error',
+        description: 'Failed to update widget order',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   const renderWidget = (widget: any) => {
     const widgetProps = {
@@ -308,7 +502,11 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
               variant={isConfigMode ? 'default' : 'outline'}
               onClick={() => setIsConfigMode(!isConfigMode)}
             >
-              <Settings className="h-4 w-4 mr-2" />
+              {isConfigMode ? (
+                <Check className="h-4 w-4 mr-2" />
+              ) : (
+                <Settings className="h-4 w-4 mr-2" />
+              )}
               {isConfigMode ? 'Done' : 'Configure'}
             </Button>
             {isConfigMode && (
@@ -335,59 +533,32 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-auto">
-          {visibleWidgets.map((widget) => (
-            <div
-              key={widget.id}
-              className={`relative ${getWidgetClassName(widget)}`}
-            >
-              {isConfigMode && (
-                <div className="absolute top-2 right-2 z-10 flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => toggleVisibility(widget)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {widget.isVisible ? (
-                      <Eye className="h-4 w-4" />
-                    ) : (
-                      <EyeOff className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      setSelectedWidget(widget)
-                      setEditWidgetOpen(true)
-                    }}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleDeleteWidget(widget.id)}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              {widget.isVisible ? (
-                renderWidget(widget)
-              ) : (
-                <div className="h-full border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg flex items-center justify-center p-6 bg-gray-50 dark:bg-gray-900">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Hidden Widget
-                  </p>
-                </div>
-              )}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={rectIntersection}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={visibleWidgets.map((w) => w.id)}
+            strategy={rectSortingStrategy}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-auto">
+              {visibleWidgets.map((widget) => (
+                <SortableWidgetItem
+                  key={widget.id}
+                  widget={widget}
+                  isConfigMode={isConfigMode}
+                  getWidgetClassName={getWidgetClassName}
+                  renderWidget={renderWidget}
+                  toggleVisibility={toggleVisibility}
+                  setSelectedWidget={setSelectedWidget}
+                  setEditWidgetOpen={setEditWidgetOpen}
+                  handleDeleteWidget={handleDeleteWidget}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       {/* Add Widget Dialog */}
