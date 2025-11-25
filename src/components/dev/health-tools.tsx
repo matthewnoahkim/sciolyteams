@@ -550,7 +550,7 @@ export function HealthTools() {
                     Combined view of activity logs, API calls, and errors
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
+                <Button variant="outline" size="sm" onClick={() => fetchLogs()} disabled={loading}>
                   <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
@@ -807,7 +807,7 @@ export function HealthTools() {
                     Track all API route usage, response times, and status codes
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
+                <Button variant="outline" size="sm" onClick={() => fetchLogs()} disabled={loading}>
                   <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
@@ -916,7 +916,7 @@ export function HealthTools() {
                     Backend errors, failed requests, and critical issues
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
+                <Button variant="outline" size="sm" onClick={() => fetchLogs()} disabled={loading}>
                   <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
