@@ -407,7 +407,10 @@ export function TakeTestClient({
         }
       }
 
-      router.push(`/club/${test.teamId}?tab=tests`)
+      // Use window.location for full page navigation to ensure tab parameter is preserved
+      // Extract clubId from membership or current URL path
+      const clubId = membership?.teamId || window.location.pathname.split('/')[2]
+      window.location.href = `/club/${clubId}?tab=tests`
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -420,7 +423,7 @@ export function TakeTestClient({
         document.documentElement.requestFullscreen().catch(() => {})
       }
     }
-  }, [attempt, test.id, test.teamId, test.requireFullscreen, toast, router, answers, saveAnswer])
+  }, [attempt, test.id, membership.teamId, test.requireFullscreen, toast, router, answers, saveAnswer])
 
   // Countdown timer
   useEffect(() => {
@@ -788,7 +791,10 @@ export function TakeTestClient({
                 
                 // Navigate away - fullscreen will NOT be re-entered
                 setShowSaveExitDialog(false)
-                router.push(`/club/${test.teamId}?tab=tests`)
+                // Use window.location for full page navigation to ensure tab parameter is preserved
+                // Extract clubId from membership or current URL path
+                const clubId = membership?.teamId || window.location.pathname.split('/')[2]
+                window.location.href = `/club/${clubId}?tab=tests`
               }}
             >
               Save & Exit
