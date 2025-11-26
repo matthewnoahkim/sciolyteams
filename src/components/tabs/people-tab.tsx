@@ -733,7 +733,6 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                           <Select
                             value={member.subteamId || undefined}
                             onValueChange={(value) => handleAssignToTeamFromMenu(member.id, value || null, member.user.name || member.user.email)}
-                            onClick={(e) => e.stopPropagation()}
                           >
                             <SelectTrigger className="text-xs sm:text-sm h-9 w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
                               <SelectValue placeholder="Unassigned" />
