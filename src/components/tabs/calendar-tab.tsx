@@ -761,6 +761,13 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
       attendeeId: event.attendeeId || currentMembership.id,
       targetRoles: event.targetRoles || [],
       targetEvents: event.targetEvents || [],
+      isRecurring: false,
+      recurrenceRule: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY',
+      recurrenceInterval: 1,
+      recurrenceDaysOfWeek: [] as number[],
+      recurrenceEndType: 'date' as 'date' | 'count',
+      recurrenceEndDate: formatDateLocal(new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000)),
+      recurrenceCount: 10,
     })
     setEventDetailsOpen(false)
     setEditOpen(true)
