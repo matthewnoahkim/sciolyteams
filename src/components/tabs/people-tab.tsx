@@ -719,7 +719,6 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                               'MEMBER'
                             }
                             onValueChange={(value) => handleUpdateRole(member.id, value as 'COACH' | 'CAPTAIN' | 'MEMBER' | 'UNASSIGNED')}
-                            onClick={(e) => e.stopPropagation()}
                           >
                             <SelectTrigger className="text-xs sm:text-sm h-9 w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
                               <SelectValue placeholder="Unassigned" />
