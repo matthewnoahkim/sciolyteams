@@ -540,6 +540,8 @@ model Test {
   releaseScoresAt        DateTime?
   maxAttempts            Int?                  // Max attempts per user (null = unlimited)
   scoreReleaseMode       ScoreReleaseMode      @default(FULL_TEST) // What to release: score only, score + wrong questions, or full test
+  allowCalculator        Boolean               @default(false)      // Whether calculator is allowed
+  calculatorType         CalculatorType?       // Type of calculator allowed (null = none)
   createdByMembershipId  String
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
@@ -1094,6 +1096,12 @@ enum SubmissionStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum CalculatorType {
+  FOUR_FUNCTION
+  SCIENTIFIC
+  GRAPHING
 }
 
 enum TodoPriority {

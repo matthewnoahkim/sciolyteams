@@ -25,6 +25,7 @@ import {
   FileText,
   Key,
   Eye,
+  Calculator as CalcIcon,
 } from 'lucide-react'
 import { PasswordCopyButton } from '@/components/tests/password-copy-button'
 import { EditTestSchedule } from '@/components/tests/edit-test-schedule'
@@ -94,6 +95,8 @@ export default async function TeamTestDetailPage({
       randomizeQuestionOrder: true,
       randomizeOptionOrder: true,
       requireFullscreen: true,
+      allowCalculator: true,
+      calculatorType: true,
       releaseScoresAt: true,
       testPasswordHash: true,
       testPasswordPlaintext: true,
@@ -160,6 +163,8 @@ export default async function TeamTestDetailPage({
       randomizeQuestionOrder: test.randomizeQuestionOrder,
       randomizeOptionOrder: test.randomizeOptionOrder,
       requireFullscreen: test.requireFullscreen,
+      allowCalculator: test.allowCalculator,
+      calculatorType: test.calculatorType,
       status: test.status,
       assignments: test.assignments,
       questions: test.questions.map(q => ({
@@ -233,6 +238,8 @@ export default async function TeamTestDetailPage({
     randomizeQuestionOrder: test.randomizeQuestionOrder,
     randomizeOptionOrder: test.randomizeOptionOrder,
     requireFullscreen: test.requireFullscreen,
+    allowCalculator: test.allowCalculator,
+    calculatorType: test.calculatorType,
     releaseScoresAt: test.releaseScoresAt ? test.releaseScoresAt.toISOString() : null,
     testPasswordPlaintext: test.testPasswordPlaintext,
   }
@@ -265,6 +272,14 @@ export default async function TeamTestDetailPage({
               <Badge variant="outline" className="gap-1">
                 <Lock className="h-3 w-3" />
                 Lockdown
+              </Badge>
+            )}
+            {test.allowCalculator && test.calculatorType && (
+              <Badge variant="outline" className="gap-1">
+                <CalcIcon className="h-3 w-3" />
+                {test.calculatorType === 'FOUR_FUNCTION' ? 'Basic Calculator' : 
+                 test.calculatorType === 'SCIENTIFIC' ? 'Scientific Calculator' : 
+                 'Graphing Calculator'}
               </Badge>
             )}
           </div>
@@ -419,6 +434,19 @@ export default async function TeamTestDetailPage({
               <SettingToggle
                 label="Require fullscreen lockdown"
                 enabled={test.requireFullscreen}
+              />
+              <SettingToggle
+                label="Calculator allowed"
+                note={
+                  test.allowCalculator && test.calculatorType
+                    ? test.calculatorType === 'FOUR_FUNCTION'
+                      ? 'Four Function Calculator'
+                      : test.calculatorType === 'SCIENTIFIC'
+                      ? 'Scientific Calculator'
+                      : 'Graphing Calculator'
+                    : 'No calculator'
+                }
+                enabled={test.allowCalculator}
               />
               <SettingToggle
                 label="Scores released"

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, Clock, Users, FileText, AlertCircle, Play, Eye, Trash2, Lock, Search, Edit } from 'lucide-react'
+import { Plus, Clock, Users, FileText, AlertCircle, Play, Eye, Trash2, Lock, Search, Edit, Calculator as CalcIcon } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageLoading } from '@/components/ui/loading-spinner'
 
@@ -28,6 +28,8 @@ interface Test {
   endAt: string | null
   allowLateUntil: string | null
   requireFullscreen: boolean
+  allowCalculator: boolean
+  calculatorType: 'FOUR_FUNCTION' | 'SCIENTIFIC' | 'GRAPHING' | null
   releaseScoresAt: string | null
   maxAttempts: number | null
   scoreReleaseMode: 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
@@ -47,7 +49,15 @@ interface UserAttemptInfo {
 export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
-  const [tests, setTests] = useState<Test[]>(initialTests || [])
+  // Ensure initialTests have proper _count structure
+  const normalizedInitialTests = initialTests?.map((test: any) => ({
+    ...test,
+    _count: {
+      questions: test._count?.questions ?? 0,
+      attempts: test._count?.attempts ?? 0,
+    },
+  })) || []
+  const [tests, setTests] = useState<Test[]>(normalizedInitialTests)
   const [loading, setLoading] = useState(!initialTests)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'scheduled' | 'opened' | 'completed'>('all')
@@ -76,34 +86,47 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
     }
   }
 
+  // Fetch user attempts even when initialTests is provided
+  const fetchUserAttempts = useCallback(async (tests: Test[]) => {
+    if (tests.length === 0) return
+    
+    const attemptMap = new Map<string, UserAttemptInfo>()
+    for (const test of tests) {
+      try {
+        const attemptsResponse = await fetch(`/api/tests/${test.id}/user-attempts`)
+        if (attemptsResponse.ok) {
+          const attemptsData = await attemptsResponse.json()
+          attemptMap.set(test.id, {
+            attemptsUsed: attemptsData.attemptsUsed || 0,
+            maxAttempts: test.maxAttempts,
+            hasReachedLimit: test.maxAttempts !== null && (attemptsData.attemptsUsed || 0) >= test.maxAttempts,
+          })
+        }
+      } catch (err) {
+        console.error(`Failed to fetch attempts for test ${test.id}:`, err)
+      }
+    }
+    setUserAttempts(attemptMap)
+  }, [])
+
   const fetchTests = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/tests?teamId=${teamId}`)
       if (response.ok) {
         const data = await response.json()
-        setTests(data.tests)
+        // Ensure _count structure exists
+        const testsWithCount = data.tests.map((test: any) => ({
+          ...test,
+          _count: {
+            questions: test._count?.questions ?? 0,
+            attempts: test._count?.attempts ?? 0,
+          },
+        }))
+        setTests(testsWithCount)
 
         // Fetch attempt counts for each test to show "Take Test" and "View Results" buttons
-        if (data.tests.length > 0) {
-          const attemptMap = new Map<string, UserAttemptInfo>()
-          for (const test of data.tests) {
-            try {
-              const attemptsResponse = await fetch(`/api/tests/${test.id}/user-attempts`)
-              if (attemptsResponse.ok) {
-                const attemptsData = await attemptsResponse.json()
-                attemptMap.set(test.id, {
-                  attemptsUsed: attemptsData.attemptsUsed || 0,
-                  maxAttempts: test.maxAttempts,
-                  hasReachedLimit: test.maxAttempts !== null && (attemptsData.attemptsUsed || 0) >= test.maxAttempts,
-                })
-              }
-            } catch (err) {
-              console.error(`Failed to fetch attempts for test ${test.id}:`, err)
-            }
-          }
-          setUserAttempts(attemptMap)
-        }
+        fetchUserAttempts(testsWithCount)
       } else {
         throw new Error('Failed to fetch tests')
       }
@@ -117,14 +140,32 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
     } finally {
       setLoading(false)
     }
-  }, [teamId, isAdmin, toast])
+  }, [teamId, isAdmin, toast, fetchUserAttempts])
 
   useEffect(() => {
     // Skip initial fetch if we already have data from server
     if (!initialTests) {
       fetchTests()
+    } else {
+      // Still fetch user attempts even with initialTests
+      fetchUserAttempts(normalizedInitialTests)
     }
-  }, [fetchTests, initialTests])
+  }, [fetchTests, initialTests, fetchUserAttempts, normalizedInitialTests])
+
+  // Refresh attempts when page becomes visible (user returns from test submission)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && tests.length > 0) {
+        // Refresh user attempts when user returns to the page
+        fetchUserAttempts(tests)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [tests, fetchUserAttempts])
 
   const handleDeleteClick = (test: Test) => {
     setTestToDelete(test)
@@ -301,6 +342,14 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
                   Lockdown
                 </Badge>
               )}
+              {test.allowCalculator && test.calculatorType && (
+                <Badge variant="outline" className="gap-1">
+                  <CalcIcon className="h-3 w-3" />
+                  {test.calculatorType === 'FOUR_FUNCTION' ? 'Basic Calc' : 
+                   test.calculatorType === 'SCIENTIFIC' ? 'Scientific Calc' : 
+                   'Graphing Calc'}
+                </Badge>
+              )}
             </div>
             {test.description && (
               <CardDescription>{test.description}</CardDescription>
@@ -345,7 +394,7 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
           </div>
           <div className="flex items-center gap-2 text-sm">
             <FileText className="h-4 w-4 text-muted-foreground" />
-            <span>{test._count.questions} questions</span>
+            <span>{test._count?.questions ?? 0} questions</span>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -355,6 +404,16 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
             <div className="flex items-center gap-2 text-sm">
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
               <span>Max: {test.maxAttempts}</span>
+            </div>
+          )}
+          {test.allowCalculator && test.calculatorType && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CalcIcon className="h-4 w-4" />
+              <span>
+                {test.calculatorType === 'FOUR_FUNCTION' ? 'Four Function' : 
+                 test.calculatorType === 'SCIENTIFIC' ? 'Scientific' : 
+                 'Graphing'} Calculator
+              </span>
             </div>
           )}
           <div className="text-sm text-muted-foreground col-span-2">

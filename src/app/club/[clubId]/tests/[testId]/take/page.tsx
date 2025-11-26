@@ -27,7 +27,22 @@ export default async function TakeTestPage({
       id: params.testId,
       teamId: params.clubId,
     },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      instructions: true,
+      status: true,
+      durationMinutes: true,
+      startAt: true,
+      endAt: true,
+      allowLateUntil: true,
+      requireFullscreen: true,
+      allowCalculator: true,
+      calculatorType: true,
+      testPasswordHash: true,
+      maxAttempts: true,
+      scoreReleaseMode: true,
       assignments: {
         include: {
           subteam: {

@@ -67,6 +67,8 @@ interface NewTestBuilderProps {
     randomizeQuestionOrder: boolean
     randomizeOptionOrder: boolean
     requireFullscreen: boolean
+    allowCalculator: boolean
+    calculatorType: 'FOUR_FUNCTION' | 'SCIENTIFIC' | 'GRAPHING' | null
     status: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
     assignments: Array<{
       assignedScope: 'CLUB' | 'TEAM' | 'PERSONAL'
@@ -149,6 +151,8 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
     durationMinutes: test?.durationMinutes || 60,
     randomizeQuestionOrder: test?.randomizeQuestionOrder || false,
     randomizeOptionOrder: test?.randomizeOptionOrder || false,
+    allowCalculator: test?.allowCalculator || false,
+    calculatorType: test?.calculatorType || null,
   })
 
   const [questions, setQuestions] = useState<QuestionDraft[]>(() => {
@@ -413,6 +417,8 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
       durationMinutes: details.durationMinutes,
       randomizeQuestionOrder: details.randomizeQuestionOrder,
       randomizeOptionOrder: details.randomizeOptionOrder,
+      allowCalculator: details.allowCalculator,
+      calculatorType: details.allowCalculator ? details.calculatorType : null,
       assignments,
       questions: questions.map((question, index) => ({
         type: question.type,
@@ -448,6 +454,8 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
             durationMinutes: payload.durationMinutes,
             randomizeQuestionOrder: payload.randomizeQuestionOrder,
             randomizeOptionOrder: payload.randomizeOptionOrder,
+            allowCalculator: payload.allowCalculator,
+            calculatorType: payload.calculatorType,
           }),
         })
 
@@ -804,6 +812,56 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                 <p className="text-xs text-muted-foreground mt-1">
                   Time allowed to complete the test (1-720 minutes)
                 </p>
+              </div>
+
+              <div className="space-y-3 pt-4 border-t">
+                <div>
+                  <Label className="text-base font-semibold">Calculator</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Allow students to use a calculator during the test
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="allow-calculator"
+                    checked={details.allowCalculator}
+                    onCheckedChange={(checked) =>
+                      setDetails((prev) => ({
+                        ...prev,
+                        allowCalculator: checked as boolean,
+                        calculatorType: checked ? 'FOUR_FUNCTION' : null,
+                      }))
+                    }
+                  />
+                  <Label htmlFor="allow-calculator" className="cursor-pointer font-normal">
+                    Allow calculator
+                  </Label>
+                </div>
+
+                {details.allowCalculator && (
+                  <div>
+                    <Label htmlFor="calculator-type">Calculator Type</Label>
+                    <select
+                      id="calculator-type"
+                      value={details.calculatorType || 'FOUR_FUNCTION'}
+                      onChange={(e) =>
+                        setDetails((prev) => ({
+                          ...prev,
+                          calculatorType: e.target.value as 'FOUR_FUNCTION' | 'SCIENTIFIC' | 'GRAPHING',
+                        }))
+                      }
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-2"
+                    >
+                      <option value="FOUR_FUNCTION">Four Function (Basic)</option>
+                      <option value="SCIENTIFIC">Scientific Calculator</option>
+                      <option value="GRAPHING">Graphing Calculator</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Students will have access to this calculator during the test
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

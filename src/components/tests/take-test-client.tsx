@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { generateClientFingerprint } from '@/lib/test-security-client'
-import { Clock, Lock, AlertCircle } from 'lucide-react'
+import { Clock, Lock, AlertCircle, Calculator as CalcIcon } from 'lucide-react'
+import { CalculatorButton } from '@/components/tests/calculator'
 
 interface TakeTestClientProps {
   test: any
@@ -511,6 +512,18 @@ export function TakeTestClient({
                 <span>This test requires fullscreen mode</span>
               </div>
             )}
+            {test.allowCalculator && test.calculatorType && (
+              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                <CalcIcon className="h-4 w-4" />
+                <span>
+                  Calculator allowed: {
+                    test.calculatorType === 'FOUR_FUNCTION' ? 'Four Function Calculator' :
+                    test.calculatorType === 'SCIENTIFIC' ? 'Scientific Calculator' :
+                    'Graphing Calculator'
+                  }
+                </span>
+              </div>
+            )}
             {test.testPasswordHash && !isAdmin && (
               <div>
                 <Label htmlFor="password">Test Password</Label>
@@ -568,6 +581,9 @@ export function TakeTestClient({
             <div className="flex items-center justify-between">
             <CardTitle>{test.name}</CardTitle>
             <div className="flex items-center gap-4 text-sm">
+              {test.allowCalculator && test.calculatorType && (
+                <CalculatorButton calculatorType={test.calculatorType} />
+              )}
               {timeRemaining !== null ? (
                 <span className={`font-mono font-semibold ${
                   timeRemaining <= 60 ? 'text-red-600' : 

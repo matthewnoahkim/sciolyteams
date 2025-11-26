@@ -235,9 +235,26 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
     // Tests data
     prisma.test.findMany({
       where: { teamId: params.clubId },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        status: true,
+        durationMinutes: true,
+        startAt: true,
+        endAt: true,
+        allowLateUntil: true,
+        requireFullscreen: true,
+        allowCalculator: true,
+        calculatorType: true,
+        releaseScoresAt: true,
+        maxAttempts: true,
+        scoreReleaseMode: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
+            questions: true,
             attempts: true,
           },
         },
