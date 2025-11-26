@@ -959,7 +959,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                                   onValueChange={(value) => {
                                     if (value) {
                                       handleAddMemberToEvent(event.id, value)
-                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: undefined }))
+                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: '' }))
                                     }
                                   }}
                                 >
@@ -1059,7 +1059,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                                   onValueChange={(value) => {
                                     if (value) {
                                       handleAddMemberToEvent(event.id, value)
-                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: undefined }))
+                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: '' }))
                                     }
                                   }}
                                 >
@@ -1159,7 +1159,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                                   onValueChange={(value) => {
                                     if (value) {
                                       handleAddMemberToEvent(event.id, value)
-                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: undefined }))
+                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: '' }))
                                     }
                                   }}
                                 >
