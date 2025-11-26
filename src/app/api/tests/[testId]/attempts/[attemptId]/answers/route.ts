@@ -9,6 +9,7 @@ const saveAnswerSchema = z.object({
   answerText: z.string().optional().nullable(),
   selectedOptionIds: z.array(z.string()).optional().nullable(),
   numericAnswer: z.number().optional().nullable(),
+  markedForReview: z.boolean().optional(),
 })
 
 // POST /api/tests/[testId]/attempts/[attemptId]/answers
@@ -68,6 +69,17 @@ export async function POST(
     }
 
     // Upsert answer
+    const updateData: any = {
+      answerText: validatedData.answerText,
+      selectedOptionIds: validatedData.selectedOptionIds ?? undefined,
+      numericAnswer: validatedData.numericAnswer,
+    }
+    
+    // Only update markedForReview if it's explicitly provided (not undefined)
+    if (validatedData.markedForReview !== undefined) {
+      updateData.markedForReview = validatedData.markedForReview
+    }
+
     const answer = await prisma.attemptAnswer.upsert({
       where: {
         attemptId_questionId: {
@@ -75,17 +87,14 @@ export async function POST(
           questionId: validatedData.questionId,
         },
       },
-      update: {
-        answerText: validatedData.answerText,
-        selectedOptionIds: validatedData.selectedOptionIds ?? undefined,
-        numericAnswer: validatedData.numericAnswer,
-      },
+      update: updateData,
       create: {
         attemptId: params.attemptId,
         questionId: validatedData.questionId,
         answerText: validatedData.answerText,
         selectedOptionIds: validatedData.selectedOptionIds ?? undefined,
         numericAnswer: validatedData.numericAnswer,
+        markedForReview: validatedData.markedForReview ?? false,
       },
     })
 
@@ -98,6 +107,10 @@ export async function POST(
       )
     }
     console.error('Save answer error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
+    return NextResponse.json(
+      { error: errorMessage },
+      { status: 500 }
+    )
   }
 }

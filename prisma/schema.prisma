@@ -664,6 +664,7 @@ model AttemptAnswer {
   pointsAwarded     Decimal?    @db.Decimal(5, 2)
   gradedAt          DateTime?
   graderNote        String?
+  markedForReview   Boolean     @default(false)
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
   attempt           TestAttempt        @relation(fields: [attemptId], references: [id], onDelete: Cascade)

@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { generateClientFingerprint } from '@/lib/test-security-client'
-import { Clock, Lock, AlertCircle, Calculator as CalcIcon } from 'lucide-react'
+import { Clock, Lock, AlertCircle, Calculator as CalcIcon, Flag } from 'lucide-react'
 import { CalculatorButton } from '@/components/tests/calculator'
 
 interface TakeTestClientProps {
@@ -45,6 +45,7 @@ export function TakeTestClient({
   const [submitting, setSubmitting] = useState(false)
   const [started, setStarted] = useState(!!existingAttempt)
   const [answers, setAnswers] = useState<Record<string, any>>({})
+  const [markedForReview, setMarkedForReview] = useState<Set<string>>(new Set())
   const [tabSwitchCount, setTabSwitchCount] = useState(existingAttempt?.tabSwitchCount || 0)
   const [timeOffPageSeconds, setTimeOffPageSeconds] = useState(existingAttempt?.timeOffPageSeconds || 0)
   const [isPageVisible, setIsPageVisible] = useState(true)
@@ -64,14 +65,19 @@ export function TakeTestClient({
   useEffect(() => {
     if (existingAttempt?.answers) {
       const loadedAnswers: Record<string, any> = {}
+      const markedQuestions = new Set<string>()
       existingAttempt.answers.forEach((answer: any) => {
         loadedAnswers[answer.questionId] = {
           answerText: answer.answerText,
           selectedOptionIds: answer.selectedOptionIds || [],
           numericAnswer: answer.numericAnswer,
         }
+        if (answer.markedForReview) {
+          markedQuestions.add(answer.questionId)
+        }
       })
       setAnswers(loadedAnswers)
+      setMarkedForReview(markedQuestions)
     }
   }, [existingAttempt])
 
@@ -312,27 +318,36 @@ export function TakeTestClient({
     if (!attempt || attempt.status !== 'IN_PROGRESS') return
 
     try {
+      // Ensure markedForReview is included from state if not already in answerData
+      const dataToSave = {
+        ...answerData,
+        markedForReview: answerData.markedForReview !== undefined 
+          ? answerData.markedForReview 
+          : markedForReview.has(questionId),
+      }
+
       const response = await fetch(`/api/tests/${test.id}/attempts/${attempt.id}/answers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           questionId,
-          ...answerData,
+          ...dataToSave,
         }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to save answer')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to save answer')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save answer:', error)
       toast({
         title: 'Warning',
-        description: 'Failed to save answer. Please try again.',
+        description: error.message || 'Failed to save answer. Please try again.',
         variant: 'destructive',
       })
     }
-  }, [attempt, test.id, toast])
+  }, [attempt, test.id, toast, markedForReview])
 
   const handleAnswerChange = (questionId: string, answerData: any) => {
     setAnswers((prev) => ({
@@ -345,8 +360,28 @@ export function TakeTestClient({
       clearTimeout(saveTimeoutRef.current)
     }
     saveTimeoutRef.current = setTimeout(() => {
-      saveAnswer(questionId, answerData)
+      saveAnswer(questionId, {
+        ...answerData,
+        markedForReview: markedForReview.has(questionId),
+      })
     }, 1000)
+  }
+
+  const handleMarkForReview = (questionId: string, marked: boolean) => {
+    const newMarked = new Set(markedForReview)
+    if (marked) {
+      newMarked.add(questionId)
+    } else {
+      newMarked.delete(questionId)
+    }
+    setMarkedForReview(newMarked)
+
+    // Save immediately
+    const answerData = answers[questionId] || {}
+    saveAnswer(questionId, {
+      ...answerData,
+      markedForReview: marked,
+    })
   }
 
   // Format time remaining as MM:SS
@@ -355,6 +390,22 @@ export function TakeTestClient({
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // Check if there are unanswered questions
+  const getUnansweredQuestions = () => {
+    return test.questions.filter((question: any) => {
+      const answer = answers[question.id]
+      if (!answer) return true
+      
+      if (question.type === 'MCQ_SINGLE' || question.type === 'MCQ_MULTI') {
+        return !answer.selectedOptionIds || answer.selectedOptionIds.length === 0
+      } else if (question.type === 'NUMERIC') {
+        return answer.numericAnswer === null || answer.numericAnswer === undefined
+      } else {
+        return !answer.answerText || answer.answerText.trim() === ''
+      }
+    })
   }
 
   const handleSubmit = useCallback(async () => {
@@ -370,7 +421,10 @@ export function TakeTestClient({
 
       // Save all answers that might be pending (wait for them to complete)
       const savePromises = Object.entries(answers).map(([questionId, answerData]) => 
-        saveAnswer(questionId, answerData)
+        saveAnswer(questionId, {
+          ...answerData,
+          markedForReview: markedForReview.has(questionId),
+        })
       )
       await Promise.all(savePromises)
 
@@ -612,12 +666,39 @@ export function TakeTestClient({
               <p className="text-muted-foreground">No questions available.</p>
             ) : (
               test.questions.map((question: any, index: number) => (
-                <div key={question.id} className="space-y-3 p-4 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">Question {index + 1}</span>
-                    <span className="text-sm text-muted-foreground">
-                      ({question.points} points)
-                    </span>
+                <div key={question.id} className={`space-y-3 p-4 border rounded-lg ${markedForReview.has(question.id) ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-950/10' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Question {index + 1}</span>
+                      <span className="text-sm text-muted-foreground">
+                        ({question.points} points)
+                      </span>
+                      {markedForReview.has(question.id) && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 font-medium">
+                          Marked for Review
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleMarkForReview(question.id, !markedForReview.has(question.id))}
+                      className={`flex items-center gap-2 h-8 ${
+                        markedForReview.has(question.id)
+                          ? 'text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Flag
+                        className={`h-4 w-4 ${
+                          markedForReview.has(question.id) ? 'fill-current' : ''
+                        }`}
+                      />
+                      <span className="text-sm">
+                        {markedForReview.has(question.id) ? 'Marked for review' : 'Mark for review'}
+                      </span>
+                    </Button>
                   </div>
                   <p className="text-lg whitespace-pre-wrap">{question.promptMd}</p>
                   
@@ -726,6 +807,17 @@ export function TakeTestClient({
                 {submitting && <ButtonLoading />}
                 {submitting ? 'Submitting...' : 'Submit Test'}
               </Button>
+              {(markedForReview.size > 0 || getUnansweredQuestions().length > 0) && (
+                <div className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                  {markedForReview.size > 0 && (
+                    <span>{markedForReview.size} question{markedForReview.size !== 1 ? 's' : ''} marked for review</span>
+                  )}
+                  {markedForReview.size > 0 && getUnansweredQuestions().length > 0 && <span> • </span>}
+                  {getUnansweredQuestions().length > 0 && (
+                    <span>{getUnansweredQuestions().length} unanswered question{getUnansweredQuestions().length !== 1 ? 's' : ''}</span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -773,7 +865,10 @@ export function TakeTestClient({
                 
                 // Save all answers that might be pending
                 const savePromises = Object.entries(answers).map(([questionId, answerData]) => 
-                  saveAnswer(questionId, answerData)
+                  saveAnswer(questionId, {
+                    ...answerData,
+                    markedForReview: markedForReview.has(questionId),
+                  })
                 )
                 await Promise.all(savePromises)
                 
@@ -820,6 +915,36 @@ export function TakeTestClient({
               Are you sure you want to submit? You cannot change your answers after submitting.
             </DialogDescription>
           </DialogHeader>
+          {(markedForReview.size > 0 || getUnansweredQuestions().length > 0) && (
+            <div className="space-y-2 py-2">
+              {markedForReview.size > 0 && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className="font-medium text-amber-900 dark:text-amber-100">
+                      You have {markedForReview.size} question{markedForReview.size !== 1 ? 's' : ''} marked for review.
+                    </p>
+                    <p className="text-amber-700 dark:text-amber-300 mt-1">
+                      Make sure you've reviewed these questions before submitting.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {getUnansweredQuestions().length > 0 && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className="font-medium text-amber-900 dark:text-amber-100">
+                      You have {getUnansweredQuestions().length} unanswered question{getUnansweredQuestions().length !== 1 ? 's' : ''}.
+                    </p>
+                    <p className="text-amber-700 dark:text-amber-300 mt-1">
+                      You can still submit, but these questions will receive no points.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <DialogFooter>
             <Button
               variant="outline"
