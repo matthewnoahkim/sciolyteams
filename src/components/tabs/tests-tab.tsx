@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -50,14 +50,16 @@ interface UserAttemptInfo {
 export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
-  // Ensure initialTests have proper _count structure
-  const normalizedInitialTests = initialTests?.map((test: any) => ({
-    ...test,
-    _count: {
-      questions: test._count?.questions ?? 0,
-      attempts: test._count?.attempts ?? 0,
-    },
-  })) || []
+  // Ensure initialTests have proper _count structure - memoize to prevent infinite loops
+  const normalizedInitialTests = useMemo(() => {
+    return initialTests?.map((test: any) => ({
+      ...test,
+      _count: {
+        questions: test._count?.questions ?? 0,
+        attempts: test._count?.attempts ?? 0,
+      },
+    })) || []
+  }, [initialTests])
   const [tests, setTests] = useState<Test[]>(normalizedInitialTests)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -71,6 +73,17 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
 
   // Warning Banner Dismissal
   const [warningDismissed, setWarningDismissed] = useState(false)
+  
+  // Track processed hash to prevent infinite loops
+  const processedHashRef = useRef<string | null>(null)
+  const testsRef = useRef<Test[]>(tests)
+  const loadingRef = useRef(loading)
+  
+  // Keep refs in sync
+  useEffect(() => {
+    testsRef.current = tests
+    loadingRef.current = loading
+  }, [tests, loading])
   
   useEffect(() => {
     // Check if warning was dismissed forever
@@ -175,6 +188,85 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [tests, fetchUserAttempts])
+
+  // Handle hash navigation - set up listener once, check hash when loading completes
+  useEffect(() => {
+    const handleHashNavigation = () => {
+      // Check loading state from ref
+      if (loadingRef.current) return
+      
+      const hash = window.location.hash
+      if (!hash || !hash.startsWith('#test-')) {
+        processedHashRef.current = null
+        return
+      }
+      
+      // Skip if we've already processed this exact hash
+      if (processedHashRef.current === hash) return
+      
+      const testId = hash.replace('#test-', '')
+      // Check if test exists using ref to avoid dependency issues
+      const currentTests = testsRef.current
+      const testExists = currentTests.some(t => t.id === testId)
+      
+      if (!testExists) return
+
+      // Mark this hash as processed
+      processedHashRef.current = hash
+
+      // Wait for DOM to render, then scroll
+      setTimeout(() => {
+        const element = document.getElementById(`test-${testId}`)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          element.classList.add('ring-2', 'ring-primary', 'ring-offset-2')
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2')
+          }, 2000)
+        }
+      }, 500)
+    }
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashNavigation)
+    
+    return () => {
+      window.removeEventListener('hashchange', handleHashNavigation)
+    }
+  }, []) // Set up listener once
+
+  // Check hash when loading completes
+  useEffect(() => {
+    if (loading) return
+    
+    // Use refs to check current state
+    if (loadingRef.current) return
+    if (testsRef.current.length === 0) return
+    
+    const hash = window.location.hash
+    if (hash && hash.startsWith('#test-')) {
+      // Reset processed hash so we can process it now
+      processedHashRef.current = null
+      // Small delay then check hash
+      const timeoutId = setTimeout(() => {
+        const testId = hash.replace('#test-', '')
+        const testExists = testsRef.current.some(t => t.id === testId)
+        if (testExists) {
+          processedHashRef.current = hash
+          const element = document.getElementById(`test-${testId}`)
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            element.classList.add('ring-2', 'ring-primary', 'ring-offset-2')
+            setTimeout(() => {
+              element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2')
+            }, 2000)
+          }
+        }
+      }, 500)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [loading]) // Only run when loading changes
 
   const handleDeleteClick = (test: Test) => {
     setTestToDelete(test)
@@ -338,7 +430,7 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
   }, [tests, searchQuery, statusFilter, isAdmin, userAttempts])
 
   const renderTestCard = (test: Test) => (
-    <Card key={test.id}>
+    <Card key={test.id} id={`test-${test.id}`}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex-1">

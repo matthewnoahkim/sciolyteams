@@ -8,7 +8,7 @@ import { z } from 'zod'
 const updateMembershipSchema = z.object({
   subteamId: z.string().nullable().optional(),
   roles: z
-    .array(z.enum(['COACH', 'CAPTAIN']))
+    .array(z.enum(['COACH', 'CAPTAIN', 'MEMBER']))
     .optional()
     .transform((roles) => roles ?? undefined),
   role: z.enum(['ADMIN', 'MEMBER']).optional(),

@@ -20,6 +20,7 @@ const publishSchema = z.object({
   assignmentMode: z.enum(['CLUB', 'TEAM', 'EVENT']).optional(),
   selectedSubteams: z.array(z.string()).optional(),
   selectedEventId: z.string().optional(),
+  addToCalendar: z.boolean().optional(),
 })
 
 // POST /api/tests/[testId]/publish
@@ -43,6 +44,12 @@ export async function POST(
       where: { id: testId },
       include: {
         questions: true,
+        assignments: {
+          include: {
+            subteam: true,
+            event: true,
+          },
+        },
       },
     })
 
@@ -110,6 +117,23 @@ export async function POST(
 
     // Handle assignments if provided
     if (validatedData.assignmentMode) {
+      // Validate that required data is provided for each mode
+      if (validatedData.assignmentMode === 'TEAM') {
+        if (!validatedData.selectedSubteams || validatedData.selectedSubteams.length === 0) {
+          return NextResponse.json(
+            { error: 'At least one team must be selected when assigning to specific teams' },
+            { status: 400 }
+          )
+        }
+      } else if (validatedData.assignmentMode === 'EVENT') {
+        if (!validatedData.selectedEventId) {
+          return NextResponse.json(
+            { error: 'An event must be selected when assigning to specific event' },
+            { status: 400 }
+          )
+        }
+      }
+
       // First, delete existing assignments
       await prisma.testAssignment.deleteMany({
         where: { testId },
@@ -123,39 +147,25 @@ export async function POST(
             assignedScope: 'CLUB',
           },
         })
-      } else if (validatedData.assignmentMode === 'TEAM' && validatedData.selectedSubteams) {
+      } else if (validatedData.assignmentMode === 'TEAM') {
+        // Create TEAM assignments for each selected subteam
         await prisma.testAssignment.createMany({
-          data: validatedData.selectedSubteams.map(subteamId => ({
+          data: validatedData.selectedSubteams!.map(subteamId => ({
             testId,
             assignedScope: 'TEAM' as const,
             subteamId,
           })),
         })
-      } else if (validatedData.assignmentMode === 'EVENT' && validatedData.selectedEventId) {
-        // Find all members assigned to this event via roster assignments
-        const rosterAssignments = await prisma.rosterAssignment.findMany({
-          where: {
+      } else if (validatedData.assignmentMode === 'EVENT') {
+        // Create a single assignment with eventId for dynamic event-based filtering
+        // This allows users added to the event after test publish to still see the test
+        await prisma.testAssignment.create({
+          data: {
+            testId,
+            assignedScope: 'TEAM' as const, // TEAM scope with eventId means "all members assigned to this event"
             eventId: validatedData.selectedEventId,
-            subteam: {
-              teamId: test.teamId,
-            },
-          },
-          select: {
-            membershipId: true,
           },
         })
-
-        const uniqueMembershipIds = [...new Set(rosterAssignments.map(ra => ra.membershipId))]
-
-        if (uniqueMembershipIds.length > 0) {
-          await prisma.testAssignment.createMany({
-            data: uniqueMembershipIds.map(membershipId => ({
-              testId,
-              assignedScope: 'PERSONAL' as const,
-              targetMembershipId: membershipId,
-            })),
-          })
-        }
       }
     }
 
@@ -172,10 +182,128 @@ export async function POST(
       },
     })
 
+    // Create calendar event if requested
+    let calendarEventIds: string[] = []
+    if (validatedData.addToCalendar) {
+      // Get the final assignments (either from the request or existing ones)
+      const finalAssignments = validatedData.assignmentMode
+        ? await prisma.testAssignment.findMany({
+            where: { testId },
+          })
+        : test.assignments
+
+      if (finalAssignments.length > 0) {
+        // Determine calendar event scope and target users
+        const hasClubAssignment = finalAssignments.some(a => a.assignedScope === 'CLUB')
+        const teamAssignments = finalAssignments.filter(a => a.assignedScope === 'TEAM' && a.subteamId)
+        const personalAssignments = finalAssignments.filter(a => a.assignedScope === 'PERSONAL' && a.targetMembershipId)
+        const eventAssignments = finalAssignments.filter(a => a.eventId)
+
+        if (hasClubAssignment) {
+          // Entire club - create one TEAM scope event
+          const calendarEvent = await prisma.calendarEvent.create({
+            data: {
+              teamId: test.teamId,
+              creatorId: membership.id,
+              scope: 'TEAM',
+              title: test.name,
+              description: test.description || `Test: ${test.name}`,
+              startUTC: startAt,
+              endUTC: endAt,
+              color: '#8b5cf6', // Purple color for tests
+              rsvpEnabled: false, // Tests don't need RSVP
+              important: true, // Tests are important events
+              testId: testId,
+            },
+          })
+          calendarEventIds.push(calendarEvent.id)
+        } else if (teamAssignments.length > 0) {
+          // Specific teams - create one SUBTEAM event per team
+          const createdEvents = await Promise.all(
+            teamAssignments.map(async (assignment) => {
+              if (!assignment.subteamId) return null
+              return await prisma.calendarEvent.create({
+                data: {
+                  teamId: test.teamId,
+                  creatorId: membership.id,
+                  scope: 'SUBTEAM',
+                  title: test.name,
+                  description: test.description || `Test: ${test.name}`,
+                  startUTC: startAt,
+                  endUTC: endAt,
+                  color: '#8b5cf6',
+                  rsvpEnabled: false,
+                  important: true,
+                  subteamId: assignment.subteamId,
+                  testId: testId,
+                },
+              })
+            })
+          )
+          calendarEventIds.push(...createdEvents.filter(e => e !== null).map(e => e!.id))
+        } else if (eventAssignments.length > 0) {
+          // Event-based assignments - create one TEAM scope event with event targets
+          const uniqueEventIds = [...new Set(eventAssignments.map(a => a.eventId).filter(Boolean) as string[])]
+          const calendarEvent = await prisma.calendarEvent.create({
+            data: {
+              teamId: test.teamId,
+              creatorId: membership.id,
+              scope: 'TEAM',
+              title: test.name,
+              description: test.description || `Test: ${test.name}`,
+              startUTC: startAt,
+              endUTC: endAt,
+              color: '#8b5cf6',
+              rsvpEnabled: false,
+              important: true,
+              testId: testId,
+            },
+          })
+          calendarEventIds.push(calendarEvent.id)
+
+          // Create calendar event targets for event-based assignments
+          await Promise.all(
+            uniqueEventIds.map(eventId =>
+              prisma.calendarEventTarget.create({
+                data: {
+                  calendarEventId: calendarEvent.id,
+                  eventId: eventId,
+                },
+              })
+            )
+          )
+        } else if (personalAssignments.length > 0) {
+          // Personal assignments - create one PERSONAL event per user
+          const createdEvents = await Promise.all(
+            personalAssignments.map(async (assignment) => {
+              if (!assignment.targetMembershipId) return null
+              return await prisma.calendarEvent.create({
+                data: {
+                  teamId: test.teamId,
+                  creatorId: membership.id,
+                  scope: 'PERSONAL',
+                  title: test.name,
+                  description: test.description || `Test: ${test.name}`,
+                  startUTC: startAt,
+                  endUTC: endAt,
+                  color: '#8b5cf6',
+                  rsvpEnabled: false,
+                  important: true,
+                  attendeeId: assignment.targetMembershipId,
+                  testId: testId,
+                },
+              })
+            })
+          )
+          calendarEventIds.push(...createdEvents.filter(e => e !== null).map(e => e!.id))
+        }
+      }
+    }
+
     // TODO: Send emails if sendEmails is true
     // Get assignments and send notifications to assigned users
 
-    return NextResponse.json({ test: updatedTest })
+    return NextResponse.json({ test: updatedTest, calendarEventIds })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

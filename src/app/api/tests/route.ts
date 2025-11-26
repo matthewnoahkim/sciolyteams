@@ -91,35 +91,13 @@ export async function GET(req: NextRequest) {
 
     const isAdminUser = await isAdmin(session.user.id, teamId)
 
-    const where: Prisma.TestWhereInput = {
-      teamId,
-    }
-
-    if (!isAdminUser) {
-      where.status = 'PUBLISHED'
-      where.OR = [
-        {
-          assignments: {
-            some: {
-              OR: [
-                { assignedScope: 'CLUB' },
-                { subteamId: membership.subteamId },
-                { targetMembershipId: membership.id },
-              ],
-            },
-          },
-        },
-        {
-          assignments: {
-            none: {},
-          },
-        },
-      ]
-    }
-
-    // Admins see all tests; members see published tests for them or unassigned ones
-    const tests = await prisma.test.findMany({
-      where,
+    // Fetch all tests with their assignments
+    const allTests = await prisma.test.findMany({
+      where: {
+        teamId,
+        // Non-admins only see published tests
+        ...(!isAdminUser && { status: 'PUBLISHED' }),
+      },
       select: {
         id: true,
         name: true,
@@ -137,6 +115,14 @@ export async function GET(req: NextRequest) {
         scoreReleaseMode: true,
         createdAt: true,
         updatedAt: true,
+        assignments: {
+          select: {
+            assignedScope: true,
+            subteamId: true,
+            targetMembershipId: true,
+            eventId: true,
+          },
+        },
         _count: {
           select: {
             questions: true,
@@ -146,6 +132,56 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { createdAt: 'desc' },
     })
+
+    // Admins see everything
+    if (isAdminUser) {
+      // Remove assignments from response (not needed by client)
+      const tests = allTests.map(({ assignments, ...test }) => test)
+      return NextResponse.json({ tests })
+    }
+
+    // For non-admins, filter tests based on assignments
+    // Get user's event IDs from roster
+    const userEventAssignments = await prisma.rosterAssignment.findMany({
+      where: {
+        membershipId: membership.id,
+        subteam: { teamId },
+      },
+      select: { eventId: true },
+    })
+    const userEventIds = userEventAssignments.map(ra => ra.eventId)
+
+    // Filter tests - user can see a test if ANY assignment matches
+    const filteredTests = allTests.filter(test => {
+      // If test has no assignments, user cannot see it
+      if (test.assignments.length === 0) {
+        return false
+      }
+
+      // Check if any assignment grants access
+      return test.assignments.some(a => {
+        // CLUB scope - everyone gets access
+        if (a.assignedScope === 'CLUB') {
+          return true
+        }
+        // Subteam assignment - user must be in that subteam
+        if (a.subteamId && membership.subteamId && a.subteamId === membership.subteamId) {
+          return true
+        }
+        // Personal assignment - must be assigned to this user
+        if (a.targetMembershipId === membership.id) {
+          return true
+        }
+        // Event assignment - user must have this event in their roster
+        if (a.eventId && userEventIds.includes(a.eventId)) {
+          return true
+        }
+        return false
+      })
+    })
+
+    // Remove assignments from response (not needed by client)
+    const tests = filteredTests.map(({ assignments, ...test }) => test)
 
     return NextResponse.json({ tests })
   } catch (error) {

@@ -548,15 +548,17 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         throw new Error(data.error || 'Failed to submit request')
       }
 
+      const data = await response.json()
+      const newRequest = data.purchaseRequest
+
+      // Update local state immediately
+      // Note: requester info will be populated on next data fetch, but the request will appear immediately
+      setPurchaseRequests((prev) => [newRequest, ...prev])
+
       toast({
         title: 'Request Submitted',
         description: 'Your purchase request has been submitted for review',
       })
-
-      const data = await response.json()
-      
-      // Always refetch to get full data with requester user info
-      await fetchData()
 
       setPurchaseRequestForm({
         description: '',
@@ -635,17 +637,35 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         throw new Error(data.error || 'Failed to review request')
       }
 
+      const data = await response.json()
+      const updatedRequest = data.purchaseRequest
+      const newExpense = data.expense
+
+      // Update local state immediately
+      setPurchaseRequests((prev) =>
+        prev.map((req) => (req.id === reviewingRequest.id ? updatedRequest : req))
+      )
+
+      // If an expense was created, fetch the full expense list to get addedBy info
+      if (newExpense && reviewForm.status === 'APPROVED') {
+        try {
+          const expenseResponse = await fetch(`/api/expenses?teamId=${teamId}`)
+          if (expenseResponse.ok) {
+            const expenseData = await expenseResponse.json()
+            setExpenses(expenseData.expenses)
+          }
+        } catch (err) {
+          // If we can't fetch, the expense will appear on next refresh
+          console.warn('Failed to fetch updated expenses:', err)
+        }
+      }
+
       toast({
         title: reviewForm.status === 'APPROVED' ? 'Request Approved' : 'Request Denied',
         description: reviewForm.status === 'APPROVED' 
           ? 'The purchase request has been approved'
           : 'The purchase request has been denied',
       })
-
-      const data = await response.json()
-      
-      // Always refetch to get full data with user info and updated relationships
-      await fetchData()
 
       setReviewRequestOpen(false)
       setReviewingRequest(null)

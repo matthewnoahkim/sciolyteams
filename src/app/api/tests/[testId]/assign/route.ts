@@ -10,6 +10,7 @@ const assignSchema = z.object({
     assignedScope: z.enum(['CLUB', 'TEAM', 'PERSONAL']),
     subteamId: z.string().optional(),
     targetMembershipId: z.string().optional(),
+    eventId: z.string().optional(), // For event-based assignments
   })),
 })
 
@@ -58,6 +59,7 @@ export async function POST(
           assignedScope: a.assignedScope,
           subteamId: a.subteamId,
           targetMembershipId: a.targetMembershipId,
+          eventId: a.eventId,
         })),
       })
     })

@@ -392,6 +392,20 @@ export async function GET(req: NextRequest) {
     // Check if user is an admin
     const isAdminUser = await isAdmin(session.user.id, teamId)
 
+    // Get user's event assignments from roster (for filtering targeted events)
+    const userRosterAssignments = await prisma.rosterAssignment.findMany({
+      where: {
+        membershipId: membership.id,
+        subteam: { teamId },
+      },
+      select: { 
+        eventId: true,
+        subteamId: true,
+      },
+    })
+    const userEventIds = userRosterAssignments.map(ra => ra.eventId)
+    const userSubteamIds = [...new Set(userRosterAssignments.map(ra => ra.subteamId))]
+
     // Get events visible to this user
     // Admins can see team-wide events, all subteam events, and only their own personal events
     // Regular members only see team-wide, their subteam, and their personal events
@@ -399,20 +413,33 @@ export async function GET(req: NextRequest) {
       where: {
         teamId,
         OR: [
-          // Team-wide events (visible to all)
+          // Team-wide events (visible to all) - will be filtered further below
           { scope: CalendarScope.TEAM },
           // Subteam events
           ...(isAdminUser
             ? [
-        // Admins see all subteam events
+                // Admins see all subteam events
                 { scope: CalendarScope.SUBTEAM },
               ]
             : membership.subteamId
             ? [
-                // Regular members see only their subteam events
+                // Regular members see their primary subteam events
                 {
                   scope: CalendarScope.SUBTEAM,
                   subteamId: membership.subteamId,
+                },
+                // Also see events for subteams they have roster assignments in
+                ...(userSubteamIds.length > 0 ? [{
+                  scope: CalendarScope.SUBTEAM,
+                  subteamId: { in: userSubteamIds },
+                }] : []),
+              ]
+            : userSubteamIds.length > 0
+            ? [
+                // Members without primary subteam but with roster assignments
+                {
+                  scope: CalendarScope.SUBTEAM,
+                  subteamId: { in: userSubteamIds },
                 },
               ]
             : []),
@@ -473,13 +500,109 @@ export async function GET(req: NextRequest) {
             },
           },
         },
+        targets: true, // Include targets for filtering
+        test: {
+          select: {
+            id: true,
+            assignments: {
+              select: {
+                assignedScope: true,
+                subteamId: true,
+                targetMembershipId: true,
+                eventId: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         startUTC: 'asc',
       },
     })
 
-    return NextResponse.json({ events })
+    // Filter events for non-admins based on targets and test assignments
+    const filteredEvents = isAdminUser
+      ? events
+      : events.filter(event => {
+          // If this is a test-linked calendar event, check test assignment visibility
+          // This applies to both TEAM and SUBTEAM scope events
+          if (event.testId && event.test) {
+            const testAssignments = event.test.assignments
+            
+            // If test has no assignments, hide it
+            if (testAssignments.length === 0) {
+              return false
+            }
+
+            // Check if user has access to this test based on assignments
+            // This logic must match the test visibility logic in /api/tests
+            const hasTestAccess = testAssignments.some(a => {
+              // CLUB scope - everyone gets access
+              if (a.assignedScope === 'CLUB') {
+                return true
+              }
+              // Subteam-based - user's primary subteam matches assignment's subteam
+              if (a.subteamId && membership.subteamId && a.subteamId === membership.subteamId) {
+                return true
+              }
+              // PERSONAL scope - directly assigned to this user
+              if (a.targetMembershipId === membership.id) {
+                return true
+              }
+              // Event-based assignments - user must have the event in their roster
+              if (a.eventId && userEventIds.includes(a.eventId)) {
+                return true
+              }
+              return false
+            })
+
+            return hasTestAccess
+          }
+
+          // For non-test SUBTEAM events, already filtered by the query
+          if (event.scope === CalendarScope.SUBTEAM) {
+            return true
+          }
+
+          // For non-test PERSONAL events, already filtered by the query
+          if (event.scope === CalendarScope.PERSONAL) {
+            return true
+          }
+
+          // For non-test TEAM events, check CalendarEventTarget records
+          const targets = event.targets || []
+          
+          // If no targets, event is visible to everyone in the team
+          if (targets.length === 0) {
+            return true
+          }
+
+          // Check if user matches any target
+          return targets.some(target => {
+            // Role-based targeting
+            if (target.targetRole) {
+              // Map membership role to target role format
+              const userRole = membership.role === 'ADMIN' ? 'COACH' : 'MEMBER'
+              if (target.targetRole === userRole) {
+                return true
+              }
+              // Also check membership.roles array for CAPTAIN etc.
+              if ((membership as any).roles?.includes(target.targetRole)) {
+                return true
+              }
+            }
+            // Event-based targeting (Science Olympiad events)
+            if (target.eventId && userEventIds.includes(target.eventId)) {
+              return true
+            }
+            return false
+          })
+        })
+
+    // Remove internal fields from response
+    const cleanedEvents = filteredEvents.map(({ test, targets, ...event }) => event)
+
+    return NextResponse.json({ events: cleanedEvents })
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })

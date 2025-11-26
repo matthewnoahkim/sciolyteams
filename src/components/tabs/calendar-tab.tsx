@@ -19,7 +19,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Check, X as XIcon, User, Paperclip, X, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Check, X as XIcon, User, Paperclip, X, Calendar, FileText } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { EventAnnouncementModal } from '@/components/event-announcement-modal'
 import { AttachmentDisplay } from '@/components/ui/attachment-display'
@@ -41,6 +42,7 @@ type ViewMode = 'month' | 'week'
 
 export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialEvents }: CalendarTabProps) {
   const { toast } = useToast()
+  const router = useRouter()
   const [events, setEvents] = useState<any[]>(initialEvents || [])
   const [subteams, setSubteams] = useState<any[]>([])
   const [availableEvents, setAvailableEvents] = useState<any[]>([])
@@ -996,8 +998,9 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                     if (isAllDay) {
                       // For all-day events, just show the title with continuation indicators
                       return (
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-1">
                           {!isStartDay && <span className="mr-1">←</span>}
+                          {event.testId && <FileText className="h-3 w-3 flex-shrink-0" />}
                           <span className="truncate flex-1">
                             {event.title}
                           </span>
@@ -1009,8 +1012,9 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                     // For regular events, show time logic
                     if (isMultiDay) {
                       return (
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-1">
                           {!isStartDay && <span className="mr-1">←</span>}
+                          {event.testId && <FileText className="h-3 w-3 flex-shrink-0" />}
                           <span className="truncate flex-1">
                             {isStartDay && (
                               <>
@@ -1039,13 +1043,16 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                       )
                     } else {
                       return (
-                        <>
-                          {eventStart.toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            hour12: true,
-                          })} {event.title}
-                        </>
+                        <div className="flex items-center gap-1">
+                          {event.testId && <FileText className="h-3 w-3 flex-shrink-0" />}
+                          <span>
+                            {eventStart.toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              hour12: true,
+                            })} {event.title}
+                          </span>
+                        </div>
                       )
                     }
                   })()}
@@ -1455,8 +1462,9 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                             if (isAllDay) {
                               // For all-day events, just show title
                               return (
-                                <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center`}>
+                                <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center gap-1`}>
                                   {isMultiDay && !isStartDay && <span className="mr-1">←</span>}
+                                  {event.testId && <FileText className="h-3 w-3 flex-shrink-0" />}
                                   <span className="truncate">
                                     {event.title}
                                   </span>
@@ -1469,8 +1477,9 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                             if (isMultiDay && !isStartDay) {
                               // For middle days of multi-day events, don't show time
                               return (
-                                <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center`}>
+                                <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center gap-1`}>
                                   <span className="mr-1">←</span>
+                                  {event.testId && <FileText className="h-2.5 w-2.5 flex-shrink-0" />}
                                   <span className="truncate">
                                     {event.title}
                                   </span>
@@ -1493,7 +1502,8 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                               if (layout === 'minimal') {
                                 // For very short events, show only title
                                 return (
-                                  <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center`} title={event.title}>
+                                  <div className={`font-semibold truncate ${fontSize} leading-tight flex items-center gap-1`} title={event.title}>
+                                    {event.testId && <FileText className="h-2.5 w-2.5 flex-shrink-0" />}
                                     <span className="truncate">
                                       {event.title}
                                     </span>
@@ -1504,6 +1514,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                                 // For all other events, put title and time on same line
                                 return (
                                   <div className={`${fontSize} leading-tight flex items-center gap-1 overflow-hidden`}>
+                                    {event.testId && <FileText className="h-3 w-3 flex-shrink-0" />}
                                     <span className="font-semibold truncate flex-shrink min-w-0" title={event.title}>
                                       {event.title}
                                     </span>
@@ -1578,16 +1589,14 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
             <span className="hidden sm:inline">Important Only</span>
             <span className="sm:hidden">Important</span>
           </Button>
-          {isAdmin && (
-            <Button onClick={() => {
-              setFormData(getInitialFormData())
-              setCreateOpen(true)
-            }} size="sm" className="text-xs sm:text-sm">
-              <Plus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">New Event</span>
-              <span className="sm:hidden">Event</span>
-            </Button>
-          )}
+          <Button onClick={() => {
+            setFormData(getInitialFormData())
+            setCreateOpen(true)
+          }} size="sm" className="text-xs sm:text-sm">
+            <Plus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">New Event</span>
+            <span className="sm:hidden">Event</span>
+          </Button>
         </div>
       </div>
 
@@ -2190,6 +2199,12 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                   <p className="text-sm font-medium text-muted-foreground mb-1">Type</p>
                   <div className="flex items-center gap-2">
                     {getScopeBadge(selectedEvent)}
+                    {selectedEvent.testId && (
+                      <Badge variant="default" className="text-xs bg-purple-600 hover:bg-purple-700">
+                        <FileText className="h-3 w-3 mr-1" />
+                        TEST
+                      </Badge>
+                    )}
                     {selectedEvent.important && (
                       <Badge variant="destructive" className="text-xs">⚠️ IMPORTANT</Badge>
                     )}
@@ -2230,6 +2245,24 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                         }
                       }}
                     />
+                  </div>
+                )}
+
+                {/* Jump to Test Button */}
+                {selectedEvent.testId && (
+                  <div className="border-t pt-4">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setEventDetailsOpen(false)
+                        // Navigate to tests page with test ID in hash
+                        router.push(`/club/${teamId}?tab=tests#test-${selectedEvent.testId}`)
+                      }}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      Jump to Test
+                    </Button>
                   </div>
                 )}
 

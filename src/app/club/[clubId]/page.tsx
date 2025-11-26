@@ -81,7 +81,8 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
   }
 
   // Fetch all tab data in parallel for instant loading
-  const [attendances, expenses, purchaseRequests, eventBudgets, calendarEvents, tests] = await Promise.all([
+  // NOTE: Tests and CalendarEvents are NOT prefetched here - they go through the API which has proper assignment filtering
+  const [attendances, expenses, purchaseRequests, eventBudgets] = await Promise.all([
     // Attendance data
     prisma.attendance.findMany({
       where: { calendarEvent: { teamId: params.clubId } },
@@ -193,76 +194,6 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
         },
       },
     }),
-    // Calendar events data
-    prisma.calendarEvent.findMany({
-      where: { teamId: params.clubId },
-      include: {
-        creator: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                image: true,
-              },
-            },
-          },
-        },
-        subteam: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        rsvps: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                image: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        startUTC: 'desc',
-      },
-    }),
-    // Tests data
-    prisma.test.findMany({
-      where: { teamId: params.clubId },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        status: true,
-        durationMinutes: true,
-        startAt: true,
-        endAt: true,
-        allowLateUntil: true,
-        requireFullscreen: true,
-        allowCalculator: true,
-        calculatorType: true,
-        releaseScoresAt: true,
-        maxAttempts: true,
-        scoreReleaseMode: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: {
-            questions: true,
-            attempts: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    }),
   ])
 
   // Calculate budget totals (same logic as API)
@@ -327,8 +258,6 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
           expenses,
           purchaseRequests,
           eventBudgets: budgetsWithTotals,
-          calendarEvents,
-          tests,
         }}
       />
     </Suspense>

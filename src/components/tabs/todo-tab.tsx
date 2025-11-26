@@ -289,25 +289,36 @@ export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabP
   }
 
   const handleToggleComplete = async (todo: Todo) => {
+    // Optimistic update - update immediately
+    const newCompleted = !todo.completed
+    
+    setTodos(prev =>
+      prev.map(t =>
+        t.id === todo.id
+          ? { ...t, completed: newCompleted, completedAt: newCompleted ? new Date().toISOString() : null }
+          : t
+      )
+    )
+    setAllTodos(prev =>
+      prev.map(t =>
+        t.id === todo.id
+          ? { ...t, completed: newCompleted, completedAt: newCompleted ? new Date().toISOString() : null }
+          : t
+      )
+    )
+
     try {
       const response = await fetch(`/api/todos/${todo.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: !todo.completed }),
+        body: JSON.stringify({ completed: newCompleted }),
       })
 
-      if (!response.ok) throw new Error('Failed to update todo')
-
-      // Optimistic update
-      const updateList = (list: Todo[]) =>
-        list.map(t =>
-          t.id === todo.id
-            ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date().toISOString() : null }
-            : t
-        )
-      setTodos(updateList)
-      setAllTodos(updateList)
+      if (!response.ok) {
+        throw new Error('Failed to update todo')
+      }
     } catch (error) {
+      // Revert on error by refetching
       toast({
         title: 'Error',
         description: 'Failed to update todo',

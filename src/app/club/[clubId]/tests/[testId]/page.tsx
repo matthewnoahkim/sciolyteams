@@ -110,6 +110,13 @@ export default async function TeamTestDetailPage({
               name: true,
             },
           },
+          event: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
         },
       },
       questions: {
@@ -211,17 +218,56 @@ export default async function TeamTestDetailPage({
   // Otherwise, show the detail view for published tests
   const statusConfig = STATUS_CONFIG[test.status]
 
-  const assignmentSummary =
-  test.assignments.length === 0
-    ? 'Everyone on the team'
-    : test.assignments
-        .map((assignment) => {
-          if (assignment.assignedScope === 'CLUB') {
-            return 'Everyone on the team'
+  // Build assignment summary with proper details
+  const assignmentSummary = (() => {
+    if (test.assignments.length === 0) {
+      return 'Everyone on the team'
+    }
+
+    const parts: string[] = []
+    const seenSubteams = new Set<string>()
+    const seenEvents = new Set<string>()
+    let hasClub = false
+    let hasPersonal = false
+
+    for (const assignment of test.assignments) {
+      if (assignment.assignedScope === 'CLUB') {
+        hasClub = true
+      } else if (assignment.assignedScope === 'TEAM') {
+        // TEAM scope can mean:
+        // 1. Specific subteam (has subteamId)
+        // 2. Event-based assignment (has eventId)
+        if (assignment.subteamId && assignment.subteam) {
+          if (!seenSubteams.has(assignment.subteamId)) {
+            parts.push(assignment.subteam.name)
+            seenSubteams.add(assignment.subteamId)
           }
-          return 'Specific member'
-        })
-        .join(', ')
+        } else if (assignment.eventId && assignment.event) {
+          if (!seenEvents.has(assignment.eventId)) {
+            parts.push(`Event: ${assignment.event.name}`)
+            seenEvents.add(assignment.eventId)
+          }
+        }
+      } else if (assignment.assignedScope === 'PERSONAL') {
+        hasPersonal = true
+      }
+    }
+
+    // Build final summary
+    if (hasClub && parts.length === 0 && !hasPersonal) {
+      // Only club assignment
+      return 'Everyone on the team'
+    } else if (hasClub) {
+      // Club + other assignments
+      parts.unshift('Everyone on the team')
+    }
+    
+    if (hasPersonal) {
+      parts.push('Specific member(s)')
+    }
+
+    return parts.length > 0 ? parts.join(', ') : 'Not assigned'
+  })()
 
   // Serialize test object with date fields as ISO strings
   const serializedTest = {

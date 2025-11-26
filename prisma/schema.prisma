@@ -313,6 +313,7 @@ model CalendarEvent {
   recurrenceCount       Int?                  // alternatively, number of occurrences
   parentEventId         String?               // link to parent recurring event
   recurrenceExceptions  DateTime[]            // dates to skip
+  testId                String?               // Link to test if event was created from a test
   announcement          Announcement?
   attachments           Attachment[]
   attendance            Attendance?
@@ -325,6 +326,7 @@ model CalendarEvent {
   rsvps                 EventRSVP[]
   reactions             Reaction[]
   targets               CalendarEventTarget[]
+  test                  Test?                 @relation(fields: [testId], references: [id], onDelete: SetNull)
 
   @@index([teamId])
   @@index([creatorId])
@@ -333,6 +335,7 @@ model CalendarEvent {
   @@index([startUTC])
   @@index([parentEventId])
   @@index([isRecurring])
+  @@index([testId])
 }
 
 model CalendarEventTarget {
@@ -553,6 +556,7 @@ model Test {
   audits                 TestAudit[]
   sections               TestSection[]
   aiSuggestions          AiGradingSuggestion[]
+  calendarEvents         CalendarEvent[]
 
   @@index([teamId])
   @@index([status])

@@ -69,11 +69,31 @@ export async function POST(
 
     // Check assignment (admins bypass this check)
     if (!isAdminUser) {
+      // Get user's event assignments from roster for event-based test access
+      const userEventAssignments = await prisma.rosterAssignment.findMany({
+        where: {
+          membershipId: membership.id,
+          subteam: {
+            teamId: test.teamId,
+          },
+        },
+        select: {
+          eventId: true,
+        },
+      })
+      const userEventIds = userEventAssignments.map(ra => ra.eventId)
+
+      // Check assignment - user can access if any condition matches
       const hasAccess = test.assignments.some(
         (a) =>
+          // CLUB scope - everyone gets access
           a.assignedScope === 'CLUB' ||
-          a.subteamId === membership.subteamId ||
-          a.targetMembershipId === membership.id
+          // Subteam-based - user's subteam matches assignment's subteam
+          (a.subteamId && membership.subteamId && a.subteamId === membership.subteamId) ||
+          // PERSONAL scope - directly assigned to this user
+          a.targetMembershipId === membership.id ||
+          // Event-based assignments - user must have the event in their roster
+          (a.eventId && userEventIds.includes(a.eventId))
       )
 
       if (!hasAccess) {

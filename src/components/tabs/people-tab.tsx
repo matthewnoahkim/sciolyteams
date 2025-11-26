@@ -28,9 +28,12 @@ interface PeopleTabProps {
   isAdmin: boolean
 }
 
-export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) {
+export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: PeopleTabProps) {
   const router = useRouter()
   const { toast } = useToast()
+  
+  // Local team state for immediate updates
+  const [team, setTeam] = useState<any>(initialTeam)
   
   // Team management state
   const [selectedTeam, setSelectedTeam] = useState<any>(null)
@@ -114,6 +117,26 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
 
       if (!response.ok) throw new Error('Failed to create team')
 
+      const data = await response.json()
+      const newSubteam = data.subteam
+
+      // Update local state immediately
+      setTeam((prev: any) => ({
+        ...prev,
+        subteams: [
+          ...prev.subteams,
+          {
+            id: newSubteam.id,
+            name: newSubteam.name,
+            teamId: newSubteam.teamId,
+            createdAt: newSubteam.createdAt,
+            updatedAt: newSubteam.updatedAt,
+            members: [],
+            _count: { rosterAssignments: 0 },
+          },
+        ],
+      }))
+
       toast({
         title: 'Team created',
         description: newTeamName,
@@ -121,7 +144,6 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
 
       setNewTeamName('')
       setCreateOpen(false)
-      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
@@ -149,16 +171,27 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
 
       if (!response.ok) throw new Error('Failed to update team')
 
+      // Update local state immediately
+      setTeam((prev: any) => ({
+        ...prev,
+        subteams: prev.subteams.map((s: any) =>
+          s.id === editingTeam.id ? { ...s, name: editTeamName } : s
+        ),
+      }))
+
+      // Update selectedTeam if it's the one being edited
+      if (selectedTeam && selectedTeam.id === editingTeam.id) {
+        setSelectedTeam((prev: any) => (prev ? { ...prev, name: editTeamName } : null))
+      }
+
       toast({
         title: 'Team updated',
         description: editTeamName,
       })
 
-      // Update the selectedTeam state if it's the one being edited
       setEditOpen(false)
       setEditingTeam(null)
       setEditTeamName('')
-      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
@@ -189,19 +222,27 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
         throw new Error('Failed to delete team')
       }
 
-      toast({
-        title: 'Team deleted',
-        description: `${teamToDelete.name} has been deleted`,
-      })
+      // Update local state immediately
+      setTeam((prev: any) => ({
+        ...prev,
+        subteams: prev.subteams.filter((s: any) => s.id !== teamToDelete.id),
+        memberships: prev.memberships.map((m: any) =>
+          m.subteamId === teamToDelete.id ? { ...m, subteamId: null } : m
+        ),
+      }))
 
       // If current selected team was deleted, go back to grid view
       if (selectedTeam && selectedTeam.id === teamToDelete.id) {
         setSelectedTeam(null)
       }
 
+      toast({
+        title: 'Team deleted',
+        description: `${teamToDelete.name} has been deleted`,
+      })
+
       setTeamToDelete(null)
       setDeleteDialogOpen(false)
-      router.refresh()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -336,12 +377,31 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
         ? team.subteams.find((s: any) => s.id === subteamId)?.name 
         : 'Unassigned'
 
+      // Update local state immediately
+      setTeam((prev: any) => {
+        const member = prev.memberships.find((m: any) => m.id === membershipId)
+        const updatedMember = { ...member, subteamId }
+        
+        return {
+          ...prev,
+          memberships: prev.memberships.map((m: any) => 
+            m.id === membershipId ? updatedMember : m
+          ),
+          subteams: prev.subteams.map((s: any) => ({
+            ...s,
+            members: s.id === subteamId
+              // Add member to new team (if assigning to a team)
+              ? [...s.members.filter((m: any) => m.id !== membershipId), updatedMember]
+              // Remove member from other teams
+              : s.members.filter((m: any) => m.id !== membershipId)
+          }))
+        }
+      })
+
       toast({
         title: 'Member assigned',
         description: `${memberName} moved to ${teamName}`,
       })
-
-      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
@@ -395,21 +455,39 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
   const handleUpdateRole = async (membershipId: string, role: 'COACH' | 'CAPTAIN' | 'MEMBER' | 'UNASSIGNED') => {
     setLoading(true)
 
+    // UNASSIGNED = empty roles array
+    // MEMBER = ['MEMBER'] 
+    // CAPTAIN = ['CAPTAIN']
+    // COACH = ['COACH']
+    const newRoles = role === 'UNASSIGNED' ? [] : [role]
+
     try {
       const response = await fetch(`/api/memberships/${membershipId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roles: (role !== 'MEMBER' && role !== 'UNASSIGNED') ? [role] : [] }),
+        body: JSON.stringify({ roles: newRoles }),
       })
 
       if (!response.ok) throw new Error('Failed to update role')
+
+      // Update local state immediately
+      setTeam((prev: any) => ({
+        ...prev,
+        memberships: prev.memberships.map((m: any) => 
+          m.id === membershipId ? { ...m, roles: newRoles } : m
+        ),
+        subteams: prev.subteams.map((s: any) => ({
+          ...s,
+          members: s.members.map((m: any) => 
+            m.id === membershipId ? { ...m, roles: newRoles } : m
+          )
+        }))
+      }))
 
       toast({
         title: 'Role updated',
         description: role === 'UNASSIGNED' ? 'Role unassigned' : role === 'MEMBER' ? 'Set to member role' : `Assigned ${role.toLowerCase()} role`,
       })
-
-      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
@@ -689,10 +767,10 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
               {memberRoles.includes('CAPTAIN') && (
                 <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5">Captain</Badge>
               )}
-              {memberRoles.length === 0 && String(member.role).toUpperCase() === 'ADMIN' && (
+              {memberRoles.includes('MEMBER') && (
                 <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase px-1.5 py-0.5">Member</Badge>
               )}
-              <span className="whitespace-nowrap">{memberRoles.length > 0 || String(member.role).toUpperCase() === 'ADMIN' ? '• ' : ''}{eventCount} event{eventCount !== 1 ? 's' : ''}</span>
+              <span className="whitespace-nowrap">{(memberRoles.length > 0 || String(member.role).toUpperCase() === 'ADMIN') ? '• ' : ''}{eventCount} event{eventCount !== 1 ? 's' : ''}</span>
             </div>
           </div>
         </div>
@@ -715,8 +793,8 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                             value={
                               memberRoles.includes('COACH') ? 'COACH' :
                               memberRoles.includes('CAPTAIN') ? 'CAPTAIN' :
-                              memberRoles.length === 0 && String(member.role).toUpperCase() === 'MEMBER' ? 'UNASSIGNED' :
-                              'MEMBER'
+                              memberRoles.includes('MEMBER') ? 'MEMBER' :
+                              'UNASSIGNED'
                             }
                             onValueChange={(value) => handleUpdateRole(member.id, value as 'COACH' | 'CAPTAIN' | 'MEMBER' | 'UNASSIGNED')}
                           >
@@ -731,13 +809,14 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                             </SelectContent>
                           </Select>
                           <Select
-                            value={member.subteamId || undefined}
-                            onValueChange={(value) => handleAssignToTeamFromMenu(member.id, value || null, member.user.name || member.user.email)}
+                            value={member.subteamId || 'UNASSIGNED'}
+                            onValueChange={(value) => handleAssignToTeamFromMenu(member.id, value === 'UNASSIGNED' ? null : value, member.user.name || member.user.email)}
                           >
                             <SelectTrigger className="text-xs sm:text-sm h-9 w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
                               <SelectValue placeholder="Unassigned" />
                             </SelectTrigger>
                             <SelectContent onClick={(e) => e.stopPropagation()}>
+                              <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
                               {team.subteams.map((subteam: any) => (
                                 <SelectItem 
                                   key={subteam.id} 

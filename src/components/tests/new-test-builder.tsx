@@ -109,8 +109,10 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
   const [publishDialogOpen, setPublishDialogOpen] = useState(false)
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false)
   const [confirmPublishOpen, setConfirmPublishOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [addToCalendar, setAddToCalendar] = useState(false)
   const [events, setEvents] = useState<Array<{ id: string; name: string }>>([])
   const [loadingEvents, setLoadingEvents] = useState(false)
   const [publishFormData, setPublishFormData] = useState({
@@ -667,6 +669,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
           assignmentMode,
           selectedSubteams: assignmentMode === 'TEAM' ? selectedSubteams : undefined,
           selectedEventId: assignmentMode === 'EVENT' ? selectedEventId : undefined,
+          addToCalendar: addToCalendar,
         }),
       })
 
@@ -688,13 +691,16 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
 
       toast({
         title: 'Test Published',
-        description: 'The test is now visible to assigned members',
+        description: addToCalendar 
+          ? 'The test is now visible to assigned members and has been added to the calendar'
+          : 'The test is now visible to assigned members',
       })
 
       if (!isEditMode) {
         sessionStorage.removeItem('newTestId')
       }
       setPublishDialogOpen(false)
+      setAddToCalendar(false)
       router.push(`/club/${teamId}?tab=tests`)
       router.refresh()
     } catch (error: any) {
@@ -1143,10 +1149,63 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
               Cancel
             </Button>
             <Button
-              onClick={() => setConfirmPublishOpen(true)}
+              onClick={() => {
+                setPublishDialogOpen(false)
+                setCalendarModalOpen(true)
+              }}
               disabled={publishing}
             >
               {publishing ? 'Publishing...' : 'Publish'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add to Calendar Modal */}
+      <Dialog open={calendarModalOpen} onOpenChange={setCalendarModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Test to Calendar?</DialogTitle>
+            <DialogDescription>
+              Would you like to add this test to the calendar for the people assigned to it?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              If you choose Yes, a calendar event will be created and shown to:
+            </p>
+            <ul className="space-y-2 text-sm text-muted-foreground mb-4">
+              <li className="flex items-start gap-2">
+                <span>•</span>
+                <span>All club members (if assigned to entire club)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span>•</span>
+                <span>Members of specific teams (if assigned to teams)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span>•</span>
+                <span>Users assigned to specific events (if assigned to events)</span>
+              </li>
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setAddToCalendar(false)
+              setCalendarModalOpen(false)
+              setConfirmPublishOpen(true)
+            }} disabled={publishing}>
+              No
+            </Button>
+            <Button
+              onClick={() => {
+                setAddToCalendar(true)
+                setCalendarModalOpen(false)
+                setConfirmPublishOpen(true)
+              }}
+              disabled={publishing}
+            >
+              Yes, Add to Calendar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1181,7 +1240,10 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
             </ul>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmPublishOpen(false)} disabled={publishing}>
+            <Button variant="outline" onClick={() => {
+              setConfirmPublishOpen(false)
+              setAddToCalendar(false)
+            }} disabled={publishing}>
               Cancel
             </Button>
             <Button
