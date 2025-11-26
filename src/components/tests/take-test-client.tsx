@@ -925,7 +925,7 @@ export function TakeTestClient({
                       You have {markedForReview.size} question{markedForReview.size !== 1 ? 's' : ''} marked for review.
                     </p>
                     <p className="text-amber-700 dark:text-amber-300 mt-1">
-                      Make sure you've reviewed these questions before submitting.
+                      Make sure you&apos;ve reviewed these questions before submitting.
                     </p>
                   </div>
                 </div>
