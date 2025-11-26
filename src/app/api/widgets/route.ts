@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember, isAdmin } from '@/lib/rbac'
+import { requireMember } from '@/lib/rbac'
 import { z } from 'zod'
 import { HomeWidgetType, WidgetWidth, WidgetHeight } from '@prisma/client'
 
@@ -35,7 +35,10 @@ export async function GET(req: NextRequest) {
     await requireMember(session.user.id, teamId)
 
     const widgets = await prisma.homePageWidget.findMany({
-      where: { teamId },
+      where: {
+        teamId,
+        ownerId: session.user.id,
+      },
       orderBy: { position: 'asc' },
     })
 
@@ -60,20 +63,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validated = createWidgetSchema.parse(body)
 
-    // Only admins can create widgets
-    const isAdminUser = await isAdmin(session.user.id, validated.teamId)
-    if (!isAdminUser) {
-      return NextResponse.json(
-        { error: 'Only admins can create widgets' },
-        { status: 403 }
-      )
-    }
-
     await requireMember(session.user.id, validated.teamId)
 
     const widget = await prisma.homePageWidget.create({
       data: {
         teamId: validated.teamId,
+        ownerId: session.user.id,
         widgetType: validated.widgetType,
         title: validated.title,
         position: validated.position ?? 0,

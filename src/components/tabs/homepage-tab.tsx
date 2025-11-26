@@ -188,10 +188,13 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
     testCount: 0,
   })
 
+  const canConfigureWidgets = Boolean(user?.id)
+
   useEffect(() => {
+    if (!user?.id) return
     fetchWidgets()
     fetchData()
-  }, [teamId])
+  }, [teamId, user?.id])
 
   const fetchWidgets = async () => {
     try {
@@ -504,7 +507,7 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
             Welcome back to {team.name}
           </p>
         </div>
-        {isAdmin && (
+        {canConfigureWidgets && (
           <div className="flex gap-2 flex-shrink-0">
             <Button
               variant={isConfigMode ? 'default' : 'outline'}
@@ -537,7 +540,7 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
           <p className="text-gray-600 dark:text-gray-400 mb-4 px-4">
             No widgets configured yet
           </p>
-          {isAdmin && (
+          {canConfigureWidgets && (
             <Button onClick={() => setAddWidgetOpen(true)} size="sm" className="text-xs sm:text-sm">
               <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Add Your First Widget</span>

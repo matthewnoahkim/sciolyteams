@@ -29,6 +29,7 @@ model User {
   teamsCreated       Team[]              @relation("TeamCreator")
   mediaUploads       MediaItem[]         @relation("MediaUploads")
   formSubmissions    FormSubmission[]    @relation("FormSubmissions")
+  homePageWidgets    HomePageWidget[]    @relation("UserHomePageWidgets")
 }
 
 model Account {
@@ -815,6 +816,7 @@ model ErrorLog {
 model HomePageWidget {
   id            String           @id @default(cuid())
   teamId        String
+  ownerId       String?
   widgetType    HomeWidgetType
   title         String?
   position      Int              @default(0)
@@ -825,8 +827,11 @@ model HomePageWidget {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   team          Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  owner         User?            @relation("UserHomePageWidgets", fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
+  @@index([ownerId])
+  @@index([teamId, ownerId])
   @@index([position])
   @@index([isVisible])
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { isAdmin } from '@/lib/rbac'
+import { isAdmin, requireMember } from '@/lib/rbac'
 import { z } from 'zod'
 import { HomeWidgetType, WidgetWidth, WidgetHeight } from '@prisma/client'
 
@@ -40,11 +40,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Widget not found' }, { status: 404 })
     }
 
-    // Only admins can update widgets
+    await requireMember(session.user.id, existingWidget.teamId)
+
+    const isOwner = existingWidget.ownerId === session.user.id
     const isAdminUser = await isAdmin(session.user.id, existingWidget.teamId)
-    if (!isAdminUser) {
+    if (!isOwner && !isAdminUser) {
       return NextResponse.json(
-        { error: 'Only admins can update widgets' },
+        { error: 'Only the widget owner can update this widget' },
         { status: 403 }
       )
     }
@@ -89,11 +91,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Widget not found' }, { status: 404 })
     }
 
-    // Only admins can delete widgets
+    await requireMember(session.user.id, existingWidget.teamId)
+
+    const isOwner = existingWidget.ownerId === session.user.id
     const isAdminUser = await isAdmin(session.user.id, existingWidget.teamId)
-    if (!isAdminUser) {
+    if (!isOwner && !isAdminUser) {
       return NextResponse.json(
-        { error: 'Only admins can delete widgets' },
+        { error: 'Only the widget owner can delete this widget' },
         { status: 403 }
       )
     }
