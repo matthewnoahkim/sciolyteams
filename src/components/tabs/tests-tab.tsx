@@ -58,7 +58,7 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
     },
   })) || []
   const [tests, setTests] = useState<Test[]>(normalizedInitialTests)
-  const [loading, setLoading] = useState(!initialTests)
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'scheduled' | 'opened' | 'completed'>('all')
   const [userAttempts, setUserAttempts] = useState<Map<string, UserAttemptInfo>>(new Map())
@@ -88,7 +88,10 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
 
   // Fetch user attempts even when initialTests is provided
   const fetchUserAttempts = useCallback(async (tests: Test[]) => {
-    if (tests.length === 0) return
+    if (tests.length === 0) {
+      setUserAttempts(new Map())
+      return
+    }
     
     const attemptMap = new Map<string, UserAttemptInfo>()
     for (const test of tests) {
@@ -126,7 +129,8 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
         setTests(testsWithCount)
 
         // Fetch attempt counts for each test to show "Take Test" and "View Results" buttons
-        fetchUserAttempts(testsWithCount)
+        // Wait for user attempts to load before setting loading to false
+        await fetchUserAttempts(testsWithCount)
       } else {
         throw new Error('Failed to fetch tests')
       }
@@ -147,8 +151,12 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
     if (!initialTests) {
       fetchTests()
     } else {
-      // Still fetch user attempts even with initialTests
-      fetchUserAttempts(normalizedInitialTests)
+      // Still fetch user attempts even with initialTests, then set loading to false
+      const loadInitialData = async () => {
+        await fetchUserAttempts(normalizedInitialTests)
+        setLoading(false)
+      }
+      loadInitialData()
     }
   }, [fetchTests, initialTests, fetchUserAttempts, normalizedInitialTests])
 
