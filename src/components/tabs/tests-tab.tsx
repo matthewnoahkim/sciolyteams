@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Plus, Clock, Users, FileText, AlertCircle, Play, Eye, Trash2, Lock, Search, Edit, Calculator as CalcIcon } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageLoading } from '@/components/ui/loading-spinner'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface TestsTabProps {
   teamId: string
@@ -532,17 +533,18 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
               className="pl-11"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="h-12 rounded-2xl border border-input bg-background/50 px-4 py-3 text-sm"
-          >
-            <option value="all">All Tests</option>
-            {isAdmin && <option value="draft">Drafts</option>}
-            <option value="scheduled">Scheduled</option>
-            <option value="opened">Opened</option>
-            <option value="completed">Completed</option>
-          </select>
+          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
+            <SelectTrigger className="h-12 w-[180px]">
+              <SelectValue placeholder="All Tests" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tests</SelectItem>
+              {isAdmin && <SelectItem value="draft">Drafts</SelectItem>}
+              <SelectItem value="scheduled">Scheduled</SelectItem>
+              <SelectItem value="opened">Opened</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

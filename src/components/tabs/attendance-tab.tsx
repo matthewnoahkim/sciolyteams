@@ -18,6 +18,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageLoading, ButtonLoading } from '@/components/ui/loading-spinner'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Clock,
   CheckCircle,
@@ -817,20 +818,22 @@ export function AttendanceTab({ teamId, isAdmin, user, initialAttendances }: Att
             <div className="space-y-4 py-4">
               <div>
                 <Label htmlFor="user-select">Team Member</Label>
-                <select
-                  id="user-select"
-                  value={selectedUserId}
-                  onChange={(e) => setSelectedUserId(e.target.value)}
+                <Select
+                  value={selectedUserId || undefined}
+                  onValueChange={(value) => setSelectedUserId(value || '')}
                   required
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  <option value="">Select a member...</option>
-                  {rosterData?.missingMembers.map((member: any) => (
-                    <option key={member.user.id} value={member.user.id}>
-                      {member.user.name || member.user.email}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="user-select">
+                    <SelectValue placeholder="Select a member..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rosterData?.missingMembers.map((member: any) => (
+                      <SelectItem key={member.user.id} value={member.user.id}>
+                        {member.user.name || member.user.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
               <DialogFooter>

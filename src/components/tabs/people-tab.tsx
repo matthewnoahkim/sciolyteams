@@ -20,6 +20,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { ButtonLoading } from '@/components/ui/loading-spinner'
 import { Plus, Users, Pencil, Trash2, ArrowLeft, X, FileSpreadsheet, Mail, Grid3x3, Layers } from 'lucide-react'
 import { groupEventsByCategory, categoryOrder, type EventCategory } from '@/lib/event-categories'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface PeopleTabProps {
   team: any
@@ -49,6 +50,7 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
   const [teamToDelete, setTeamToDelete] = useState<any>(null)
   const [memberSortBy, setMemberSortBy] = useState<'alphabetical' | 'events' | 'team' | 'role'>('alphabetical')
   const [memberSortDirection, setMemberSortDirection] = useState<'low-to-high' | 'high-to-low'>('low-to-high')
+  const [addMemberSelectValues, setAddMemberSelectValues] = useState<Record<string, string>>({})
 
   useEffect(() => {
     fetchEvents()
@@ -635,25 +637,29 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex items-center gap-2">
                   <Label className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">Sort by:</Label>
-                  <select
-                    className="rounded-md border p-2 text-xs sm:text-sm flex-1 sm:flex-none"
-                    value={memberSortBy}
-                    onChange={(e) => setMemberSortBy(e.target.value as any)}
-                  >
-                    <option value="alphabetical">Alphabetical</option>
-                    <option value="role">Role</option>
-                    <option value="team">Team</option>
-                    <option value="events">Number of Events</option>
-                  </select>
+                  <Select value={memberSortBy} onValueChange={(value) => setMemberSortBy(value as any)}>
+                    <SelectTrigger className="text-xs sm:text-sm flex-1 sm:flex-none h-9 w-full sm:w-auto">
+                      <SelectValue placeholder="Alphabetical" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="alphabetical">Alphabetical</SelectItem>
+                      <SelectItem value="role">Role</SelectItem>
+                      <SelectItem value="team">Team</SelectItem>
+                      <SelectItem value="events">Number of Events</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <select
-                  className="rounded-md border p-2 text-xs sm:text-sm"
-                  value={memberSortDirection}
-                  onChange={(e) => setMemberSortDirection(e.target.value as any)}
-                >
-                  <option value="low-to-high">Low to High</option>
-                  <option value="high-to-low">High to Low</option>
-                </select>
+                <div className="flex items-center">
+                  <Select value={memberSortDirection} onValueChange={(value) => setMemberSortDirection(value as any)}>
+                    <SelectTrigger className="text-xs sm:text-sm h-9 w-full sm:w-auto">
+                      <SelectValue placeholder="Low to High" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low-to-high">Low to High</SelectItem>
+                      <SelectItem value="high-to-low">High to Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -705,39 +711,46 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
           </Button>
           {isAdmin && (
                         <>
-                          <select
-                            className="rounded-md border p-2 text-xs sm:text-sm h-9 w-full sm:w-auto"
+                          <Select
                             value={
                               memberRoles.includes('COACH') ? 'COACH' :
                               memberRoles.includes('CAPTAIN') ? 'CAPTAIN' :
                               memberRoles.length === 0 && String(member.role).toUpperCase() === 'MEMBER' ? 'UNASSIGNED' :
                               'MEMBER'
                             }
-                            onChange={(e) => handleUpdateRole(member.id, e.target.value as 'COACH' | 'CAPTAIN' | 'MEMBER' | 'UNASSIGNED')}
+                            onValueChange={(value) => handleUpdateRole(member.id, value as 'COACH' | 'CAPTAIN' | 'MEMBER' | 'UNASSIGNED')}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <option value="UNASSIGNED">Unassigned</option>
-                            <option value="MEMBER">Member</option>
-                            <option value="CAPTAIN">Captain</option>
-                            <option value="COACH">Coach</option>
-                          </select>
-                          <select
-                            className="rounded-md border p-2 text-xs sm:text-sm h-9 w-full sm:w-auto"
-                            value={member.subteamId || ''}
-                            onChange={(e) => handleAssignToTeamFromMenu(member.id, e.target.value || null, member.user.name || member.user.email)}
+                            <SelectTrigger className="text-xs sm:text-sm h-9 w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
+                              <SelectValue placeholder="Unassigned" />
+                            </SelectTrigger>
+                            <SelectContent onClick={(e) => e.stopPropagation()}>
+                              <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
+                              <SelectItem value="MEMBER">Member</SelectItem>
+                              <SelectItem value="CAPTAIN">Captain</SelectItem>
+                              <SelectItem value="COACH">Coach</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={member.subteamId || undefined}
+                            onValueChange={(value) => handleAssignToTeamFromMenu(member.id, value || null, member.user.name || member.user.email)}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <option value="">Unassigned</option>
-                            {team.subteams.map((subteam: any) => (
-                              <option 
-                                key={subteam.id} 
-                                value={subteam.id}
-                                disabled={subteam.id !== member.subteamId && subteam.members.length >= 15}
-                              >
-                                {subteam.name} ({subteam.members.length}/15)
-                              </option>
-                            ))}
-                          </select>
+                            <SelectTrigger className="text-xs sm:text-sm h-9 w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
+                              <SelectValue placeholder="Unassigned" />
+                            </SelectTrigger>
+                            <SelectContent onClick={(e) => e.stopPropagation()}>
+                              {team.subteams.map((subteam: any) => (
+                                <SelectItem 
+                                  key={subteam.id} 
+                                  value={subteam.id}
+                                  disabled={subteam.id !== member.subteamId && subteam.members.length >= 15}
+                                >
+                                  {subteam.name} ({subteam.members.length}/15)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </>
                       )}
                     </div>
@@ -943,30 +956,33 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                                 </div>
                               </div>
                               {isAdmin && !atCapacity && (
-                                <select
-                                  className="rounded-md border p-2 text-sm"
-                                  value=""
-                                  onChange={(e) => {
-                                    if (e.target.value) {
-                                      handleAddMemberToEvent(event.id, e.target.value)
-                                      e.target.value = '' // Reset dropdown
+                                <Select
+                                  value={addMemberSelectValues[`${event.id}-${selectedTeam.id}`] || undefined}
+                                  onValueChange={(value) => {
+                                    if (value) {
+                                      handleAddMemberToEvent(event.id, value)
+                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: undefined }))
                                     }
                                   }}
                                 >
-                                  <option value="">Add member...</option>
-                                  {teamMembers
-                                    .filter((member: any) => {
-                                      // Filter out already assigned members
-                                      const eventAssignments = getAssignmentsForEvent(event.id, selectedTeam.id)
-                                      const assignedMemberIds = eventAssignments.map((a) => a.membership.id)
-                                      return !assignedMemberIds.includes(member.id)
-                                    })
-                                    .map((member: any) => (
-                                      <option key={member.id} value={member.id}>
-                                        {member.user.name || member.user.email}
-                                      </option>
-                                    ))}
-                                </select>
+                                  <SelectTrigger className="text-sm h-9">
+                                    <SelectValue placeholder="Add member..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {teamMembers
+                                      .filter((member: any) => {
+                                        // Filter out already assigned members
+                                        const eventAssignments = getAssignmentsForEvent(event.id, selectedTeam.id)
+                                        const assignedMemberIds = eventAssignments.map((a) => a.membership.id)
+                                        return !assignedMemberIds.includes(member.id)
+                                      })
+                                      .map((member: any) => (
+                                        <SelectItem key={member.id} value={member.id}>
+                                          {member.user.name || member.user.email}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
                               )}
                               {atCapacity && (
                                 <Badge variant="secondary" className="mt-1">
@@ -1040,30 +1056,33 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                                 </div>
                               </div>
                               {isAdmin && !atCapacity && (
-                                <select
-                                  className="rounded-md border p-2 text-sm"
-                                  value=""
-                                  onChange={(e) => {
-                                    if (e.target.value) {
-                                      handleAddMemberToEvent(event.id, e.target.value)
-                                      e.target.value = '' // Reset dropdown
+                                <Select
+                                  value={addMemberSelectValues[`${event.id}-${selectedTeam.id}`] || undefined}
+                                  onValueChange={(value) => {
+                                    if (value) {
+                                      handleAddMemberToEvent(event.id, value)
+                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: undefined }))
                                     }
                                   }}
                                 >
-                                  <option value="">Add member...</option>
-                                  {teamMembers
-                                    .filter((member: any) => {
-                                      // Filter out already assigned members
-                                      const eventAssignments = getAssignmentsForEvent(event.id, selectedTeam.id)
-                                      const assignedMemberIds = eventAssignments.map((a) => a.membership.id)
-                                      return !assignedMemberIds.includes(member.id)
-                                    })
-                                    .map((member: any) => (
-                                      <option key={member.id} value={member.id}>
-                                        {member.user.name || member.user.email}
-                                      </option>
-                                    ))}
-                                </select>
+                                  <SelectTrigger className="text-sm h-9">
+                                    <SelectValue placeholder="Add member..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {teamMembers
+                                      .filter((member: any) => {
+                                        // Filter out already assigned members
+                                        const eventAssignments = getAssignmentsForEvent(event.id, selectedTeam.id)
+                                        const assignedMemberIds = eventAssignments.map((a) => a.membership.id)
+                                        return !assignedMemberIds.includes(member.id)
+                                      })
+                                      .map((member: any) => (
+                                        <SelectItem key={member.id} value={member.id}>
+                                          {member.user.name || member.user.email}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
                               )}
                               {atCapacity && (
                                 <Badge variant="secondary" className="mt-1">
@@ -1137,30 +1156,33 @@ export function PeopleTab({ team, currentMembership, isAdmin }: PeopleTabProps) 
                                 </div>
                               </div>
                               {isAdmin && !atCapacity && (
-                                <select
-                                  className="rounded-md border p-2 text-sm"
-                                  value=""
-                                  onChange={(e) => {
-                                    if (e.target.value) {
-                                      handleAddMemberToEvent(event.id, e.target.value)
-                                      e.target.value = '' // Reset dropdown
+                                <Select
+                                  value={addMemberSelectValues[`${event.id}-${selectedTeam.id}`] || undefined}
+                                  onValueChange={(value) => {
+                                    if (value) {
+                                      handleAddMemberToEvent(event.id, value)
+                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: undefined }))
                                     }
                                   }}
                                 >
-                                  <option value="">Add member...</option>
-                                  {teamMembers
-                                    .filter((member: any) => {
-                                      // Filter out already assigned members
-                                      const eventAssignments = getAssignmentsForEvent(event.id, selectedTeam.id)
-                                      const assignedMemberIds = eventAssignments.map((a) => a.membership.id)
-                                      return !assignedMemberIds.includes(member.id)
-                                    })
-                                    .map((member: any) => (
-                                      <option key={member.id} value={member.id}>
-                                        {member.user.name || member.user.email}
-                                      </option>
-                                    ))}
-                                </select>
+                                  <SelectTrigger className="text-sm h-9">
+                                    <SelectValue placeholder="Add member..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {teamMembers
+                                      .filter((member: any) => {
+                                        // Filter out already assigned members
+                                        const eventAssignments = getAssignmentsForEvent(event.id, selectedTeam.id)
+                                        const assignedMemberIds = eventAssignments.map((a) => a.membership.id)
+                                        return !assignedMemberIds.includes(member.id)
+                                      })
+                                      .map((member: any) => (
+                                        <SelectItem key={member.id} value={member.id}>
+                                          {member.user.name || member.user.email}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
                               )}
                               {atCapacity && (
                                 <Badge variant="secondary" className="mt-1">

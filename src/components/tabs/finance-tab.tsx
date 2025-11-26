@@ -14,6 +14,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SaveIndicator } from '@/components/ui/save-indicator'
 import { ButtonLoading, PageLoading } from '@/components/ui/loading-spinner'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface FinanceTabProps {
   teamId: string
@@ -1197,50 +1198,57 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <Label htmlFor="filter-status" className="text-xs text-muted-foreground mb-1 block">Status</Label>
-                    <select
-                      id="filter-status"
+                    <Select
                       value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value as 'all' | 'pending' | 'completed')}
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      onValueChange={(value) => setFilterStatus(value as 'all' | 'pending' | 'completed')}
                     >
-                      <option value="all">All</option>
-                      <option value="pending">Pending</option>
-                      <option value="completed">Completed</option>
-                    </select>
+                      <SelectTrigger id="filter-status" className="h-9">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   {uniqueCategories.length > 0 && (
                     <div>
                       <Label htmlFor="filter-category" className="text-xs text-muted-foreground mb-1 block">Category</Label>
-                      <select
-                        id="filter-category"
-                        value={filterCategory || ''}
-                        onChange={(e) => setFilterCategory(e.target.value || null)}
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      <Select
+                        value={filterCategory || undefined}
+                        onValueChange={(value) => setFilterCategory(value || null)}
                       >
-                        <option value="">All categories</option>
+                        <SelectTrigger id="filter-category" className="h-9">
+                          <SelectValue placeholder="All categories" />
+                        </SelectTrigger>
+                      <SelectContent>
                         {uniqueCategories.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
-                      </select>
+                      </SelectContent>
+                      </Select>
                     </div>
                   )}
                   {uniqueEvents.length > 0 && (
                     <div>
                       <Label htmlFor="filter-event" className="text-xs text-muted-foreground mb-1 block">Event</Label>
-                      <select
-                        id="filter-event"
-                        value={filterEvent || ''}
-                        onChange={(e) => setFilterEvent(e.target.value || null)}
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      <Select
+                        value={filterEvent || undefined}
+                        onValueChange={(value) => setFilterEvent(value || null)}
                       >
-                        <option value="">All events</option>
+                        <SelectTrigger id="filter-event" className="h-9">
+                          <SelectValue placeholder="All events" />
+                        </SelectTrigger>
+                      <SelectContent>
                         {uniqueEvents.map(eventId => {
                           const event = eventMap.get(eventId)
                           return event ? (
-                            <option key={eventId} value={eventId}>{event.name}</option>
+                            <SelectItem key={eventId} value={eventId}>{event.name}</SelectItem>
                           ) : null
                         })}
-                      </select>
+                      </SelectContent>
+                      </Select>
                     </div>
                   )}
                 </div>
@@ -1617,19 +1625,21 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
               {division && events.length > 0 && (
                 <div>
                   <Label htmlFor="expense-event">Event (Optional)</Label>
-                  <select
-                    id="expense-event"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={expenseForm.eventId}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, eventId: e.target.value })}
+                  <Select
+                    value={expenseForm.eventId || undefined}
+                    onValueChange={(value) => setExpenseForm({ ...expenseForm, eventId: value || '' })}
                   >
-                    <option value="">None</option>
-                    {events.map((event) => (
-                      <option key={event.id} value={event.id}>
-                        {event.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="expense-event">
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {events.map((event) => (
+                        <SelectItem key={event.id} value={event.id}>
+                          {event.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
               <div>
@@ -1709,19 +1719,21 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
               {division && events.length > 0 && (
                 <div>
                   <Label htmlFor="edit-expense-event">Event (Optional)</Label>
-                  <select
-                    id="edit-expense-event"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={editExpenseForm.eventId}
-                    onChange={(e) => setEditExpenseForm({ ...editExpenseForm, eventId: e.target.value })}
+                  <Select
+                    value={editExpenseForm.eventId || undefined}
+                    onValueChange={(value) => setEditExpenseForm({ ...editExpenseForm, eventId: value || '' })}
                   >
-                    <option value="">None</option>
-                    {events.map((event) => (
-                      <option key={event.id} value={event.id}>
-                        {event.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="edit-expense-event">
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {events.map((event) => (
+                        <SelectItem key={event.id} value={event.id}>
+                          {event.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
               <div>
@@ -1833,16 +1845,17 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
               {division && events.length > 0 && (
                 <div>
                   <Label htmlFor="req-event">Event (Optional)</Label>
-                  <select
-                    id="req-event"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={purchaseRequestForm.eventId}
-                    onChange={(e) => {
-                      setPurchaseRequestForm({ ...purchaseRequestForm, eventId: e.target.value })
+                  <Select
+                    value={purchaseRequestForm.eventId || undefined}
+                    onValueChange={(value) => {
+                      setPurchaseRequestForm({ ...purchaseRequestForm, eventId: value || '' })
                       setBudgetWarning(null)
                     }}
                   >
-                    <option value="">None</option>
+                    <SelectTrigger id="req-event">
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                    <SelectContent>
                     {events
                       .filter((event) => {
                         // Admins can see all events
@@ -1864,11 +1877,12 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                         }
                       })
                       .map((event) => (
-                        <option key={event.id} value={event.id}>
+                        <SelectItem key={event.id} value={event.id}>
                           {event.name}
-                        </option>
+                        </SelectItem>
                       ))}
-                  </select>
+                    </SelectContent>
+                  </Select>
                   {!isAdmin && (
                     <p className="text-xs text-muted-foreground mt-1">
                       Only events with budgets for your subteam are shown
@@ -2187,38 +2201,42 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
               {division && events.length > 0 && (
                 <div>
                   <Label htmlFor="budget-event">Event *</Label>
-                  <select
-                    id="budget-event"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={budgetForm.eventId}
-                    onChange={(e) => setBudgetForm({ ...budgetForm, eventId: e.target.value })}
+                  <Select
+                    value={budgetForm.eventId || undefined}
+                    onValueChange={(value) => setBudgetForm({ ...budgetForm, eventId: value || '' })}
                     required
                   >
-                    <option value="">Select an event</option>
-                    {events.map((event) => (
-                      <option key={event.id} value={event.id}>
-                        {event.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="budget-event">
+                      <SelectValue placeholder="Select an event" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {events.map((event) => (
+                        <SelectItem key={event.id} value={event.id}>
+                          {event.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
               {subteams.length > 0 && (
                 <div>
                   <Label htmlFor="budget-subteam">Subteam (Optional)</Label>
-                  <select
-                    id="budget-subteam"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={budgetForm.subteamId}
-                    onChange={(e) => setBudgetForm({ ...budgetForm, subteamId: e.target.value })}
+                  <Select
+                    value={budgetForm.subteamId || undefined}
+                    onValueChange={(value) => setBudgetForm({ ...budgetForm, subteamId: value || '' })}
                   >
-                    <option value="">Club-wide (all teams)</option>
-                    {subteams.map((subteam) => (
-                      <option key={subteam.id} value={subteam.id}>
-                        {subteam.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="budget-subteam">
+                      <SelectValue placeholder="Club-wide (all teams)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subteams.map((subteam) => (
+                        <SelectItem key={subteam.id} value={subteam.id}>
+                          {subteam.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="text-xs text-muted-foreground mt-1">
                     Leave empty for club-wide budget, or select a specific team
                   </p>

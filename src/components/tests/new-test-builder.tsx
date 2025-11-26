@@ -26,6 +26,7 @@ import {
   Send,
 } from 'lucide-react'
 import { DuplicateTestButton } from '@/components/tests/duplicate-test-button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type QuestionType = 'MCQ_SINGLE' | 'MCQ_MULTI' | 'LONG_TEXT'
 
@@ -995,17 +996,20 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
 
             <div>
               <Label htmlFor="scoreReleaseMode">Score release mode</Label>
-              <select
-                id="scoreReleaseMode"
+              <Select
                 value={publishFormData.scoreReleaseMode}
-                onChange={(e) => setPublishFormData((prev) => ({ ...prev, scoreReleaseMode: e.target.value as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST' }))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                onValueChange={(value) => setPublishFormData((prev) => ({ ...prev, scoreReleaseMode: value as 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST' }))}
               >
-                <option value="FULL_TEST">Full test (answers, correctness, feedback)</option>
-                <option value="SCORE_WITH_WRONG">Score + wrong questions</option>
-                <option value="SCORE_ONLY">Score only</option>
-                <option value="NONE">No scores released</option>
-              </select>
+                <SelectTrigger id="scoreReleaseMode">
+                  <SelectValue placeholder="Select release mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FULL_TEST">Full test (answers, correctness, feedback)</SelectItem>
+                  <SelectItem value="SCORE_WITH_WRONG">Score + wrong questions</SelectItem>
+                  <SelectItem value="SCORE_ONLY">Score only</SelectItem>
+                  <SelectItem value="NONE">No scores released</SelectItem>
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground mt-1">
                 Controls what students see after submission
               </p>
