@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { requireMember } from '@/lib/rbac'
+import { requireAdmin, requireMember } from '@/lib/rbac'
 import { z } from 'zod'
 import { HomeWidgetType, WidgetWidth, WidgetHeight } from '@prisma/client'
 
@@ -35,10 +35,7 @@ export async function GET(req: NextRequest) {
     await requireMember(session.user.id, teamId)
 
     const widgets = await prisma.homePageWidget.findMany({
-      where: {
-        teamId,
-        ownerId: session.user.id,
-      },
+      where: { teamId },
       orderBy: { position: 'asc' },
     })
 
@@ -63,7 +60,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validated = createWidgetSchema.parse(body)
 
-    await requireMember(session.user.id, validated.teamId)
+    await requireAdmin(session.user.id, validated.teamId)
 
     const widget = await prisma.homePageWidget.create({
       data: {

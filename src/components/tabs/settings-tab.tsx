@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -51,6 +51,28 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null)
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false)
   const [codeTypeToRegenerate, setCodeTypeToRegenerate] = useState<'admin' | 'member' | null>(null)
+  const [selectedAdminTransferId, setSelectedAdminTransferId] = useState('')
+  const [transferringAdmin, setTransferringAdmin] = useState(false)
+  const [dismissedTransferPrompt, setDismissedTransferPrompt] = useState(false)
+  const adminMemberships = team.memberships.filter(
+    (membership: any) => String(membership.role).toUpperCase() === 'ADMIN'
+  )
+  const regularMembers = team.memberships.filter(
+    (membership: any) =>
+      membership.id !== currentMembership.id && String(membership.role).toUpperCase() === 'MEMBER'
+  )
+  const isSoleAdmin =
+    String(currentMembership.role).toUpperCase() === 'ADMIN' && adminMemberships.length === 1
+  const shouldShowTransferPrompt =
+    isSoleAdmin && regularMembers.length > 0 && !dismissedTransferPrompt
+
+  useEffect(() => {
+    if (!leaveDialogOpen) {
+      setSelectedAdminTransferId('')
+      setTransferringAdmin(false)
+      setDismissedTransferPrompt(false)
+    }
+  }, [leaveDialogOpen])
   
   // Background customization state
   const [backgroundType, setBackgroundType] = useState<string>(team.backgroundType || 'grid')
@@ -313,6 +335,49 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
     }
   }
 
+  const handleTransferAdmin = async () => {
+    if (!selectedAdminTransferId) {
+      toast({
+        title: 'Select a member',
+        description: 'Choose a member to promote before continuing.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setTransferringAdmin(true)
+
+    try {
+      const response = await fetch(`/api/memberships/${selectedAdminTransferId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'ADMIN' }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to promote member')
+      }
+
+      toast({
+        title: 'Member promoted',
+        description: 'Selected member now has admin access.',
+      })
+
+      setSelectedAdminTransferId('')
+      setDismissedTransferPrompt(true)
+      router.refresh()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to promote member',
+        variant: 'destructive',
+      })
+    } finally {
+      setTransferringAdmin(false)
+    }
+  }
+
   const handleSaveBackground = async () => {
     setSavingBackground(true)
 
@@ -410,120 +475,122 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Background Customization</CardTitle>
-          <CardDescription>
-            Customize the background that all members will see when viewing this club
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="background-type">Background Type</Label>
-            <Select value={backgroundType} onValueChange={setBackgroundType}>
-              <SelectTrigger id="background-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="grid">Grid Pattern (Default)</SelectItem>
-                <SelectItem value="solid">Solid Color</SelectItem>
-                <SelectItem value="gradient">Gradient</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {backgroundType === 'solid' && (
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Background Customization</CardTitle>
+            <CardDescription>
+              Customize the background that all members will see when viewing this club
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="background-color">Background Color</Label>
-              <div className="flex items-center gap-3">
-                <Input
-                  id="background-color"
-                  type="color"
-                  value={backgroundColor}
-                  onChange={(e) => setBackgroundColor(e.target.value)}
-                  className="w-20 h-12 cursor-pointer"
-                />
-                <Input
-                  type="text"
-                  value={backgroundColor}
-                  onChange={(e) => setBackgroundColor(e.target.value)}
-                  placeholder="#f8fafc"
-                  className="flex-1"
-                />
-              </div>
+              <Label htmlFor="background-type">Background Type</Label>
+              <Select value={backgroundType} onValueChange={setBackgroundType}>
+                <SelectTrigger id="background-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="grid">Grid Pattern (Default)</SelectItem>
+                  <SelectItem value="solid">Solid Color</SelectItem>
+                  <SelectItem value="gradient">Gradient</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
 
-          {backgroundType === 'gradient' && (
-            <div className="space-y-4">
+            {backgroundType === 'solid' && (
               <div className="space-y-2">
-                <Label htmlFor="gradient-start">Start Color</Label>
+                <Label htmlFor="background-color">Background Color</Label>
                 <div className="flex items-center gap-3">
                   <Input
-                    id="gradient-start"
+                    id="background-color"
                     type="color"
-                    value={gradientStartColor}
-                    onChange={(e) => setGradientStartColor(e.target.value)}
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value)}
                     className="w-20 h-12 cursor-pointer"
                   />
                   <Input
                     type="text"
-                    value={gradientStartColor}
-                    onChange={(e) => setGradientStartColor(e.target.value)}
-                    placeholder="#e0e7ff"
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    placeholder="#f8fafc"
                     className="flex-1"
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="gradient-end">End Color</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="gradient-end"
-                    type="color"
-                    value={gradientEndColor}
-                    onChange={(e) => setGradientEndColor(e.target.value)}
-                    className="w-20 h-12 cursor-pointer"
-                  />
-                  <Input
-                    type="text"
-                    value={gradientEndColor}
-                    onChange={(e) => setGradientEndColor(e.target.value)}
-                    placeholder="#fce7f3"
-                    className="flex-1"
-                  />
+            )}
+
+            {backgroundType === 'gradient' && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gradient-start">Start Color</Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="gradient-start"
+                      type="color"
+                      value={gradientStartColor}
+                      onChange={(e) => setGradientStartColor(e.target.value)}
+                      className="w-20 h-12 cursor-pointer"
+                    />
+                    <Input
+                      type="text"
+                      value={gradientStartColor}
+                      onChange={(e) => setGradientStartColor(e.target.value)}
+                      placeholder="#e0e7ff"
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gradient-end">End Color</Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="gradient-end"
+                      type="color"
+                      value={gradientEndColor}
+                      onChange={(e) => setGradientEndColor(e.target.value)}
+                      className="w-20 h-12 cursor-pointer"
+                    />
+                    <Input
+                      type="text"
+                      value={gradientEndColor}
+                      onChange={(e) => setGradientEndColor(e.target.value)}
+                      placeholder="#fce7f3"
+                      className="flex-1"
+                    />
+                  </div>
                 </div>
               </div>
+            )}
+
+            {/* Preview */}
+            <div className="space-y-2">
+              <Label>Preview</Label>
+              <div
+                className="h-32 rounded-lg border-2 border-border overflow-hidden"
+                style={{
+                  background:
+                    backgroundType === 'grid'
+                      ? 'linear-gradient(to right, #80808012 1px, transparent 1px), linear-gradient(to bottom, #80808012 1px, transparent 1px)'
+                      : backgroundType === 'solid'
+                      ? backgroundColor
+                      : `linear-gradient(135deg, ${gradientStartColor} 0%, ${gradientEndColor} 100%)`,
+                  backgroundSize: backgroundType === 'grid' ? '24px 24px' : 'auto',
+                }}
+              />
             </div>
-          )}
 
-          {/* Preview */}
-          <div className="space-y-2">
-            <Label>Preview</Label>
-            <div
-              className="h-32 rounded-lg border-2 border-border overflow-hidden"
-              style={{
-                background:
-                  backgroundType === 'grid'
-                    ? 'linear-gradient(to right, #80808012 1px, transparent 1px), linear-gradient(to bottom, #80808012 1px, transparent 1px)'
-                    : backgroundType === 'solid'
-                    ? backgroundColor
-                    : `linear-gradient(135deg, ${gradientStartColor} 0%, ${gradientEndColor} 100%)`,
-                backgroundSize: backgroundType === 'grid' ? '24px 24px' : 'auto',
-              }}
-            />
-          </div>
-
-          <Button
-            onClick={handleSaveBackground}
-            disabled={savingBackground}
-            className="w-full"
-          >
-            <Save className="mr-2 h-4 w-4" />
-            {savingBackground ? 'Saving...' : 'Save Background'}
-          </Button>
-        </CardContent>
-      </Card>
+            <Button
+              onClick={handleSaveBackground}
+              disabled={savingBackground}
+              className="w-full"
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {savingBackground ? 'Saving...' : 'Save Background'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {isAdmin && (
         <Card>
@@ -696,19 +763,6 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
         </>
       )}
 
-      {!isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Invite Codes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Only team admins can view and manage invite codes.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       {team.memberships.length > 1 && (
         <Card className="border-destructive/50">
           <CardHeader>
@@ -805,6 +859,49 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
               Are you sure you want to leave {team.name}? You will need an invite code to rejoin.
             </DialogDescription>
           </DialogHeader>
+          {shouldShowTransferPrompt && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  You are the only admin in this club. Consider promoting another member before you
+                  leave so they can manage the club.
+                </p>
+                <Label htmlFor="new-admin">Choose a member to promote</Label>
+                <Select
+                  value={selectedAdminTransferId}
+                  onValueChange={(value) => setSelectedAdminTransferId(value)}
+                >
+                  <SelectTrigger id="new-admin">
+                    <SelectValue placeholder="Select a member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {regularMembers.map((member: any) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.user?.name || member.user?.email || 'Member'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  onClick={handleTransferAdmin}
+                  disabled={!selectedAdminTransferId || transferringAdmin}
+                >
+                  {transferringAdmin ? 'Promoting...' : 'Promote to Admin'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setDismissedTransferPrompt(true)}
+                  disabled={transferringAdmin}
+                >
+                  No thanks
+                </Button>
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button
               variant="outline"

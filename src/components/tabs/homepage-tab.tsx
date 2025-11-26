@@ -188,7 +188,7 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
     testCount: 0,
   })
 
-  const canConfigureWidgets = Boolean(user?.id)
+  const canConfigureWidgets = isAdmin
 
   useEffect(() => {
     if (!user?.id) return

@@ -570,27 +570,25 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
           </span>
         )}
       </Button>
+      <div className="h-px bg-border my-2" />
       {isAdmin && (
-        <>
-          <div className="h-px bg-border my-2" />
-          <Button
-            variant={activeTab === 'stats' ? 'default' : 'ghost'}
-            className="w-full justify-start text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
-            onClick={() => handleTabChange('stats')}
-          >
-            <BarChart3 className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            Stats & Analytics
-          </Button>
-          <Button
-            variant={activeTab === 'settings' ? 'default' : 'ghost'}
-            className="w-full justify-start text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
-            onClick={() => handleTabChange('settings')}
-          >
-            <Settings className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            Settings
-          </Button>
-        </>
+        <Button
+          variant={activeTab === 'stats' ? 'default' : 'ghost'}
+          className="w-full justify-start text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
+          onClick={() => handleTabChange('stats')}
+        >
+          <BarChart3 className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          Stats & Analytics
+        </Button>
       )}
+      <Button
+        variant={activeTab === 'settings' ? 'default' : 'ghost'}
+        className="w-full justify-start text-xs sm:text-sm font-semibold h-10 sm:h-11 rounded-2xl"
+        onClick={() => handleTabChange('settings')}
+      >
+        <Settings className="mr-2 sm:mr-3 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        Settings
+      </Button>
     </>
   )
 
@@ -652,8 +650,8 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
           {/* Main Content Area */}
           <div className="flex-1 min-w-0 md:pl-0 pl-9 sm:pl-10">
-            {/* Team Info Header - Only visible on settings tab for admins */}
-            {activeTab === 'settings' && isAdmin && (
+            {/* Team Info Header - visible on settings tab */}
+            {activeTab === 'settings' && (
               <div className="mb-4 sm:mb-5 md:mb-6 p-4 sm:p-5 md:p-6 rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50">
                 <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
                   <div>
@@ -785,7 +783,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
               />
             )}
 
-            {activeTab === 'settings' && isAdmin && (
+            {activeTab === 'settings' && (
               <SettingsTab
                 team={team}
                 currentMembership={currentMembership}

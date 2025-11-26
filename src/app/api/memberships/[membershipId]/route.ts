@@ -11,6 +11,7 @@ const updateMembershipSchema = z.object({
     .array(z.enum(['COACH', 'CAPTAIN']))
     .optional()
     .transform((roles) => roles ?? undefined),
+  role: z.enum(['ADMIN', 'MEMBER']).optional(),
 })
 
 export async function PATCH(
@@ -34,7 +35,7 @@ export async function PATCH(
     await requireAdmin(session.user.id, membership.teamId)
 
     const body = await req.json()
-    const { subteamId, roles } = updateMembershipSchema.parse(body)
+    const { subteamId, roles, role } = updateMembershipSchema.parse(body)
 
     // If subteamId is provided, verify it belongs to the same team and check size limit
     if (subteamId) {
@@ -65,6 +66,25 @@ export async function PATCH(
     }
     if (roles !== undefined) {
       updateData.roles = roles
+    }
+    if (role !== undefined && role !== membership.role) {
+      if (role === 'MEMBER' && membership.role === 'ADMIN') {
+        const adminCount = await prisma.membership.count({
+          where: {
+            teamId: membership.teamId,
+            role: 'ADMIN',
+          },
+        })
+
+        if (adminCount <= 1) {
+          return NextResponse.json(
+            { error: 'Cannot remove the only admin. Please promote another member first.' },
+            { status: 400 }
+          )
+        }
+      }
+
+      updateData.role = role
     }
 
     if (Object.keys(updateData).length === 0) {
