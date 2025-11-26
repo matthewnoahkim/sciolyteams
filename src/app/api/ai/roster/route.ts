@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       // Get test scores
       const memberAttempts = testAttempts.filter(a => a.membershipId === m.id)
       const avgScore = memberAttempts.length > 0
-        ? memberAttempts.reduce((sum, a) => sum + ((a.score || 0) / (a.maxScore || 1)) * 100, 0) / memberAttempts.length
+        ? memberAttempts.reduce((sum, a) => sum + (Number(a.gradeEarned) || 0), 0) / memberAttempts.length
         : null
 
       // Get attendance
