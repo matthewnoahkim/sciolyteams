@@ -37,6 +37,9 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
   const [memory, setMemory] = useState(0)
   const [isMinimized, setIsMinimized] = useState(false)
   const [angleMode, setAngleMode] = useState<'DEG' | 'RAD'>('DEG')
+  // Track last operation and operand for repeating equals
+  const [lastOperation, setLastOperation] = useState<string | null>(null)
+  const [lastOperand, setLastOperand] = useState<number | null>(null)
   const desmosCalculatorRef = useRef<any>(null)
   const desmosContainerRef = useRef<HTMLDivElement>(null)
   const [desmosLoaded, setDesmosLoaded] = useState(false)
@@ -178,7 +181,7 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
 
   // Reset calculator when type changes
   useEffect(() => {
-    clear()
+    clearAll()
     // Destroy Desmos calculator when switching away from graphing
     if (type !== 'GRAPHING' && desmosCalculatorRef.current) {
       try {
@@ -190,19 +193,245 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
     }
   }, [type])
 
+  // Keyboard input handler for FOUR_FUNCTION and SCIENTIFIC calculators
+  useEffect(() => {
+    if (type === 'GRAPHING' || !open) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't handle if user is typing in an input field
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return
+      }
+
+      const key = e.key
+
+      // Numbers
+      if (/^[0-9]$/.test(key)) {
+        e.preventDefault()
+        appendNumber(key)
+        return
+      }
+
+      // Decimal point
+      if (key === '.' || key === ',') {
+        e.preventDefault()
+        appendNumber('.')
+        return
+      }
+
+      // Operations
+      if (key === '+') {
+        e.preventDefault()
+        handleOperation('+')
+        return
+      }
+      if (key === '-') {
+        e.preventDefault()
+        handleOperation('-')
+        return
+      }
+      if (key === '*') {
+        e.preventDefault()
+        handleOperation('×')
+        return
+      }
+      if (key === '/') {
+        e.preventDefault()
+        handleOperation('÷')
+        return
+      }
+      if (key === '^') {
+        e.preventDefault()
+        if (type === 'SCIENTIFIC') {
+          handleOperation('xʸ')
+        }
+        return
+      }
+
+      // Equals
+      if (key === 'Enter' || key === '=') {
+        e.preventDefault()
+        equals()
+        return
+      }
+
+      // Clear
+      if (key === 'Escape' || key === 'c' || key === 'C') {
+        e.preventDefault()
+        clearAll()
+        return
+      }
+
+      // Backspace - delete last character
+      if (key === 'Backspace') {
+        e.preventDefault()
+        if (display.length > 1 && display !== '0') {
+          const newDisplay = display.slice(0, -1)
+          setDisplay(newDisplay === '' ? '0' : newDisplay)
+        } else {
+          setDisplay('0')
+          setNewNumber(true)
+        }
+        return
+      }
+
+      // Scientific calculator functions (only for SCIENTIFIC type)
+      if (type === 'SCIENTIFIC') {
+        // Trigonometric functions
+        if (e.ctrlKey || e.metaKey) {
+          // Ctrl/Cmd combinations for scientific functions
+          if (key === 's' || key === 'S') {
+            e.preventDefault()
+            scientificFunction('sin')
+            return
+          }
+          if (key === 'o' || key === 'O') {
+            e.preventDefault()
+            scientificFunction('cos')
+            return
+          }
+          if (key === 't' || key === 'T') {
+            e.preventDefault()
+            scientificFunction('tan')
+            return
+          }
+        }
+
+        // Square root
+        if (key === 'r' || key === 'R') {
+          e.preventDefault()
+          scientificFunction('sqrt')
+          return
+        }
+
+        // Square
+        if (key === '²' || (e.shiftKey && key === '2')) {
+          e.preventDefault()
+          scientificFunction('x²')
+          return
+        }
+
+        // Pi
+        if (key === 'p' || key === 'P') {
+          e.preventDefault()
+          scientificFunction('π')
+          return
+        }
+
+        // Euler's number
+        if (key === 'e' || key === 'E') {
+          e.preventDefault()
+          scientificFunction('e')
+          return
+        }
+
+        // Logarithm
+        if (key === 'l' || key === 'L') {
+          e.preventDefault()
+          scientificFunction('log')
+          return
+        }
+
+        // Natural logarithm
+        if (e.shiftKey && (key === 'l' || key === 'L')) {
+          e.preventDefault()
+          scientificFunction('ln')
+          return
+        }
+
+        // Factorial
+        if (key === '!' || (e.shiftKey && key === '1')) {
+          e.preventDefault()
+          scientificFunction('!')
+          return
+        }
+
+        // Reciprocal (1/x)
+        if (key === 'q' || key === 'Q') {
+          e.preventDefault()
+          scientificFunction('1/x')
+          return
+        }
+
+        // Absolute value
+        if (key === 'a' || key === 'A') {
+          e.preventDefault()
+          scientificFunction('abs')
+          return
+        }
+
+        // Angle mode toggle
+        if (key === 'm' || key === 'M') {
+          e.preventDefault()
+          setAngleMode(angleMode === 'DEG' ? 'RAD' : 'DEG')
+          return
+        }
+      }
+
+      // Toggle sign (works for both types)
+      if (key === '_' || (e.shiftKey && key === '-')) {
+        e.preventDefault()
+        toggleSign()
+        return
+      }
+
+      // Percentage (works for both types)
+      if (key === '%' || (e.shiftKey && key === '5')) {
+        e.preventDefault()
+        percentage()
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [type, open, display, newNumber, previousValue, operation, angleMode])
+
+  const formatNumber = (num: number | string): string => {
+    if (typeof num === 'string') return num
+    if (isNaN(num) || !isFinite(num)) return 'Error'
+    
+    // Format very large or very small numbers in scientific notation
+    if (Math.abs(num) > 1e15 || (Math.abs(num) < 1e-6 && num !== 0)) {
+      return num.toExponential(10).replace(/e\+?/, 'e')
+    }
+    
+    // For regular numbers, limit decimal places but keep significant digits
+    const str = num.toString()
+    if (str.includes('e')) return str
+    if (str.length > 15) {
+      return num.toPrecision(12)
+    }
+    return str
+  }
+
   const clear = () => {
+    // Standard C behavior: only clear current entry, keep operation and previous value
     setDisplay('0')
-    setPreviousValue(null)
-    setOperation(null)
     setNewNumber(true)
+    // Do NOT clear previousValue or operation - allows continuing the calculation
   }
 
   const clearAll = () => {
-    clear()
+    // AC behavior: clear everything including memory
+    setDisplay('0')
+    setPreviousValue(null)
+    setOperation(null)
+    setLastOperation(null)
+    setLastOperand(null)
+    setNewNumber(true)
     setMemory(0)
   }
 
   const appendNumber = (num: string) => {
+    // If display shows Error, clear it first
+    if (display === 'Error') {
+      clearAll()
+    }
+    
     if (newNumber) {
       setDisplay(num === '.' ? '0.' : num)
       setNewNumber(false)
@@ -215,44 +444,112 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
   const handleOperation = (op: string) => {
     const current = parseFloat(display)
     
+    if (isNaN(current)) {
+      clearAll()
+      return
+    }
+    
+    // Clear last operation when starting a new one
+    setLastOperation(null)
+    setLastOperand(null)
+    
     if (previousValue === null) {
       setPreviousValue(current)
     } else if (operation) {
       const result = calculate(previousValue, current, operation)
-      setDisplay(String(result))
-      setPreviousValue(result)
+      if (result === 'Error') {
+        setDisplay('Error')
+        setPreviousValue(null)
+        setOperation(null)
+        setNewNumber(true)
+        return
+      }
+      const numResult = typeof result === 'number' ? result : parseFloat(String(result))
+      setDisplay(formatNumber(numResult))
+      setPreviousValue(numResult)
     }
     
     setOperation(op)
     setNewNumber(true)
   }
 
-  const calculate = (a: number, b: number, op: string): number => {
+  const calculate = (a: number, b: number, op: string): number | string => {
+    if (isNaN(a) || isNaN(b)) return 'Error'
+    
     switch (op) {
       case '+': return a + b
       case '-': return a - b
       case '×': return a * b
-      case '÷': return b !== 0 ? a / b : 0
-      case '^': return Math.pow(a, b)
-      case 'xʸ': return Math.pow(a, b)
+      case '÷': 
+        if (b === 0) return 'Error'
+        return a / b
+      case '^': 
+      case 'xʸ': 
+        const result = Math.pow(a, b)
+        if (isNaN(result) || !isFinite(result)) return 'Error'
+        return result
       default: return b
     }
   }
 
   const equals = () => {
+    // Standard calculator behavior: if there's an active operation, calculate it
+    // If no active operation but there's a last operation, repeat it (standard calculator feature)
     if (operation && previousValue !== null) {
       const current = parseFloat(display)
+      if (isNaN(current)) {
+        clearAll()
+        return
+      }
       const result = calculate(previousValue, current, operation)
-      setDisplay(String(result))
+      if (result === 'Error') {
+        setDisplay('Error')
+        setPreviousValue(null)
+        setOperation(null)
+        setLastOperation(null)
+        setLastOperand(null)
+        setNewNumber(true)
+        return
+      }
+      const numResult = typeof result === 'number' ? result : parseFloat(String(result))
+      setDisplay(formatNumber(numResult))
+      // Store for repeating equals
+      setLastOperation(operation)
+      setLastOperand(current)
       setPreviousValue(null)
       setOperation(null)
+      setNewNumber(true)
+    } else if (lastOperation && lastOperand !== null) {
+      // Repeat last operation (standard calculator behavior)
+      const current = parseFloat(display)
+      if (isNaN(current)) {
+        clearAll()
+        return
+      }
+      const result = calculate(current, lastOperand, lastOperation)
+      if (result === 'Error') {
+        setDisplay('Error')
+        setLastOperation(null)
+        setLastOperand(null)
+        setNewNumber(true)
+        return
+      }
+      const numResult = typeof result === 'number' ? result : parseFloat(String(result))
+      setDisplay(formatNumber(numResult))
       setNewNumber(true)
     }
   }
 
   const scientificFunction = (func: string) => {
     const current = parseFloat(display)
-    let result: number
+    
+    if (isNaN(current)) {
+      setDisplay('Error')
+      setNewNumber(true)
+      return
+    }
+    
+    let result: number | string
 
     switch (func) {
       case 'sin':
@@ -265,19 +562,35 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
         result = angleMode === 'DEG' ? Math.tan(current * Math.PI / 180) : Math.tan(current)
         break
       case 'log':
-        result = Math.log10(current)
+        if (current <= 0) {
+          result = 'Error'
+        } else {
+          result = Math.log10(current)
+        }
         break
       case 'ln':
-        result = Math.log(current)
+        if (current <= 0) {
+          result = 'Error'
+        } else {
+          result = Math.log(current)
+        }
         break
       case 'sqrt':
-        result = Math.sqrt(current)
+        if (current < 0) {
+          result = 'Error'
+        } else {
+          result = Math.sqrt(current)
+        }
         break
       case 'x²':
         result = current * current
         break
       case '1/x':
-        result = current !== 0 ? 1 / current : 0
+        if (current === 0) {
+          result = 'Error'
+        } else {
+          result = 1 / current
+        }
         break
       case 'π':
         result = Math.PI
@@ -288,7 +601,11 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
         setNewNumber(true)
         break
       case '!':
-        result = factorial(Math.floor(current))
+        if (current < 0 || current > 170) {
+          result = 'Error'
+        } else {
+          result = factorial(Math.floor(current))
+        }
         break
       case 'abs':
         result = Math.abs(current)
@@ -297,7 +614,15 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
         return
     }
 
-    setDisplay(String(result))
+    if (typeof result === 'number' && (isNaN(result) || !isFinite(result))) {
+      result = 'Error'
+    }
+
+    if (typeof result === 'number') {
+      setDisplay(formatNumber(result))
+    } else {
+      setDisplay(result)
+    }
     setNewNumber(true)
   }
 
@@ -308,15 +633,33 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
   }
 
   const toggleSign = () => {
-    setDisplay(String(-parseFloat(display)))
+    if (display === 'Error') {
+      clearAll()
+      return
+    }
+    const current = parseFloat(display)
+    if (!isNaN(current)) {
+      setDisplay(String(-current))
+    }
   }
 
   const percentage = () => {
-    setDisplay(String(parseFloat(display) / 100))
+    if (display === 'Error') {
+      clearAll()
+      return
+    }
+    const current = parseFloat(display)
+    if (!isNaN(current)) {
+      setDisplay(String(current / 100))
+    }
   }
 
   const memoryAdd = () => {
-    setMemory(memory + parseFloat(display))
+    if (display === 'Error') return
+    const current = parseFloat(display)
+    if (!isNaN(current)) {
+      setMemory(memory + current)
+    }
   }
 
   const memoryRecall = () => {
@@ -511,7 +854,7 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
                     {previousValue} {operation}
                   </div>
                 )}
-                <div className="text-3xl font-mono font-bold break-all">
+                <div className="text-3xl font-mono font-bold break-all select-none">
                   {display}
                 </div>
                 {memory !== 0 && (
@@ -519,6 +862,9 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
                     Memory: {memory}
                   </div>
                 )}
+                <div className="text-xs text-muted-foreground mt-2">
+                  Tip: Type numbers and operations on your keyboard
+                </div>
               </div>
             </div>
           )}
