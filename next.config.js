@@ -19,7 +19,6 @@ const nextConfig = {
   swcMinify: true,
   // Optimize build performance
   experimental: {
-    optimizeCss: true, // Enable CSS optimization
     scrollRestoration: true, // Better scroll behavior on navigation
   },
   // Webpack configuration for native modules
