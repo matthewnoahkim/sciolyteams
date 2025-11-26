@@ -78,7 +78,7 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
         console.error('Failed to load Desmos API')
       }
       document.body.appendChild(script)
-    } else if (type !== 'GRAPHING') {
+    } else {
       // Cleanup when switching away from graphing calculator type
       if (desmosCalculatorRef.current) {
         try {
