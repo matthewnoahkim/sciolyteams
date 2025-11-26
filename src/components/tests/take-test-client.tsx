@@ -632,35 +632,47 @@ export function TakeTestClient({
   }
 
   return (
-    <div className="container mx-auto max-w-4xl py-8 px-4">
-      <Card>
-        <CardHeader>
-            <div className="flex items-center justify-between">
-            <CardTitle>{test.name}</CardTitle>
+    <div className="min-h-screen flex flex-col">
+      {/* Sticky header with test info and timer */}
+      <div className="sticky top-0 z-40 bg-background border-b backdrop-blur-sm bg-background/95">
+        <div className="container mx-auto max-w-6xl px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <h1 className="text-lg font-semibold truncate">{test.name}</h1>
+              {tabSwitchCount > 0 && (
+                <span className="text-xs text-amber-600 dark:text-amber-400">
+                  Tab switches: {tabSwitchCount}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-4 text-sm">
               {test.allowCalculator && test.calculatorType && (
                 <CalculatorButton calculatorType={test.calculatorType} />
               )}
               {timeRemaining !== null ? (
                 <span className={`font-mono font-semibold ${
-                  timeRemaining <= 60 ? 'text-red-600' : 
-                  timeRemaining <= 300 ? 'text-amber-600' : 
+                  timeRemaining <= 60 ? 'text-red-600 dark:text-red-400' : 
+                  timeRemaining <= 300 ? 'text-amber-600 dark:text-amber-400' : 
                   'text-foreground'
                 }`}>
-                  Time: {formatTime(timeRemaining)}
+                  <Clock className="inline h-4 w-4 mr-1" />
+                  {formatTime(timeRemaining)}
                 </span>
               ) : (
-                <span>Time: {test.durationMinutes} min</span>
-              )}
-              {tabSwitchCount > 0 && (
-                <span className="text-amber-600">
-                  Tab switches: {tabSwitchCount}
+                <span className="text-muted-foreground">
+                  <Clock className="inline h-4 w-4 mr-1" />
+                  {test.durationMinutes} min
                 </span>
               )}
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+      </div>
+
+      {/* Main content area */}
+      <div className="flex-1 container mx-auto max-w-6xl px-4 py-6">
+        <Card>
+          <CardContent className="pt-6">
           <div className="space-y-6">
             {test.questions.length === 0 ? (
               <p className="text-muted-foreground">No questions available.</p>
@@ -788,7 +800,29 @@ export function TakeTestClient({
                 </div>
               ))
             )}
-            <div className="flex gap-2 pt-4">
+          </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Fixed bottom bar with submit actions */}
+      <div className="sticky bottom-0 z-40 border-t bg-background backdrop-blur-sm bg-background/95">
+        <div className="container mx-auto max-w-6xl px-4 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {(markedForReview.size > 0 || getUnansweredQuestions().length > 0) && (
+                <div className="text-sm text-amber-600 dark:text-amber-400">
+                  {markedForReview.size > 0 && (
+                    <span>{markedForReview.size} marked for review</span>
+                  )}
+                  {markedForReview.size > 0 && getUnansweredQuestions().length > 0 && <span> • </span>}
+                  {getUnansweredQuestions().length > 0 && (
+                    <span>{getUnansweredQuestions().length} unanswered</span>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -803,25 +837,15 @@ export function TakeTestClient({
                   setShowSubmitDialog(true)
                 }}
                 disabled={submitting}
+                size="lg"
               >
                 {submitting && <ButtonLoading />}
                 {submitting ? 'Submitting...' : 'Submit Test'}
               </Button>
-              {(markedForReview.size > 0 || getUnansweredQuestions().length > 0) && (
-                <div className="text-sm text-amber-600 dark:text-amber-400 mt-2">
-                  {markedForReview.size > 0 && (
-                    <span>{markedForReview.size} question{markedForReview.size !== 1 ? 's' : ''} marked for review</span>
-                  )}
-                  {markedForReview.size > 0 && getUnansweredQuestions().length > 0 && <span> • </span>}
-                  {getUnansweredQuestions().length > 0 && (
-                    <span>{getUnansweredQuestions().length} unanswered question{getUnansweredQuestions().length !== 1 ? 's' : ''}</span>
-                  )}
-                </div>
-              )}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Save & Exit Confirmation Dialog */}
       <Dialog open={showSaveExitDialog} onOpenChange={(open) => {

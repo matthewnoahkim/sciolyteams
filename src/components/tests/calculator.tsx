@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { X, Minimize2, Calculator as CalcIcon } from 'lucide-react'
+import { X, Minimize2, Calculator as CalcIcon, GripVertical } from 'lucide-react'
 
 type CalculatorType = 'FOUR_FUNCTION' | 'SCIENTIFIC' | 'GRAPHING'
 
@@ -12,6 +12,11 @@ interface CalculatorProps {
   type: CalculatorType
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+interface Position {
+  x: number
+  y: number
 }
 
 // Desmos API Key
@@ -44,6 +49,212 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
   const desmosContainerRef = useRef<HTMLDivElement>(null)
   const [desmosLoaded, setDesmosLoaded] = useState(false)
   const savedDesmosStateRef = useRef<any>(null)
+  
+  // Helper function to calculate centered position
+  const getCenteredPosition = (): Position => {
+    if (typeof window === 'undefined') {
+      return { x: 100, y: 100 }
+    }
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+    const elementWidth = type === 'GRAPHING' ? 900 : 400
+    const elementHeight = type === 'GRAPHING' ? 650 : 500
+    
+    const centeredX = (viewportWidth - elementWidth) / 2
+    const centeredY = (viewportHeight - elementHeight) / 2
+    
+    return {
+      x: Math.max(0, Math.round(centeredX)),
+      y: Math.max(0, Math.round(centeredY))
+    }
+  }
+
+  // Draggable position state - initialize to centered position
+  const [position, setPosition] = useState<Position>(getCenteredPosition())
+  const [isDragging, setIsDragging] = useState(false)
+  const calculatorRef = useRef<HTMLDivElement>(null)
+  const hasInitializedRef = useRef(false)
+  const [isPositioned, setIsPositioned] = useState(false)
+
+  // Center calculator on screen when first opened
+  useEffect(() => {
+    if (!open) {
+      // Reset initialization flag when closed so it centers again next time
+      hasInitializedRef.current = false
+      setIsPositioned(false)
+      return
+    }
+    
+    // Immediately set to centered position to avoid showing old position
+    setPosition(getCenteredPosition())
+    setIsPositioned(false)
+    
+    // Only center on first open in this session
+    if (hasInitializedRef.current) {
+      setIsPositioned(true)
+      return
+    }
+    
+    // Center calculator on screen - use actual element dimensions if available
+    const centerCalculator = () => {
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+      
+      // Try to get actual element dimensions, fallback to estimated
+      let elementWidth = type === 'GRAPHING' ? 900 : 400
+      let elementHeight = type === 'GRAPHING' ? 650 : 500
+      
+      if (calculatorRef.current) {
+        const rect = calculatorRef.current.getBoundingClientRect()
+        if (rect.width > 0) elementWidth = rect.width
+        if (rect.height > 0) elementHeight = rect.height
+      }
+      
+      // Calculate centered position
+      const centeredX = (viewportWidth - elementWidth) / 2
+      const centeredY = (viewportHeight - elementHeight) / 2
+      
+      // Ensure position is valid (not negative)
+      setPosition({ 
+        x: Math.max(0, Math.round(centeredX)), 
+        y: Math.max(0, Math.round(centeredY)) 
+      })
+      hasInitializedRef.current = true
+      setIsPositioned(true)
+    }
+    
+    // Refine position once element is rendered with actual dimensions
+    const timeoutId = setTimeout(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(centerCalculator)
+      })
+    }, 50)
+    
+    return () => clearTimeout(timeoutId)
+  }, [open, type])
+
+  // Save position to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem(`calculator-position-${type}`, JSON.stringify(position))
+  }, [position, type])
+
+  // Drag handlers - use refs to track state to avoid closure issues
+  const dragOffsetRef = useRef<Position | null>(null)
+  const isDraggingRef = useRef(false)
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Prevent dragging if clicking on buttons
+    const target = e.target as HTMLElement
+    if (target.closest('button')) return
+    
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (calculatorRef.current) {
+      // Calculate offset using the position state (which controls the element's CSS position)
+      // This ensures the offset matches exactly with how the element is positioned
+      dragOffsetRef.current = {
+        x: e.clientX - position.x, // offsetX: distance from click to element's left edge
+        y: e.clientY - position.y  // offsetY: distance from click to element's top edge
+      }
+      
+      isDraggingRef.current = true
+      setIsDragging(true)
+    }
+  }
+
+  useEffect(() => {
+    // Add global style to prevent text selection during dragging
+    if (isDragging) {
+      document.body.style.userSelect = 'none'
+    } else {
+      document.body.style.userSelect = ''
+    }
+
+    if (!isDragging) {
+      isDraggingRef.current = false
+      return
+    }
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      // Use ref for checking dragging state to avoid closure issues
+      if (!isDraggingRef.current || !dragOffsetRef.current || !calculatorRef.current) {
+        return
+      }
+      
+      e.preventDefault() // Prevent text selection and other default behaviors
+      e.stopPropagation()
+      
+      // Calculate new position: current mouse position minus the offset
+      // dragOffsetRef contains the offset from click point to element's top-left
+      let newX = e.clientX - dragOffsetRef.current.x
+      let newY = e.clientY - dragOffsetRef.current.y
+      
+      // Get element dimensions using getBoundingClientRect for accurate measurements
+      const rect = calculatorRef.current.getBoundingClientRect()
+      const elementWidth = rect.width
+      const elementHeight = rect.height
+      
+      // Get viewport dimensions
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+      
+      // Calculate maximum positions where element's right/bottom edge touches viewport edge
+      // Allow full movement across the entire viewport from 0 (left) to maxX (right)
+      const maxX = Math.max(0, viewportWidth - elementWidth)
+      const maxY = Math.max(0, viewportHeight - elementHeight)
+      
+      // Ensure calculator can reach exactly x=0 (left edge)
+      // If mouse is very close to left edge or calculated position is <= 0, allow x=0
+      if (e.clientX <= dragOffsetRef.current.x || newX <= 0) {
+        newX = 0
+      } else if (newX > maxX) {
+        newX = maxX
+      }
+      
+      // Ensure calculator can reach exactly y=0 (top edge)
+      if (e.clientY <= dragOffsetRef.current.y || newY <= 0) {
+        newY = 0
+      } else if (newY > maxY) {
+        newY = maxY
+      }
+      
+      // Update position - allow exactly 0
+      setPosition({ 
+        x: newX,
+        y: newY
+      })
+    }
+
+    const handleMouseUp = (e: MouseEvent) => {
+      // Only end dragging if we were actually dragging
+      if (isDraggingRef.current) {
+        e.preventDefault()
+        e.stopPropagation()
+        isDraggingRef.current = false
+        setIsDragging(false)
+        dragOffsetRef.current = null
+        // Restore user selection
+        document.body.style.userSelect = ''
+      }
+    }
+
+    // Use capture phase and add events to document for reliable tracking even outside element
+    document.addEventListener('mousemove', handleMouseMove, { passive: false, capture: true })
+    document.addEventListener('mouseup', handleMouseUp, { passive: false, capture: true })
+    // Also listen on window for mouseup in case mouse leaves document
+    window.addEventListener('mouseup', handleMouseUp, { passive: false, capture: true })
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove, { capture: true })
+      document.removeEventListener('mouseup', handleMouseUp, { capture: true })
+      window.removeEventListener('mouseup', handleMouseUp, { capture: true })
+      // Cleanup: restore user selection if component unmounts while dragging
+      if (isDraggingRef.current) {
+        document.body.style.userSelect = ''
+      }
+    }
+  }, [isDragging])
 
   // Load Desmos API script for graphing calculator (only once)
   useEffect(() => {
@@ -807,74 +1018,127 @@ export function Calculator({ type, open, onOpenChange }: CalculatorProps) {
     }
   }
 
-  // Minimized floating button
-  if (isMinimized) {
-    return (
-      <div className="fixed bottom-4 right-4 z-50">
-        <Button
-          onClick={() => {
-            setIsMinimized(false)
-          }}
-          className="rounded-full w-14 h-14 shadow-lg"
-          size="icon"
-        >
-          <CalcIcon className="h-6 w-6" />
-        </Button>
-      </div>
-    )
+  // Don't render anything if not open and not minimized
+  if (!open && !isMinimized) {
+    return null
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={type === 'GRAPHING' ? 'max-w-4xl max-h-[90vh] overflow-y-auto' : 'max-w-md max-h-[90vh] overflow-y-auto'}>
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>{getCalculatorTitle()}</DialogTitle>
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setIsMinimized(true)
-                }}
-              >
-                <Minimize2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </DialogHeader>
-        
-        <div className={type === 'GRAPHING' ? '' : 'space-y-4'}>
-          {/* Display - only show for non-graphing calculators */}
-          {type !== 'GRAPHING' && (
-            <div className="bg-muted rounded-md p-4">
-              <div className="text-right">
-                {operation && previousValue !== null && (
-                  <div className="text-sm text-muted-foreground">
-                    {previousValue} {operation}
-                  </div>
-                )}
-                <div className="text-3xl font-mono font-bold break-all select-none">
-                  {display}
+  // Render calculator content using portal to body to escape parent container constraints
+  const calculatorContent = (
+    <>
+      {/* Minimized floating button */}
+      {isMinimized && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <Button
+            onClick={() => {
+              setIsMinimized(false)
+            }}
+            className="rounded-full w-14 h-14 shadow-lg"
+            size="icon"
+          >
+            <CalcIcon className="h-6 w-6" />
+          </Button>
+        </div>
+      )}
+
+      {/* Main calculator window */}
+      {!isMinimized && (
+        <div
+          ref={calculatorRef}
+          className={`fixed z-50 shadow-2xl ${isDragging ? 'cursor-grabbing select-none shadow-3xl' : ''} ${!isPositioned ? 'opacity-0' : 'opacity-100'}`}
+          style={{
+            left: `${position.x}px`,
+            top: `${position.y}px`,
+            width: type === 'GRAPHING' ? '900px' : '400px',
+            maxWidth: '90vw',
+            maxHeight: '90vh',
+            transition: isDragging ? 'none' : isPositioned ? 'opacity 0.2s ease, box-shadow 0.2s ease' : 'none',
+          }}
+        >
+          <Card className={`border-2 shadow-xl ${isDragging ? 'ring-2 ring-primary/50' : ''}`}>
+            <CardHeader 
+              className="calculator-drag-handle cursor-grab active:cursor-grabbing pb-3 select-none"
+              onMouseDown={handleMouseDown}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <GripVertical className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle className="text-lg">{getCalculatorTitle()}</CardTitle>
                 </div>
-                {memory !== 0 && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Memory: {memory}
-                  </div>
-                )}
-                <div className="text-xs text-muted-foreground mt-2">
-                  Tip: Type numbers and operations on your keyboard
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsMinimized(true)
+                    }}
+                  >
+                    <Minimize2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpenChange(false)
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
-            </div>
-          )}
+            </CardHeader>
+            
+            <CardContent className={`overflow-y-auto ${type === 'GRAPHING' ? 'max-h-[calc(90vh-80px)]' : 'max-h-[calc(90vh-80px)]'}`}>
+              <div className={type === 'GRAPHING' ? '' : 'space-y-4'}>
+                {/* Display - only show for non-graphing calculators */}
+                {type !== 'GRAPHING' && (
+                  <div className="bg-muted rounded-md p-4">
+                    <div className="text-right">
+                      {operation && previousValue !== null && (
+                        <div className="text-sm text-muted-foreground">
+                          {previousValue} {operation}
+                        </div>
+                      )}
+                      <div className="text-3xl font-mono font-bold break-all select-none">
+                        {display}
+                      </div>
+                      {memory !== 0 && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Memory: {memory}
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground mt-2">
+                        Tip: Type numbers and operations on your keyboard
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-          {/* Calculator buttons */}
-          {renderCalculatorContent()}
+                {/* Calculator buttons */}
+                {renderCalculatorContent()}
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </>
   )
+
+  // Use portal to render calculator directly to body, bypassing parent container constraints
+  if (!open && !isMinimized) {
+    return null
+  }
+
+  // Check if we're in the browser (client-side)
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  return createPortal(calculatorContent, document.body)
 }
 
 // Floating calculator button for test-taking interface
