@@ -10,6 +10,7 @@ import { JoinTeamDialog } from '@/components/join-team-dialog'
 import { AppHeader } from '@/components/app-header'
 import { Users, Plus } from 'lucide-react'
 import { useFaviconBadge } from '@/hooks/use-favicon-badge'
+import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 interface HomeClientProps {
   memberships: any[]
@@ -35,8 +36,10 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
   useFaviconBadge(totalUnreadCount)
 
   // Refetch memberships
-  const fetchMemberships = useCallback(async () => {
-    setLoading(true)
+  const fetchMemberships = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true)
+    }
     try {
       const response = await fetch('/api/teams')
       if (response.ok) {
@@ -46,27 +49,21 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
     } catch (error) {
       console.error('Failed to fetch memberships:', error)
     } finally {
-      setLoading(false)
+      if (!options?.silent) {
+        setLoading(false)
+      }
     }
   }, [])
 
-  // Note: We don't refetch on pathname change to avoid flashing.
-  // The server already provides fresh data on page load.
-
-  // Refetch when component becomes visible (user navigates back to tab/window)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && pathname === '/dashboard') {
-        fetchMemberships()
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [pathname, fetchMemberships])
+  const isDashboardRoute = pathname === '/dashboard'
+  useBackgroundRefresh(
+    () => fetchMemberships({ silent: true }),
+    {
+      intervalMs: 40_000,
+      enabled: isDashboardRoute,
+      runOnMount: false,
+    },
+  )
 
   // Get last cleared time for a team from localStorage
   const getLastClearedTime = (teamId: string): Date => {

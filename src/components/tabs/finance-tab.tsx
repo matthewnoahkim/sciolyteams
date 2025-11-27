@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { SaveIndicator } from '@/components/ui/save-indicator'
 import { ButtonLoading, PageLoading } from '@/components/ui/loading-spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 interface FinanceTabProps {
   teamId: string
@@ -228,82 +229,47 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
   const [filterEvent, setFilterEvent] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'completed'>('all')
 
-  const fetchData = useCallback(async () => {
-    // Skip if we have all initial data
-    if (initialExpenses && initialPurchaseRequests && initialBudgets && initialSubteams) {
-      // Still need to fetch events if division is provided
-      if (division && events.length === 0) {
-        try {
-          const eventsRes = await fetch(`/api/events?division=${division}`)
-          if (eventsRes.ok) {
-            const data = await eventsRes.json()
-            setEvents(data.events || [])
-          }
-        } catch (error) {
-          console.error('Failed to fetch events:', error)
-        }
-      }
-      return
+  const fetchData = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true)
     }
-
-    setLoading(true)
     try {
-      const promises = []
-      
-      if (!initialExpenses) {
-        promises.push(fetch(`/api/expenses?teamId=${teamId}`))
-      } else {
-        promises.push(Promise.resolve(null))
-      }
-      
-      if (!initialPurchaseRequests) {
-        promises.push(fetch(`/api/purchase-requests?teamId=${teamId}`))
-      } else {
-        promises.push(Promise.resolve(null))
-      }
-      
-      if (!initialBudgets) {
-        promises.push(fetch(`/api/event-budgets?teamId=${teamId}`))
-      } else {
-        promises.push(Promise.resolve(null))
-      }
-      
-      if (!initialSubteams) {
-        promises.push(fetch(`/api/teams/${teamId}/subteams`))
-      } else {
-        promises.push(Promise.resolve(null))
-      }
+      const requests: Promise<Response | null>[] = [
+        fetch(`/api/expenses?teamId=${teamId}`),
+        fetch(`/api/purchase-requests?teamId=${teamId}`),
+        fetch(`/api/event-budgets?teamId=${teamId}`),
+        fetch(`/api/teams/${teamId}/subteams`),
+      ]
 
       if (division) {
-        promises.push(fetch(`/api/events?division=${division}`))
+        requests.push(fetch(`/api/events?division=${division}`))
+      } else {
+        requests.push(Promise.resolve(null))
       }
 
-      const [expensesRes, requestsRes, budgetsRes, subteamsRes, eventsRes] = await Promise.all(promises)
+      const [expensesRes, requestsRes, budgetsRes, subteamsRes, eventsRes] = await Promise.all(requests)
 
-      if (expensesRes && expensesRes.ok) {
+      if (expensesRes?.ok) {
         const data = await expensesRes.json()
         setExpenses(data.expenses)
       }
 
-      if (requestsRes && requestsRes.ok) {
+      if (requestsRes?.ok) {
         const data = await requestsRes.json()
         setPurchaseRequests(data.purchaseRequests)
       }
 
-      if (budgetsRes && budgetsRes.ok) {
+      if (budgetsRes?.ok) {
         const data = await budgetsRes.json()
-        console.log('Fetched budgets:', data.budgets)
         setBudgets(data.budgets || [])
-      } else if (budgetsRes) {
-        console.error('Failed to fetch budgets:', budgetsRes.status, await budgetsRes.text())
       }
 
-      if (subteamsRes && subteamsRes.ok) {
+      if (subteamsRes?.ok) {
         const data = await subteamsRes.json()
         setSubteams(data.subteams || [])
       }
 
-      if (eventsRes && eventsRes.ok) {
+      if (eventsRes?.ok) {
         const data = await eventsRes.json()
         setEvents(data.events || [])
       }
@@ -315,13 +281,23 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         variant: 'destructive',
       })
     } finally {
-      setLoading(false)
+      if (!options?.silent) {
+        setLoading(false)
+      }
     }
-  }, [teamId, division, toast, initialExpenses, initialPurchaseRequests, initialBudgets, initialSubteams, events.length])
+  }, [teamId, division, toast])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useBackgroundRefresh(
+    () => fetchData({ silent: true }),
+    {
+      intervalMs: 45_000,
+      runOnMount: false,
+    },
+  )
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault()

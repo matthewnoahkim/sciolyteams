@@ -33,6 +33,7 @@ import {
   MapPin,
   Trash2,
 } from 'lucide-react'
+import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 interface AttendanceTabProps {
   teamId: string
@@ -67,8 +68,10 @@ export function AttendanceTab({ teamId, isAdmin, user, initialAttendances }: Att
   const [eventToDelete, setEventToDelete] = useState<any>(null)
   const [deletingEvent, setDeletingEvent] = useState(false)
 
-  const fetchAttendances = useCallback(async () => {
-    setLoading(true)
+  const fetchAttendances = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true)
+    }
     try {
       const response = await fetch(`/api/attendance?teamId=${teamId}`)
       if (response.ok) {
@@ -85,7 +88,9 @@ export function AttendanceTab({ teamId, isAdmin, user, initialAttendances }: Att
         variant: 'destructive',
       })
     } finally {
-      setLoading(false)
+      if (!options?.silent) {
+        setLoading(false)
+      }
     }
   }, [teamId, toast])
 
@@ -95,6 +100,14 @@ export function AttendanceTab({ teamId, isAdmin, user, initialAttendances }: Att
       fetchAttendances()
     }
   }, [fetchAttendances, initialAttendances])
+
+  useBackgroundRefresh(
+    () => fetchAttendances({ silent: true }),
+    {
+      intervalMs: 40_000,
+      runOnMount: false,
+    },
+  )
 
   const fetchRoster = async (attendanceId: string) => {
     if (!isAdmin) return

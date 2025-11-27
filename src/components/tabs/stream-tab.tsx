@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { EmojiPicker } from '@/components/emoji-picker'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageLoading } from '@/components/ui/loading-spinner'
+import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 interface StreamTabProps {
   teamId: string
@@ -110,8 +111,10 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
     [announcements, showImportantOnly],
   )
 
-  const fetchAnnouncements = useCallback(async () => {
-    setLoading(true)
+  const fetchAnnouncements = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true)
+    }
     try {
       const response = await performRequest(
         `/api/announcements?teamId=${teamId}`,
@@ -123,13 +126,23 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
     } catch (error) {
       console.error('Failed to fetch announcements:', error)
     } finally {
-      setLoading(false)
+      if (!options?.silent) {
+        setLoading(false)
+      }
     }
   }, [teamId])
 
   useEffect(() => {
     fetchAnnouncements()
   }, [fetchAnnouncements])
+
+  useBackgroundRefresh(
+    () => fetchAnnouncements({ silent: true }),
+    {
+      intervalMs: 30_000,
+      runOnMount: false,
+    },
+  )
 
   // Fetch events for the team's division
   useEffect(() => {

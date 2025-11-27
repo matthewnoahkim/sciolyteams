@@ -13,6 +13,7 @@ import { NoteSheetUpload } from '@/components/tests/note-sheet-upload'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageLoading } from '@/components/ui/loading-spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 interface TestsTabProps {
   teamId: string
@@ -170,8 +171,10 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
     })
   }, [])
 
-  const fetchTests = useCallback(async () => {
-    setLoading(true)
+  const fetchTests = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true)
+    }
     try {
       const response = await fetch(`/api/tests?teamId=${teamId}`)
       if (response.ok) {
@@ -204,9 +207,11 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
         variant: 'destructive',
       })
     } finally {
-      setLoading(false)
+      if (!options?.silent) {
+        setLoading(false)
+      }
     }
-  }, [teamId, isAdmin, toast, fetchUserAttempts])
+  }, [teamId, isAdmin, toast, fetchUserAttempts, fetchNoteSheets])
 
   useEffect(() => {
     // Skip initial fetch if we already have data from server
@@ -224,6 +229,14 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
       loadInitialData()
     }
   }, [fetchTests, initialTests, fetchUserAttempts, fetchNoteSheets, normalizedInitialTests])
+
+  useBackgroundRefresh(
+    () => fetchTests({ silent: true }),
+    {
+      intervalMs: 30_000,
+      runOnMount: false,
+    },
+  )
 
   // Refresh attempts and note sheets when page becomes visible (user returns from test submission)
   useEffect(() => {

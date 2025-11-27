@@ -24,6 +24,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { EventAnnouncementModal } from '@/components/event-announcement-modal'
 import { AttachmentDisplay } from '@/components/ui/attachment-display'
+import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 interface CalendarTabProps {
   teamId: string
@@ -154,8 +155,10 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
   
   const [formData, setFormData] = useState(getInitialFormData())
 
-  const fetchEvents = useCallback(async () => {
-    setLoading(true)
+  const fetchEvents = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true)
+    }
     try {
       const response = await fetch(`/api/calendar?teamId=${teamId}`)
       if (response.ok) {
@@ -165,7 +168,9 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
     } catch (error) {
       console.error('Failed to fetch events:', error)
     } finally {
-      setLoading(false)
+      if (!options?.silent) {
+        setLoading(false)
+      }
     }
   }, [teamId])
 
@@ -210,6 +215,14 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
     fetchSubteams()
     fetchAvailableEvents()
   }, [fetchEvents, fetchSubteams, fetchAvailableEvents, initialEvents])
+
+  useBackgroundRefresh(
+    () => fetchEvents({ silent: true }),
+    {
+      intervalMs: 35_000,
+      runOnMount: false,
+    },
+  )
 
   // Handle opening event from URL parameter
   useEffect(() => {
