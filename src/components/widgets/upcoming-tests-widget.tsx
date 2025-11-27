@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { FileText, Clock, AlertCircle } from 'lucide-react'
+import { FileText, Clock, AlertCircle, BookOpen } from 'lucide-react'
 import { format } from 'date-fns'
 import Link from 'next/link'
 
@@ -27,65 +27,82 @@ export function UpcomingTestsWidget({
     .slice(0, limit)
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" />
+    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <div className="p-1.5 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
+            <FileText className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+          </div>
           {config?.title || 'Upcoming Tests'}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {upcomingTests.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            No upcoming tests
-          </p>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-full mb-3">
+              <BookOpen className="h-6 w-6 text-gray-400 dark:text-gray-500" />
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+              No upcoming tests
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              Tests will appear here when published
+            </p>
+          </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {upcomingTests.map((test) => {
               const startDate = new Date(test.startAt)
               const endDate = test.endAt ? new Date(test.endAt) : null
               const isStartingSoon = startDate.getTime() - now.getTime() < 24 * 60 * 60 * 1000
+              const isToday = format(startDate, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd')
 
               return (
                 <Link
                   key={test.id}
                   href={`/club/${teamId}?tab=tests`}
-                  className="block p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border border-gray-100 dark:border-gray-800"
+                  className="group block p-3 rounded-lg hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 dark:hover:from-orange-950/30 dark:hover:to-red-950/30 transition-all duration-200 border border-gray-100 dark:border-gray-800 hover:border-orange-200 dark:hover:border-orange-800 hover:shadow-sm"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                    <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all group-hover:scale-110 ${
+                      isStartingSoon 
+                        ? 'bg-gradient-to-br from-orange-500 to-red-500 shadow-md' 
+                        : 'bg-orange-100 dark:bg-orange-900/30'
+                    }`}>
+                      <FileText className={`h-5 w-5 ${isStartingSoon ? 'text-white' : 'text-orange-600 dark:text-orange-400'}`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm mb-1 flex items-center gap-2">
-                        {test.name}
+                      <h4 className="font-semibold text-sm mb-1.5 flex items-center gap-2 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                        <span className="line-clamp-1">{test.name}</span>
                         {isStartingSoon && (
-                          <AlertCircle className="h-3 w-3 text-red-500" />
+                          <AlertCircle className="h-3.5 w-3.5 text-red-500 animate-pulse flex-shrink-0" />
                         )}
                       </h4>
-                      <div className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-400">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>
-                            Starts: {format(startDate, 'MMM d, h:mm a')}
+                      <div className="flex flex-col gap-1.5 text-xs text-gray-600 dark:text-gray-400 mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-orange-500 dark:text-orange-400" />
+                          <span className="font-medium">
+                            {isToday ? 'Today' : format(startDate, 'MMM d')} at {format(startDate, 'h:mm a')}
                           </span>
                         </div>
                         {endDate && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-orange-500 dark:text-orange-400" />
                             <span>
                               Ends: {format(endDate, 'MMM d, h:mm a')}
                             </span>
                           </div>
                         )}
-                        <span>{test.durationMinutes} minutes</span>
+                        <span className="text-gray-500 dark:text-gray-500">
+                          Duration: {test.durationMinutes} minutes
+                        </span>
                       </div>
-                      <div className="flex gap-2 mt-1">
-                        <Badge variant="outline" className="text-xs">
+                      <div className="flex gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-800">
                           {test.status}
                         </Badge>
                         {isStartingSoon && (
-                          <Badge variant="destructive" className="text-xs">
+                          <Badge variant="destructive" className="text-xs animate-pulse">
                             Starting Soon
                           </Badge>
                         )}
@@ -101,4 +118,3 @@ export function UpcomingTestsWidget({
     </Card>
   )
 }
-

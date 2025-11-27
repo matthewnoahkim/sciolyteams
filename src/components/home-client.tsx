@@ -50,12 +50,8 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
     }
   }, [])
 
-  // Refetch when pathname changes to dashboard (user navigates back)
-  useEffect(() => {
-    if (pathname === '/dashboard') {
-      fetchMemberships()
-    }
-  }, [pathname, fetchMemberships])
+  // Note: We don't refetch on pathname change to avoid flashing.
+  // The server already provides fresh data on page load.
 
   // Refetch when component becomes visible (user navigates back to tab/window)
   useEffect(() => {

@@ -236,6 +236,32 @@
     background-clip: text;
   }
 
+  /* Prevent widget distortion during drag */
+  [data-sortable-item] {
+    contain: layout style paint;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    /* Ensure widgets maintain their aspect ratio */
+    box-sizing: border-box;
+    /* Prevent any transform-related distortion */
+    transform-origin: center center;
+  }
+  
+  /* Prevent distortion when widgets are being moved */
+  [data-sortable-item][style*="transform"] {
+    will-change: transform;
+    /* Lock dimensions during transform */
+    min-height: fit-content;
+    height: auto;
+  }
+  
+  /* Ensure widget content never gets transformed */
+  .widget-content-wrapper {
+    transform: none !important;
+    /* Prevent any inherited transforms */
+    transform-style: flat;
+  }
+
   .gradient-text-dark {
     background: linear-gradient(135deg, hsl(217, 91%, 60%) 0%, hsl(270, 80%, 70%) 100%);
     -webkit-background-clip: text;

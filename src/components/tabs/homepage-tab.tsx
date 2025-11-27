@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { 
@@ -22,6 +22,8 @@ import {
   useSensors,
   DragEndEvent,
   rectIntersection,
+  DragStartEvent,
+  DragOverlay,
 } from '@dnd-kit/core'
 import {
   arrayMove,
@@ -99,17 +101,35 @@ function SortableWidgetItem({
     isDragging,
   } = useSortable({ id: widget.id, disabled: !isConfigMode })
 
+  // Only apply translation, no scaling or rotation
+  const transformString = transform
+    ? `translate3d(${Math.round(transform.x || 0)}px, ${Math.round(transform.y || 0)}px, 0)`
+    : undefined
+
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
+    transform: transformString,
+    transition: isDragging ? 'none' : transition,
+    opacity: isDragging ? 0.4 : 1,
+    willChange: isDragging ? 'transform' : 'auto',
+    // Lock dimensions to prevent distortion during drag
+    minWidth: '100%',
+    maxWidth: '100%',
+    width: '100%',
+    // Prevent any scaling or skewing
+    scale: 'none',
+    rotate: 'none',
+    // Ensure proper rendering
+    transformStyle: 'preserve-3d',
+    backfaceVisibility: 'hidden',
+  } as React.CSSProperties
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative ${getWidgetClassName(widget)} ${isDragging ? 'z-50' : ''}`}
+      className={`relative ${getWidgetClassName(widget)} ${isDragging ? 'z-50 pointer-events-none' : ''}`}
+      // Prevent layout shifts and distortion
+      data-sortable-item
     >
       {isConfigMode && (
         <>
@@ -156,7 +176,14 @@ function SortableWidgetItem({
         </>
       )}
       {widget.isVisible ? (
-        renderWidget(widget)
+        <div className="widget-content-wrapper" style={{ 
+          width: '100%', 
+          // Lock dimensions
+          minWidth: '100%',
+          maxWidth: '100%',
+        }}>
+          {renderWidget(widget)}
+        </div>
       ) : (
         <div className="h-full border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg flex items-center justify-center p-6 bg-gray-50 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -176,6 +203,8 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
   const [addWidgetOpen, setAddWidgetOpen] = useState(false)
   const [editWidgetOpen, setEditWidgetOpen] = useState(false)
   const [selectedWidget, setSelectedWidget] = useState<any>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const gridContainerRef = useRef<HTMLDivElement>(null)
   
   // Data for widgets
   const [announcements, setAnnouncements] = useState<any[]>([])
@@ -334,8 +363,25 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
     await handleUpdateWidget(widget.id, { isVisible: !widget.isVisible })
   }
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+    // Prevent sidebar from interfering with drag
+    document.body.style.pointerEvents = 'auto'
+    const sidebar = document.querySelector('aside')
+    if (sidebar) {
+      sidebar.style.pointerEvents = 'none'
+    }
+  }
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
+    setActiveId(null)
+    
+    // Restore sidebar pointer events
+    const sidebar = document.querySelector('aside')
+    if (sidebar) {
+      sidebar.style.pointerEvents = 'auto'
+    }
 
     if (!over || active.id === over.id) {
       return
@@ -552,13 +598,26 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
         <DndContext
           sensors={sensors}
           collisionDetection={rectIntersection}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
           <SortableContext
             items={visibleWidgets.map((w) => w.id)}
             strategy={rectSortingStrategy}
           >
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-auto">
+            <div 
+              ref={gridContainerRef}
+              className="grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-auto"
+              style={{ 
+                position: 'relative',
+                // Prevent layout shifts during drag
+                minHeight: '100px',
+                // Ensure grid items maintain their size
+                gridAutoRows: 'min-content',
+                // Prevent grid from recalculating during drag
+                contain: 'layout',
+              }}
+            >
               {visibleWidgets.map((widget) => (
                 <SortableWidgetItem
                   key={widget.id}
@@ -574,6 +633,41 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
               ))}
             </div>
           </SortableContext>
+          <DragOverlay
+            style={{
+              cursor: 'grabbing',
+              zIndex: 9999,
+            }}
+            dropAnimation={null}
+          >
+            {activeId ? (
+              <div 
+                className="shadow-2xl"
+                style={{
+                  pointerEvents: 'none',
+                  width: '100%',
+                  maxWidth: '100%',
+                }}
+              >
+                {(() => {
+                  const widget = visibleWidgets.find(w => w.id === activeId)
+                  if (!widget) return null
+                  return (
+                    <div 
+                      className={getWidgetClassName(widget)}
+                      style={{
+                        width: '100%',
+                        maxWidth: '100%',
+                        transform: 'none', // Prevent any transform distortion
+                      }}
+                    >
+                      {renderWidget(widget)}
+                    </div>
+                  )
+                })()}
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
       )}
 
