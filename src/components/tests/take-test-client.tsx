@@ -23,6 +23,7 @@ import { generateClientFingerprint } from '@/lib/test-security-client'
 import { Clock, Lock, AlertCircle, Calculator as CalcIcon, Flag } from 'lucide-react'
 import { CalculatorButton } from '@/components/tests/calculator'
 import { QuestionPrompt } from '@/components/tests/question-prompt'
+import { NoteSheetViewer } from '@/components/tests/note-sheet-viewer'
 
 interface TakeTestClientProps {
   test: any
@@ -648,6 +649,7 @@ export function TakeTestClient({
               )}
             </div>
             <div className="flex items-center gap-4 text-sm">
+              {test.allowNoteSheet && <NoteSheetViewer testId={test.id} />}
               {test.allowCalculator && test.calculatorType && (
                 <CalculatorButton calculatorType={test.calculatorType} />
               )}

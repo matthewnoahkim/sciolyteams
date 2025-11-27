@@ -40,6 +40,8 @@ export default async function TakeTestPage({
       requireFullscreen: true,
       allowCalculator: true,
       calculatorType: true,
+      allowNoteSheet: true,
+      noteSheetInstructions: true,
       testPasswordHash: true,
       maxAttempts: true,
       scoreReleaseMode: true,

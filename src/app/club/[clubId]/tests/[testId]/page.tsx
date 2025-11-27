@@ -32,6 +32,7 @@ import { EditTestSchedule } from '@/components/tests/edit-test-schedule'
 import { DuplicateTestButton } from '@/components/tests/duplicate-test-button'
 import { TestDetailWrapper } from '@/components/tests/test-detail-wrapper'
 import { NewTestBuilder } from '@/components/tests/new-test-builder'
+import { NoteSheetReviewButton } from '@/components/tests/note-sheet-review-button'
 
 const STATUS_CONFIG: Record<
   'DRAFT' | 'PUBLISHED' | 'CLOSED',
@@ -97,6 +98,7 @@ export default async function TeamTestDetailPage({
       requireFullscreen: true,
       allowCalculator: true,
       calculatorType: true,
+      allowNoteSheet: true,
       releaseScoresAt: true,
       testPasswordHash: true,
       testPasswordPlaintext: true,
@@ -334,6 +336,9 @@ export default async function TeamTestDetailPage({
           )}
         </div>
         <div className="flex gap-2">
+          {test.startAt && test.allowNoteSheet && (
+            <NoteSheetReviewButton testId={test.id} testName={test.name} />
+          )}
           <DuplicateTestButton
             testId={test.id}
             testName={test.name}

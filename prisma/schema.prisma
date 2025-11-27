@@ -79,9 +79,9 @@ model Team {
   adminInviteCodeEncrypted  String
   memberInviteCodeEncrypted String
   backgroundType            String            @default("grid") // "grid", "solid", "gradient"
-  backgroundColor           String?           // Hex color for solid background
-  gradientStartColor        String?          // First color for gradient
-  gradientEndColor          String?          // Second color for gradient
+  backgroundColor           String? // Hex color for solid background
+  gradientStartColor        String? // First color for gradient
+  gradientEndColor          String? // Second color for gradient
   createdAt                 DateTime          @default(now())
   updatedAt                 DateTime          @updatedAt
   announcements             Announcement[]
@@ -121,6 +121,8 @@ model Membership {
   rosterAssignments   RosterAssignment[]
   todos               Todo[]
   preferences         MemberPreferences?
+  noteSheets          NoteSheet[]
+  reviewedNoteSheets  NoteSheet[]         @relation("NoteSheetReviewer")
 
   @@unique([userId, teamId])
   @@index([teamId])
@@ -275,8 +277,8 @@ model AnnouncementVisibility {
   announcementId String
   scope          AnnouncementScope
   subteamId      String?
-  targetRole     String?           // COACH, CAPTAIN, MEMBER, or null for all
-  eventId        String?           // Target specific Science Olympiad event participants
+  targetRole     String? // COACH, CAPTAIN, MEMBER, or null for all
+  eventId        String? // Target specific Science Olympiad event participants
   createdAt      DateTime          @default(now())
   announcement   Announcement      @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   subteam        Subteam?          @relation(fields: [subteamId], references: [id], onDelete: Cascade)
@@ -289,44 +291,44 @@ model AnnouncementVisibility {
 }
 
 model CalendarEvent {
-  id                    String                @id @default(cuid())
-  teamId                String
-  creatorId             String
-  scope                 CalendarScope
-  title                 String
-  description           String?
-  startUTC              DateTime
-  endUTC                DateTime
-  location              String?
-  color                 String?
-  subteamId             String?
-  attendeeId            String?
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
-  rsvpEnabled           Boolean               @default(true)
-  important             Boolean               @default(false)
-  isRecurring           Boolean               @default(false)
-  recurrenceRule        String?               // DAILY, WEEKLY, MONTHLY, YEARLY
-  recurrenceInterval    Int?                  @default(1) // every N days/weeks/months
-  recurrenceDaysOfWeek  Int[]                 // [0,1,2,3,4,5,6] for Sun-Sat
-  recurrenceEndDate     DateTime?             // when recurrence ends
-  recurrenceCount       Int?                  // alternatively, number of occurrences
-  parentEventId         String?               // link to parent recurring event
-  recurrenceExceptions  DateTime[]            // dates to skip
-  testId                String?               // Link to test if event was created from a test
-  announcement          Announcement?
-  attachments           Attachment[]
-  attendance            Attendance?
-  attendee              Membership?           @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
-  creator               Membership            @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
-  subteam               Subteam?              @relation(fields: [subteamId], references: [id], onDelete: Cascade)
-  team                  Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  parentEvent           CalendarEvent?        @relation("RecurringEvents", fields: [parentEventId], references: [id], onDelete: Cascade)
-  childEvents           CalendarEvent[]       @relation("RecurringEvents")
-  rsvps                 EventRSVP[]
-  reactions             Reaction[]
-  targets               CalendarEventTarget[]
-  test                  Test?                 @relation(fields: [testId], references: [id], onDelete: SetNull)
+  id                   String                @id @default(cuid())
+  teamId               String
+  creatorId            String
+  scope                CalendarScope
+  title                String
+  description          String?
+  startUTC             DateTime
+  endUTC               DateTime
+  location             String?
+  color                String?
+  subteamId            String?
+  attendeeId           String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  rsvpEnabled          Boolean               @default(true)
+  important            Boolean               @default(false)
+  isRecurring          Boolean               @default(false)
+  recurrenceRule       String? // DAILY, WEEKLY, MONTHLY, YEARLY
+  recurrenceInterval   Int?                  @default(1) // every N days/weeks/months
+  recurrenceDaysOfWeek Int[] // [0,1,2,3,4,5,6] for Sun-Sat
+  recurrenceEndDate    DateTime? // when recurrence ends
+  recurrenceCount      Int? // alternatively, number of occurrences
+  parentEventId        String? // link to parent recurring event
+  recurrenceExceptions DateTime[] // dates to skip
+  testId               String? // Link to test if event was created from a test
+  announcement         Announcement?
+  attachments          Attachment[]
+  attendance           Attendance?
+  attendee             Membership?           @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
+  creator              Membership            @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
+  subteam              Subteam?              @relation(fields: [subteamId], references: [id], onDelete: Cascade)
+  team                 Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  parentEvent          CalendarEvent?        @relation("RecurringEvents", fields: [parentEventId], references: [id], onDelete: Cascade)
+  childEvents          CalendarEvent[]       @relation("RecurringEvents")
+  rsvps                EventRSVP[]
+  reactions            Reaction[]
+  targets              CalendarEventTarget[]
+  test                 Test?                 @relation(fields: [testId], references: [id], onDelete: SetNull)
 
   @@index([teamId])
   @@index([creatorId])
@@ -341,8 +343,8 @@ model CalendarEvent {
 model CalendarEventTarget {
   id              String        @id @default(cuid())
   calendarEventId String
-  targetRole      String?       // COACH, CAPTAIN, MEMBER, or null for all
-  eventId         String?       // Target specific Science Olympiad event participants
+  targetRole      String? // COACH, CAPTAIN, MEMBER, or null for all
+  eventId         String? // Target specific Science Olympiad event participants
   createdAt       DateTime      @default(now())
   calendarEvent   CalendarEvent @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
   event           Event?        @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -539,13 +541,15 @@ model Test {
   randomizeQuestionOrder Boolean               @default(false)
   randomizeOptionOrder   Boolean               @default(false)
   requireFullscreen      Boolean               @default(true)
-  testPasswordHash       String?               // Password required to take the test (hashed)
-  testPasswordPlaintext  String?               // Password in plaintext for admin viewing only
+  testPasswordHash       String? // Password required to take the test (hashed)
+  testPasswordPlaintext  String? // Password in plaintext for admin viewing only
   releaseScoresAt        DateTime?
-  maxAttempts            Int?                  // Max attempts per user (null = unlimited)
+  maxAttempts            Int? // Max attempts per user (null = unlimited)
   scoreReleaseMode       ScoreReleaseMode      @default(FULL_TEST) // What to release: score only, score + wrong questions, or full test
-  allowCalculator        Boolean               @default(false)      // Whether calculator is allowed
-  calculatorType         CalculatorType?       // Type of calculator allowed (null = none)
+  allowCalculator        Boolean               @default(false) // Whether calculator is allowed
+  calculatorType         CalculatorType? // Type of calculator allowed (null = none)
+  allowNoteSheet         Boolean               @default(false) // Whether note sheets are allowed
+  noteSheetInstructions  String? // Instructions for note sheets
   createdByMembershipId  String
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
@@ -557,10 +561,38 @@ model Test {
   sections               TestSection[]
   aiSuggestions          AiGradingSuggestion[]
   calendarEvents         CalendarEvent[]
+  noteSheets             NoteSheet[]
 
   @@index([teamId])
   @@index([status])
   @@index([createdByMembershipId])
+}
+
+model NoteSheet {
+  id              String          @id @default(cuid())
+  testId          String
+  membershipId    String
+  type            NoteSheetType // CREATED or UPLOADED
+  content         String? // HTML content for created note sheets
+  filePath        String? // File path for uploaded PDFs
+  filename        String? // Original filename for uploaded PDFs
+  fileSize        Int? // File size in bytes for uploaded PDFs
+  mimeType        String? // MIME type for uploaded PDFs
+  status          NoteSheetStatus @default(PENDING)
+  rejectionReason String? // Reason if rejected
+  reviewedById    String? // Admin membership who reviewed
+  reviewedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  test            Test            @relation(fields: [testId], references: [id], onDelete: Cascade)
+  membership      Membership      @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  reviewer        Membership?     @relation("NoteSheetReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([testId, membershipId]) // One note sheet per user per test
+  @@index([testId])
+  @@index([membershipId])
+  @@index([status])
+  @@index([reviewedById])
 }
 
 model TestSection {
@@ -576,21 +608,21 @@ model TestSection {
 }
 
 model Question {
-  id               String           @id @default(cuid())
+  id               String                @id @default(cuid())
   testId           String
   sectionId        String?
   type             QuestionType
   promptMd         String
   explanation      String?
-  points           Decimal          @db.Decimal(5, 2)
-  order            Int              @default(0)
-  shuffleOptions   Boolean          @default(false)
-  numericTolerance Decimal?         @db.Decimal(8, 3)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  points           Decimal               @db.Decimal(5, 2)
+  order            Int                   @default(0)
+  shuffleOptions   Boolean               @default(false)
+  numericTolerance Decimal?              @db.Decimal(8, 3)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
   answers          AttemptAnswer[]
-  section          TestSection?     @relation(fields: [sectionId], references: [id])
-  test             Test             @relation(fields: [testId], references: [id], onDelete: Cascade)
+  section          TestSection?          @relation(fields: [sectionId], references: [id])
+  test             Test                  @relation(fields: [testId], references: [id], onDelete: Cascade)
   options          QuestionOption[]
   aiSuggestions    AiGradingSuggestion[]
 
@@ -616,8 +648,8 @@ model TestAssignment {
   assignedScope      TestAssignmentScope
   subteamId          String?
   targetMembershipId String?
-  targetRole         String?             // COACH, CAPTAIN, MEMBER, or null for all
-  eventId            String?             // Target specific Science Olympiad event participants
+  targetRole         String? // COACH, CAPTAIN, MEMBER, or null for all
+  eventId            String? // Target specific Science Olympiad event participants
   createdAt          DateTime            @default(now())
   subteam            Subteam?            @relation(fields: [subteamId], references: [id], onDelete: Cascade)
   test               Test                @relation(fields: [testId], references: [id], onDelete: Cascade)
@@ -631,27 +663,27 @@ model TestAssignment {
 }
 
 model TestAttempt {
-  id                    String            @id @default(cuid())
+  id                    String                @id @default(cuid())
   testId                String
   membershipId          String
-  status                AttemptStatus     @default(NOT_STARTED)
+  status                AttemptStatus         @default(NOT_STARTED)
   startedAt             DateTime?
   submittedAt           DateTime?
-  gradeEarned           Decimal?          @db.Decimal(6, 2)
+  gradeEarned           Decimal?              @db.Decimal(6, 2)
   proctoringScore       Int?
   clientFingerprintHash String?
   ipAtStart             String?
   ipAtSubmit            String?
   userAgentAtStart      String?
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
-  tabSwitchCount        Int               @default(0)
-  timeOffPageSeconds    Int               @default(0)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  tabSwitchCount        Int                   @default(0)
+  timeOffPageSeconds    Int                   @default(0)
   answers               AttemptAnswer[]
   gradeAdjustments      GradeAdjustment[]
   proctorEvents         ProctorEvent[]
   aiSuggestions         AiGradingSuggestion[]
-  test                  Test              @relation(fields: [testId], references: [id], onDelete: Cascade)
+  test                  Test                  @relation(fields: [testId], references: [id], onDelete: Cascade)
 
   @@index([testId])
   @@index([membershipId])
@@ -660,20 +692,20 @@ model TestAttempt {
 }
 
 model AttemptAnswer {
-  id                String      @id @default(cuid())
+  id                String                @id @default(cuid())
   attemptId         String
   questionId        String
   answerText        String?
   selectedOptionIds Json?
-  numericAnswer     Decimal?    @db.Decimal(16, 6)
-  pointsAwarded     Decimal?    @db.Decimal(5, 2)
+  numericAnswer     Decimal?              @db.Decimal(16, 6)
+  pointsAwarded     Decimal?              @db.Decimal(5, 2)
   gradedAt          DateTime?
   graderNote        String?
-  markedForReview   Boolean     @default(false)
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  attempt           TestAttempt        @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  question          Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  markedForReview   Boolean               @default(false)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  attempt           TestAttempt           @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question          Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
   aiSuggestions     AiGradingSuggestion[]
 
   @@unique([attemptId, questionId])
@@ -755,16 +787,16 @@ model TestAudit {
 }
 
 model ActivityLog {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   action      String
   description String
   userId      String?
   metadata    Json?
-  timestamp   DateTime @default(now())
-  logType     LogType  @default(SYSTEM_EVENT)
+  timestamp   DateTime      @default(now())
+  logType     LogType       @default(SYSTEM_EVENT)
   severity    SeverityLevel @default(INFO)
   route       String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([timestamp])
@@ -775,19 +807,19 @@ model ActivityLog {
 }
 
 model ApiLog {
-  id           String   @id @default(cuid())
-  method       String
-  route        String
-  statusCode   Int
-  userId       String?
-  executionTime Int     // in milliseconds
-  ipAddress    String?
-  userAgent    String?
-  requestBody  Json?
-  responseSize Int?     // in bytes
-  error        String?
-  timestamp    DateTime @default(now())
-  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id            String   @id @default(cuid())
+  method        String
+  route         String
+  statusCode    Int
+  userId        String?
+  executionTime Int // in milliseconds
+  ipAddress     String?
+  userAgent     String?
+  requestBody   Json?
+  responseSize  Int? // in bytes
+  error         String?
+  timestamp     DateTime @default(now())
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([timestamp])
@@ -798,17 +830,17 @@ model ApiLog {
 }
 
 model ErrorLog {
-  id          String   @id @default(cuid())
-  errorType   String
-  message     String
-  stack       String?
-  userId      String?
-  route       String?
-  severity    SeverityLevel @default(ERROR)
-  metadata    Json?
-  timestamp   DateTime @default(now())
-  resolved    Boolean  @default(false)
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id        String        @id @default(cuid())
+  errorType String
+  message   String
+  stack     String?
+  userId    String?
+  route     String?
+  severity  SeverityLevel @default(ERROR)
+  metadata  Json?
+  timestamp DateTime      @default(now())
+  resolved  Boolean       @default(false)
+  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([timestamp])
@@ -818,20 +850,20 @@ model ErrorLog {
 }
 
 model HomePageWidget {
-  id            String           @id @default(cuid())
-  teamId        String
-  ownerId       String?
-  widgetType    HomeWidgetType
-  title         String?
-  position      Int              @default(0)
-  width         WidgetWidth      @default(MEDIUM)
-  height        WidgetHeight     @default(MEDIUM)
-  isVisible     Boolean          @default(true)
-  config        Json?            // Widget-specific configuration (e.g., number of items to show, filters, etc.)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  team          Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  owner         User?            @relation("UserHomePageWidgets", fields: [ownerId], references: [id], onDelete: Cascade)
+  id         String         @id @default(cuid())
+  teamId     String
+  ownerId    String?
+  widgetType HomeWidgetType
+  title      String?
+  position   Int            @default(0)
+  width      WidgetWidth    @default(MEDIUM)
+  height     WidgetHeight   @default(MEDIUM)
+  isVisible  Boolean        @default(true)
+  config     Json? // Widget-specific configuration (e.g., number of items to show, filters, etc.)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  team       Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  owner      User?          @relation("UserHomePageWidgets", fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
   @@index([ownerId])
@@ -841,16 +873,16 @@ model HomePageWidget {
 }
 
 model Album {
-  id          String      @id @default(cuid())
-  teamId      String
-  name        String
-  description String?
+  id            String      @id @default(cuid())
+  teamId        String
+  name          String
+  description   String?
   coverImageUrl String?
-  createdById String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  team        Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  media       MediaItem[]
+  createdById   String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  team          Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  media         MediaItem[]
 
   @@index([teamId])
   @@index([createdById])
@@ -858,7 +890,7 @@ model Album {
 }
 
 model MediaItem {
-  id               String        @id @default(cuid())
+  id               String    @id @default(cuid())
   albumId          String?
   teamId           String
   filename         String
@@ -869,14 +901,14 @@ model MediaItem {
   mediaType        MediaType
   width            Int?
   height           Int?
-  duration         Int?          // Duration in seconds for videos
+  duration         Int? // Duration in seconds for videos
   thumbnailPath    String?
   caption          String?
   uploadedById     String
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  album            Album?        @relation(fields: [albumId], references: [id], onDelete: Cascade)
-  uploadedBy       User          @relation("MediaUploads", fields: [uploadedById], references: [id], onDelete: Cascade)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  album            Album?    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  uploadedBy       User      @relation("MediaUploads", fields: [uploadedById], references: [id], onDelete: Cascade)
 
   @@index([albumId])
   @@index([teamId])
@@ -1025,10 +1057,10 @@ enum ProctorEventKind {
 }
 
 enum ScoreReleaseMode {
-  NONE               // Don't release any scores or feedback
-  SCORE_ONLY         // Release score only
-  SCORE_WITH_WRONG   // Release score + list of questions they got wrong
-  FULL_TEST          // Release score + full test (MCQ + FRQ answers, correctness, feedback)
+  NONE // Don't release any scores or feedback
+  SCORE_ONLY // Release score only
+  SCORE_WITH_WRONG // Release score + list of questions they got wrong
+  FULL_TEST // Release score + full test (MCQ + FRQ answers, correctness, feedback)
 }
 
 enum TestAuditAction {
@@ -1084,17 +1116,17 @@ enum HomeWidgetType {
 }
 
 enum WidgetWidth {
-  SMALL      // 1 column
-  MEDIUM     // 2 columns
-  LARGE      // 3 columns
-  FULL       // Full width
+  SMALL // 1 column
+  MEDIUM // 2 columns
+  LARGE // 3 columns
+  FULL // Full width
 }
 
 enum WidgetHeight {
-  SMALL      // Compact
-  MEDIUM     // Standard
-  LARGE      // Extended
-  AUTO       // Auto-size based on content
+  SMALL // Compact
+  MEDIUM // Standard
+  LARGE // Extended
+  AUTO // Auto-size based on content
 }
 
 enum MediaType {
@@ -1114,6 +1146,17 @@ enum CalculatorType {
   GRAPHING
 }
 
+enum NoteSheetType {
+  CREATED
+  UPLOADED
+}
+
+enum NoteSheetStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 enum TodoPriority {
   LOW
   MEDIUM
@@ -1122,19 +1165,19 @@ enum TodoPriority {
 }
 
 model Todo {
-  id            String       @id @default(cuid())
-  teamId        String
-  membershipId  String       // The owner of this todo
-  title         String
-  description   String?
-  completed     Boolean      @default(false)
-  priority      TodoPriority @default(MEDIUM)
-  dueDate       DateTime?
-  completedAt   DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  team          Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  membership    Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  id           String       @id @default(cuid())
+  teamId       String
+  membershipId String // The owner of this todo
+  title        String
+  description  String?
+  completed    Boolean      @default(false)
+  priority     TodoPriority @default(MEDIUM)
+  dueDate      DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  team         Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  membership   Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
   @@index([membershipId])
@@ -1144,32 +1187,32 @@ model Todo {
 }
 
 model MemberPreferences {
-  id                String     @id @default(cuid())
-  membershipId      String     @unique
-  preferredEvents   String[]   // Array of event slugs
-  avoidEvents       String[]   // Events they want to avoid
-  adminNotes        String?    @db.Text
-  strengths         String?    @db.Text
-  weaknesses        String?    @db.Text
-  availability      String?    // JSON string for availability info
-  experienceLevel   String?    // BEGINNER, INTERMEDIATE, ADVANCED
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  membership        Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  id              String     @id @default(cuid())
+  membershipId    String     @unique
+  preferredEvents String[] // Array of event slugs
+  avoidEvents     String[] // Events they want to avoid
+  adminNotes      String?    @db.Text
+  strengths       String?    @db.Text
+  weaknesses      String?    @db.Text
+  availability    String? // JSON string for availability info
+  experienceLevel String? // BEGINNER, INTERMEDIATE, ADVANCED
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  membership      Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
   @@index([membershipId])
 }
 
 model AIRosterGeneration {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   teamId          String
   subteamId       String?
-  prompt          String   @db.Text
-  response        String   @db.Text
-  generatedRoster Json     // The generated roster data
+  prompt          String    @db.Text
+  response        String    @db.Text
+  generatedRoster Json // The generated roster data
   appliedAt       DateTime?
-  createdAt       DateTime @default(now())
-  createdById     String   // Membership ID of who generated it
+  createdAt       DateTime  @default(now())
+  createdById     String // Membership ID of who generated it
 
   @@index([teamId])
   @@index([subteamId])

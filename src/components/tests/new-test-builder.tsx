@@ -93,6 +93,8 @@ interface NewTestBuilderProps {
     requireFullscreen: boolean
     allowCalculator: boolean
     calculatorType: 'FOUR_FUNCTION' | 'SCIENTIFIC' | 'GRAPHING' | null
+    allowNoteSheet: boolean
+    noteSheetInstructions: string | null
     status: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
     assignments: Array<{
       assignedScope: 'CLUB' | 'TEAM' | 'PERSONAL'
@@ -205,6 +207,8 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
     randomizeOptionOrder: test?.randomizeOptionOrder || false,
     allowCalculator: test?.allowCalculator || false,
     calculatorType: test?.calculatorType || null,
+    allowNoteSheet: test?.allowNoteSheet || false,
+    noteSheetInstructions: test?.noteSheetInstructions || '',
   })
 
   const [questions, setQuestions] = useState<QuestionDraft[]>(() => {
@@ -476,6 +480,8 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
       randomizeOptionOrder: details.randomizeOptionOrder,
       allowCalculator: details.allowCalculator,
       calculatorType: details.allowCalculator ? details.calculatorType : null,
+      allowNoteSheet: details.allowNoteSheet,
+      noteSheetInstructions: details.allowNoteSheet ? details.noteSheetInstructions.trim() || undefined : undefined,
       assignments,
       questions: questions.map((question, index) => ({
         type: question.type,
@@ -513,6 +519,8 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
             randomizeOptionOrder: payload.randomizeOptionOrder,
             allowCalculator: payload.allowCalculator,
             calculatorType: payload.calculatorType,
+            allowNoteSheet: payload.allowNoteSheet,
+            noteSheetInstructions: payload.noteSheetInstructions,
           }),
         })
 
@@ -920,6 +928,53 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                     </select>
                     <p className="text-xs text-muted-foreground mt-1">
                       Students will have access to this calculator during the test
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 pt-4 border-t">
+                <div>
+                  <Label className="text-base font-semibold">Note Sheets</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Allow students to create or upload note sheets for this test
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="allow-note-sheet"
+                    checked={details.allowNoteSheet}
+                    onCheckedChange={(checked) =>
+                      setDetails((prev) => ({
+                        ...prev,
+                        allowNoteSheet: checked as boolean,
+                        noteSheetInstructions: checked ? prev.noteSheetInstructions : '',
+                      }))
+                    }
+                  />
+                  <Label htmlFor="allow-note-sheet" className="cursor-pointer font-normal">
+                    Allow note sheets
+                  </Label>
+                </div>
+
+                {details.allowNoteSheet && (
+                  <div>
+                    <Label htmlFor="note-sheet-instructions">Note Sheet Instructions</Label>
+                    <textarea
+                      id="note-sheet-instructions"
+                      className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm mt-2"
+                      value={details.noteSheetInstructions}
+                      onChange={(e) =>
+                        setDetails((prev) => ({
+                          ...prev,
+                          noteSheetInstructions: e.target.value,
+                        }))
+                      }
+                      placeholder="Provide instructions for students about note sheet requirements, size limits, content guidelines, etc."
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      These instructions will be shown to students when they create or upload their note sheet
                     </p>
                   </div>
                 )}

@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, Clock, Users, FileText, AlertCircle, Play, Eye, Trash2, Lock, Search, Edit, Calculator as CalcIcon } from 'lucide-react'
+import { Plus, Clock, Users, FileText, AlertCircle, Play, Eye, Trash2, Lock, Search, Edit, Calculator as CalcIcon, FileEdit } from 'lucide-react'
+import { NoteSheetUpload } from '@/components/tests/note-sheet-upload'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PageLoading } from '@/components/ui/loading-spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -31,6 +32,8 @@ interface Test {
   requireFullscreen: boolean
   allowCalculator: boolean
   calculatorType: 'FOUR_FUNCTION' | 'SCIENTIFIC' | 'GRAPHING' | null
+  allowNoteSheet: boolean
+  noteSheetInstructions: string | null
   releaseScoresAt: string | null
   maxAttempts: number | null
   scoreReleaseMode: 'NONE' | 'SCORE_ONLY' | 'SCORE_WITH_WRONG' | 'FULL_TEST'
@@ -65,11 +68,17 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'scheduled' | 'opened' | 'completed'>('all')
   const [userAttempts, setUserAttempts] = useState<Map<string, UserAttemptInfo>>(new Map())
+  const [noteSheets, setNoteSheets] = useState<Map<string, { status: string; rejectionReason: string | null }>>(new Map())
 
   // Delete Dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [testToDelete, setTestToDelete] = useState<Test | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Note Sheet Dialogs
+  const [noteSheetUploadOpen, setNoteSheetUploadOpen] = useState(false)
+  const [noteSheetTestId, setNoteSheetTestId] = useState<string | null>(null)
+  const [noteSheetInstructions, setNoteSheetInstructions] = useState<string | null>(null)
 
   // Warning Banner Dismissal
   const [warningDismissed, setWarningDismissed] = useState(false)
@@ -126,6 +135,41 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
     setUserAttempts(attemptMap)
   }, [])
 
+  // Fetch note sheet status for tests that allow note sheets
+  const fetchNoteSheets = useCallback(async (tests: Test[]) => {
+    if (tests.length === 0) {
+      return
+    }
+    
+    const noteSheetMap = new Map<string, { status: string; rejectionReason: string | null }>()
+    for (const test of tests) {
+      if (test.allowNoteSheet && test.startAt) {
+        try {
+          const noteSheetResponse = await fetch(`/api/tests/${test.id}/note-sheets`)
+          if (noteSheetResponse.ok) {
+            const noteSheetData = await noteSheetResponse.json()
+            if (noteSheetData.noteSheet) {
+              noteSheetMap.set(test.id, {
+                status: noteSheetData.noteSheet.status,
+                rejectionReason: noteSheetData.noteSheet.rejectionReason || null,
+              })
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to fetch note sheet for test ${test.id}:`, err)
+        }
+      }
+    }
+    // Merge with existing note sheets instead of replacing
+    setNoteSheets(prev => {
+      const merged = new Map(prev)
+      noteSheetMap.forEach((value, key) => {
+        merged.set(key, value)
+      })
+      return merged
+    })
+  }, [])
+
   const fetchTests = useCallback(async () => {
     setLoading(true)
     try {
@@ -143,8 +187,12 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
         setTests(testsWithCount)
 
         // Fetch attempt counts for each test to show "Take Test" and "View Results" buttons
-        // Wait for user attempts to load before setting loading to false
-        await fetchUserAttempts(testsWithCount)
+        // Fetch note sheet status for each test
+        // Wait for user attempts and note sheets to load before setting loading to false
+        await Promise.all([
+          fetchUserAttempts(testsWithCount),
+          fetchNoteSheets(testsWithCount),
+        ])
       } else {
         throw new Error('Failed to fetch tests')
       }
@@ -165,21 +213,25 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
     if (!initialTests) {
       fetchTests()
     } else {
-      // Still fetch user attempts even with initialTests, then set loading to false
+      // Still fetch user attempts and note sheets even with initialTests, then set loading to false
       const loadInitialData = async () => {
-        await fetchUserAttempts(normalizedInitialTests)
+        await Promise.all([
+          fetchUserAttempts(normalizedInitialTests),
+          fetchNoteSheets(normalizedInitialTests),
+        ])
         setLoading(false)
       }
       loadInitialData()
     }
-  }, [fetchTests, initialTests, fetchUserAttempts, normalizedInitialTests])
+  }, [fetchTests, initialTests, fetchUserAttempts, fetchNoteSheets, normalizedInitialTests])
 
-  // Refresh attempts when page becomes visible (user returns from test submission)
+  // Refresh attempts and note sheets when page becomes visible (user returns from test submission)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && tests.length > 0) {
-        // Refresh user attempts when user returns to the page
+        // Refresh user attempts and note sheets when user returns to the page
         fetchUserAttempts(tests)
+        fetchNoteSheets(tests)
       }
     }
 
@@ -187,7 +239,7 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [tests, fetchUserAttempts])
+  }, [tests, fetchUserAttempts, fetchNoteSheets])
 
   // Handle hash navigation - set up listener once, check hash when loading completes
   useEffect(() => {
@@ -315,6 +367,23 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
   const handleTakeTest = (test: Test) => {
     // Navigate to test player
     window.location.href = `/club/${teamId}/tests/${test.id}/take`
+  }
+
+  const handleNoteSheetUpload = (testId: string) => {
+    const test = tests.find(t => t.id === testId)
+    setNoteSheetTestId(testId)
+    setNoteSheetInstructions(test?.noteSheetInstructions || null)
+    setNoteSheetUploadOpen(true)
+  }
+
+  const handleNoteSheetSuccess = () => {
+    // Just refresh note sheets for the specific test, no need to reload everything
+    if (noteSheetTestId) {
+      const test = tests.find(t => t.id === noteSheetTestId)
+      if (test) {
+        fetchNoteSheets([test])
+      }
+    }
   }
 
   const getStatusBadge = (status: Test['status']) => {
@@ -521,6 +590,99 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
             {getTestTimeInfo(test)}
           </div>
         </div>
+
+        {test.status === 'PUBLISHED' && test.startAt && test.allowNoteSheet && (() => {
+          const noteSheet = noteSheets.get(test.id)
+          const hasNoteSheet = noteSheet !== undefined
+          
+          return (
+            <div className="mb-4 space-y-2">
+              {!hasNoteSheet ? (
+                <Button
+                  onClick={() => handleNoteSheetUpload(test.id)}
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                >
+                  <FileEdit className="h-4 w-4 mr-2" />
+                  Upload Note Sheet
+                </Button>
+              ) : (
+                <div className="space-y-2">
+                  {noteSheet.status === 'PENDING' && (
+                    <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
+                            Note Sheet Pending Review
+                          </p>
+                          <p className="text-xs text-yellow-800 dark:text-yellow-200 mt-1">
+                            Your note sheet is awaiting admin review.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {noteSheet.status === 'ACCEPTED' && (
+                    <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <FileText className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                            Note Sheet Accepted
+                          </p>
+                          <p className="text-xs text-green-800 dark:text-green-200 mt-1">
+                            Your note sheet has been approved and will be available during the test.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {noteSheet.status === 'REJECTED' && (
+                    <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 space-y-2">
+                          <div>
+                            <p className="text-sm font-medium text-red-900 dark:text-red-100">
+                              Note Sheet Rejected
+                            </p>
+                            {noteSheet.rejectionReason && noteSheet.rejectionReason.trim() ? (
+                              <div className="mt-2 p-3 bg-white dark:bg-red-950/40 rounded border-2 border-red-300 dark:border-red-700">
+                                <p className="text-xs font-semibold text-red-900 dark:text-red-100 mb-1.5 uppercase tracking-wide">
+                                  Admin Comments:
+                                </p>
+                                <p className="text-sm text-red-900 dark:text-red-100 whitespace-pre-wrap leading-relaxed">
+                                  {noteSheet.rejectionReason}
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-red-800 dark:text-red-200 mt-1">
+                                No comments provided by admin.
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            onClick={() => handleNoteSheetUpload(test.id)}
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                          >
+                            <FileEdit className="h-4 w-4 mr-2" />
+                            Upload New Note Sheet
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {test.status === 'PUBLISHED' && (
           <div className="flex gap-2">
@@ -798,6 +960,23 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Note Sheet Upload */}
+      {noteSheetTestId && (
+        <NoteSheetUpload
+          open={noteSheetUploadOpen}
+          onOpenChange={(open) => {
+            setNoteSheetUploadOpen(open)
+            if (!open) {
+              setNoteSheetTestId(null)
+              setNoteSheetInstructions(null)
+            }
+          }}
+          testId={noteSheetTestId}
+          instructions={noteSheetInstructions}
+          onSuccess={handleNoteSheetSuccess}
+        />
+      )}
     </div>
   )
 }

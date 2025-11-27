@@ -19,6 +19,8 @@ const updateTestSchema = z.object({
   requireFullscreen: z.boolean().optional(),
   allowCalculator: z.boolean().optional(),
   calculatorType: z.enum(['FOUR_FUNCTION', 'SCIENTIFIC', 'GRAPHING']).optional().nullable(),
+  allowNoteSheet: z.boolean().optional(),
+  noteSheetInstructions: z.string().optional().nullable(),
   releaseScoresAt: z.string().datetime().optional().nullable(),
   maxAttempts: z.number().int().min(1).optional().nullable(),
   scoreReleaseMode: z.enum(['NONE', 'SCORE_ONLY', 'SCORE_WITH_WRONG', 'FULL_TEST']).optional(),
@@ -240,6 +242,10 @@ export async function PATCH(
       updateData.allowCalculator = validatedData.allowCalculator
     if (validatedData.calculatorType !== undefined)
       updateData.calculatorType = validatedData.calculatorType
+    if (validatedData.allowNoteSheet !== undefined)
+      updateData.allowNoteSheet = validatedData.allowNoteSheet
+    if (validatedData.noteSheetInstructions !== undefined)
+      updateData.noteSheetInstructions = validatedData.noteSheetInstructions
     if (validatedData.releaseScoresAt !== undefined)
       updateData.releaseScoresAt = validatedData.releaseScoresAt
         ? new Date(validatedData.releaseScoresAt)
