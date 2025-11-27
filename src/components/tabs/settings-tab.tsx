@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -24,9 +24,238 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Copy, RefreshCw, Eye, EyeOff, Trash2, UserX, X, Save, Link as LinkIcon, Upload, Image as ImageIcon } from 'lucide-react'
+import { Copy, RefreshCw, Eye, EyeOff, Trash2, UserX, X, Save, Link as LinkIcon, Upload, Image as ImageIcon, Plus, GripVertical } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 type BackgroundOption = 'grid' | 'solid' | 'gradient' | 'image'
+
+// Circular Gradient Direction Picker Component
+function GradientDirectionPicker({
+  angle,
+  onChange,
+}: {
+  angle: number
+  onChange: (angle: number) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const size = 120
+  const radius = size / 2 - 12
+  const center = size / 2
+
+  // Convert angle to radians for positioning (0° = top, 90° = right)
+  const radians = ((angle - 90) * Math.PI) / 180
+  const x = center + radius * Math.cos(radians)
+  const y = center + radius * Math.sin(radians)
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+    updateAngle(e)
+  }
+
+  const updateAngle = useCallback((e: MouseEvent | React.MouseEvent) => {
+    if (!containerRef.current) return
+
+    const rect = containerRef.current.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+
+    const clientX = e.clientX
+    const clientY = e.clientY
+
+    const deltaX = clientX - centerX
+    const deltaY = clientY - centerY
+
+    // Calculate angle in degrees (0° = top, 90° = right)
+    let newAngle = (Math.atan2(deltaY, deltaX) * 180) / Math.PI + 90
+
+    // Normalize to 0-360
+    if (newAngle < 0) newAngle += 360
+    if (newAngle >= 360) newAngle -= 360
+
+    onChange(Math.round(newAngle))
+  }, [onChange])
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (isDragging) {
+      updateAngle(e)
+    }
+  }, [isDragging, updateAngle])
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove)
+        window.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp])
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div
+        ref={containerRef}
+        className="relative cursor-pointer touch-none"
+        style={{ width: size, height: size }}
+        onMouseDown={handleMouseDown}
+      >
+        {/* Outer ring with subtle gradient */}
+        <div className="absolute inset-0 rounded-full bg-muted/30 border border-border/50" />
+        
+        {/* Inner circle background */}
+        <div
+          className="absolute inset-2 rounded-full bg-card border border-border/30"
+          style={{
+            boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.1)',
+          }}
+        />
+        
+        {/* Direction indicators - subtle crosshairs */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-full h-px bg-border/30 absolute top-1/2 left-0" />
+          <div className="w-px h-full bg-border/30 absolute left-1/2 top-0" />
+        </div>
+
+        {/* Angle indicator line from center */}
+        <div
+          className="absolute left-1/2 top-1/2 origin-bottom pointer-events-none"
+          style={{
+            transform: `translate(-50%, -100%) rotate(${angle}deg)`,
+            width: '2px',
+            height: `${radius - 4}px`,
+            background: `linear-gradient(to bottom, hsl(var(--primary) / 0.6), transparent)`,
+          }}
+        />
+
+        {/* Draggable handle */}
+        <div
+          className="absolute rounded-full cursor-grab active:cursor-grabbing z-10 transition-all duration-200 hover:scale-125 active:scale-110"
+          style={{
+            left: x - 10,
+            top: y - 10,
+            width: '20px',
+            height: '20px',
+            background: 'hsl(var(--primary))',
+            border: '3px solid hsl(var(--background))',
+            boxShadow: `
+              0 2px 8px rgba(0, 0, 0, 0.15),
+              0 0 0 1px hsl(var(--primary) / 0.3)
+            `,
+          }}
+        >
+          {/* Inner highlight for depth */}
+          <div className="absolute inset-1 rounded-full bg-gradient-to-br from-white/20 to-transparent" />
+        </div>
+      </div>
+      <div className="text-sm font-semibold text-foreground">
+        {angle}°
+      </div>
+    </div>
+  )
+}
+
+// Sortable Color Item Component for gradient colors
+function SortableColorItem({
+  color,
+  index,
+  totalColors,
+  onUpdate,
+  onRemove,
+}: {
+  color: string
+  index: number
+  totalColors: number
+  onUpdate: (color: string) => void
+  onRemove: () => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: index })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: 'none', // Instant swap, no animation
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 'auto',
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="space-y-2 w-full"
+    >
+      <div className="flex items-center gap-2">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors p-1 -ml-1"
+          aria-label={`Drag to reorder color ${index + 1}`}
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
+        <Label htmlFor={`gradient-color-${index}`} className="text-sm min-w-[80px]">
+          {index === 0 ? 'Start' : index === totalColors - 1 ? 'End' : `Color ${index + 1}`}
+        </Label>
+        {totalColors > 2 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onRemove}
+            className="h-8 w-8 text-destructive hover:text-destructive"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+      <div className="flex items-center gap-3">
+        <Input
+          id={`gradient-color-${index}`}
+          type="color"
+          value={color}
+          onChange={(e) => onUpdate(e.target.value)}
+          className="w-20 h-12 cursor-pointer"
+        />
+        <Input
+          type="text"
+          value={color}
+          onChange={(e) => onUpdate(e.target.value)}
+          placeholder="#e0e7ff"
+          className="flex-1"
+        />
+      </div>
+    </div>
+  )
+}
 
 interface SettingsTabProps {
   team: any
@@ -98,31 +327,73 @@ export function SettingsTab({
   const [backgroundColor, setBackgroundColor] = useState<string>(
     memberPreferences?.backgroundColor || defaultColors.backgroundColor
   )
-  const [gradientStartColor, setGradientStartColor] = useState<string>(
-    memberPreferences?.gradientStartColor || defaultColors.gradientStartColor
-  )
-  const [gradientEndColor, setGradientEndColor] = useState<string>(
-    memberPreferences?.gradientEndColor || defaultColors.gradientEndColor
-  )
+  const [gradientColors, setGradientColors] = useState<string[]>(() => {
+    // Support new gradientColors array or backward compatible start/end colors
+    if (memberPreferences?.gradientColors && memberPreferences.gradientColors.length > 0) {
+      return memberPreferences.gradientColors
+    } else if (memberPreferences?.gradientStartColor && memberPreferences?.gradientEndColor) {
+      return [memberPreferences.gradientStartColor, memberPreferences.gradientEndColor]
+    }
+    return [defaultColors.gradientStartColor, defaultColors.gradientEndColor]
+  })
+  const [gradientDirection, setGradientDirection] = useState<number>(() => {
+    // Parse saved gradient direction or default to 135deg
+    if (memberPreferences?.gradientDirection) {
+      const dir = memberPreferences.gradientDirection
+      // Parse "135deg" or "135" to number
+      const match = dir.match(/(\d+)/)
+      return match ? parseInt(match[1]) : 135
+    }
+    return 135
+  }) // Angle in degrees
+  
+  // Keep these for backward compatibility but prioritize gradientColors
+  const gradientStartColor = gradientColors[0] || defaultColors.gradientStartColor
+  const gradientEndColor = gradientColors[gradientColors.length - 1] || defaultColors.gradientEndColor
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(
     memberPreferences?.backgroundImageUrl || null
   )
   const [savingBackground, setSavingBackground] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [activeColorId, setActiveColorId] = useState<number | null>(null)
+  
+  // Drag and drop sensors for gradient color reordering
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   // Sync state when preferences/team defaults change
   useEffect(() => {
     setBackgroundType((memberPreferences?.backgroundType as BackgroundOption) || 'grid')
     setBackgroundColor(memberPreferences?.backgroundColor || defaultColors.backgroundColor)
-    setGradientStartColor(memberPreferences?.gradientStartColor || defaultColors.gradientStartColor)
-    setGradientEndColor(memberPreferences?.gradientEndColor || defaultColors.gradientEndColor)
+    // Support new gradientColors array or backward compatible start/end colors
+    if (memberPreferences?.gradientColors && memberPreferences.gradientColors.length > 0) {
+      setGradientColors(memberPreferences.gradientColors)
+    } else if (memberPreferences?.gradientStartColor && memberPreferences?.gradientEndColor) {
+      setGradientColors([memberPreferences.gradientStartColor, memberPreferences.gradientEndColor])
+    } else {
+      setGradientColors([defaultColors.gradientStartColor, defaultColors.gradientEndColor])
+    }
     setBackgroundImageUrl(memberPreferences?.backgroundImageUrl || null)
+    // Parse gradient direction from saved preference
+    if (memberPreferences?.gradientDirection) {
+      const dir = memberPreferences.gradientDirection
+      const match = dir.match(/(\d+)/)
+      setGradientDirection(match ? parseInt(match[1]) : 135)
+    } else {
+      setGradientDirection(135)
+    }
   }, [
     memberPreferences?.backgroundType,
     memberPreferences?.backgroundColor,
     memberPreferences?.gradientStartColor,
     memberPreferences?.gradientEndColor,
+    memberPreferences?.gradientColors,
+    memberPreferences?.gradientDirection,
     memberPreferences?.backgroundImageUrl,
     defaultColors.backgroundColor,
     defaultColors.gradientStartColor,
@@ -579,23 +850,25 @@ export function SettingsTab({
         return
       }
       if (backgroundType === 'gradient') {
-        if (gradientStartColor && !hexColorRegex.test(gradientStartColor)) {
+        if (gradientColors.length < 2) {
           toast({
-            title: 'Invalid start color',
-            description: 'Please enter a valid hex color (e.g., #ffffff)',
+            title: 'Invalid gradient',
+            description: 'At least two colors are required for gradients',
             variant: 'destructive',
           })
           setSavingBackground(false)
           return
         }
-        if (gradientEndColor && !hexColorRegex.test(gradientEndColor)) {
-          toast({
-            title: 'Invalid end color',
-            description: 'Please enter a valid hex color (e.g., #ffffff)',
-            variant: 'destructive',
-          })
-          setSavingBackground(false)
-          return
+        for (let i = 0; i < gradientColors.length; i++) {
+          if (!gradientColors[i] || !hexColorRegex.test(gradientColors[i])) {
+            toast({
+              title: 'Invalid color',
+              description: `Please enter a valid hex color for color ${i + 1} (e.g., #ffffff)`,
+              variant: 'destructive',
+            })
+            setSavingBackground(false)
+            return
+          }
         }
       }
 
@@ -615,8 +888,8 @@ export function SettingsTab({
         body: JSON.stringify({
           backgroundType,
           backgroundColor,
-          gradientStartColor,
-          gradientEndColor,
+          gradientColors: backgroundType === 'gradient' ? gradientColors : undefined,
+          gradientDirection: backgroundType === 'gradient' ? `${gradientDirection}deg` : undefined,
         }),
       })
 
@@ -634,12 +907,21 @@ export function SettingsTab({
         (data.preferences?.backgroundType as BackgroundOption) || 'grid'
       )
       setBackgroundColor(data.preferences?.backgroundColor || defaultColors.backgroundColor)
-      setGradientStartColor(
-        data.preferences?.gradientStartColor || defaultColors.gradientStartColor
-      )
-      setGradientEndColor(
-        data.preferences?.gradientEndColor || defaultColors.gradientEndColor
-      )
+      // Support new gradientColors array or backward compatible start/end colors
+      if (data.preferences?.gradientColors && data.preferences.gradientColors.length > 0) {
+        setGradientColors(data.preferences.gradientColors)
+      } else if (data.preferences?.gradientStartColor && data.preferences?.gradientEndColor) {
+        setGradientColors([data.preferences.gradientStartColor, data.preferences.gradientEndColor])
+      } else {
+        setGradientColors([defaultColors.gradientStartColor, defaultColors.gradientEndColor])
+      }
+      if (data.preferences?.gradientDirection) {
+        const dir = data.preferences.gradientDirection
+        const match = dir.match(/(\d+)/)
+        setGradientDirection(match ? parseInt(match[1]) : 135)
+      } else {
+        setGradientDirection(135)
+      }
       setBackgroundImageUrl(data.preferences?.backgroundImageUrl || null)
 
       onBackgroundUpdate?.(data.preferences)
@@ -665,9 +947,45 @@ export function SettingsTab({
 
   const previewColors = {
     color: backgroundColor,
-    gradientStart: gradientStartColor,
-    gradientEnd: gradientEndColor,
+    gradientColors: gradientColors,
+    gradientDirection: `${gradientDirection}deg`,
     image: backgroundImageUrl,
+  }
+  
+  // Helper functions for managing gradient colors
+  const addGradientColor = () => {
+    setGradientColors([...gradientColors, '#ffffff'])
+  }
+  
+  const removeGradientColor = (index: number) => {
+    if (gradientColors.length > 2) {
+      setGradientColors(gradientColors.filter((_, i) => i !== index))
+    }
+  }
+  
+  const updateGradientColor = (index: number, color: string) => {
+    const newColors = [...gradientColors]
+    newColors[index] = color
+    setGradientColors(newColors)
+  }
+  
+  // Drag and drop handlers for reordering gradient colors
+  const handleDragStart = (event: any) => {
+    setActiveColorId(event.active.id as number)
+  }
+  
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event
+    
+    if (over && active.id !== over.id) {
+      setGradientColors((items) => {
+        const oldIndex = active.id as number
+        const newIndex = over.id as number
+        return arrayMove(items, oldIndex, newIndex)
+      })
+    }
+    
+    setActiveColorId(null)
   }
 
   const renderBackgroundControls = () => {
@@ -698,41 +1016,54 @@ export function SettingsTab({
     if (backgroundType === 'gradient') {
       return (
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="gradient-start">Start Color</Label>
-            <div className="flex items-center gap-3">
-              <Input
-                id="gradient-start"
-                type="color"
-                value={gradientStartColor}
-                onChange={(e) => setGradientStartColor(e.target.value)}
-                className="w-20 h-12 cursor-pointer"
-              />
-              <Input
-                type="text"
-                value={gradientStartColor}
-                onChange={(e) => setGradientStartColor(e.target.value)}
-                placeholder="#e0e7ff"
-                className="flex-1"
-              />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Gradient Colors</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addGradientColor}
+                className="h-8"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Color
+              </Button>
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="gradient-end">End Color</Label>
-            <div className="flex items-center gap-3">
-              <Input
-                id="gradient-end"
-                type="color"
-                value={gradientEndColor}
-                onChange={(e) => setGradientEndColor(e.target.value)}
-                className="w-20 h-12 cursor-pointer"
-              />
-              <Input
-                type="text"
-                value={gradientEndColor}
-                onChange={(e) => setGradientEndColor(e.target.value)}
-                placeholder="#fce7f3"
-                className="flex-1"
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={gradientColors.map((_, index) => index)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {gradientColors.map((color, index) => (
+                    <SortableColorItem
+                      key={index}
+                      color={color}
+                      index={index}
+                      totalColors={gradientColors.length}
+                      onUpdate={(newColor) => updateGradientColor(index, newColor)}
+                      onRemove={() => removeGradientColor(index)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+            {gradientColors.length < 2 && (
+              <p className="text-xs text-muted-foreground">
+                At least two colors are required for gradients
+              </p>
+            )}
+            <div className="space-y-2">
+              <Label>Gradient Direction</Label>
+              <GradientDirectionPicker
+                angle={gradientDirection}
+                onChange={setGradientDirection}
               />
             </div>
           </div>
@@ -930,7 +1261,9 @@ export function SettingsTab({
                     : previewType === 'solid'
                     ? previewColors.color
                     : previewType === 'gradient'
-                    ? `linear-gradient(135deg, ${previewColors.gradientStart} 0%, ${previewColors.gradientEnd} 100%)`
+                    ? `linear-gradient(${previewColors.gradientDirection}, ${previewColors.gradientColors.map((color, index) => 
+                        `${color} ${(index / (previewColors.gradientColors.length - 1)) * 100}%`
+                      ).join(', ')})`
                     : previewType === 'image' && previewColors.image
                     ? `url(${previewColors.image})`
                     : 'linear-gradient(to right, #80808012 1px, transparent 1px), linear-gradient(to bottom, #80808012 1px, transparent 1px)',

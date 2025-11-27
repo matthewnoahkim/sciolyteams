@@ -437,10 +437,24 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
         background: resolvedBackgroundSource.backgroundColor,
         backgroundAttachment: 'fixed',
       }
-    } else if (bgType === 'gradient' && resolvedBackgroundSource.gradientStartColor && resolvedBackgroundSource.gradientEndColor) {
-      return {
-        background: `linear-gradient(135deg, ${resolvedBackgroundSource.gradientStartColor} 0%, ${resolvedBackgroundSource.gradientEndColor} 100%)`,
-        backgroundAttachment: 'fixed',
+    } else if (bgType === 'gradient') {
+      // Support new gradientColors array or backward compatible start/end colors
+      let gradientColors: string[] = []
+      if (resolvedBackgroundSource.gradientColors && resolvedBackgroundSource.gradientColors.length > 0) {
+        gradientColors = resolvedBackgroundSource.gradientColors
+      } else if (resolvedBackgroundSource.gradientStartColor && resolvedBackgroundSource.gradientEndColor) {
+        gradientColors = [resolvedBackgroundSource.gradientStartColor, resolvedBackgroundSource.gradientEndColor]
+      }
+      
+      if (gradientColors.length >= 2) {
+        const gradientStops = gradientColors.map((color, index) => 
+          `${color} ${(index / (gradientColors.length - 1)) * 100}%`
+        ).join(', ')
+        const direction = resolvedBackgroundSource.gradientDirection || '135deg'
+        return {
+          background: `linear-gradient(${direction}, ${gradientStops})`,
+          backgroundAttachment: 'fixed',
+        }
       }
     } else if (bgType === 'image' && resolvedBackgroundSource.backgroundImageUrl) {
       return {

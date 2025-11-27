@@ -11,8 +11,10 @@ import { unlink } from 'fs/promises'
 const backgroundSchema = z.object({
   backgroundType: z.enum(['grid', 'solid', 'gradient', 'image']).optional(),
   backgroundColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(),
-  gradientStartColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(),
-  gradientEndColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(),
+  gradientStartColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(), // Deprecated, kept for backward compatibility
+  gradientEndColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(), // Deprecated, kept for backward compatibility
+  gradientColors: z.array(z.string().regex(/^#[0-9A-Fa-f]{6}$/)).optional(),
+  gradientDirection: z.string().optional(), // e.g., "135deg"
 })
 
 async function deleteExistingImage(filePath?: string | null) {
@@ -78,23 +80,44 @@ export async function PATCH(
       updateData.gradientStartColor = null
       updateData.gradientEndColor = null
     } else if (targetType === 'gradient') {
-      if (!validated.gradientStartColor || !validated.gradientEndColor) {
+      // Support new gradientColors array or backward compatible start/end colors
+      if (validated.gradientColors && validated.gradientColors.length > 0) {
+        // Use new gradientColors array
+        if (validated.gradientColors.length < 2) {
+          return NextResponse.json(
+            { error: 'At least two colors are required for gradients' },
+            { status: 400 }
+          )
+        }
+        updateData.gradientColors = validated.gradientColors
+        // Keep start/end for backward compatibility but prioritize array
+        updateData.gradientStartColor = validated.gradientColors[0]
+        updateData.gradientEndColor = validated.gradientColors[validated.gradientColors.length - 1]
+      } else if (validated.gradientStartColor && validated.gradientEndColor) {
+        // Backward compatibility: migrate start/end to array
+        updateData.gradientColors = [validated.gradientStartColor, validated.gradientEndColor]
+        updateData.gradientStartColor = validated.gradientStartColor
+        updateData.gradientEndColor = validated.gradientEndColor
+      } else {
         return NextResponse.json(
-          { error: 'Start and end colors are required for gradients' },
+          { error: 'At least two gradient colors are required' },
           { status: 400 }
         )
       }
-      updateData.gradientStartColor = validated.gradientStartColor
-      updateData.gradientEndColor = validated.gradientEndColor
+      updateData.gradientDirection = validated.gradientDirection || '135deg'
       updateData.backgroundColor = null
     } else if (targetType === 'grid') {
       updateData.backgroundColor = null
       updateData.gradientStartColor = null
       updateData.gradientEndColor = null
+      updateData.gradientColors = []
+      updateData.gradientDirection = null
     } else {
       updateData.backgroundColor = null
       updateData.gradientStartColor = null
       updateData.gradientEndColor = null
+      updateData.gradientColors = []
+      updateData.gradientDirection = null
     }
 
     // If switching away from image or inheriting, drop the stored file

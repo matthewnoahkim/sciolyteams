@@ -80,8 +80,10 @@ model Team {
   memberInviteCodeEncrypted String
   backgroundType            String            @default("grid") // "grid", "solid", "gradient", "image"
   backgroundColor           String? // Hex color for solid background
-  gradientStartColor        String? // First color for gradient
-  gradientEndColor          String? // Second color for gradient
+  gradientStartColor        String? // First color for gradient (deprecated, use gradientColors)
+  gradientEndColor          String? // Second color for gradient (deprecated, use gradientColors)
+  gradientColors            String[]          @default([]) // Array of hex colors for gradient
+  gradientDirection         String? // Gradient direction (e.g., "135deg")
   backgroundImageUrl       String? // URL/path to background image
   createdAt                 DateTime          @default(now())
   updatedAt                 DateTime          @updatedAt
@@ -1199,8 +1201,10 @@ model MemberPreferences {
   experienceLevel     String? // BEGINNER, INTERMEDIATE, ADVANCED
   backgroundType      String? // grid, solid, gradient, image
   backgroundColor     String?
-  gradientStartColor  String?
-  gradientEndColor    String?
+  gradientStartColor  String? // Deprecated, use gradientColors
+  gradientEndColor    String? // Deprecated, use gradientColors
+  gradientColors      String[] @default([]) // Array of hex colors for gradient
+  gradientDirection   String? // Gradient direction (e.g., "135deg")
   backgroundImageUrl  String?
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
