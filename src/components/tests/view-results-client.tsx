@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { ArrowLeft, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react'
+import { QuestionPrompt } from '@/components/tests/question-prompt'
 
 // Client-safe helper functions (do not import from test-security.ts which has server-only deps)
 function shouldReleaseScores(releaseScoresAt: Date | null, status: string): boolean {
@@ -329,9 +330,9 @@ export function ViewResultsClient({
                       <div className="flex-1">
                         <CardTitle className="text-base">Question {index + 1}</CardTitle>
                         {answer.question && (
-                          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
-                            {answer.question.promptMd}
-                          </p>
+                          <div className="text-muted-foreground mt-1">
+                            <QuestionPrompt promptMd={answer.question.promptMd} className="text-sm" />
+                          </div>
                         )}
                       </div>
                       <div className="flex items-center gap-2">

@@ -22,6 +22,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { generateClientFingerprint } from '@/lib/test-security-client'
 import { Clock, Lock, AlertCircle, Calculator as CalcIcon, Flag } from 'lucide-react'
 import { CalculatorButton } from '@/components/tests/calculator'
+import { QuestionPrompt } from '@/components/tests/question-prompt'
 
 interface TakeTestClientProps {
   test: any
@@ -29,6 +30,7 @@ interface TakeTestClientProps {
   existingAttempt: any
   isAdmin: boolean
 }
+
 
 export function TakeTestClient({
   test,
@@ -712,7 +714,7 @@ export function TakeTestClient({
                       </span>
                     </Button>
                   </div>
-                  <p className="text-lg whitespace-pre-wrap">{question.promptMd}</p>
+                  <QuestionPrompt promptMd={question.promptMd} />
                   
                   {question.type === 'MCQ_SINGLE' && (
                     <RadioGroup 

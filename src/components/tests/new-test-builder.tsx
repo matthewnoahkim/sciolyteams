@@ -3,6 +3,23 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { nanoid } from 'nanoid'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,9 +41,15 @@ import {
   Trash2,
   Users,
   Send,
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
+  LayoutGrid,
+  LayoutList,
 } from 'lucide-react'
 import { DuplicateTestButton } from '@/components/tests/duplicate-test-button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { QuestionPrompt } from '@/components/tests/question-prompt'
 
 type QuestionType = 'MCQ_SINGLE' | 'MCQ_MULTI' | 'LONG_TEXT'
 
@@ -102,6 +125,32 @@ function parsePromptMd(promptMd: string): { context: string; prompt: string } {
     return { context: parts[0].trim(), prompt: parts[1].trim() }
   }
   return { context: '', prompt: promptMd.trim() }
+}
+
+// Extract images from markdown content
+function extractImages(content: string): Array<{ alt: string; src: string }> {
+  const imageRegex = /!\[([^\]]*)\]\((data:image\/[^)]+)\)/g
+  const images: Array<{ alt: string; src: string }> = []
+  let match
+  while ((match = imageRegex.exec(content)) !== null) {
+    images.push({ alt: match[1] || 'Image', src: match[2] })
+  }
+  return images
+}
+
+// Remove image markdown from content for textarea display
+function removeImageMarkdown(content: string): string {
+  return content.replace(/!\[([^\]]*)\]\((data:image\/[^)]+)\)/g, '').trim()
+}
+
+// Reconstruct markdown with images
+function reconstructMarkdown(text: string, images: Array<{ alt: string; src: string }>): string {
+  const textPart = text.trim()
+  const imageParts = images.map(img => `![${img.alt}](${img.src})`).join('\n\n')
+  if (textPart && imageParts) {
+    return `${textPart}\n\n${imageParts}`
+  }
+  return textPart || imageParts
 }
 
 export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test }: NewTestBuilderProps) {
@@ -249,7 +298,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
     })
   }
 
-  const handleImageEmbed = (questionId: string, field: 'context' | 'prompt', file: File) => {
+  const handleImageEmbed = (questionId: string, field: 'context' | 'prompt', file: File, cursorPosition: number | null = null) => {
     if (file.size > MAX_IMAGE_SIZE) {
       toast({
         title: 'Image too large',
@@ -265,17 +314,22 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
       updateQuestion(questionId, (question) => {
         const existing = question[field]
         const imageMarkdown = `![${file.name}](${dataUrl})`
-        const combined = existing
-          ? `${existing.trimEnd()}\n\n${imageMarkdown}`
-          : imageMarkdown
+        
+        // Get existing images BEFORE we modify anything
+        const existingImages = extractImages(existing)
+        const textWithoutImages = removeImageMarkdown(existing)
+        
+        // Always append new images to the bottom of the stack (end of the list)
+        const allImages = [...existingImages, { alt: file.name, src: dataUrl }]
+        const reconstructed = reconstructMarkdown(textWithoutImages, allImages)
         return {
           ...question,
-          [field]: combined,
+          [field]: reconstructed,
         }
       })
       toast({
         title: 'Image embedded',
-        description: 'The image was embedded into the question content.',
+        description: 'The image was added to the bottom of the stack.',
       })
     }
     reader.readAsDataURL(file)
@@ -917,7 +971,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
               onRemove={() => removeQuestion(question.id)}
               onMoveUp={() => moveQuestion(question.id, -1)}
               onMoveDown={() => moveQuestion(question.id, 1)}
-              onImageUpload={(field, file) => handleImageEmbed(question.id, field, file)}
+              onImageUpload={(field, file, cursorPosition) => handleImageEmbed(question.id, field, file, cursorPosition)}
               onAddRecommendedOptions={() => addRecommendedOptions(question.id)}
             />
           ))}
@@ -1271,7 +1325,7 @@ interface QuestionCardProps {
   onRemove: () => void
   onMoveUp: () => void
   onMoveDown: () => void
-  onImageUpload: (field: 'context' | 'prompt', file: File) => void
+  onImageUpload: (field: 'context' | 'prompt', file: File, cursorPosition?: number | null) => void
   onAddRecommendedOptions: () => void
 }
 
@@ -1286,8 +1340,19 @@ function QuestionCard({
   onImageUpload,
   onAddRecommendedOptions,
 }: QuestionCardProps) {
+  const { toast } = useToast()
   const contextInputRef = useRef<HTMLInputElement>(null)
   const promptInputRef = useRef<HTMLInputElement>(null)
+  const contextTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const promptTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [cursorPositions, setCursorPositions] = useState<{ context: number | null; prompt: number | null }>({
+    context: null,
+    prompt: null,
+  })
+  const [imageLayout, setImageLayout] = useState<{ context: 'stacked' | 'side-by-side'; prompt: 'stacked' | 'side-by-side' }>({
+    context: 'stacked',
+    prompt: 'stacked',
+  })
 
   const handleOptionUpdate = (optionId: string, updater: (option: OptionDraft) => OptionDraft) => {
     onChange((prev) => ({
@@ -1315,8 +1380,109 @@ function QuestionCard({
   const handleImageChange = (field: 'context' | 'prompt', fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return
     const file = fileList[0]
-    onImageUpload(field, file)
+    
+    // Get cursor position from the appropriate textarea
+    const textareaRef = field === 'context' ? contextTextareaRef : promptTextareaRef
+    const cursorPos = textareaRef.current?.selectionStart ?? null
+    
+    // Store cursor position - we'll insert the image markdown at this position in the text
+    // The image will be inserted into the text-only content, then we'll reconstruct
+    setCursorPositions(prev => ({ ...prev, [field]: cursorPos }))
+    
+    // Pass the cursor position relative to text-only content
+    // The parent will handle inserting at the right position
+    onImageUpload(field, file, cursorPos)
   }
+
+  const handleTextareaClick = (field: 'context' | 'prompt') => {
+    const textareaRef = field === 'context' ? contextTextareaRef : promptTextareaRef
+    // Update cursor position when user clicks in textarea
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const pos = textareaRef.current.selectionStart
+        setCursorPositions(prev => ({ ...prev, [field]: pos }))
+      }
+    }, 0)
+  }
+
+  const handleTextareaKeyUp = (field: 'context' | 'prompt') => {
+    const textareaRef = field === 'context' ? contextTextareaRef : promptTextareaRef
+    // Update cursor position when user types or moves cursor
+    if (textareaRef.current) {
+      const pos = textareaRef.current.selectionStart
+      setCursorPositions(prev => ({ ...prev, [field]: pos }))
+    }
+  }
+
+
+  const contextImages = extractImages(question.context)
+  const promptImages = extractImages(question.prompt)
+  const contextText = removeImageMarkdown(question.context)
+  const promptText = removeImageMarkdown(question.prompt)
+
+  const handleContextTextChange = (newText: string) => {
+    const newImages = extractImages(question.context)
+    const reconstructed = reconstructMarkdown(newText, newImages)
+    onChange((prev) => ({ ...prev, context: reconstructed }))
+  }
+
+  const handlePromptTextChange = (newText: string) => {
+    const newImages = extractImages(question.prompt)
+    const reconstructed = reconstructMarkdown(newText, newImages)
+    onChange((prev) => ({ ...prev, prompt: reconstructed }))
+  }
+
+  const removeImage = (field: 'context' | 'prompt', imageSrc: string) => {
+    const currentContent = question[field]
+    const images = extractImages(currentContent)
+    const remainingImages = images.filter(img => img.src !== imageSrc)
+    const text = removeImageMarkdown(currentContent)
+    const reconstructed = reconstructMarkdown(text, remainingImages)
+    onChange((prev) => ({ ...prev, [field]: reconstructed }))
+  }
+
+  const handleDragEnd = (field: 'context' | 'prompt', event: DragEndEvent) => {
+    const { active, over } = event
+    
+    if (!over || active.id === over.id) return
+    
+    const currentContent = question[field]
+    const images = extractImages(currentContent)
+    const oldIndex = images.findIndex(img => img.src === active.id)
+    const newIndex = images.findIndex(img => img.src === over.id)
+    
+    if (oldIndex === -1 || newIndex === -1) return
+    
+    const newImages = arrayMove(images, oldIndex, newIndex)
+    const text = removeImageMarkdown(currentContent)
+    const reconstructed = reconstructMarkdown(text, newImages)
+    onChange((prev) => ({ ...prev, [field]: reconstructed }))
+  }
+
+  const moveImage = (field: 'context' | 'prompt', imageSrc: string, direction: 'up' | 'down') => {
+    const currentContent = question[field]
+    const images = extractImages(currentContent)
+    const imageIndex = images.findIndex(img => img.src === imageSrc)
+    
+    if (imageIndex === -1) return
+    if (direction === 'up' && imageIndex === 0) return
+    if (direction === 'down' && imageIndex === images.length - 1) return
+    
+    const newImages = [...images]
+    const targetIndex = direction === 'up' ? imageIndex - 1 : imageIndex + 1
+    ;[newImages[imageIndex], newImages[targetIndex]] = [newImages[targetIndex], newImages[imageIndex]]
+    
+    const text = removeImageMarkdown(currentContent)
+    const reconstructed = reconstructMarkdown(text, newImages)
+    onChange((prev) => ({ ...prev, [field]: reconstructed }))
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   return (
     <div className="rounded-lg border border-border bg-card shadow-sm">
@@ -1361,70 +1527,232 @@ function QuestionCard({
       </div>
       <div className="space-y-6 p-4">
         <div>
-          <Label className="flex items-center justify-between text-sm font-medium">
-            Context / stimulus (optional)
+          <div className="flex items-center justify-between text-sm font-medium mb-2">
+            <Label htmlFor={`context-label-${index}`}>Context / stimulus (optional)</Label>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => contextInputRef.current?.click()}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                contextInputRef.current?.click()
+              }}
             >
               <ImageIcon className="mr-2 h-4 w-4" />
               Add Image
             </Button>
             <input
               ref={contextInputRef}
+              id={`context-input-${index}`}
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
               onChange={(event) => {
-                handleImageChange('context', event.target.files)
+                if (event.target.files && event.target.files.length > 0) {
+                  Array.from(event.target.files).forEach(file => {
+                    // Create a DataTransfer object to simulate FileList
+                    const dataTransfer = new DataTransfer()
+                    dataTransfer.items.add(file)
+                    handleImageChange('context', dataTransfer.files)
+                  })
+                }
                 event.target.value = ''
               }}
             />
-          </Label>
-          <textarea
-            className="mt-2 w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={question.context}
-            onChange={(event) =>
-              onChange((prev) => ({ ...prev, context: event.target.value }))
-            }
-            placeholder="Provide diagrams, reading passages, or any supporting text."
-          />
+          </div>
+          {contextImages.length > 0 && (
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Images ({contextImages.length}) - Drag to reorder</Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant={imageLayout.context === 'stacked' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => setImageLayout(prev => ({ ...prev, context: 'stacked' }))}
+                    title="Stacked layout"
+                  >
+                    <LayoutList className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={imageLayout.context === 'side-by-side' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => setImageLayout(prev => ({ ...prev, context: 'side-by-side' }))}
+                    title="Side-by-side layout"
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(e) => handleDragEnd('context', e)}
+              >
+                <SortableContext items={contextImages.map(img => img.src)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {contextImages.map((img, imgIndex) => (
+                      <SortableImageItem
+                        key={img.src}
+                        id={img.src}
+                        img={img}
+                        index={imgIndex}
+                        total={contextImages.length}
+                        onRemove={() => removeImage('context', img.src)}
+                        onMoveUp={() => moveImage('context', img.src, 'up')}
+                        onMoveDown={() => moveImage('context', img.src, 'down')}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Editor</Label>
+              <textarea
+                ref={contextTextareaRef}
+                className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={contextText}
+                onChange={(event) => handleContextTextChange(event.target.value)}
+                onClick={() => handleTextareaClick('context')}
+                onKeyUp={() => handleTextareaKeyUp('context')}
+                onSelect={() => handleTextareaKeyUp('context')}
+                placeholder="Type your text here. Click where you want to insert an image, then click 'Add Image'."
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Preview (how students will see it)</Label>
+              <div className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm overflow-y-auto">
+                {question.context ? (
+                  <QuestionPrompt promptMd={question.context} className="text-sm" imageLayout={imageLayout.context} />
+                ) : (
+                  <p className="text-muted-foreground text-sm">Preview will appear here...</p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div>
-          <Label className="flex items-center justify-between text-sm font-medium">
-            Prompt *
+          <div className="flex items-center justify-between text-sm font-medium mb-2">
+            <Label htmlFor={`prompt-label-${index}`}>Prompt *</Label>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => promptInputRef.current?.click()}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                promptInputRef.current?.click()
+              }}
             >
               <ImageIcon className="mr-2 h-4 w-4" />
               Add Image
             </Button>
             <input
               ref={promptInputRef}
+              id={`prompt-input-${index}`}
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
               onChange={(event) => {
-                handleImageChange('prompt', event.target.files)
+                if (event.target.files && event.target.files.length > 0) {
+                  Array.from(event.target.files).forEach(file => {
+                    // Create a DataTransfer object to simulate FileList
+                    const dataTransfer = new DataTransfer()
+                    dataTransfer.items.add(file)
+                    handleImageChange('prompt', dataTransfer.files)
+                  })
+                }
                 event.target.value = ''
               }}
             />
-          </Label>
-          <textarea
-            className="mt-2 w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={question.prompt}
-            onChange={(event) =>
-              onChange((prev) => ({ ...prev, prompt: event.target.value }))
-            }
-            placeholder="Ask the question exactly as students should see it."
-            required
-          />
+          </div>
+          {promptImages.length > 0 && (
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Images ({promptImages.length})</Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant={imageLayout.prompt === 'stacked' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => setImageLayout(prev => ({ ...prev, prompt: 'stacked' }))}
+                    title="Stacked layout"
+                  >
+                    <LayoutList className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={imageLayout.prompt === 'side-by-side' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => setImageLayout(prev => ({ ...prev, prompt: 'side-by-side' }))}
+                    title="Side-by-side layout"
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(e) => handleDragEnd('prompt', e)}
+              >
+                <SortableContext items={promptImages.map(img => img.src)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {promptImages.map((img, imgIndex) => (
+                      <SortableImageItem
+                        key={img.src}
+                        id={img.src}
+                        img={img}
+                        index={imgIndex}
+                        total={promptImages.length}
+                        onRemove={() => removeImage('prompt', img.src)}
+                        onMoveUp={() => moveImage('prompt', img.src, 'up')}
+                        onMoveDown={() => moveImage('prompt', img.src, 'down')}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Editor</Label>
+              <textarea
+                ref={promptTextareaRef}
+                className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={promptText}
+                onChange={(event) => handlePromptTextChange(event.target.value)}
+                onClick={() => handleTextareaClick('prompt')}
+                onKeyUp={() => handleTextareaKeyUp('prompt')}
+                onSelect={() => handleTextareaKeyUp('prompt')}
+                placeholder="Type your question here. Click where you want to insert an image, then click 'Add Image'."
+                required
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Preview (how students will see it)</Label>
+              <div className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm overflow-y-auto">
+                {question.prompt ? (
+                  <QuestionPrompt promptMd={question.prompt} className="text-sm" imageLayout={imageLayout.prompt} />
+                ) : (
+                  <p className="text-muted-foreground text-sm">Preview will appear here...</p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {question.type !== 'LONG_TEXT' && (
@@ -1621,4 +1949,109 @@ function renderTypeLabel(type: QuestionType) {
     default:
       return type
   }
+}
+
+// Sortable image item component
+function SortableImageItem({ 
+  id, 
+  img, 
+  index, 
+  total, 
+  onRemove, 
+  onMoveUp, 
+  onMoveDown 
+}: { 
+  id: string
+  img: { alt: string; src: string }
+  index: number
+  total: number
+  onRemove: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-start gap-2 p-2 rounded-md border border-input bg-muted/30 cursor-grab active:cursor-grabbing"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="flex items-center justify-center h-7 w-7 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical className="h-4 w-4" />
+      </div>
+      <div className="flex-1 relative rounded-md border border-input overflow-hidden bg-background min-w-[100px]">
+        <img
+          src={img.src}
+          alt={img.alt}
+          className="max-w-full max-h-32 object-contain block"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={(e) => {
+              e.stopPropagation()
+              onMoveUp()
+            }}
+            disabled={index === 0}
+            title="Move up"
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={(e) => {
+              e.stopPropagation()
+              onMoveDown()
+            }}
+            disabled={index === total - 1}
+            title="Move down"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-7 w-7 text-destructive hover:text-destructive"
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove()
+          }}
+          title="Remove image"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <div className="text-xs text-muted-foreground pt-1">
+        #{index + 1}
+      </div>
+    </div>
+  )
 }

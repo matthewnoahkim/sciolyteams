@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { Users, Eye, AlertTriangle, CheckCircle, XCircle, Clock, Info, Save } from 'lucide-react'
+import { QuestionPrompt } from '@/components/tests/question-prompt'
 
 interface TestAttemptsViewProps {
   testId: string
@@ -574,9 +575,9 @@ export function TestAttemptsView({ testId, testName }: TestAttemptsViewProps) {
                             <CardTitle className="text-base">
                               Question {index + 1}
                             </CardTitle>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {answer.question.promptMd}
-                            </p>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              <QuestionPrompt promptMd={answer.question.promptMd} />
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge variant="outline">
