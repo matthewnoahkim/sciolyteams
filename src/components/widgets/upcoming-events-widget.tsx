@@ -66,7 +66,7 @@ export function UpcomingEventsWidget({
               return (
                 <Link
                   key={event.id}
-                  href={`/club/${teamId}?tab=calendar`}
+                  href={`/club/${teamId}?tab=calendar&eventId=${event.id}`}
                   className="group block p-3 rounded-lg hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 dark:hover:from-purple-950/30 dark:hover:to-pink-950/30 transition-all duration-200 border border-gray-100 dark:border-gray-800 hover:border-purple-200 dark:hover:border-purple-800 hover:shadow-sm"
                 >
                   <div className="flex items-start gap-3">

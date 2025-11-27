@@ -4,13 +4,15 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { requireMember, requireAdmin } from '@/lib/rbac'
 import { z } from 'zod'
+import { revalidatePath } from 'next/cache'
 
 const updateTeamSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  backgroundType: z.enum(['grid', 'solid', 'gradient']).optional(),
+  backgroundType: z.enum(['grid', 'solid', 'gradient', 'image']).optional(),
   backgroundColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(),
   gradientStartColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(),
   gradientEndColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(),
+  backgroundImageUrl: z.union([z.string().url(), z.string().startsWith('/'), z.null()]).optional(),
 })
 
 export async function GET(
@@ -121,12 +123,18 @@ export async function PATCH(
     if (validatedData.gradientEndColor !== undefined) {
       updateData.gradientEndColor = validatedData.gradientEndColor
     }
+    if (validatedData.backgroundImageUrl !== undefined) {
+      updateData.backgroundImageUrl = validatedData.backgroundImageUrl
+    }
 
     // Update team
     const updatedTeam = await prisma.team.update({
       where: { id: params.teamId },
       data: updateData,
     })
+
+    // Ensure club/team pages show the new background immediately
+    revalidatePath(`/club/${params.teamId}`)
 
     return NextResponse.json({ team: updatedTeam })
   } catch (error) {

@@ -24,15 +24,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Copy, RefreshCw, Eye, EyeOff, Trash2, UserX, X, Save, Link as LinkIcon } from 'lucide-react'
+import { Copy, RefreshCw, Eye, EyeOff, Trash2, UserX, X, Save, Link as LinkIcon, Upload, Image as ImageIcon } from 'lucide-react'
+
+type BackgroundOption = 'grid' | 'solid' | 'gradient' | 'image'
 
 interface SettingsTabProps {
   team: any
   currentMembership: any
   isAdmin: boolean
+  personalBackground?: any | null
+  onBackgroundUpdate?: (preferences: any | null) => void
 }
 
-export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabProps) {
+export function SettingsTab({
+  team,
+  currentMembership,
+  isAdmin,
+  personalBackground,
+  onBackgroundUpdate,
+}: SettingsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
   const [adminCode, setAdminCode] = useState<string>('••••••••••••')
@@ -74,13 +84,58 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
     }
   }, [leaveDialogOpen])
   
-  // Background customization state
-  const [backgroundType, setBackgroundType] = useState<string>(team.backgroundType || 'grid')
-  const [backgroundColor, setBackgroundColor] = useState<string>(team.backgroundColor || '#f8fafc')
-  const [gradientStartColor, setGradientStartColor] = useState<string>(team.gradientStartColor || '#e0e7ff')
-  const [gradientEndColor, setGradientEndColor] = useState<string>(team.gradientEndColor || '#fce7f3')
-  const [savingBackground, setSavingBackground] = useState(false)
+  const memberPreferences = personalBackground ?? currentMembership.preferences ?? null
+  const defaultColors = {
+    backgroundColor: '#f8fafc',
+    gradientStartColor: '#e0e7ff',
+    gradientEndColor: '#fce7f3',
+  }
 
+  // Background customization state
+  const [backgroundType, setBackgroundType] = useState<BackgroundOption>(
+    (memberPreferences?.backgroundType as BackgroundOption) || 'grid'
+  )
+  const [backgroundColor, setBackgroundColor] = useState<string>(
+    memberPreferences?.backgroundColor || defaultColors.backgroundColor
+  )
+  const [gradientStartColor, setGradientStartColor] = useState<string>(
+    memberPreferences?.gradientStartColor || defaultColors.gradientStartColor
+  )
+  const [gradientEndColor, setGradientEndColor] = useState<string>(
+    memberPreferences?.gradientEndColor || defaultColors.gradientEndColor
+  )
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(
+    memberPreferences?.backgroundImageUrl || null
+  )
+  const [savingBackground, setSavingBackground] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+
+  // Sync state when preferences/team defaults change
+  useEffect(() => {
+    setBackgroundType((memberPreferences?.backgroundType as BackgroundOption) || 'grid')
+    setBackgroundColor(memberPreferences?.backgroundColor || defaultColors.backgroundColor)
+    setGradientStartColor(memberPreferences?.gradientStartColor || defaultColors.gradientStartColor)
+    setGradientEndColor(memberPreferences?.gradientEndColor || defaultColors.gradientEndColor)
+    setBackgroundImageUrl(memberPreferences?.backgroundImageUrl || null)
+  }, [
+    memberPreferences?.backgroundType,
+    memberPreferences?.backgroundColor,
+    memberPreferences?.gradientStartColor,
+    memberPreferences?.gradientEndColor,
+    memberPreferences?.backgroundImageUrl,
+    defaultColors.backgroundColor,
+    defaultColors.gradientStartColor,
+    defaultColors.gradientEndColor,
+  ])
+
+  // Reset drag state when background type changes
+  useEffect(() => {
+    if (backgroundType !== 'image') {
+      setIsDragging(false)
+    }
+  }, [backgroundType])
+  
   const openRemoveMemberDialog = (membershipId: string, memberName: string) => {
     setMemberToRemove({ id: membershipId, name: memberName })
     setRemoveMemberDialogOpen(true)
@@ -378,6 +433,137 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
     }
   }
 
+  const validateImageFile = (file: File): string | null => {
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      return 'Please upload a JPEG, PNG, WebP, or GIF image'
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      return 'Image must be less than 10MB'
+    }
+
+    return null
+  }
+
+  const handleImageUpload = async (file: File) => {
+    setUploadingImage(true)
+
+    try {
+      const validationError = validateImageFile(file)
+      if (validationError) {
+        toast({
+          title: 'Invalid file',
+          description: validationError,
+          variant: 'destructive',
+        })
+        setUploadingImage(false)
+        return
+      }
+
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch(`/api/memberships/${currentMembership.id}/background-image`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to upload image')
+      }
+
+      const data = await response.json()
+      setBackgroundImageUrl(data.preferences.backgroundImageUrl)
+      setBackgroundType('image')
+
+      onBackgroundUpdate?.(data.preferences)
+
+      toast({
+        title: 'Image uploaded',
+        description: 'Background image has been uploaded successfully',
+      })
+
+      router.refresh()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to upload image',
+        variant: 'destructive',
+      })
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (backgroundType === 'image') {
+      setIsDragging(true)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    if (backgroundType !== 'image' || uploadingImage) return
+
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length === 0) return
+
+    const file = files[0]
+    handleImageUpload(file)
+  }
+
+  const handleDeleteImage = async () => {
+    setUploadingImage(true)
+
+    try {
+      const response = await fetch(`/api/memberships/${currentMembership.id}/background-image`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete image')
+      }
+
+      const data = await response.json()
+
+      setBackgroundImageUrl(data.preferences?.backgroundImageUrl || null)
+      setBackgroundType((data.preferences?.backgroundType as BackgroundOption) || 'inherit')
+
+      onBackgroundUpdate?.(data.preferences)
+
+      toast({
+        title: 'Image deleted',
+        description: 'Background image has been removed',
+      })
+
+      router.refresh()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete image',
+        variant: 'destructive',
+      })
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
   const handleSaveBackground = async () => {
     setSavingBackground(true)
 
@@ -413,14 +599,24 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
         }
       }
 
-      const response = await fetch(`/api/teams/${team.id}`, {
+      if (backgroundType === 'image' && !backgroundImageUrl) {
+        toast({
+          title: 'Upload required',
+          description: 'Please upload an image before saving.',
+          variant: 'destructive',
+        })
+        setSavingBackground(false)
+        return
+      }
+
+      const response = await fetch(`/api/memberships/${currentMembership.id}/background`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           backgroundType,
-          backgroundColor: backgroundType === 'solid' && backgroundColor ? backgroundColor : null,
-          gradientStartColor: backgroundType === 'gradient' && gradientStartColor ? gradientStartColor : null,
-          gradientEndColor: backgroundType === 'gradient' && gradientEndColor ? gradientEndColor : null,
+          backgroundColor,
+          gradientStartColor,
+          gradientEndColor,
         }),
       })
 
@@ -432,9 +628,25 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
         throw new Error(errorMessage)
       }
 
+      const data = await response.json()
+
+      setBackgroundType(
+        (data.preferences?.backgroundType as BackgroundOption) || 'grid'
+      )
+      setBackgroundColor(data.preferences?.backgroundColor || defaultColors.backgroundColor)
+      setGradientStartColor(
+        data.preferences?.gradientStartColor || defaultColors.gradientStartColor
+      )
+      setGradientEndColor(
+        data.preferences?.gradientEndColor || defaultColors.gradientEndColor
+      )
+      setBackgroundImageUrl(data.preferences?.backgroundImageUrl || null)
+
+      onBackgroundUpdate?.(data.preferences)
+
       toast({
         title: 'Background updated',
-        description: 'The club background has been updated successfully',
+        description: 'Your personal background has been updated successfully',
       })
 
       router.refresh()
@@ -447,6 +659,212 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
     } finally {
       setSavingBackground(false)
     }
+  }
+
+  const previewType = backgroundType
+
+  const previewColors = {
+    color: backgroundColor,
+    gradientStart: gradientStartColor,
+    gradientEnd: gradientEndColor,
+    image: backgroundImageUrl,
+  }
+
+  const renderBackgroundControls = () => {
+    if (backgroundType === 'solid') {
+      return (
+        <div className="space-y-2">
+          <Label htmlFor="background-color">Background Color</Label>
+          <div className="flex items-center gap-3">
+            <Input
+              id="background-color"
+              type="color"
+              value={backgroundColor}
+              onChange={(e) => setBackgroundColor(e.target.value)}
+              className="w-20 h-12 cursor-pointer"
+            />
+            <Input
+              type="text"
+              value={backgroundColor}
+              onChange={(e) => setBackgroundColor(e.target.value)}
+              placeholder="#f8fafc"
+              className="flex-1"
+            />
+          </div>
+        </div>
+      )
+    }
+
+    if (backgroundType === 'gradient') {
+      return (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="gradient-start">Start Color</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                id="gradient-start"
+                type="color"
+                value={gradientStartColor}
+                onChange={(e) => setGradientStartColor(e.target.value)}
+                className="w-20 h-12 cursor-pointer"
+              />
+              <Input
+                type="text"
+                value={gradientStartColor}
+                onChange={(e) => setGradientStartColor(e.target.value)}
+                placeholder="#e0e7ff"
+                className="flex-1"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="gradient-end">End Color</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                id="gradient-end"
+                type="color"
+                value={gradientEndColor}
+                onChange={(e) => setGradientEndColor(e.target.value)}
+                className="w-20 h-12 cursor-pointer"
+              />
+              <Input
+                type="text"
+                value={gradientEndColor}
+                onChange={(e) => setGradientEndColor(e.target.value)}
+                placeholder="#fce7f3"
+                className="flex-1"
+              />
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (backgroundType === 'image') {
+      return (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Background Image</Label>
+            {backgroundImageUrl ? (
+              <div className="space-y-3">
+                <div
+                  className={`relative h-32 rounded-lg border-2 overflow-hidden transition-colors ${
+                    isDragging ? 'border-primary bg-primary/10' : 'border-border'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <img
+                    src={backgroundImageUrl || ''}
+                    alt="Background preview"
+                    className="w-full h-full object-cover"
+                  />
+                  {isDragging && (
+                    <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                      <div className="text-center">
+                        <Upload className="mx-auto h-8 w-8 text-primary mb-2" />
+                        <p className="text-sm font-medium text-primary">Drop image to replace</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const input = document.createElement('input')
+                      input.type = 'file'
+                      input.accept = 'image/jpeg,image/jpg,image/png,image/webp,image/gif'
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0]
+                        if (file) {
+                          handleImageUpload(file)
+                        }
+                      }
+                      input.click()
+                    }}
+                    disabled={uploadingImage}
+                    className="flex-1"
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    {uploadingImage ? 'Uploading...' : 'Replace Image'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleDeleteImage}
+                    disabled={uploadingImage}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div
+                  className={`flex items-center justify-center w-full h-32 border-2 border-dashed rounded-lg transition-colors ${
+                    isDragging ? 'border-primary bg-primary/10' : 'border-border'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <div className="text-center">
+                    <ImageIcon
+                      className={`mx-auto h-8 w-8 mb-2 transition-colors ${
+                        isDragging ? 'text-primary' : 'text-muted-foreground'
+                      }`}
+                    />
+                    <p
+                      className={`text-sm mb-2 transition-colors ${
+                        isDragging ? 'text-primary font-medium' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {isDragging ? 'Drop image here' : 'No image uploaded'}
+                    </p>
+                    {!isDragging && (
+                      <p className="text-xs text-muted-foreground">
+                        Drag and drop or click to upload
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const input = document.createElement('input')
+                    input.type = 'file'
+                    input.accept = 'image/jpeg,image/jpg,image/png,image/webp,image/gif'
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0]
+                      if (file) {
+                        handleImageUpload(file)
+                      }
+                    }
+                    input.click()
+                  }}
+                  disabled={uploadingImage}
+                  className="w-full"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {uploadingImage ? 'Uploading...' : 'Upload Image'}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Supported formats: JPEG, PNG, WebP, GIF (max 10MB)
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    return null
   }
 
   return (
@@ -475,122 +893,69 @@ export function SettingsTab({ team, currentMembership, isAdmin }: SettingsTabPro
         </CardContent>
       </Card>
 
-      {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Background Customization</CardTitle>
-            <CardDescription>
-              Customize the background that all members will see when viewing this club
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="background-type">Background Type</Label>
-              <Select value={backgroundType} onValueChange={setBackgroundType}>
-                <SelectTrigger id="background-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="grid">Grid Pattern (Default)</SelectItem>
-                  <SelectItem value="solid">Solid Color</SelectItem>
-                  <SelectItem value="gradient">Gradient</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Background Personalization</CardTitle>
+          <CardDescription>
+            Choose the background you&apos;d like to see. Changes here affect only your view of this club.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="background-type">Background Type</Label>
+            <Select value={backgroundType} onValueChange={(value) => setBackgroundType(value as BackgroundOption)}>
+              <SelectTrigger id="background-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="grid">Grid Pattern (Default)</SelectItem>
+                <SelectItem value="solid">Solid Color</SelectItem>
+                <SelectItem value="gradient">Gradient</SelectItem>
+                <SelectItem value="image">Image</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            {backgroundType === 'solid' && (
-              <div className="space-y-2">
-                <Label htmlFor="background-color">Background Color</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="background-color"
-                    type="color"
-                    value={backgroundColor}
-                    onChange={(e) => setBackgroundColor(e.target.value)}
-                    className="w-20 h-12 cursor-pointer"
-                  />
-                  <Input
-                    type="text"
-                    value={backgroundColor}
-                    onChange={(e) => setBackgroundColor(e.target.value)}
-                    placeholder="#f8fafc"
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-            )}
+          {renderBackgroundControls()}
 
-            {backgroundType === 'gradient' && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="gradient-start">Start Color</Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      id="gradient-start"
-                      type="color"
-                      value={gradientStartColor}
-                      onChange={(e) => setGradientStartColor(e.target.value)}
-                      className="w-20 h-12 cursor-pointer"
-                    />
-                    <Input
-                      type="text"
-                      value={gradientStartColor}
-                      onChange={(e) => setGradientStartColor(e.target.value)}
-                      placeholder="#e0e7ff"
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="gradient-end">End Color</Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      id="gradient-end"
-                      type="color"
-                      value={gradientEndColor}
-                      onChange={(e) => setGradientEndColor(e.target.value)}
-                      className="w-20 h-12 cursor-pointer"
-                    />
-                    <Input
-                      type="text"
-                      value={gradientEndColor}
-                      onChange={(e) => setGradientEndColor(e.target.value)}
-                      placeholder="#fce7f3"
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+          {/* Preview */}
+          <div className="space-y-2">
+            <Label>Preview</Label>
+            <div
+              className="h-32 rounded-lg border-2 border-border overflow-hidden"
+              style={{
+                background:
+                  previewType === 'grid'
+                    ? 'linear-gradient(to right, #80808012 1px, transparent 1px), linear-gradient(to bottom, #80808012 1px, transparent 1px)'
+                    : previewType === 'solid'
+                    ? previewColors.color
+                    : previewType === 'gradient'
+                    ? `linear-gradient(135deg, ${previewColors.gradientStart} 0%, ${previewColors.gradientEnd} 100%)`
+                    : previewType === 'image' && previewColors.image
+                    ? `url(${previewColors.image})`
+                    : 'linear-gradient(to right, #80808012 1px, transparent 1px), linear-gradient(to bottom, #80808012 1px, transparent 1px)',
+                backgroundSize:
+                  previewType === 'grid'
+                    ? '24px 24px'
+                    : previewType === 'image'
+                    ? 'cover'
+                    : 'auto',
+                backgroundPosition: previewType === 'image' ? 'center' : 'auto',
+                backgroundRepeat: previewType === 'image' ? 'no-repeat' : 'repeat',
+              }}
+            />
+          </div>
 
-            {/* Preview */}
-            <div className="space-y-2">
-              <Label>Preview</Label>
-              <div
-                className="h-32 rounded-lg border-2 border-border overflow-hidden"
-                style={{
-                  background:
-                    backgroundType === 'grid'
-                      ? 'linear-gradient(to right, #80808012 1px, transparent 1px), linear-gradient(to bottom, #80808012 1px, transparent 1px)'
-                      : backgroundType === 'solid'
-                      ? backgroundColor
-                      : `linear-gradient(135deg, ${gradientStartColor} 0%, ${gradientEndColor} 100%)`,
-                  backgroundSize: backgroundType === 'grid' ? '24px 24px' : 'auto',
-                }}
-              />
-            </div>
-
-            <Button
-              onClick={handleSaveBackground}
-              disabled={savingBackground}
-              className="w-full"
-            >
-              <Save className="mr-2 h-4 w-4" />
-              {savingBackground ? 'Saving...' : 'Save Background'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          <Button
+            onClick={handleSaveBackground}
+            disabled={savingBackground}
+            className="w-full"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {savingBackground ? 'Saving...' : 'Save Background'}
+          </Button>
+        </CardContent>
+      </Card>
 
       {isAdmin && (
         <Card>

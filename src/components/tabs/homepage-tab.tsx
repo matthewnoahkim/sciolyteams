@@ -70,6 +70,9 @@ interface HomePageTabProps {
   team: any
   isAdmin: boolean
   user: any
+  initialEvents?: any[]
+  initialAnnouncements?: any[]
+  initialTests?: any[]
 }
 
 // Sortable Widget Item Component
@@ -195,7 +198,7 @@ function SortableWidgetItem({
   )
 }
 
-export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
+export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initialAnnouncements, initialTests }: HomePageTabProps) {
   const { toast } = useToast()
   const [widgets, setWidgets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -206,15 +209,15 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const gridContainerRef = useRef<HTMLDivElement>(null)
   
-  // Data for widgets
-  const [announcements, setAnnouncements] = useState<any[]>([])
-  const [events, setEvents] = useState<any[]>([])
-  const [tests, setTests] = useState<any[]>([])
+  // Data for widgets - use initial data if provided
+  const [announcements, setAnnouncements] = useState<any[]>(initialAnnouncements || [])
+  const [events, setEvents] = useState<any[]>(initialEvents || [])
+  const [tests, setTests] = useState<any[]>(initialTests || [])
   const [stats, setStats] = useState({
-    memberCount: 0,
-    announcementCount: 0,
-    eventCount: 0,
-    testCount: 0,
+    memberCount: team.memberships?.length || 0,
+    announcementCount: initialAnnouncements?.length || 0,
+    eventCount: initialEvents?.length || 0,
+    testCount: initialTests?.length || 0,
   })
 
   const canConfigureWidgets = isAdmin
@@ -224,6 +227,16 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
     fetchWidgets()
     fetchData()
   }, [teamId, user?.id])
+
+  // Calculate stats when data changes
+  useEffect(() => {
+    setStats({
+      memberCount: team.memberships?.length || 0,
+      announcementCount: announcements.length,
+      eventCount: events.length,
+      testCount: tests.length,
+    })
+  }, [announcements.length, events.length, tests.length, team.memberships?.length])
 
   const fetchWidgets = async () => {
     try {
@@ -245,34 +258,40 @@ export function HomePageTab({ teamId, team, isAdmin, user }: HomePageTabProps) {
 
   const fetchData = async () => {
     try {
-      // Fetch announcements
-      const announcementsRes = await fetch(`/api/announcements?teamId=${teamId}`)
-      if (announcementsRes.ok) {
-        const data = await announcementsRes.json()
-        setAnnouncements(data.announcements || [])
+      // Only fetch if we don't have initial data
+      if (!initialAnnouncements) {
+        const announcementsRes = await fetch(`/api/announcements?teamId=${teamId}`)
+        if (announcementsRes.ok) {
+          const data = await announcementsRes.json()
+          setAnnouncements(data.announcements || [])
+        }
       }
 
-      // Fetch events
-      const eventsRes = await fetch(`/api/calendar?teamId=${teamId}`)
-      if (eventsRes.ok) {
-        const data = await eventsRes.json()
-        setEvents(data.events || [])
+      // Only fetch if we don't have initial data
+      if (!initialEvents) {
+        const eventsRes = await fetch(`/api/calendar?teamId=${teamId}`)
+        if (eventsRes.ok) {
+          const data = await eventsRes.json()
+          setEvents(data.events || [])
+        }
       }
 
-      // Fetch tests
-      const testsRes = await fetch(`/api/tests?teamId=${teamId}`)
-      if (testsRes.ok) {
-        const data = await testsRes.json()
-        setTests(data.tests || [])
+      // Only fetch if we don't have initial data
+      if (!initialTests) {
+        const testsRes = await fetch(`/api/tests?teamId=${teamId}`)
+        if (testsRes.ok) {
+          const data = await testsRes.json()
+          setTests(data.tests || [])
+        }
       }
 
-      // Calculate stats
-      setStats({
+      // Calculate stats - use current state values
+      setStats(prev => ({
         memberCount: team.memberships?.length || 0,
         announcementCount: announcements.length,
         eventCount: events.length,
         testCount: tests.length,
-      })
+      }))
     } catch (error) {
       console.error('Failed to fetch widget data:', error)
     }

@@ -78,10 +78,11 @@ model Team {
   memberInviteCodeHash      String
   adminInviteCodeEncrypted  String
   memberInviteCodeEncrypted String
-  backgroundType            String            @default("grid") // "grid", "solid", "gradient"
+  backgroundType            String            @default("grid") // "grid", "solid", "gradient", "image"
   backgroundColor           String? // Hex color for solid background
   gradientStartColor        String? // First color for gradient
   gradientEndColor          String? // Second color for gradient
+  backgroundImageUrl       String? // URL/path to background image
   createdAt                 DateTime          @default(now())
   updatedAt                 DateTime          @updatedAt
   announcements             Announcement[]
@@ -1187,18 +1188,23 @@ model Todo {
 }
 
 model MemberPreferences {
-  id              String     @id @default(cuid())
-  membershipId    String     @unique
-  preferredEvents String[] // Array of event slugs
-  avoidEvents     String[] // Events they want to avoid
-  adminNotes      String?    @db.Text
-  strengths       String?    @db.Text
-  weaknesses      String?    @db.Text
-  availability    String? // JSON string for availability info
-  experienceLevel String? // BEGINNER, INTERMEDIATE, ADVANCED
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  membership      Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  id                  String     @id @default(cuid())
+  membershipId        String     @unique
+  preferredEvents     String[]   @default([]) // Array of event slugs
+  avoidEvents         String[]   @default([]) // Events they want to avoid
+  adminNotes          String?    @db.Text
+  strengths           String?    @db.Text
+  weaknesses          String?    @db.Text
+  availability        String? // JSON string for availability info
+  experienceLevel     String? // BEGINNER, INTERMEDIATE, ADVANCED
+  backgroundType      String? // grid, solid, gradient, image
+  backgroundColor     String?
+  gradientStartColor  String?
+  gradientEndColor    String?
+  backgroundImageUrl  String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  membership          Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
   @@index([membershipId])
 }

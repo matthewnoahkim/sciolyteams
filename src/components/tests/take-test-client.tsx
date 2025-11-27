@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { generateClientFingerprint } from '@/lib/test-security-client'
-import { Clock, Lock, AlertCircle, Calculator as CalcIcon, Flag } from 'lucide-react'
+import { Clock, Lock, AlertCircle, Calculator as CalcIcon, Flag, ArrowLeft } from 'lucide-react'
 import { CalculatorButton } from '@/components/tests/calculator'
 import { QuestionPrompt } from '@/components/tests/question-prompt'
 import { NoteSheetViewer } from '@/components/tests/note-sheet-viewer'
@@ -543,16 +543,32 @@ export function TakeTestClient({
   }, [started, attempt, test.durationMinutes, timeOffPageSeconds, toast, handleSubmit])
 
   if (!started) {
+    const teamId = membership?.teamId
+    
     return (
       <div className="container mx-auto max-w-2xl py-8 px-4">
         <Card>
           <CardHeader>
-            <CardTitle>{test.name}</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>{test.name}</CardTitle>
+              {teamId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push(`/club/${teamId}?tab=tests`)}
+                  className="gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Tests
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {test.description && <p className="text-muted-foreground">{test.description}</p>}
             {test.instructions && (
-              <div className="rounded-md bg-muted p-4">
+              <div className="rounded-md bg-muted p-4 space-y-2">
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Instructions</p>
                 <p className="text-sm whitespace-pre-wrap">{test.instructions}</p>
               </div>
             )}

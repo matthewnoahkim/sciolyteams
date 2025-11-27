@@ -62,6 +62,49 @@ export default async function HomePage() {
     }
   ]
 
+  const pricingPlans = [
+    {
+      name: 'Starter',
+      price: 'Free',
+      suffix: '',
+      subtitle: 'For new or small teams',
+      description: 'Everything you need to organize a club or class team.',
+      features: [
+        'Unlimited members',
+        'Announcements & messaging',
+        'Event scheduling & RSVPs',
+        'Attendance QR codes'
+      ]
+    },
+    {
+      name: 'Pro',
+      price: '$12',
+      suffix: '/team/mo',
+      subtitle: 'Best for growing programs',
+      description: 'Advanced automation and insights for busy captains.',
+      highlight: true,
+      features: [
+        'All Starter features',
+        'Finance tracking & approvals',
+        'Custom roles & permissions',
+        'Analytics dashboard'
+      ]
+    },
+    {
+      name: 'Enterprise',
+      price: 'Contact us',
+      suffix: '',
+      subtitle: 'Districts & multi-team orgs',
+      description: 'Tailored onboarding, SLAs, and dedicated success partner.',
+      features: [
+        'White-glove migration',
+        'Priority support channel',
+        'Custom integrations',
+        'Security reviews'
+      ]
+    }
+  ]
+
 
   const benefits = [
     'Free forever - no hidden costs',
@@ -349,21 +392,102 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* About Section */}
-      <section id="about" className="relative z-10 container mx-auto px-4 py-24">
+      {/* Why Teams Choose Section */}
+      <section className="relative z-10 container mx-auto px-4 py-24">
+        <ScrollAnimate animation="fade-up" delay={0} duration={900}>
+          <div className="max-w-4xl mx-auto text-center space-y-6 p-10 rounded-3xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 shadow-xl">
+            <h3 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white">
+              Why Teams Choose{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+                Teamy
+              </span>
+            </h3>
+            <p className="text-xl text-gray-600 dark:text-gray-300 leading-relaxed">
+              Our platform is designed with security and ease of use in mind. With role-based access control,
+              real-time updates, and seamless integrations, Teamy helps your team stay organized and productive.
+            </p>
+          </div>
+        </ScrollAnimate>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="relative z-10 container mx-auto px-4 py-24">
+        <div className="max-w-6xl mx-auto">
           <ScrollAnimate animation="elegant" delay={0} duration={900}>
-            <div className="max-w-4xl mx-auto text-center space-y-8">
+            <div className="text-center mb-16 space-y-4">
               <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white">
-                Why Teams Choose{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
-                  Teamy
-                </span>
+                Pick the plan that fits your team
               </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300 leading-relaxed">
-                Our platform is designed with security and ease of use in mind. With role-based access control, real-time updates, and seamless integrations, Teamy helps your team stay organized and productive.
+              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                Transparent pricing with no per-seat surprises. Upgrade anytime as your team grows.
               </p>
             </div>
           </ScrollAnimate>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {pricingPlans.map((plan, index) => (
+              <ScrollAnimate key={plan.name} animation="fade-scale" delay={150 + index * 120} duration={800}>
+                <div
+                  className={`relative p-8 rounded-3xl border backdrop-blur-sm transition-all duration-300 ${
+                    plan.highlight
+                      ? 'bg-gradient-to-br from-blue-600/10 via-purple-600/10 to-pink-600/10 border-blue-400/40 dark:border-blue-500/40 shadow-2xl'
+                      : 'bg-white/80 dark:bg-gray-900/80 border-gray-200/50 dark:border-gray-800/50 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-xl'
+                  }`}
+                >
+                  {plan.highlight && (
+                    <div className="absolute -top-3 right-6 px-3 py-1 text-xs font-semibold uppercase rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg">
+                      Most popular
+                    </div>
+                  )}
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{plan.name}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{plan.subtitle}</p>
+                    </div>
+                    <div className="flex items-end gap-1">
+                      <span className="text-4xl font-extrabold text-gray-900 dark:text-white">{plan.price}</span>
+                      {plan.suffix && <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">{plan.suffix}</span>}
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-300">{plan.description}</p>
+                  </div>
+
+                  <ul className="space-y-3 mb-6">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+                        <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-900/30">
+                          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        </div>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Link href="/login">
+                    <button
+                      className={`w-full px-4 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                        plan.highlight
+                          ? 'text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg'
+                          : 'text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50'
+                      }`}
+                    >
+                      {plan.highlight ? 'Upgrade to Pro' : 'Get started'}
+                    </button>
+                  </Link>
+                </div>
+              </ScrollAnimate>
+            ))}
+          </div>
+
+          <ScrollAnimate animation="fade-up" delay={500} duration={700}>
+            <p className="mt-10 text-center text-sm text-gray-500 dark:text-gray-400">
+              Need something custom?{' '}
+              <a href="mailto:support@teamy.app" className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">
+                Talk to us
+              </a>{' '}
+              and we&apos;ll craft a plan for your program.
+            </p>
+          </ScrollAnimate>
+        </div>
       </section>
 
       {/* FAQ Section */}

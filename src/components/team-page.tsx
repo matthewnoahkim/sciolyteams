@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -78,6 +78,7 @@ interface TeamPageProps {
     eventBudgets?: any[]
     calendarEvents?: any[]
     tests?: any[]
+    announcements?: any[]
   }
 }
 
@@ -93,7 +94,19 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
   const [tabNotifications, setTabNotifications] = useState<Record<string, boolean>>({})
   const [totalUnreadCount, setTotalUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [personalBackground, setPersonalBackground] = useState(currentMembership.preferences ?? null)
+  const DEFAULT_BACKGROUND = {
+    backgroundType: 'grid',
+    backgroundColor: '#f8fafc',
+    gradientStartColor: '#e0e7ff',
+    gradientEndColor: '#fce7f3',
+    backgroundImageUrl: null,
+  }
   const isAdmin = currentMembership.role === 'ADMIN'
+
+  useEffect(() => {
+    setPersonalBackground(currentMembership.preferences ?? null)
+  }, [currentMembership.preferences])
 
   // Update favicon badge with total unread count across all tabs
   useFaviconBadge(totalUnreadCount)
@@ -407,18 +420,34 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
     }
   }
 
-  // Get background style based on team settings
+  // Notify parent when background preferences change from Settings tab
+  const handleBackgroundUpdate = (prefs: any | null) => {
+    setPersonalBackground(prefs)
+  }
+
+  const resolvedBackgroundSource =
+    personalBackground?.backgroundType ? personalBackground : DEFAULT_BACKGROUND
+
+  // Get background style based on personal or team settings
   const getBackgroundStyle = () => {
-    const bgType = team.backgroundType || 'grid'
+    const bgType = resolvedBackgroundSource.backgroundType || 'grid'
     
-    if (bgType === 'solid' && team.backgroundColor) {
+    if (bgType === 'solid' && resolvedBackgroundSource.backgroundColor) {
       return {
-        background: team.backgroundColor,
+        background: resolvedBackgroundSource.backgroundColor,
         backgroundAttachment: 'fixed',
       }
-    } else if (bgType === 'gradient' && team.gradientStartColor && team.gradientEndColor) {
+    } else if (bgType === 'gradient' && resolvedBackgroundSource.gradientStartColor && resolvedBackgroundSource.gradientEndColor) {
       return {
-        background: `linear-gradient(135deg, ${team.gradientStartColor} 0%, ${team.gradientEndColor} 100%)`,
+        background: `linear-gradient(135deg, ${resolvedBackgroundSource.gradientStartColor} 0%, ${resolvedBackgroundSource.gradientEndColor} 100%)`,
+        backgroundAttachment: 'fixed',
+      }
+    } else if (bgType === 'image' && resolvedBackgroundSource.backgroundImageUrl) {
+      return {
+        backgroundImage: `url(${resolvedBackgroundSource.backgroundImageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
         backgroundAttachment: 'fixed',
       }
     }
@@ -427,9 +456,9 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
     return {}
   }
 
-  const bgType = team.backgroundType || 'grid'
-  const showGridPattern = bgType === 'grid'
-  const showAnimatedBlobs = bgType === 'grid' // Only show animated blobs with grid
+  const effectiveBgType = resolvedBackgroundSource.backgroundType || 'grid'
+  const showGridPattern = effectiveBgType === 'grid'
+  const showAnimatedBlobs = effectiveBgType === 'grid' // Only show animated blobs with grid
 
   // Render navigation buttons (reusable for sidebar and mobile menu)
   const renderNavigationButtons = () => (
@@ -689,6 +718,9 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
                 team={team}
                 isAdmin={isAdmin}
                 user={user}
+                initialEvents={initialData?.calendarEvents}
+                initialAnnouncements={initialData?.announcements}
+                initialTests={initialData?.tests}
               />
             )}
 
@@ -784,11 +816,13 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
             )}
 
             {activeTab === 'settings' && (
-              <SettingsTab
-                team={team}
-                currentMembership={currentMembership}
-                isAdmin={isAdmin}
-              />
+          <SettingsTab
+            team={team}
+            currentMembership={currentMembership}
+            isAdmin={isAdmin}
+            personalBackground={personalBackground}
+            onBackgroundUpdate={handleBackgroundUpdate}
+          />
             )}
           </div>
         </div>

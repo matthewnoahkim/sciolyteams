@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, Pencil, Check, X as XIcon, User, Paperclip, X, Calendar, FileText } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { EventAnnouncementModal } from '@/components/event-announcement-modal'
 import { AttachmentDisplay } from '@/components/ui/attachment-display'
@@ -43,6 +43,7 @@ type ViewMode = 'month' | 'week'
 export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialEvents }: CalendarTabProps) {
   const { toast } = useToast()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [events, setEvents] = useState<any[]>(initialEvents || [])
   const [subteams, setSubteams] = useState<any[]>([])
   const [availableEvents, setAvailableEvents] = useState<any[]>([])
@@ -210,6 +211,23 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
     fetchAvailableEvents()
   }, [fetchEvents, fetchSubteams, fetchAvailableEvents, initialEvents])
 
+  // Handle opening event from URL parameter
+  useEffect(() => {
+    const eventId = searchParams.get('eventId')
+    if (eventId && events.length > 0 && !loading) {
+      const event = events.find(e => e.id === eventId)
+      if (event && !eventDetailsOpen) {
+        setSelectedEvent(event)
+        setEventDetailsOpen(true)
+        // Clean up URL parameter after opening
+        const newSearchParams = new URLSearchParams(searchParams.toString())
+        newSearchParams.delete('eventId')
+        const newUrl = `${window.location.pathname}${newSearchParams.toString() ? `?${newSearchParams.toString()}` : ''}`
+        router.replace(newUrl)
+      }
+    }
+  }, [searchParams, events, eventDetailsOpen, router, loading])
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -233,11 +251,14 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
       } else {
         // Regular event with specific time
         const startDateTime = new Date(formData.date + 'T' + formData.startTime + ':00')
-        const endDateTime = new Date(formData.date + 'T' + formData.endTime + ':00')
+        let endDateTime = new Date(formData.date + 'T' + formData.endTime + ':00')
         
-        // Validate that end time is not before start time
+        // If end time is before or equal to start time, it's likely the next day
+        // (e.g., 11 PM to 12 AM, or 2 PM to 1 PM)
         if (endDateTime <= startDateTime) {
-          throw new Error('End time must be after start time')
+          // Add one day to the end date
+          endDateTime = new Date(endDateTime)
+          endDateTime.setDate(endDateTime.getDate() + 1)
         }
         
         startISO = startDateTime.toISOString()
@@ -404,11 +425,14 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
       } else {
         // Regular event with specific time
         const startDateTime = new Date(formData.date + 'T' + formData.startTime + ':00')
-        const endDateTime = new Date(formData.date + 'T' + formData.endTime + ':00')
+        let endDateTime = new Date(formData.date + 'T' + formData.endTime + ':00')
         
-        // Validate that end time is not before start time
+        // If end time is before or equal to start time, it's likely the next day
+        // (e.g., 11 PM to 12 AM, or 2 PM to 1 PM)
         if (endDateTime <= startDateTime) {
-          throw new Error('End time must be after start time')
+          // Add one day to the end date
+          endDateTime = new Date(endDateTime)
+          endDateTime.setDate(endDateTime.getDate() + 1)
         }
         
         startISO = startDateTime.toISOString()
@@ -2256,8 +2280,8 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                       className="w-full"
                       onClick={() => {
                         setEventDetailsOpen(false)
-                        // Navigate to tests page with test ID in hash
-                        router.push(`/club/${teamId}?tab=tests#test-${selectedEvent.testId}`)
+                        // Navigate to test start page
+                        router.push(`/club/${teamId}/tests/${selectedEvent.testId}/take`)
                       }}
                     >
                       <FileText className="mr-2 h-4 w-4" />

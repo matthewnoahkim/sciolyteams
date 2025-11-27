@@ -172,7 +172,11 @@ export async function DELETE(
     }
 
     // Check if this is the last admin
-    if (membership.role === 'ADMIN' && membership.team.memberships.length === 1) {
+    if (
+      membership.role === 'ADMIN' &&
+      membership.team.memberships.length === 1 &&
+      !isSelfRemoval
+    ) {
       return NextResponse.json(
         { error: 'Cannot remove the only admin. Please promote another member to admin first or delete the team.' },
         { status: 400 }
