@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { DollarSign, Plus, Edit, Trash2, CheckCircle, XCircle, Clock, ShoppingCart, Download, Settings, AlertTriangle, Wallet, Search, Filter, Cloud, Building2, Briefcase, FileText } from 'lucide-react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -216,6 +217,9 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
   const [savingBudget, setSavingBudget] = useState(false)
   const [submittingReview, setSubmittingReview] = useState(false)
   const [saveIndicator, setSaveIndicator] = useState(false)
+  const [deleteBudgetDialogOpen, setDeleteBudgetDialogOpen] = useState(false)
+  const [budgetToDelete, setBudgetToDelete] = useState<EventBudget | null>(null)
+  const [deletingBudget, setDeletingBudget] = useState(false)
   
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('')
@@ -1449,30 +1453,9 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={async () => {
-                              if (confirm('Are you sure you want to delete this budget?')) {
-                                try {
-                                  const response = await fetch(`/api/event-budgets/${budget.id}`, {
-                                    method: 'DELETE',
-                                  })
-                                  if (response.ok) {
-                                    setBudgets(prev => prev.filter(b => b.id !== budget.id))
-                                    setSaveIndicator(true)
-                                    toast({
-                                      title: 'Budget Deleted',
-                                      description: 'The event budget has been removed',
-                                    })
-                                  } else {
-                                    throw new Error('Failed to delete budget')
-                                  }
-                                } catch (error: any) {
-                                  toast({
-                                    title: 'Error',
-                                    description: error.message || 'Failed to delete budget',
-                                    variant: 'destructive',
-                                  })
-                                }
-                              }
+                            onClick={() => {
+                              setBudgetToDelete(budget)
+                              setDeleteBudgetDialogOpen(true)
                             }}
                             className="h-7 w-7 p-0 text-red-600"
                           >
@@ -2301,6 +2284,47 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Budget Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteBudgetDialogOpen}
+        onOpenChange={setDeleteBudgetDialogOpen}
+        title="Delete Budget"
+        description="Are you sure you want to delete this budget? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={async () => {
+          if (!budgetToDelete) return
+          setDeletingBudget(true)
+          try {
+            const response = await fetch(`/api/event-budgets/${budgetToDelete.id}`, {
+              method: 'DELETE',
+            })
+            if (response.ok) {
+              setBudgets(prev => prev.filter(b => b.id !== budgetToDelete.id))
+              setSaveIndicator(true)
+              toast({
+                title: 'Budget Deleted',
+                description: 'The event budget has been removed',
+              })
+              setDeleteBudgetDialogOpen(false)
+              setBudgetToDelete(null)
+            } else {
+              throw new Error('Failed to delete budget')
+            }
+          } catch (error: any) {
+            toast({
+              title: 'Error',
+              description: error.message || 'Failed to delete budget',
+              variant: 'destructive',
+            })
+          } finally {
+            setDeletingBudget(false)
+          }
+        }}
+        loading={deletingBudget}
+      />
     </div>
   )
 }

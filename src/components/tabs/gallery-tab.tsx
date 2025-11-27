@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -64,6 +65,12 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
   const [createAlbumDialogOpen, setCreateAlbumDialogOpen] = useState(false)
   const [viewerOpen, setViewerOpen] = useState(false)
   const [selectedMedia, setSelectedMedia] = useState<any | null>(null)
+  const [deleteMediaDialogOpen, setDeleteMediaDialogOpen] = useState(false)
+  const [mediaToDelete, setMediaToDelete] = useState<string | null>(null)
+  const [deletingMedia, setDeletingMedia] = useState(false)
+  const [deleteAlbumDialogOpen, setDeleteAlbumDialogOpen] = useState(false)
+  const [albumToDelete, setAlbumToDelete] = useState<string | null>(null)
+  const [deletingAlbum, setDeletingAlbum] = useState(false)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -182,11 +189,17 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
     }
   }
 
-  const handleDeleteMedia = async (mediaId: string) => {
-    if (!confirm('Are you sure you want to delete this media?')) return
+  const handleDeleteMediaClick = (mediaId: string) => {
+    setMediaToDelete(mediaId)
+    setDeleteMediaDialogOpen(true)
+  }
 
+  const handleDeleteMedia = async () => {
+    if (!mediaToDelete) return
+
+    setDeletingMedia(true)
     try {
-      const response = await fetch(`/api/media/${mediaId}`, {
+      const response = await fetch(`/api/media/${mediaToDelete}`, {
         method: 'DELETE',
       })
 
@@ -199,20 +212,30 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
 
       fetchMedia()
       setViewerOpen(false)
+      setDeleteMediaDialogOpen(false)
+      setMediaToDelete(null)
     } catch (error) {
       toast({
         title: 'Error',
         description: 'Failed to delete media',
         variant: 'destructive',
       })
+    } finally {
+      setDeletingMedia(false)
     }
   }
 
-  const handleDeleteAlbum = async (albumId: string) => {
-    if (!confirm('Are you sure you want to delete this album? Media will not be deleted.')) return
+  const handleDeleteAlbumClick = (albumId: string) => {
+    setAlbumToDelete(albumId)
+    setDeleteAlbumDialogOpen(true)
+  }
 
+  const handleDeleteAlbum = async () => {
+    if (!albumToDelete) return
+
+    setDeletingAlbum(true)
     try {
-      const response = await fetch(`/api/albums/${albumId}`, {
+      const response = await fetch(`/api/albums/${albumToDelete}`, {
         method: 'DELETE',
       })
 
@@ -223,16 +246,20 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
         description: 'Album deleted successfully',
       })
 
-      if (selectedAlbum === albumId) {
+      if (selectedAlbum === albumToDelete) {
         setSelectedAlbum(null)
       }
       fetchAlbums()
+      setDeleteAlbumDialogOpen(false)
+      setAlbumToDelete(null)
     } catch (error) {
       toast({
         title: 'Error',
         description: 'Failed to delete album',
         variant: 'destructive',
       })
+    } finally {
+      setDeletingAlbum(false)
     }
   }
 
@@ -326,7 +353,7 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
                   className="absolute right-0 top-0 h-full px-2 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={(e) => {
                     e.stopPropagation()
-                    handleDeleteAlbum(album.id)
+                    handleDeleteAlbumClick(album.id)
                   }}
                 >
                   <Trash2 className="h-3 w-3 text-red-500" />
@@ -505,7 +532,33 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
         onOpenChange={setViewerOpen}
         media={selectedMedia}
         canDelete={selectedMedia ? canDeleteMedia(selectedMedia) : false}
-        onDelete={() => selectedMedia && handleDeleteMedia(selectedMedia.id)}
+        onDelete={() => selectedMedia && handleDeleteMediaClick(selectedMedia.id)}
+      />
+
+      {/* Delete Media Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteMediaDialogOpen}
+        onOpenChange={setDeleteMediaDialogOpen}
+        title="Delete Media"
+        description="Are you sure you want to delete this media? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={handleDeleteMedia}
+        loading={deletingMedia}
+      />
+
+      {/* Delete Album Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteAlbumDialogOpen}
+        onOpenChange={setDeleteAlbumDialogOpen}
+        title="Delete Album"
+        description="Are you sure you want to delete this album? Media will not be deleted."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={handleDeleteAlbum}
+        loading={deletingAlbum}
       />
     </div>
   )
@@ -649,4 +702,5 @@ function MediaViewerDialog({ open, onOpenChange, media, canDelete, onDelete }: a
     </Dialog>
   )
 }
+
 

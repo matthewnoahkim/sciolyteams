@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,7 +28,6 @@ interface PeopleTabProps {
 }
 
 export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: PeopleTabProps) {
-  const router = useRouter()
   const { toast } = useToast()
   
   // Local team state for immediate updates
@@ -54,6 +52,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
   const [memberSortBy, setMemberSortBy] = useState<'alphabetical' | 'events' | 'team' | 'role'>('alphabetical')
   const [memberSortDirection, setMemberSortDirection] = useState<'low-to-high' | 'high-to-low'>('low-to-high')
   const [addMemberSelectValues, setAddMemberSelectValues] = useState<Record<string, string>>({})
+  const [selectResetKeys, setSelectResetKeys] = useState<Record<string, number>>({})
 
   useEffect(() => {
     fetchEvents()
@@ -281,13 +280,42 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
         throw new Error(data.error || 'Failed to assign member')
       }
 
+      const newAssignment = data.assignment
+
+      // Update local assignments state immediately
+      setAssignments((prev) => [...prev, newAssignment])
+
+      // Update local team state to include the new roster assignment
+      setTeam((prev: any) => ({
+        ...prev,
+        memberships: prev.memberships.map((m: any) =>
+          m.id === membershipId
+            ? {
+                ...m,
+                rosterAssignments: [...(m.rosterAssignments || []), newAssignment],
+              }
+            : m
+        ),
+      }))
+
+      // Reset the select dropdown to "Add member..." by removing the key and incrementing reset counter
+      const selectKey = `${eventId}-${selectedTeam.id}`
+      setAddMemberSelectValues((prev) => {
+        const newValues = { ...prev }
+        delete newValues[selectKey]
+        return newValues
+      })
+      // Force re-render by incrementing the key
+      setSelectResetKeys((prev) => ({
+        ...prev,
+        [selectKey]: (prev[selectKey] || 0) + 1,
+      }))
+
       const event = events.find(e => e.id === eventId)
       toast({
         title: 'Member assigned',
         description: event ? `Added to ${event.name}` : 'Added to event',
       })
-
-      router.refresh()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -302,17 +330,38 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
   const handleRemoveMemberFromEvent = async (assignmentId: string) => {
     setLoading(true)
     try {
+      // Find the assignment before deleting to update local state
+      const assignmentToRemove = assignments.find((a) => a.id === assignmentId)
+      
       const response = await fetch(`/api/roster/${assignmentId}`, {
         method: 'DELETE',
       })
 
       if (!response.ok) throw new Error('Failed to remove member')
 
+      // Update local assignments state immediately
+      setAssignments((prev) => prev.filter((a) => a.id !== assignmentId))
+
+      // Update local team state to remove the roster assignment
+      if (assignmentToRemove) {
+        setTeam((prev: any) => ({
+          ...prev,
+          memberships: prev.memberships.map((m: any) =>
+            m.id === assignmentToRemove.membershipId
+              ? {
+                  ...m,
+                  rosterAssignments: (m.rosterAssignments || []).filter(
+                    (a: any) => a.id !== assignmentId
+                  ),
+                }
+              : m
+          ),
+        }))
+      }
+
       toast({
         title: 'Member removed',
       })
-
-      router.refresh()
     } catch (error) {
       toast({
         title: 'Error',
@@ -435,12 +484,28 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
         throw new Error(data.error || 'Failed to assign member')
       }
 
+      const newAssignment = data.assignment
+
+      // Update local assignments state immediately
+      setAssignments((prev) => [...prev, newAssignment])
+
+      // Update local team state to include the new roster assignment
+      setTeam((prev: any) => ({
+        ...prev,
+        memberships: prev.memberships.map((m: any) =>
+          m.id === membershipId
+            ? {
+                ...m,
+                rosterAssignments: [...(m.rosterAssignments || []), newAssignment],
+              }
+            : m
+        ),
+      }))
+
       toast({
         title: 'Member assigned',
         description: `${memberName} added to ${eventName}`,
       })
-
-      router.refresh()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -1034,11 +1099,22 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
                               </div>
                               {isAdmin && !atCapacity && (
                                 <Select
+                                  key={`${event.id}-${selectedTeam.id}-${selectResetKeys[`${event.id}-${selectedTeam.id}`] || 0}`}
                                   value={addMemberSelectValues[`${event.id}-${selectedTeam.id}`] || undefined}
                                   onValueChange={(value) => {
                                     if (value) {
                                       handleAddMemberToEvent(event.id, value)
-                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: '' }))
+                                    }
+                                  }}
+                                  onOpenChange={(open) => {
+                                    // Reset when dropdown closes if no value was selected
+                                    if (!open && !addMemberSelectValues[`${event.id}-${selectedTeam.id}`]) {
+                                      const selectKey = `${event.id}-${selectedTeam.id}`
+                                      setAddMemberSelectValues((prev) => {
+                                        const newValues = { ...prev }
+                                        delete newValues[selectKey]
+                                        return newValues
+                                      })
                                     }
                                   }}
                                 >
@@ -1134,11 +1210,22 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
                               </div>
                               {isAdmin && !atCapacity && (
                                 <Select
+                                  key={`${event.id}-${selectedTeam.id}-${selectResetKeys[`${event.id}-${selectedTeam.id}`] || 0}`}
                                   value={addMemberSelectValues[`${event.id}-${selectedTeam.id}`] || undefined}
                                   onValueChange={(value) => {
                                     if (value) {
                                       handleAddMemberToEvent(event.id, value)
-                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: '' }))
+                                    }
+                                  }}
+                                  onOpenChange={(open) => {
+                                    // Reset when dropdown closes if no value was selected
+                                    if (!open && !addMemberSelectValues[`${event.id}-${selectedTeam.id}`]) {
+                                      const selectKey = `${event.id}-${selectedTeam.id}`
+                                      setAddMemberSelectValues((prev) => {
+                                        const newValues = { ...prev }
+                                        delete newValues[selectKey]
+                                        return newValues
+                                      })
                                     }
                                   }}
                                 >
@@ -1234,11 +1321,22 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
                               </div>
                               {isAdmin && !atCapacity && (
                                 <Select
+                                  key={`${event.id}-${selectedTeam.id}-${selectResetKeys[`${event.id}-${selectedTeam.id}`] || 0}`}
                                   value={addMemberSelectValues[`${event.id}-${selectedTeam.id}`] || undefined}
                                   onValueChange={(value) => {
                                     if (value) {
                                       handleAddMemberToEvent(event.id, value)
-                                      setAddMemberSelectValues(prev => ({ ...prev, [`${event.id}-${selectedTeam.id}`]: '' }))
+                                    }
+                                  }}
+                                  onOpenChange={(open) => {
+                                    // Reset when dropdown closes if no value was selected
+                                    if (!open && !addMemberSelectValues[`${event.id}-${selectedTeam.id}`]) {
+                                      const selectKey = `${event.id}-${selectedTeam.id}`
+                                      setAddMemberSelectValues((prev) => {
+                                        const newValues = { ...prev }
+                                        delete newValues[selectKey]
+                                        return newValues
+                                      })
                                     }
                                   }}
                                 >

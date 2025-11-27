@@ -323,8 +323,8 @@ export function StatsTab({ teamId, division }: StatsTabProps) {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={fetchStats}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 transition-transform duration-300 ${loading ? 'animate-spin' : 'hover:rotate-180'}`} />
             Refresh
           </Button>
           <Button onClick={() => setAiDialogOpen(true)}>

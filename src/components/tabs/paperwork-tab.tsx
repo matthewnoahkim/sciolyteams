@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -55,6 +56,9 @@ export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
   const [selectedForm, setSelectedForm] = useState<any | null>(null)
   const [submissions, setSubmissions] = useState<any[]>([])
   const [notSubmitted, setNotSubmitted] = useState<any[]>([])
+  const [deleteFormDialogOpen, setDeleteFormDialogOpen] = useState(false)
+  const [formToDelete, setFormToDelete] = useState<string | null>(null)
+  const [deletingForm, setDeletingForm] = useState(false)
   
   const formFileInputRef = useRef<HTMLInputElement>(null)
   const submissionFileInputRef = useRef<HTMLInputElement>(null)
@@ -166,11 +170,17 @@ export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
     }
   }
 
-  const handleDeleteForm = async (formId: string) => {
-    if (!confirm('Are you sure you want to delete this form? All submissions will be deleted.')) return
+  const handleDeleteFormClick = (formId: string) => {
+    setFormToDelete(formId)
+    setDeleteFormDialogOpen(true)
+  }
 
+  const handleDeleteForm = async () => {
+    if (!formToDelete) return
+
+    setDeletingForm(true)
     try {
-      const response = await fetch(`/api/forms/${formId}`, {
+      const response = await fetch(`/api/forms/${formToDelete}`, {
         method: 'DELETE',
       })
 
@@ -182,12 +192,16 @@ export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
       })
 
       fetchForms()
+      setDeleteFormDialogOpen(false)
+      setFormToDelete(null)
     } catch (error) {
       toast({
         title: 'Error',
         description: 'Failed to delete form',
         variant: 'destructive',
       })
+    } finally {
+      setDeletingForm(false)
     }
   }
 
@@ -355,7 +369,7 @@ export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => handleDeleteForm(form.id)}
+                        onClick={() => handleDeleteFormClick(form.id)}
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
@@ -368,13 +382,13 @@ export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
                       {status.submitted ? (
                         <div className="flex items-center gap-2">
                           {status.status === 'APPROVED' && (
-                            <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            <Badge className="bg-green-500 text-white dark:bg-green-600 dark:text-white border-green-600 dark:border-green-500">
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Approved
                             </Badge>
                           )}
                           {status.status === 'REJECTED' && (
-                            <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                            <Badge className="bg-red-500 text-white dark:bg-red-600 dark:text-white border-red-600 dark:border-red-500">
                               <XCircle className="h-3 w-3 mr-1" />
                               Rejected
                             </Badge>
@@ -466,6 +480,19 @@ export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
         submissions={submissions}
         notSubmitted={notSubmitted}
         onUpdateStatus={handleUpdateSubmissionStatus}
+      />
+
+      {/* Delete Form Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteFormDialogOpen}
+        onOpenChange={setDeleteFormDialogOpen}
+        title="Delete Form"
+        description="Are you sure you want to delete this form? All submissions will be deleted. This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={handleDeleteForm}
+        loading={deletingForm}
       />
     </div>
   )
@@ -739,13 +766,13 @@ function ViewSubmissionsDialog({
                           </>
                         )}
                         {submission.status === 'APPROVED' && (
-                          <Badge className="bg-green-100 text-green-700">
+                          <Badge className="bg-green-500 text-white dark:bg-green-600 dark:text-white border-green-600 dark:border-green-500">
                             <CheckCircle className="h-3 w-3 mr-1" />
                             Approved
                           </Badge>
                         )}
                         {submission.status === 'REJECTED' && (
-                          <Badge className="bg-red-100 text-red-700">
+                          <Badge className="bg-red-500 text-white dark:bg-red-600 dark:text-white border-red-600 dark:border-red-500">
                             <XCircle className="h-3 w-3 mr-1" />
                             Rejected
                           </Badge>
