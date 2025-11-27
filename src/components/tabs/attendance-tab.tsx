@@ -399,7 +399,7 @@ export function AttendanceTab({ teamId, isAdmin, user, initialAttendances }: Att
             Track attendance for team events
           </p>
         </div>
-        <Button onClick={fetchAttendances} variant="outline" size="sm" disabled={loading}>
+        <Button onClick={() => fetchAttendances()} variant="outline" size="sm" disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
