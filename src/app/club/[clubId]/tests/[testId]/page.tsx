@@ -99,6 +99,7 @@ export default async function TeamTestDetailPage({
       allowCalculator: true,
       calculatorType: true,
       allowNoteSheet: true,
+      noteSheetInstructions: true,
       releaseScoresAt: true,
       testPasswordHash: true,
       testPasswordPlaintext: true,
@@ -174,6 +175,8 @@ export default async function TeamTestDetailPage({
       requireFullscreen: test.requireFullscreen,
       allowCalculator: test.allowCalculator,
       calculatorType: test.calculatorType,
+      allowNoteSheet: test.allowNoteSheet,
+      noteSheetInstructions: test.noteSheetInstructions,
       status: test.status,
       assignments: test.assignments,
       questions: test.questions.map(q => ({
