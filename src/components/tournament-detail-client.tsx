@@ -610,7 +610,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                         <Select
                           value={teamReg.teamId}
                           onValueChange={(value) => {
-                            updateTeam(index, { teamId: value, subteamId: undefined, subteamIds: undefined, eventIds: [] })
+                            updateTeam(index, { teamId: value, subteamId: undefined, eventIds: [] })
                           }}
                         >
                           <SelectTrigger>
