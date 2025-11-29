@@ -20,7 +20,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Calendar, MapPin, Users, DollarSign, ArrowLeft, Settings, Trophy, CheckCircle2, Plus, X, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
-import { groupEventsByCategory, categoryOrder } from '@/lib/event-categories'
+import { groupEventsByCategory, categoryOrder, type EventCategory } from '@/lib/event-categories'
 
 interface Tournament {
   id: string
@@ -335,7 +335,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
   }
 
   const filteredTeams = userTeams.filter(t => !tournament || t.division === tournament.division)
-  const groupedEvents = tournament ? groupEventsByCategory(events, tournament.division) : {}
+  const groupedEvents = tournament ? groupEventsByCategory(events, tournament.division) : {} as Record<EventCategory, any[]>
 
   if (loading) {
     return (
