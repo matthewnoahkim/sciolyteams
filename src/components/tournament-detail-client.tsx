@@ -171,7 +171,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
     setSelectedTeams(selectedTeams.filter((_, i) => i !== index))
   }
 
-  const updateTeam = (index: number, updates: Partial<{ teamId: string; subteamId?: string; eventIds: string[] }>) => {
+  const updateTeam = (index: number, updates: Partial<{ teamId: string; subteamId?: string; subteamIds?: string[]; eventIds: string[] }>) => {
     const updated = [...selectedTeams]
     updated[index] = { ...updated[index], ...updates }
     setSelectedTeams(updated)
