@@ -477,7 +477,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                 {filteredTeams.length === 0 ? (
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      You don't have admin access to any {tournament.division} division teams. Only team admins can register teams for tournaments.
+                      You don&apos;t have admin access to any {tournament.division} division teams. Only team admins can register teams for tournaments.
                     </p>
                     <Button variant="outline" onClick={() => router.push('/dashboard')}>
                       Go to Dashboard
