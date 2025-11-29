@@ -1,0 +1,399 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { AppHeader } from '@/components/app-header'
+import { useToast } from '@/components/ui/use-toast'
+import { PageLoading } from '@/components/ui/loading-spinner'
+import { Plus, Search, Calendar, MapPin, Users, DollarSign, Trophy, Settings } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import Link from 'next/link'
+
+interface Tournament {
+  id: string
+  name: string
+  division: 'B' | 'C'
+  description: string | null
+  price: number
+  startDate: string
+  endDate: string
+  startTime: string
+  endTime: string
+  location: string | null
+  createdBy: {
+    id: string
+    name: string | null
+    email: string
+  }
+  registrations: Array<{
+    id: string
+    team: {
+      id: string
+      name: string
+    }
+    subteam: {
+      id: string
+      name: string
+    } | null
+  }>
+  _count: {
+    registrations: number
+  }
+  isCreator?: boolean
+  isAdmin?: boolean
+}
+
+interface TournamentsClientProps {
+  user: {
+    id: string
+    name?: string | null
+    email: string
+    image?: string | null
+  }
+}
+
+export function TournamentsClient({ user }: TournamentsClientProps) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [tournaments, setTournaments] = useState<Tournament[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [divisionFilter, setDivisionFilter] = useState<string>('all')
+  const [upcomingOnly, setUpcomingOnly] = useState(true)
+  const [viewFilter, setViewFilter] = useState<'all' | 'my'>('all')
+  const [sortField, setSortField] = useState<'date' | 'price' | 'popularity'>('date')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+
+  useEffect(() => {
+    loadTournaments()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [divisionFilter, upcomingOnly, viewFilter, sortField, sortDirection])
+
+  const loadTournaments = async () => {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams()
+      if (divisionFilter !== 'all') {
+        params.append('division', divisionFilter)
+      }
+      // Only add upcoming filter when it's true, otherwise fetch all tournaments
+      if (upcomingOnly) {
+        params.append('upcoming', 'true')
+      }
+      // Filter by creator if viewing "My Tournaments"
+      if (viewFilter === 'my') {
+        params.append('createdBy', 'me')
+      }
+      // Add sort parameter
+      params.append('sortBy', `${sortField}-${sortDirection}`)
+      // Add cache busting to ensure fresh data
+      params.append('_t', Date.now().toString())
+
+      const response = await fetch(`/api/tournaments?${params.toString()}`, {
+        cache: 'no-store',
+      })
+      if (!response.ok) throw new Error('Failed to load tournaments')
+      
+      const data = await response.json()
+      setTournaments(data.tournaments || [])
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to load tournaments',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredTournaments = tournaments.filter(t => {
+    if (search && !t.name.toLowerCase().includes(search.toLowerCase())) {
+      return false
+    }
+    return true
+  })
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    })
+  }
+
+  const formatDateShort = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric'
+    })
+  }
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    })
+  }
+
+  const formatDateTime = (startDate: string, endDate: string, startTime: string, endTime: string) => {
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const sameDay = start.toDateString() === end.toDateString()
+    
+    if (sameDay) {
+      const dateStr = formatDate(startDate)
+      const timeStr = `${formatTime(startTime)} - ${formatTime(endTime)}`
+      return { dateStr, timeStr, isMultiDay: false }
+    } else {
+      // For multi-day events, show start date/time and end date/time separately
+      const startDateTime = `${formatDate(startDate)}, ${formatTime(startTime)}`
+      const endDateTime = `${formatDate(endDate)}, ${formatTime(endTime)}`
+      return { startDateTime, endDateTime, isMultiDay: true }
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <AppHeader user={user} />
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-foreground mb-2">Tournaments</h1>
+            <p className="text-muted-foreground">
+              {viewFilter === 'my' 
+                ? 'Manage your tournaments' 
+                : 'Discover and register for upcoming Science Olympiad tournaments'}
+            </p>
+          </div>
+          <Button onClick={() => router.push('/tournaments/create')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Tournament
+          </Button>
+        </div>
+
+        {/* Filters */}
+        <div className="space-y-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none z-10 shrink-0 will-change-transform" />
+              <Input
+                placeholder="Search tournaments..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-12"
+              />
+            </div>
+            <Select value={viewFilter} onValueChange={(value) => setViewFilter(value as 'all' | 'my')}>
+              <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectValue placeholder="View" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tournaments</SelectItem>
+                <SelectItem value="my">My Tournaments</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Division" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Divisions</SelectItem>
+                <SelectItem value="B">Division B</SelectItem>
+                <SelectItem value="C">Division C</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant={upcomingOnly ? 'outline' : 'default'}
+              onClick={() => setUpcomingOnly(!upcomingOnly)}
+              className="w-full sm:w-auto"
+            >
+              {upcomingOnly ? 'Show All' : 'Upcoming Only'}
+            </Button>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">Sort by:</Label>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-2 flex-1 sm:flex-none">
+              <Select value={sortField} onValueChange={(value) => setSortField(value as any)}>
+                <SelectTrigger className="text-sm h-9 w-full sm:w-auto min-w-[140px]">
+                  <SelectValue placeholder="Date" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Date</SelectItem>
+                  <SelectItem value="price">Price</SelectItem>
+                  <SelectItem value="popularity">Popularity</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select 
+                value={sortDirection} 
+                onValueChange={(value) => setSortDirection(value as any)}
+                key={sortField} // Reset when sort field changes
+              >
+                <SelectTrigger className="text-sm h-9 w-full sm:w-auto min-w-[140px]">
+                  <SelectValue>
+                    {sortField === 'date' && sortDirection === 'asc' && 'Earliest to Latest'}
+                    {sortField === 'date' && sortDirection === 'desc' && 'Latest to Earliest'}
+                    {sortField === 'price' && sortDirection === 'asc' && 'Least to Most Expensive'}
+                    {sortField === 'price' && sortDirection === 'desc' && 'Most to Least Expensive'}
+                    {sortField === 'popularity' && sortDirection === 'asc' && 'Least to Most Popular'}
+                    {sortField === 'popularity' && sortDirection === 'desc' && 'Most to Least Popular'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">
+                    {sortField === 'date' && 'Earliest to Latest'}
+                    {sortField === 'price' && 'Least to Most Expensive'}
+                    {sortField === 'popularity' && 'Least to Most Popular'}
+                  </SelectItem>
+                  <SelectItem value="desc">
+                    {sortField === 'date' && 'Latest to Earliest'}
+                    {sortField === 'price' && 'Most to Least Expensive'}
+                    {sortField === 'popularity' && 'Most to Least Popular'}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        {/* Tournament List */}
+        {loading ? (
+          <PageLoading title="Loading tournaments" description="Fetching tournament data..." />
+        ) : filteredTournaments.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Trophy className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">No tournaments found</h3>
+              <p className="text-muted-foreground mb-4">
+                {viewFilter === 'my'
+                  ? 'You haven\'t created any tournaments yet'
+                  : search || divisionFilter !== 'all' 
+                    ? 'Try adjusting your filters'
+                    : 'Be the first to create a tournament!'}
+              </p>
+              {(viewFilter === 'my' || (!search && divisionFilter === 'all')) && (
+                <Button onClick={() => router.push('/tournaments/create')}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Tournament
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {filteredTournaments.map((tournament) => (
+              <Card key={tournament.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                <CardHeader>
+                  <div className="flex items-start justify-between mb-2 gap-2">
+                    <Link href={`/tournaments/${tournament.id}`} className="flex-1 min-w-0">
+                      <CardTitle className="text-xl hover:underline">{tournament.name}</CardTitle>
+                    </Link>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Badge variant={tournament.division === 'B' ? 'default' : 'secondary'}>
+                        Division {tournament.division}
+                      </Badge>
+                      {(tournament.isCreator || tournament.isAdmin) && (
+                        <Link href={`/tournaments/${tournament.id}/manage`} onClick={(e) => e.stopPropagation()}>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="h-7"
+                          >
+                            <Settings className="h-3 w-3 mr-1" />
+                            Manage
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                  {tournament.description && (
+                    <Link href={`/tournaments/${tournament.id}`}>
+                      <CardDescription className="line-clamp-2">
+                        {tournament.description}
+                      </CardDescription>
+                    </Link>
+                  )}
+                </CardHeader>
+                <Link href={`/tournaments/${tournament.id}`}>
+                  <CardContent className="space-y-3">
+                    {(() => {
+                      const formatted = formatDateTime(
+                        tournament.startDate, 
+                        tournament.endDate, 
+                        tournament.startTime, 
+                        tournament.endTime
+                      )
+                      
+                      return (
+                        <div className="space-y-1.5">
+                          <div className="flex items-start gap-2 text-sm">
+                            <Calendar className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              {formatted.isMultiDay ? (
+                                <div className="space-y-0.5">
+                                  <div className="font-medium">{formatted.startDateTime}</div>
+                                  <div className="font-medium">{formatted.endDateTime}</div>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="font-medium">{formatted.dateStr}</div>
+                                  <div className="text-muted-foreground">{formatted.timeStr}</div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
+                    {tournament.location && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        <span className="line-clamp-1">{tournament.location}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <div className="flex items-center gap-2 text-sm">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-semibold">
+                          {tournament.price === 0 ? 'Free' : `$${tournament.price.toFixed(2)}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Users className="h-4 w-4" />
+                        <span>{tournament._count.registrations} team{tournament._count.registrations !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                    {tournament.registrations && tournament.registrations.length > 0 && (
+                      <div className="pt-2 space-y-1">
+                        <div className="text-xs font-medium text-muted-foreground">Registered teams:</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {tournament.registrations.map((reg) => (
+                            <Badge key={reg.id} variant="secondary" className="text-xs">
+                              {reg.team.name}
+                              {reg.subteam && ` - ${reg.subteam.name}`}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Link>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+

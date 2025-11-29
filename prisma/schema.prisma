@@ -30,6 +30,9 @@ model User {
   mediaUploads       MediaItem[]         @relation("MediaUploads")
   formSubmissions    FormSubmission[]    @relation("FormSubmissions")
   homePageWidgets    HomePageWidget[]    @relation("UserHomePageWidgets")
+  tournamentsCreated Tournament[]            @relation("TournamentCreator")
+  tournamentAdmins   TournamentAdmin[]   @relation("TournamentAdmins")
+  tournamentRegistrations TournamentRegistration[] @relation("TournamentRegistrationsBy")
 }
 
 model Account {
@@ -100,6 +103,7 @@ model Team {
   albums                    Album[]
   forms                     Form[]
   todos                     Todo[]
+  tournamentRegistrations   TournamentRegistration[] @relation("TournamentRegistrations")
 
   @@index([createdById])
 }
@@ -147,6 +151,7 @@ model Subteam {
   rosterAssignments        RosterAssignment[]
   team                     Team                     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   testAssignments          TestAssignment[]
+  tournamentRegistrations  TournamentRegistration[] @relation("TournamentRegistrations")
 
   @@index([teamId])
 }
@@ -167,6 +172,8 @@ model Event {
   announcementVisibilities AnnouncementVisibility[]
   calendarEventTargets     CalendarEventTarget[]
   testAssignments          TestAssignment[]
+  tournamentEventSelections TournamentEventSelection[]
+  tournamentTestEvents      TournamentTest[] @relation("TournamentTestEvents")
 
   @@unique([division, slug])
   @@index([division])
@@ -565,6 +572,7 @@ model Test {
   aiSuggestions          AiGradingSuggestion[]
   calendarEvents         CalendarEvent[]
   noteSheets             NoteSheet[]
+  tournamentTests        TournamentTest[] @relation("TournamentTests")
 
   @@index([teamId])
   @@index([status])
@@ -1227,4 +1235,100 @@ model AIRosterGeneration {
   @@index([teamId])
   @@index([subteamId])
   @@index([createdAt])
+}
+
+model Tournament {
+  id                String                    @id @default(cuid())
+  name              String
+  division          Division
+  description       String?                   @db.Text
+  price             Float                     @default(0)
+  startDate         DateTime
+  endDate           DateTime
+  startTime         DateTime
+  endTime           DateTime
+  location          String?
+  createdById       String // User ID of creator
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  admins            TournamentAdmin[]
+  registrations     TournamentRegistration[]
+  tests             TournamentTest[]
+  createdBy         User                      @relation("TournamentCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([createdById])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([division])
+}
+
+model TournamentAdmin {
+  id          String     @id @default(cuid())
+  tournamentId String
+  userId      String
+  createdAt   DateTime   @default(now())
+  tournament  Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user        User       @relation("TournamentAdmins", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, userId])
+  @@index([tournamentId])
+  @@index([userId])
+}
+
+model TournamentRegistration {
+  id          String                  @id @default(cuid())
+  tournamentId String
+  teamId      String // The club team that registered
+  subteamId   String? // Optional: specific subteam within the team
+  registeredById String // User ID who registered the team
+  status      TournamentRegistrationStatus @default(PENDING)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  tournament  Tournament              @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team        Team                    @relation("TournamentRegistrations", fields: [teamId], references: [id], onDelete: Cascade)
+  subteam     Subteam?                @relation("TournamentRegistrations", fields: [subteamId], references: [id], onDelete: Cascade)
+  registeredBy User                   @relation("TournamentRegistrationsBy", fields: [registeredById], references: [id], onDelete: Cascade)
+  eventSelections TournamentEventSelection[]
+
+  @@unique([tournamentId, teamId, subteamId])
+  @@index([tournamentId])
+  @@index([teamId])
+  @@index([subteamId])
+  @@index([registeredById])
+  @@index([status])
+}
+
+model TournamentEventSelection {
+  id                String                 @id @default(cuid())
+  registrationId    String
+  eventId           String
+  createdAt         DateTime               @default(now())
+  registration      TournamentRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  event             Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId, eventId])
+  @@index([registrationId])
+  @@index([eventId])
+}
+
+model TournamentTest {
+  id          String     @id @default(cuid())
+  tournamentId String
+  testId      String
+  eventId     String? // Optional: if set, this test is for a specific event
+  createdAt   DateTime   @default(now())
+  tournament  Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  test        Test       @relation("TournamentTests", fields: [testId], references: [id], onDelete: Cascade)
+  event       Event?     @relation("TournamentTestEvents", fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@unique([tournamentId, testId])
+  @@index([tournamentId])
+  @@index([testId])
+  @@index([eventId])
+}
+
+enum TournamentRegistrationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
 }
