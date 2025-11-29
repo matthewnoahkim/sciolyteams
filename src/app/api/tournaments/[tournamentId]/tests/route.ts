@@ -49,11 +49,24 @@ export async function GET(
             description: true,
             status: true,
             durationMinutes: true,
+            startAt: true,
+            endAt: true,
+            allowLateUntil: true,
+            requireFullscreen: true,
+            allowCalculator: true,
+            calculatorType: true,
+            maxAttempts: true,
             teamId: true,
             team: {
               select: {
                 id: true,
                 name: true,
+              },
+            },
+            _count: {
+              select: {
+                questions: true,
+                attempts: true,
               },
             },
           },

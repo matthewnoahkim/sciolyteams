@@ -113,11 +113,37 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
   }
 
   const filteredTournaments = tournaments.filter(t => {
-    if (search && !t.name.toLowerCase().includes(search.toLowerCase())) {
-      return false
+    if (search) {
+      const searchLower = search.toLowerCase()
+      const nameMatch = t.name.toLowerCase().includes(searchLower)
+      const descriptionMatch = t.description?.toLowerCase().includes(searchLower) || false
+      if (!nameMatch && !descriptionMatch) {
+        return false
+      }
     }
     return true
   })
+
+  // Helper function to highlight search terms in text (exact copy from dev panel)
+  const highlightText = (text: string | null | undefined, searchQuery: string): string | (string | JSX.Element)[] => {
+    if (!text || !searchQuery) return text || ''
+    
+    const query = searchQuery.trim()
+    if (!query) return text
+    
+    // Escape special regex characters
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(`(${escapedQuery})`, 'gi')
+    const parts = text.split(regex)
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-200 dark:bg-yellow-900 text-foreground px-0.5 rounded">
+          {part}
+        </mark>
+      ) : part
+    )
+  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -296,7 +322,9 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                 <CardHeader>
                   <div className="flex items-start justify-between mb-2 gap-2">
                     <Link href={`/tournaments/${tournament.id}`} className="flex-1 min-w-0">
-                      <CardTitle className="text-xl hover:underline">{tournament.name}</CardTitle>
+                      <CardTitle className="text-xl hover:underline">
+                        {search ? highlightText(tournament.name, search) : tournament.name}
+                      </CardTitle>
                     </Link>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Badge variant={tournament.division === 'B' ? 'default' : 'secondary'}>
@@ -319,7 +347,7 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                   {tournament.description && (
                     <Link href={`/tournaments/${tournament.id}`}>
                       <CardDescription className="line-clamp-2">
-                        {tournament.description}
+                        {search ? highlightText(tournament.description, search) : tournament.description}
                       </CardDescription>
                     </Link>
                   )}

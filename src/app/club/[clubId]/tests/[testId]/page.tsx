@@ -137,6 +137,22 @@ export default async function TeamTestDetailPage({
     notFound()
   }
 
+  // Check if this test is linked to a tournament
+  const tournamentTest = await prisma.tournamentTest.findFirst({
+    where: {
+      testId: test.id,
+    },
+    include: {
+      tournament: {
+        select: {
+          id: true,
+          name: true,
+          division: true,
+        },
+      },
+    },
+  })
+
   // If the test is a draft, show the builder/editor interface
   if (test.status === 'DRAFT') {
     const team = await prisma.team.findUnique({
@@ -208,12 +224,28 @@ export default async function TeamTestDetailPage({
         </div>
 
         <div className="relative z-10 px-4 py-8 lg:px-8">
+          {tournamentTest && (
+            <div className="mb-6">
+              <Link href={`/tournaments/${tournamentTest.tournament.id}/tests`} className="w-fit">
+                <Button variant="ghost" size="sm" className="h-8 gap-2 px-2 mb-4">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Tests
+                </Button>
+              </Link>
+              <p className="text-sm text-muted-foreground">
+                Editing test for <span className="font-semibold">{tournamentTest.tournament.name}</span>
+              </p>
+            </div>
+          )}
           <NewTestBuilder 
             teamId={team.id} 
             teamName={team.name}
             teamDivision={team.division}
             subteams={team.subteams}
             test={transformedTest}
+            tournamentId={tournamentTest?.tournament.id}
+            tournamentName={tournamentTest?.tournament.name}
+            tournamentDivision={tournamentTest?.tournament.division}
           />
         </div>
       </div>
@@ -310,7 +342,10 @@ export default async function TeamTestDetailPage({
       <div className="relative z-10 container mx-auto max-w-6xl space-y-8 py-8 px-4 lg:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-2">
-          <Link href={`/club/${params.clubId}?tab=tests`} className="w-fit">
+          <Link 
+            href={tournamentTest ? `/tournaments/${tournamentTest.tournament.id}/tests` : `/club/${params.clubId}?tab=tests`} 
+            className="w-fit"
+          >
             <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
               <ArrowLeft className="h-4 w-4" />
               Back to Tests

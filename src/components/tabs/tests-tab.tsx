@@ -51,6 +51,27 @@ interface UserAttemptInfo {
   hasReachedLimit: boolean
 }
 
+// Helper function to highlight search terms in text (exact copy from dev panel)
+const highlightText = (text: string | null | undefined, searchQuery: string): string | (string | JSX.Element)[] => {
+  if (!text || !searchQuery) return text || ''
+  
+  const query = searchQuery.trim()
+  if (!query) return text
+  
+  // Escape special regex characters
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escapedQuery})`, 'gi')
+  const parts = text.split(regex)
+  
+  return parts.map((part, index) => 
+    regex.test(part) ? (
+      <mark key={index} className="bg-yellow-200 dark:bg-yellow-900 text-foreground px-0.5 rounded">
+        {part}
+      </mark>
+    ) : part
+  )
+}
+
 export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
@@ -517,7 +538,9 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <CardTitle>{test.name}</CardTitle>
+              <CardTitle>
+                {searchQuery ? highlightText(test.name, searchQuery) : test.name}
+              </CardTitle>
               {getStatusBadge(test.status)}
               {test.requireFullscreen && (
                 <Badge variant="outline" className="gap-1">
@@ -535,7 +558,9 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
               )}
             </div>
             {test.description && (
-              <CardDescription>{test.description}</CardDescription>
+              <CardDescription>
+                {searchQuery ? highlightText(test.description, searchQuery) : test.description}
+              </CardDescription>
             )}
           </div>
           {isAdmin && (

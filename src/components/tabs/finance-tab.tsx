@@ -143,6 +143,27 @@ interface EventBudget {
   remaining: number
 }
 
+// Helper function to highlight search terms in text (exact copy from dev panel)
+const highlightText = (text: string | null | undefined, searchQuery: string): string | (string | JSX.Element)[] => {
+  if (!text || !searchQuery) return text || ''
+  
+  const query = searchQuery.trim()
+  if (!query) return text
+  
+  // Escape special regex characters
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escapedQuery})`, 'gi')
+  const parts = text.split(regex)
+  
+  return parts.map((part, index) => 
+    regex.test(part) ? (
+      <mark key={index} className="bg-yellow-200 dark:bg-yellow-900 text-foreground px-0.5 rounded">
+        {part}
+      </mark>
+    ) : part
+  )
+}
+
 export default function FinanceTab({ teamId, isAdmin, currentMembershipId, currentMembershipSubteamId, division, initialExpenses, initialPurchaseRequests, initialBudgets, initialSubteams }: FinanceTabProps) {
   const { toast } = useToast()
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses || [])
@@ -1299,16 +1320,18 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                             Pending
                           </Badge>
                         )}
-                        <span className="font-medium truncate">{transaction.description}</span>
+                        <span className="font-medium truncate">
+                          {searchQuery ? highlightText(transaction.description, searchQuery) : transaction.description}
+                        </span>
                       </div>
                       {transaction.event && (
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="outline" className="text-xs">
-                            {transaction.event.name}
+                            {searchQuery ? highlightText(transaction.event.name, searchQuery) : transaction.event.name}
                           </Badge>
                           {transaction.subteam && (
                             <Badge variant="outline" className="text-xs">
-                              {transaction.subteam.name}
+                              {searchQuery ? highlightText(transaction.subteam.name, searchQuery) : transaction.subteam.name}
                             </Badge>
                           )}
                         </div>

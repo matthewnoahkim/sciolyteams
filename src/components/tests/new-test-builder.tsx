@@ -76,10 +76,13 @@ interface QuestionDraft {
 }
 
 interface NewTestBuilderProps {
-  teamId: string
-  teamName: string
+  teamId?: string
+  teamName?: string
   teamDivision?: 'B' | 'C'
-  subteams: SubteamInfo[]
+  subteams?: SubteamInfo[]
+  tournamentId?: string
+  tournamentName?: string
+  tournamentDivision?: 'B' | 'C'
   test?: {
     id: string
     name: string
@@ -155,7 +158,7 @@ function reconstructMarkdown(text: string, images: Array<{ alt: string; src: str
   return textPart || imageParts
 }
 
-export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test }: NewTestBuilderProps) {
+export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tournamentId, tournamentName, tournamentDivision, test }: NewTestBuilderProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
@@ -423,12 +426,15 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
   const publishValidation = useMemo(() => {
     const errors: string[] = [...draftValidation.errors]
 
-    if (assignmentMode === 'TEAM' && selectedSubteams.length === 0) {
-      errors.push('Select at least one team or assign to the entire club.')
-    }
+    // Skip assignment validation for tournament tests (they're assigned via tournament system)
+    if (!tournamentId) {
+      if (assignmentMode === 'TEAM' && selectedSubteams.length === 0) {
+        errors.push('Select at least one team or assign to the entire club.')
+      }
 
-    if (assignmentMode === 'EVENT' && !selectedEventId) {
-      errors.push('Select an event or choose a different assignment option.')
+      if (assignmentMode === 'EVENT' && !selectedEventId) {
+        errors.push('Select an event or choose a different assignment option.')
+      }
     }
 
     return {
@@ -462,8 +468,10 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
       return
     }
 
-    const assignments =
-      assignmentMode === 'CLUB'
+    // For tournament tests, don't create assignments (they're assigned via tournament system)
+    const assignments = tournamentId
+      ? []
+      : assignmentMode === 'CLUB'
         ? [{ assignedScope: 'CLUB' as const }]
         : selectedSubteams.map((subteamId) => ({
             assignedScope: 'TEAM' as const,
@@ -471,7 +479,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
           }))
 
     const payload = {
-      teamId,
+      ...(teamId && !tournamentId ? { teamId } : {}),
       name: details.name.trim(),
       description: details.description.trim() || undefined,
       instructions: details.instructions.trim() || undefined,
@@ -599,15 +607,30 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
             title: 'Test Updated',
             description: 'Your changes have been saved',
           })
-          router.push(`/club/${teamId}?tab=tests`)
+          const tournamentId = sessionStorage.getItem('tournamentId')
+          if (tournamentId) {
+            router.push(`/tournaments/${tournamentId}/tests`)
+            sessionStorage.removeItem('tournamentId')
+          } else {
+            router.push(`/club/${teamId}?tab=tests`)
+          }
           router.refresh()
         }
       } else {
-        // Create new test
-        const response = await fetch('/api/tests', {
+        // Create new test - use tournament API if tournamentId is provided
+        const apiUrl = tournamentId 
+          ? `/api/tournaments/${tournamentId}/tests/create`
+          : '/api/tests'
+        
+        // For tournament mode, remove teamId from payload
+        const createPayload = tournamentId 
+          ? { ...payload, teamId: undefined }
+          : payload
+
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(createPayload),
         })
 
         if (!response.ok) {
@@ -627,12 +650,21 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
           setPublishDialogOpen(true)
           // Store the testId for publishing
           sessionStorage.setItem('newTestId', testId)
+          if (tournamentId) {
+            sessionStorage.setItem('tournamentId', tournamentId)
+          }
         } else {
           toast({
             title: 'Test saved',
-            description: 'Your test draft has been created successfully.',
+            description: tournamentId 
+              ? 'Your test draft has been created and added to the tournament.'
+              : 'Your test draft has been created successfully.',
           })
-          router.push(`/club/${teamId}?tab=tests`)
+          if (tournamentId) {
+            router.push(`/tournaments/${tournamentId}/tests`)
+          } else {
+            router.push(`/club/${teamId}?tab=tests`)
+          }
           router.refresh()
         }
       }
@@ -728,9 +760,11 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
           maxAttempts: publishFormData.maxAttempts ? parseInt(publishFormData.maxAttempts, 10) : null,
           scoreReleaseMode: publishFormData.scoreReleaseMode,
           requireFullscreen: publishFormData.requireFullscreen,
-          assignmentMode,
-          selectedSubteams: assignmentMode === 'TEAM' ? selectedSubteams : undefined,
-          selectedEventId: assignmentMode === 'EVENT' ? selectedEventId : undefined,
+          ...(!tournamentId && {
+            assignmentMode,
+            selectedSubteams: assignmentMode === 'TEAM' ? selectedSubteams : undefined,
+            selectedEventId: assignmentMode === 'EVENT' ? selectedEventId : undefined,
+          }),
           addToCalendar: addToCalendar,
         }),
       })
@@ -751,6 +785,8 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
         throw new Error(errorMsg)
       }
 
+      const savedTournamentId = sessionStorage.getItem('tournamentId') || tournamentId
+
       toast({
         title: 'Test Published',
         description: addToCalendar 
@@ -763,7 +799,14 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
       }
       setPublishDialogOpen(false)
       setAddToCalendar(false)
-      router.push(`/club/${teamId}?tab=tests`)
+      if (savedTournamentId) {
+        if (!isEditMode) {
+          sessionStorage.removeItem('tournamentId')
+        }
+        router.push(`/tournaments/${savedTournamentId}/tests`)
+      } else if (teamId) {
+        router.push(`/club/${teamId}?tab=tests`)
+      }
       router.refresh()
     } catch (error: any) {
       toast({
@@ -780,7 +823,9 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
     <div className="max-w-6xl mx-auto pb-24 space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Team • {teamName}</p>
+          <p className="text-sm text-muted-foreground">
+            {tournamentId ? `Tournament • ${tournamentName || 'Tournament'}` : `Team • ${teamName || 'Team'}`}
+          </p>
           <h1 className="text-3xl font-semibold tracking-tight">
             {isEditMode ? 'Edit Test' : 'Create a Test'}
           </h1>
@@ -1159,15 +1204,16 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
               </p>
             </div>
 
-            <div className="space-y-3 pt-4 border-t">
-              <div>
-                <Label className="text-base font-semibold">Assignments</Label>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Choose who should receive the test. Admins can always preview drafts.
-                </p>
-              </div>
+            {!tournamentId && (
+              <div className="space-y-3 pt-4 border-t">
+                <div>
+                  <Label className="text-base font-semibold">Assignments</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Choose who should receive the test. Admins can always preview drafts.
+                  </p>
+                </div>
 
-              <RadioGroup value={assignmentMode} onValueChange={(value) => setAssignmentMode(value as 'CLUB' | 'TEAM' | 'EVENT')}>
+                <RadioGroup value={assignmentMode} onValueChange={(value) => setAssignmentMode(value as 'CLUB' | 'TEAM' | 'EVENT')}>
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="CLUB" id="assign-club" />
                   <Label htmlFor="assign-club" className="cursor-pointer font-normal">
@@ -1183,12 +1229,12 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                     </Label>
                   {assignmentMode === 'TEAM' && (
                     <div className="mt-2 space-y-2 rounded-md border border-input bg-muted/30 p-3 max-h-32 overflow-y-auto">
-                      {subteams.length === 0 && (
+                      {(!subteams || subteams.length === 0) && (
                         <p className="text-sm text-muted-foreground">
                           No teams yet—everyone will receive this test.
                         </p>
                       )}
-                      {subteams.map((subteam) => (
+                      {subteams?.map((subteam) => (
                         <div
                           key={subteam.id}
                           className={cn(
@@ -1250,6 +1296,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, test 
                 </div>
               </RadioGroup>
             </div>
+            )}
 
           </div>
 
