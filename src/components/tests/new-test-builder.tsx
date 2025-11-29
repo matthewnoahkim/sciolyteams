@@ -842,7 +842,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
           >
             Cancel
           </Button>
-          {isEditMode && test && (
+          {isEditMode && test && teamId && (
             <DuplicateTestButton
               testId={test.id}
               testName={test.name}
