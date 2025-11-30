@@ -186,12 +186,12 @@ export function BlogManager() {
   }
 
   return (
-    <Card>
+    <Card className="bg-white/60 dark:bg-white/[0.03] border-gray-200 dark:border-white/[0.06]">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Blog Posts</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-gray-900 dark:text-white">Blog Posts</CardTitle>
+            <CardDescription className="text-gray-500 dark:text-white/50">
               Create and manage blog posts for the public blog
             </CardDescription>
           </div>
@@ -214,7 +214,7 @@ export function BlogManager() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : posts.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-gray-500 dark:text-white/50">
               No blog posts yet. Create your first post!
             </div>
           ) : (
@@ -222,20 +222,20 @@ export function BlogManager() {
               {posts.map((post) => (
                 <div
                   key={post.id}
-                  className="p-4 border rounded-xl hover:bg-muted/50 transition-all duration-200"
+                  className="p-4 border border-gray-200 dark:border-white/[0.06] rounded-xl hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-all duration-200"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold truncate">{post.title}</h3>
+                        <h3 className="font-semibold truncate text-gray-900 dark:text-white">{post.title}</h3>
                         <Badge variant={post.published ? 'default' : 'secondary'}>
                           {post.published ? 'Published' : 'Draft'}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                      <p className="text-sm text-gray-500 dark:text-white/50 mb-2 line-clamp-2">
                         {post.excerpt || post.content.substring(0, 150)}...
                       </p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-white/40">
                         <span>By {post.authorName}</span>
                         <span>{format(new Date(post.createdAt), 'MMM d, yyyy')}</span>
                         <span className="font-mono">/blog/{post.slug}</span>
@@ -295,7 +295,7 @@ export function BlogManager() {
 
       {/* Editor Dialog */}
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border-gray-200 dark:border-white/10">
           <DialogHeader>
             <DialogTitle>{editingPost ? 'Edit Post' : 'New Post'}</DialogTitle>
             <DialogDescription>
@@ -306,7 +306,7 @@ export function BlogManager() {
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
+                <Label htmlFor="title" className="text-gray-700 dark:text-white/70">Title *</Label>
                 <Input
                   id="title"
                   value={formData.title}
@@ -322,7 +322,7 @@ export function BlogManager() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="slug">Slug *</Label>
+                <Label htmlFor="slug" className="text-gray-700 dark:text-white/70">Slug *</Label>
                 <Input
                   id="slug"
                   value={formData.slug}
@@ -334,7 +334,7 @@ export function BlogManager() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="authorName">Author Name *</Label>
+                <Label htmlFor="authorName" className="text-gray-700 dark:text-white/70">Author Name *</Label>
                 <Input
                   id="authorName"
                   value={formData.authorName}
@@ -343,7 +343,7 @@ export function BlogManager() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="coverImage">Cover Image URL</Label>
+                <Label htmlFor="coverImage" className="text-gray-700 dark:text-white/70">Cover Image URL</Label>
                 <Input
                   id="coverImage"
                   value={formData.coverImage}
@@ -354,7 +354,7 @@ export function BlogManager() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="excerpt">Excerpt</Label>
+              <Label htmlFor="excerpt" className="text-gray-700 dark:text-white/70">Excerpt</Label>
               <Input
                 id="excerpt"
                 value={formData.excerpt}
@@ -364,13 +364,13 @@ export function BlogManager() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="content">Content * (HTML supported)</Label>
+              <Label htmlFor="content" className="text-gray-700 dark:text-white/70">Content * (HTML supported)</Label>
               <textarea
                 id="content"
                 value={formData.content}
                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                 placeholder="Write your post content here..."
-                className="w-full min-h-[300px] p-3 border rounded-xl bg-background resize-y font-mono text-sm"
+                className="w-full min-h-[300px] p-3 border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50 dark:bg-white/[0.05] resize-y font-mono text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30"
               />
             </div>
 
@@ -382,7 +382,7 @@ export function BlogManager() {
                   setFormData({ ...formData, published: checked as boolean })
                 }
               />
-              <Label htmlFor="published" className="cursor-pointer">
+              <Label htmlFor="published" className="cursor-pointer text-gray-700 dark:text-white/70">
                 Publish immediately
               </Label>
             </div>
