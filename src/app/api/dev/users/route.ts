@@ -19,10 +19,11 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: any = {}
     
-    if (search) {
+    if (search && search.trim()) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search.trim(), mode: 'insensitive' } },
+        { email: { contains: search.trim(), mode: 'insensitive' } },
+        { id: { contains: search.trim(), mode: 'insensitive' } },
       ]
     }
 

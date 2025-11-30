@@ -5,8 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -19,8 +17,6 @@ import {
   Plus,
   Edit,
   Trash2,
-  Eye,
-  EyeOff,
   Loader2,
   RefreshCw,
   ExternalLink,
@@ -58,9 +54,7 @@ export function BlogManager() {
     slug: '',
     excerpt: '',
     content: '',
-    coverImage: '',
     authorName: '',
-    published: false,
   })
 
   const fetchPosts = useCallback(async () => {
@@ -95,9 +89,7 @@ export function BlogManager() {
         slug: post.slug,
         excerpt: post.excerpt || '',
         content: post.content,
-        coverImage: post.coverImage || '',
         authorName: post.authorName,
-        published: post.published,
       })
     } else {
       setEditingPost(null)
@@ -106,9 +98,7 @@ export function BlogManager() {
         slug: '',
         excerpt: '',
         content: '',
-        coverImage: '',
         authorName: '',
-        published: false,
       })
     }
     setEditorOpen(true)
@@ -128,7 +118,7 @@ export function BlogManager() {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, published: true }),
       })
 
       if (!response.ok) {
@@ -169,29 +159,13 @@ export function BlogManager() {
     }
   }
 
-  const togglePublished = async (post: BlogPost) => {
-    try {
-      const response = await fetch(`/api/blog/${post.slug}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ published: !post.published }),
-      })
-
-      if (response.ok) {
-        fetchPosts()
-      }
-    } catch (error) {
-      console.error('Error toggling publish status:', error)
-    }
-  }
-
   return (
-    <Card className="bg-white/60 dark:bg-white/[0.03] border-gray-200 dark:border-white/[0.06]">
+    <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-gray-900 dark:text-white">Blog Posts</CardTitle>
-            <CardDescription className="text-gray-500 dark:text-white/50">
+            <CardTitle>Blog Posts</CardTitle>
+            <CardDescription>
               Create and manage blog posts for the public blog
             </CardDescription>
           </div>
@@ -214,7 +188,7 @@ export function BlogManager() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : posts.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-white/50">
+            <div className="text-center py-8 text-muted-foreground">
               No blog posts yet. Create your first post!
             </div>
           ) : (
@@ -222,47 +196,28 @@ export function BlogManager() {
               {posts.map((post) => (
                 <div
                   key={post.id}
-                  className="p-4 border border-gray-200 dark:border-white/[0.06] rounded-xl hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-all duration-200"
+                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold truncate text-gray-900 dark:text-white">{post.title}</h3>
-                        <Badge variant={post.published ? 'default' : 'secondary'}>
-                          {post.published ? 'Published' : 'Draft'}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-500 dark:text-white/50 mb-2 line-clamp-2">
+                      <h3 className="font-semibold truncate">{post.title}</h3>
+                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
                         {post.excerpt || post.content.substring(0, 150)}...
                       </p>
-                      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-white/40">
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>By {post.authorName}</span>
                         <span>{format(new Date(post.createdAt), 'MMM d, yyyy')}</span>
                         <span className="font-mono">/blog/{post.slug}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      {post.published && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => window.open(`/blog/${post.slug}`, '_blank')}
-                          title="View post"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      )}
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => togglePublished(post)}
-                        title={post.published ? 'Unpublish' : 'Publish'}
+                        onClick={() => window.open(`/blog/${post.slug}`, '_blank')}
+                        title="View post"
                       >
-                        {post.published ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
+                        <ExternalLink className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -295,18 +250,18 @@ export function BlogManager() {
 
       {/* Editor Dialog */}
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border-gray-200 dark:border-white/10">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPost ? 'Edit Post' : 'New Post'}</DialogTitle>
             <DialogDescription>
-              {editingPost ? 'Update your blog post' : 'Create a new blog post'}
+              {editingPost ? 'Update your blog post' : 'Create a new blog post. Posts are published immediately.'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="title" className="text-gray-700 dark:text-white/70">Title *</Label>
+                <Label htmlFor="title">Title *</Label>
                 <Input
                   id="title"
                   value={formData.title}
@@ -322,7 +277,7 @@ export function BlogManager() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="slug" className="text-gray-700 dark:text-white/70">Slug *</Label>
+                <Label htmlFor="slug">Slug *</Label>
                 <Input
                   id="slug"
                   value={formData.slug}
@@ -332,29 +287,18 @@ export function BlogManager() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="authorName" className="text-gray-700 dark:text-white/70">Author Name *</Label>
-                <Input
-                  id="authorName"
-                  value={formData.authorName}
-                  onChange={(e) => setFormData({ ...formData, authorName: e.target.value })}
-                  placeholder="Your name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="coverImage" className="text-gray-700 dark:text-white/70">Cover Image URL</Label>
-                <Input
-                  id="coverImage"
-                  value={formData.coverImage}
-                  onChange={(e) => setFormData({ ...formData, coverImage: e.target.value })}
-                  placeholder="https://..."
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="authorName">Author Name *</Label>
+              <Input
+                id="authorName"
+                value={formData.authorName}
+                onChange={(e) => setFormData({ ...formData, authorName: e.target.value })}
+                placeholder="Your name"
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="excerpt" className="text-gray-700 dark:text-white/70">Excerpt</Label>
+              <Label htmlFor="excerpt">Excerpt</Label>
               <Input
                 id="excerpt"
                 value={formData.excerpt}
@@ -364,27 +308,14 @@ export function BlogManager() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="content" className="text-gray-700 dark:text-white/70">Content * (HTML supported)</Label>
+              <Label htmlFor="content">Content * (Markdown & HTML supported)</Label>
               <textarea
                 id="content"
                 value={formData.content}
                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                placeholder="Write your post content here..."
-                className="w-full min-h-[300px] p-3 border border-gray-200 dark:border-white/10 rounded-xl bg-gray-50 dark:bg-white/[0.05] resize-y font-mono text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30"
+                placeholder="Write your post content here using Markdown..."
+                className="w-full min-h-[300px] p-3 border rounded-lg bg-background resize-y font-mono text-sm"
               />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="published"
-                checked={formData.published}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, published: checked as boolean })
-                }
-              />
-              <Label htmlFor="published" className="cursor-pointer text-gray-700 dark:text-white/70">
-                Publish immediately
-              </Label>
             </div>
           </div>
 
@@ -396,10 +327,10 @@ export function BlogManager() {
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
+                  Publishing...
                 </>
               ) : (
-                'Save Post'
+                'Publish Post'
               )}
             </Button>
           </DialogFooter>
@@ -428,4 +359,3 @@ export function BlogManager() {
     </Card>
   )
 }
-

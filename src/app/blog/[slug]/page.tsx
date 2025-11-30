@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { Logo } from '@/components/logo'
 import { HomeNav } from '@/components/home-nav'
 import { format } from 'date-fns'
+import { MarkdownRenderer } from '@/components/markdown-renderer'
 
 interface Props {
   params: { slug: string }
@@ -97,10 +98,7 @@ export default async function BlogPostPage({ params }: Props) {
 
           {/* Content */}
           <article className="prose prose-gray dark:prose-invert prose-lg max-w-none">
-            <div 
-              className="text-gray-700 dark:text-white/80 leading-relaxed space-y-6 [&>p]:mb-6 [&>h2]:text-2xl [&>h2]:font-bold [&>h2]:text-gray-900 [&>h2]:dark:text-white [&>h2]:mt-12 [&>h2]:mb-4 [&>h3]:text-xl [&>h3]:font-semibold [&>h3]:text-gray-800 [&>h3]:dark:text-white/90 [&>h3]:mt-8 [&>h3]:mb-3 [&>ul]:list-disc [&>ul]:pl-6 [&>ul]:space-y-2 [&>ol]:list-decimal [&>ol]:pl-6 [&>ol]:space-y-2 [&>blockquote]:border-l-4 [&>blockquote]:border-violet-500 [&>blockquote]:pl-4 [&>blockquote]:italic [&>blockquote]:text-gray-500 [&>blockquote]:dark:text-white/60 [&>code]:bg-gray-100 [&>code]:dark:bg-white/10 [&>code]:px-1.5 [&>code]:py-0.5 [&>code]:rounded [&>code]:text-sm [&>pre]:bg-gray-100 [&>pre]:dark:bg-white/5 [&>pre]:p-4 [&>pre]:rounded-xl [&>pre]:overflow-x-auto"
-              dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }}
-            />
+            <MarkdownRenderer content={post.content} />
           </article>
         </div>
       </main>

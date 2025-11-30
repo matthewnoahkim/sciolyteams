@@ -489,10 +489,10 @@ export function HealthTools() {
 
     // Add team memberships
     const membershipRows = (user.memberships || []).map((m: any) => [
-      escapeCSV(m.team?.name || 'N/A'),
-      escapeCSV(m.team?.id || 'N/A'),
+      escapeCSV(m.club?.name || m.team?.name || 'N/A'),
+      escapeCSV(m.club?.id || m.team?.id || 'N/A'),
       escapeCSV(m.role || 'N/A'),
-      escapeCSV(m.team?.name || 'None'),
+      escapeCSV(m.club?.division || 'None'),
       escapeCSV(new Date(m.createdAt).toLocaleString()),
     ])
 
@@ -1086,7 +1086,7 @@ export function HealthTools() {
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {user.memberships.map((membership: any) => (
                                   <Badge key={membership.id} variant="outline">
-                                    {membership.team.name} ({membership.role})
+                                    {membership.club?.name || membership.team?.name || 'Unknown'} ({membership.role})
                                   </Badge>
                                 ))}
                               </div>
