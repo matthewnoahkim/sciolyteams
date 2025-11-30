@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { AlertTriangle, ChevronDown, ChevronRight, FileText, Shield, CreditCard, Moon, Sun } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, FileText, Shield, CreditCard } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -17,9 +17,9 @@ import { HealthTools } from '@/components/dev/health-tools'
 import { BlogManager } from '@/components/dev/blog-manager'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { useTheme } from 'next-themes'
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
+import { SignInThemeToggle } from '@/components/signin-theme-toggle'
 
 interface SectionProps {
   title: string
@@ -58,37 +58,6 @@ function Section({ title, icon, children, defaultOpen = false }: SectionProps) {
         </div>
       </div>
     </div>
-  )
-}
-
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return (
-      <button className="p-2.5 rounded-full bg-gray-100 dark:bg-white/10">
-        <Sun className="h-5 w-5" />
-      </button>
-    )
-  }
-
-  return (
-    <button
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="p-2.5 rounded-full bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
-      aria-label="Toggle theme"
-    >
-      {theme === 'dark' ? (
-        <Sun className="h-5 w-5 text-amber-500" />
-      ) : (
-        <Moon className="h-5 w-5 text-gray-600" />
-      )}
-    </button>
   )
 }
 
@@ -170,14 +139,14 @@ export default function DevPage() {
           <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-gradient-to-r from-cyan-500/10 dark:from-cyan-500/25 to-blue-500/10 dark:to-blue-600/25 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[100px] animate-blob animation-delay-2000 opacity-60 dark:opacity-100" />
           
           {/* Grid overlay */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[size:100px_100px]" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px]" />
         </div>
 
         {/* Header */}
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-200 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-xl">
           <div className="container mx-auto px-6 py-4 flex items-center justify-between">
             <Logo size="md" href="/" />
-            <ThemeToggle />
+            <SignInThemeToggle />
           </div>
         </header>
 
@@ -253,7 +222,7 @@ export default function DevPage() {
         <div className="absolute bottom-1/4 left-1/3 w-[550px] h-[550px] bg-gradient-to-r from-emerald-500/10 dark:from-emerald-500/20 to-teal-500/10 dark:to-teal-600/20 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[110px] animate-blob animation-delay-4000 opacity-60 dark:opacity-100" />
         
         {/* Grid overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[size:100px_100px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px]" />
       </div>
 
       {/* Header */}
@@ -261,7 +230,7 @@ export default function DevPage() {
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <Logo size="md" href="/" />
           <div className="flex items-center gap-4">
-            <ThemeToggle />
+            <SignInThemeToggle />
             <Button
               variant="outline"
               onClick={() => {
