@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { AlertTriangle, ChevronDown, ChevronRight, FileText, Shield, CreditCard } from 'lucide-react'
+import { AlertTriangle, FileText, Shield, CreditCard, LogOut } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -21,47 +20,16 @@ import Link from 'next/link'
 import { Logo } from '@/components/logo'
 import { SignInThemeToggle } from '@/components/signin-theme-toggle'
 
-interface SectionProps {
-  title: string
-  icon: React.ReactNode
-  children: React.ReactNode
-  defaultOpen?: boolean
-}
+type Section = 'blog' | 'security' | 'payments'
 
-function Section({ title, icon, children, defaultOpen = false }: SectionProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen)
-
-  return (
-    <div className="border border-gray-200 dark:border-white/[0.06] rounded-2xl overflow-hidden bg-white/60 dark:bg-white/[0.03] backdrop-blur-sm">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-6 py-5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          {icon}
-          <span className="text-lg font-semibold text-gray-900 dark:text-white">{title}</span>
-        </div>
-        {isOpen ? (
-          <ChevronDown className="h-5 w-5 text-gray-400 dark:text-white/40" />
-        ) : (
-          <ChevronRight className="h-5 w-5 text-gray-400 dark:text-white/40" />
-        )}
-      </button>
-      <div
-        className={cn(
-          'transition-all duration-300 ease-in-out',
-          isOpen ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
-        )}
-      >
-        <div className="px-6 pb-6 pt-2 space-y-6 border-t border-gray-100 dark:border-white/[0.06]">
-          {children}
-        </div>
-      </div>
-    </div>
-  )
-}
+const navItems: { id: Section; label: string; icon: React.ElementType; color: string }[] = [
+  { id: 'blog', label: 'Blog', icon: FileText, color: 'text-amber-500' },
+  { id: 'security', label: 'Security', icon: Shield, color: 'text-blue-500' },
+  { id: 'payments', label: 'Payments', icon: CreditCard, color: 'text-emerald-500' },
+]
 
 export default function DevPage() {
+  const [activeSection, setActiveSection] = useState<Section>('blog')
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('dev_auth') === 'true'
@@ -134,11 +102,8 @@ export default function DevPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0f] text-gray-900 dark:text-white transition-colors">
         {/* Background */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          {/* Gradient orbs - subtle in light mode */}
           <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-gradient-to-r from-violet-500/10 dark:from-violet-600/30 to-fuchsia-500/10 dark:to-fuchsia-600/30 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[120px] animate-blob opacity-60 dark:opacity-100" />
           <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-gradient-to-r from-cyan-500/10 dark:from-cyan-500/25 to-blue-500/10 dark:to-blue-600/25 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[100px] animate-blob animation-delay-2000 opacity-60 dark:opacity-100" />
-          
-          {/* Grid overlay */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px]" />
         </div>
 
@@ -211,101 +176,106 @@ export default function DevPage() {
     )
   }
 
-  // Main dev panel
+  // Main dev panel with sidebar
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0f] text-gray-900 dark:text-white transition-colors">
       {/* Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        {/* Gradient orbs - subtle in light mode */}
         <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-gradient-to-r from-violet-500/10 dark:from-violet-600/30 to-fuchsia-500/10 dark:to-fuchsia-600/30 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[120px] animate-blob opacity-60 dark:opacity-100" />
         <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-gradient-to-r from-cyan-500/10 dark:from-cyan-500/25 to-blue-500/10 dark:to-blue-600/25 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[100px] animate-blob animation-delay-2000 opacity-60 dark:opacity-100" />
         <div className="absolute bottom-1/4 left-1/3 w-[550px] h-[550px] bg-gradient-to-r from-emerald-500/10 dark:from-emerald-500/20 to-teal-500/10 dark:to-teal-600/20 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[110px] animate-blob animation-delay-4000 opacity-60 dark:opacity-100" />
-        
-        {/* Grid overlay */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px]" />
       </div>
 
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-200 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-xl">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+      {/* Sidebar */}
+      <aside className="fixed left-0 top-0 bottom-0 w-64 z-40 border-r border-gray-200 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-xl flex flex-col">
+        {/* Logo */}
+        <div className="p-6 border-b border-gray-200 dark:border-white/5">
           <Logo size="md" href="/" />
-          <div className="flex items-center gap-4">
-            <SignInThemeToggle />
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAuthenticated(false)
-                sessionStorage.removeItem('dev_auth')
-              }}
-              className="border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"
-            >
-              Logout
-            </Button>
-          </div>
         </div>
-      </header>
 
-      {/* Content */}
-      <main className="relative z-10 pt-28 pb-20 px-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-2">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const isActive = activeSection === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id)}
+                className={cn(
+                  'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200',
+                  isActive
+                    ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-medium'
+                    : 'text-gray-600 dark:text-white/60 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
+                )}
+              >
+                <Icon className={cn('h-5 w-5', isActive ? item.color : '')} />
+                <span>{item.label}</span>
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-200 dark:border-white/5 space-y-3">
+          <SignInThemeToggle />
+          <button
+            onClick={() => {
+              setIsAuthenticated(false)
+              sessionStorage.removeItem('dev_auth')
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-white/60 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white transition-all duration-200"
+          >
+            <LogOut className="h-5 w-5" />
+            <span>Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="ml-64 min-h-screen relative z-10">
+        {/* Header */}
+        <header className="sticky top-0 z-30 border-b border-gray-200 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-xl">
+          <div className="px-8 py-6">
+            <h1 className="text-2xl font-bold">
               <span className="bg-gradient-to-b from-gray-900 to-gray-600 dark:from-white dark:to-white/60 bg-clip-text text-transparent">
-                Development Panel
+                {navItems.find(item => item.id === activeSection)?.label}
               </span>
             </h1>
-            <p className="text-gray-500 dark:text-white/50">
-              Manage blog posts, monitor system activity, and handle payments
-            </p>
           </div>
+        </header>
 
-          {/* Blog Section */}
-          <Section
-            title="Blog"
-            icon={<FileText className="h-5 w-5 text-amber-500" />}
-            defaultOpen={true}
-          >
-            <BlogManager />
-          </Section>
-
-          {/* Security Section */}
-          <Section
-            title="Security"
-            icon={<Shield className="h-5 w-5 text-blue-500" />}
-            defaultOpen={false}
-          >
-            <HealthTools />
-          </Section>
-
-          {/* Payments Section */}
-          <Section
-            title="Payments"
-            icon={<CreditCard className="h-5 w-5 text-emerald-500" />}
-            defaultOpen={false}
-          >
+        {/* Content */}
+        <div className="p-8">
+          {activeSection === 'blog' && <BlogManager />}
+          
+          {activeSection === 'security' && <HealthTools />}
+          
+          {activeSection === 'payments' && (
             <div className="p-8 rounded-2xl bg-white/60 dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.06]">
-              <div className="text-center py-12">
-                <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-white/20" />
-                <p className="text-gray-500 dark:text-white/50">Payment management coming soon</p>
+              <div className="text-center py-16">
+                <CreditCard className="h-16 w-16 mx-auto mb-6 text-gray-300 dark:text-white/20" />
+                <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Payment Management</h2>
+                <p className="text-gray-500 dark:text-white/50">Coming soon</p>
               </div>
             </div>
-          </Section>
+          )}
         </div>
-      </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-gray-200 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-sm">
-        <div className="container mx-auto px-6 py-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-white/40">
-              <Link href="/terms" className="hover:text-gray-900 dark:hover:text-white transition-colors">Terms</Link>
-              <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-white transition-colors">Privacy</Link>
+        {/* Footer */}
+        <footer className="border-t border-gray-200 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-sm">
+          <div className="px-8 py-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-white/40">
+                <Link href="/terms" className="hover:text-gray-900 dark:hover:text-white transition-colors">Terms</Link>
+                <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-white transition-colors">Privacy</Link>
+              </div>
+              <p className="text-sm text-gray-400 dark:text-white/30">© {new Date().getFullYear()} Teamy. All rights reserved.</p>
             </div>
-            <p className="text-sm text-gray-400 dark:text-white/30">© {new Date().getFullYear()} Teamy. All rights reserved.</p>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </main>
     </div>
   )
 }
