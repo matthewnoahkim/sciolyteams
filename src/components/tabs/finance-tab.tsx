@@ -999,25 +999,120 @@ export default function FinanceTab({ clubId, isAdmin, currentMembershipId, curre
   })
 
   const handleExportCSV = () => {
-    // Create CSV header
-    const headers = ['Date', 'Description', 'Category', 'Amount', 'Notes']
+    // Helper function to escape CSV values
+    const escapeCSV = (value: string | null | undefined): string => {
+      if (!value) return ''
+      // Replace quotes with double quotes and wrap in quotes if contains comma, quote, or newline
+      const escaped = value.replace(/"/g, '""')
+      if (escaped.includes(',') || escaped.includes('"') || escaped.includes('\n') || escaped.includes('\r')) {
+        return `"${escaped}"`
+      }
+      return escaped
+    }
+
+    // Create CSV header with comprehensive fields
+    const headers = [
+      'Type',
+      'Status',
+      'Date',
+      'Description',
+      'Category',
+      'Amount',
+      'Event',
+      'Team',
+      'Added By',
+      'Added By Email',
+      'Notes/Justification',
+      'Created At',
+      'Updated At'
+    ]
     const csvRows = [headers.join(',')]
 
-    // Add expense rows
-    expenses.forEach((expense) => {
+    // Create maps for quick lookup of full expense and purchase request data
+    const expenseMap = new Map(expenses.map(e => [e.id, e]))
+    const purchaseRequestMap = new Map(purchaseRequests.map(pr => [pr.id, pr]))
+
+    // Add transaction rows (using filtered transactions)
+    filteredTransactions.forEach((transaction) => {
+      const isExpense = transaction.type === 'expense'
+      const sourceData = isExpense 
+        ? expenseMap.get(transaction.id)
+        : purchaseRequestMap.get(transaction.id)
+      
+      const amount = Math.abs(transaction.amount)
+      const formattedDate = new Date(transaction.date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      })
+      
+      let addedByName = ''
+      let addedByEmail = ''
+      let notes = ''
+      
+      if (isExpense && sourceData) {
+        const expense = sourceData as Expense
+        addedByName = expense.addedBy?.user?.name || ''
+        addedByEmail = expense.addedBy?.user?.email || ''
+        notes = expense.notes || ''
+      } else if (!isExpense && sourceData) {
+        const pr = sourceData as PurchaseRequest
+        addedByName = pr.requester?.name || ''
+        addedByEmail = pr.requester?.email || ''
+        notes = pr.justification || ''
+      }
+
       const row = [
-        new Date(expense.date).toLocaleDateString(),
-        `"${expense.description.replace(/"/g, '""')}"`, // Escape quotes in description
-        expense.category || '',
-        expense.amount.toFixed(2),
-        expense.notes ? `"${expense.notes.replace(/"/g, '""')}"` : '', // Escape quotes in notes
+        escapeCSV(isExpense ? 'Expense' : 'Purchase Request'),
+        escapeCSV(transaction.status || (transaction.isPending ? 'PENDING' : 'COMPLETED')),
+        escapeCSV(formattedDate),
+        escapeCSV(transaction.description),
+        escapeCSV(transaction.category || ''),
+        amount.toFixed(2), // Amount without quotes for Excel compatibility
+        escapeCSV(transaction.event?.name || ''),
+        escapeCSV(transaction.team?.name || ''),
+        escapeCSV(addedByName),
+        escapeCSV(addedByEmail),
+        escapeCSV(notes),
+        escapeCSV(sourceData ? new Date(sourceData.createdAt).toLocaleString('en-US') : ''),
+        escapeCSV(sourceData ? new Date(sourceData.updatedAt).toLocaleString('en-US') : ''),
       ]
       csvRows.push(row.join(','))
     })
 
-    // Add total row
+    // Add summary section
     csvRows.push('')
-    csvRows.push(`Total,${totalExpenses.toFixed(2)}`)
+    csvRows.push('Summary')
+    csvRows.push('Total Transactions,' + filteredTransactions.length)
+    
+    const totalExpenseAmount = filteredTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    const totalPendingAmount = filteredTransactions
+      .filter(t => t.isPending)
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    
+    csvRows.push(`Total Expenses,${totalExpenseAmount.toFixed(2)}`)
+    csvRows.push(`Total Pending Requests,${totalPendingAmount.toFixed(2)}`)
+    
+    // Add category breakdown if there are categories
+    const categoryTotals = new Map<string, number>()
+    filteredTransactions.forEach(t => {
+      if (t.category) {
+        const current = categoryTotals.get(t.category) || 0
+        categoryTotals.set(t.category, current + Math.abs(t.amount))
+      }
+    })
+    
+    if (categoryTotals.size > 0) {
+      csvRows.push('')
+      csvRows.push('Category Breakdown')
+      Array.from(categoryTotals.entries())
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([category, total]) => {
+          csvRows.push(`${escapeCSV(category)},${total.toFixed(2)}`)
+        })
+    }
 
     // Create CSV content
     const csvContent = csvRows.join('\n')
@@ -1027,15 +1122,27 @@ export default function FinanceTab({ clubId, isAdmin, currentMembershipId, curre
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
     link.setAttribute('href', url)
-    link.setAttribute('download', `expenses-${new Date().toISOString().split('T')[0]}.csv`)
+    
+    // Generate filename with date and filter info
+    const dateStr = new Date().toISOString().split('T')[0]
+    let filename = `transactions-${dateStr}`
+    if (filterCategory) filename += `-${filterCategory.replace(/[^a-z0-9]/gi, '_')}`
+    if (filterEvent) {
+      const eventName = eventMap.get(filterEvent)?.name || 'event'
+      filename += `-${eventName.replace(/[^a-z0-9]/gi, '_')}`
+    }
+    if (filterStatus !== 'all') filename += `-${filterStatus}`
+    link.setAttribute('download', `${filename}.csv`)
+    
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    URL.revokeObjectURL(url)
 
     toast({
       title: 'Export Successful',
-      description: 'Expenses spreadsheet has been exported',
+      description: `Exported ${filteredTransactions.length} transaction${filteredTransactions.length !== 1 ? 's' : ''} to CSV`,
     })
   }
 
@@ -1155,7 +1262,19 @@ export default function FinanceTab({ clubId, isAdmin, currentMembershipId, curre
       {/* Transactions Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Transactions</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Transactions</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              className="h-8 text-xs sm:text-sm"
+            >
+              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+              <span className="hidden sm:inline">Export CSV</span>
+              <span className="sm:hidden">Export</span>
+            </Button>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {/* Search Bar */}
@@ -1174,7 +1293,7 @@ export default function FinanceTab({ clubId, isAdmin, currentMembershipId, curre
                     e.preventDefault()
                   }
                 }}
-                className="pl-11 pr-24 h-11 bg-background/50 border-border/50 focus:bg-background focus:border-border"
+                className="pl-11 pr-12 h-11 bg-background/50 border-border/50 focus:bg-background focus:border-border"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
                 <Button
@@ -1185,15 +1304,6 @@ export default function FinanceTab({ clubId, isAdmin, currentMembershipId, curre
                   title="Filter transactions"
                 >
                   <Filter className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleExportCSV}
-                  className="h-7 w-7 p-0"
-                  title="Export to CSV"
-                >
-                  <Cloud className="h-4 w-4" />
                 </Button>
               </div>
             </div>

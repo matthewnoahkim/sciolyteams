@@ -26,7 +26,7 @@ export function HomeNav() {
           <Link
             key={item.href}
             href={item.href}
-            className="text-sm font-medium text-white/60 hover:text-white transition-colors"
+            className="text-sm font-medium text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             {item.label}
           </Link>
@@ -37,7 +37,7 @@ export function HomeNav() {
       <div className="md:hidden">
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 text-white/60 hover:text-white transition-colors"
+          className="p-2 text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white transition-colors"
           aria-label="Toggle menu"
         >
           {mobileMenuOpen ? (
@@ -48,14 +48,14 @@ export function HomeNav() {
         </button>
         
         {mobileMenuOpen && (
-          <div className="absolute top-full left-0 right-0 bg-[#0a0a0f]/95 border-b border-white/5 backdrop-blur-xl">
+          <div className="absolute top-full left-0 right-0 bg-white/95 dark:bg-[#0a0a0f]/95 border-b border-gray-200/50 dark:border-white/5 backdrop-blur-xl">
             <nav className="container mx-auto px-6 py-4 flex flex-col gap-4">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-sm font-medium text-white/60 hover:text-white transition-colors py-2"
+                  className="text-sm font-medium text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white transition-colors py-2"
                 >
                   {item.label}
                 </Link>
