@@ -168,7 +168,7 @@ export default async function FeaturesPage() {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-200/50 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-xl">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <Logo size="md" />
+          <Logo size="md" href="/" />
           <div className="flex items-center gap-6">
             <HomeNav />
             <SignInThemeToggle />

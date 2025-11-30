@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { HealthTools } from '@/components/dev/health-tools'
+import { BlogManager } from '@/components/dev/blog-manager'
 import { Skeleton } from '@/components/ui/skeleton'
 
 // WARNING: This is a development-only page
@@ -169,6 +170,8 @@ export default function DevPage() {
         </div>
 
         <HealthTools />
+        
+        <BlogManager />
       </div>
     </div>
   )

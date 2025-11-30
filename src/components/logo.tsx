@@ -2,6 +2,7 @@
 
 import { Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 interface LogoProps {
   className?: string
@@ -9,6 +10,7 @@ interface LogoProps {
   textClassName?: string
   showText?: boolean
   size?: 'sm' | 'md' | 'lg'
+  href?: string
 }
 
 const sizeMap = {
@@ -34,12 +36,13 @@ export function Logo({
   iconClassName, 
   textClassName,
   showText = true,
-  size = 'md'
+  size = 'md',
+  href
 }: LogoProps) {
   const sizes = sizeMap[size]
   
-  return (
-    <div className={cn('flex items-center gap-3', className)}>
+  const content = (
+    <div className={cn('flex items-center gap-3', href && 'cursor-pointer hover:opacity-80 transition-opacity', className)}>
       <div className={cn(
         'flex items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg',
         sizes.container,
@@ -54,5 +57,11 @@ export function Logo({
       )}
     </div>
   )
+
+  if (href) {
+    return <Link href={href}>{content}</Link>
+  }
+
+  return content
 }
 
