@@ -5,13 +5,13 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
-const createSubteamSchema = z.object({
+const createTeamSchema = z.object({
   name: z.string().min(1).max(100),
 })
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { teamId: string } }
+  { params }: { params: { clubId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -19,19 +19,19 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await requireAdmin(session.user.id, params.teamId)
+    await requireAdmin(session.user.id, params.clubId)
 
     const body = await req.json()
-    const { name } = createSubteamSchema.parse(body)
+    const { name } = createTeamSchema.parse(body)
 
-    const subteam = await prisma.subteam.create({
+    const team = await prisma.team.create({
       data: {
         name,
-        teamId: params.teamId,
+        clubId: params.clubId,
       },
     })
 
-    return NextResponse.json({ subteam })
+    return NextResponse.json({ team })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 })
@@ -39,14 +39,14 @@ export async function POST(
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
-    console.error('Create subteam error:', error)
+    console.error('Create team error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { teamId: string } }
+  { params }: { params: { clubId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -54,8 +54,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const subteams = await prisma.subteam.findMany({
-      where: { teamId: params.teamId },
+    const teams = await prisma.team.findMany({
+      where: { clubId: params.clubId },
       include: {
         members: {
           include: {
@@ -80,9 +80,9 @@ export async function GET(
       },
     })
 
-    return NextResponse.json({ subteams })
+    return NextResponse.json({ teams })
   } catch (error) {
-    console.error('Get subteams error:', error)
+    console.error('Get teams error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -40,7 +40,7 @@ export async function PATCH(
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, purchaseRequest.teamId)
+    const isAdminUser = await isAdmin(session.user.id, purchaseRequest.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can review purchase requests' },
@@ -49,30 +49,30 @@ export async function PATCH(
     }
 
     // Get reviewer's membership
-    const reviewerMembership = await getUserMembership(session.user.id, purchaseRequest.teamId)
+    const reviewerMembership = await getUserMembership(session.user.id, purchaseRequest.clubId)
     if (!reviewerMembership) {
       return NextResponse.json({ error: 'Reviewer membership not found' }, { status: 404 })
     }
 
     // If approving, check budget limits (unless admin override)
     if (validatedData.status === 'APPROVED' && purchaseRequest.eventId) {
-      // Check for team-wide budget (subteamId is null)
+      // Check for club-wide budget (teamId is null)
       const budget = await prisma.eventBudget.findFirst({
         where: {
-          teamId: purchaseRequest.teamId,
+          clubId: purchaseRequest.clubId,
           eventId: purchaseRequest.eventId,
-          subteamId: null,
+          teamId: null,
         },
       })
 
       if (budget && !validatedData.adminOverride) {
-        // Filter expenses by subteam if budget is subteam-specific
+        // Filter expenses by club if budget is team-specific
         const expenseWhere: any = {
-          teamId: purchaseRequest.teamId,
+          clubId: purchaseRequest.clubId,
           eventId: purchaseRequest.eventId,
         }
-        if (budget.subteamId) {
-          expenseWhere.subteamId = budget.subteamId
+        if (budget.teamId) {
+          expenseWhere.teamId = budget.teamId
         }
         
         const expenses = await prisma.expense.findMany({
@@ -119,7 +119,7 @@ export async function PATCH(
               slug: true,
             },
           },
-          subteam: {
+          team: {
             select: {
               id: true,
               name: true,
@@ -140,9 +140,9 @@ export async function PATCH(
       if (validatedData.status === 'APPROVED' && validatedData.addToExpenses) {
         expense = await tx.expense.create({
           data: {
-            teamId: purchaseRequest.teamId,
+            clubId: purchaseRequest.clubId,
             eventId: purchaseRequest.eventId,
-            subteamId: purchaseRequest.subteamId, // Inherit subteam from purchase request
+            teamId: purchaseRequest.teamId, // Inherit team from purchase request
             description: purchaseRequest.description,
             category: purchaseRequest.category,
             amount: validatedData.actualAmount ?? purchaseRequest.estimatedAmount,
@@ -197,13 +197,13 @@ export async function DELETE(
     }
 
     // Get user's membership
-    const membership = await getUserMembership(session.user.id, purchaseRequest.teamId)
+    const membership = await getUserMembership(session.user.id, purchaseRequest.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
     // Only the requester or an admin can delete
-    const isAdminUser = await isAdmin(session.user.id, purchaseRequest.teamId)
+    const isAdminUser = await isAdmin(session.user.id, purchaseRequest.clubId)
     const isRequester = purchaseRequest.requesterId === membership.id
 
     if (!isAdminUser && !isRequester) {

@@ -26,6 +26,12 @@ export async function DELETE(
             name: true,
           },
         },
+        club: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 
@@ -39,14 +45,14 @@ export async function DELETE(
     }
 
     // Verify user is an admin of the team
-    const membership = await getUserMembership(session.user.id, registration.teamId)
+    const membership = await getUserMembership(session.user.id, registration.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'You must be a member of this team' }, { status: 403 })
     }
 
     if (membership.role !== Role.ADMIN) {
       return NextResponse.json({ 
-        error: `You must be an admin of ${registration.team.name} to deregister from tournaments` 
+        error: `You must be an admin of ${registration.club.name} to deregister from tournaments` 
       }, { status: 403 })
     }
 

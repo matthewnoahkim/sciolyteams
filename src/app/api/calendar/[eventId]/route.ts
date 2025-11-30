@@ -15,7 +15,7 @@ const updateEventSchema = z.object({
   rsvpEnabled: z.boolean().optional(),
   important: z.boolean().optional(),
   scope: z.enum(['PERSONAL', 'SUBTEAM', 'TEAM']).optional(),
-  subteamId: z.string().nullable().optional(),
+  teamId: z.string().nullable().optional(),
 })
 
 export async function PATCH(
@@ -44,14 +44,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    const membership = await getUserMembership(session.user.id, event.teamId)
+    const membership = await getUserMembership(session.user.id, event.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
     // Check permissions
     const isCreator = event.creatorId === membership.id
-    const isAdminUser = await isAdmin(session.user.id, event.teamId)
+    const isAdminUser = await isAdmin(session.user.id, event.clubId)
 
     // Admins can edit all events EXCEPT personal events made by other members
     // Members can only edit their own events
@@ -76,7 +76,7 @@ export async function PATCH(
     if (validatedData.location !== undefined) updateData.location = validatedData.location
     if (validatedData.color !== undefined) updateData.color = validatedData.color
     if (validatedData.scope !== undefined) updateData.scope = validatedData.scope
-    if (validatedData.subteamId !== undefined) updateData.subteamId = validatedData.subteamId
+    if (validatedData.teamId !== undefined) updateData.teamId = validatedData.teamId
     if (validatedData.important !== undefined) updateData.important = validatedData.important
     
     // For PERSONAL events, RSVP should always be disabled
@@ -98,7 +98,7 @@ export async function PATCH(
       const shouldDeleteAnnouncement = 
         existingEvent?.announcement && 
         validatedData.scope === 'PERSONAL' && 
-        (existingEvent.scope === 'TEAM' || existingEvent.scope === 'SUBTEAM')
+        (existingEvent.scope === 'CLUB' || existingEvent.scope === 'TEAM')
 
       // If changing to PERSONAL scope, delete the linked announcement
       if (shouldDeleteAnnouncement && existingEvent?.announcement) {
@@ -116,7 +116,7 @@ export async function PATCH(
               user: true,
             },
           },
-          subteam: true,
+          team: true,
           rsvps: {
             include: {
               user: {
@@ -187,14 +187,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    const membership = await getUserMembership(session.user.id, event.teamId)
+    const membership = await getUserMembership(session.user.id, event.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
     // Check permissions
     const isCreator = event.creatorId === membership.id
-    const isAdminUser = await isAdmin(session.user.id, event.teamId)
+    const isAdminUser = await isAdmin(session.user.id, event.clubId)
 
     // Admins can delete all events EXCEPT personal events made by other members
     // Members can only delete their own events

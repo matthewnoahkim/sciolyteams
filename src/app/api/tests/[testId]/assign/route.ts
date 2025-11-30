@@ -8,7 +8,7 @@ import { z } from 'zod'
 const assignSchema = z.object({
   assignments: z.array(z.object({
     assignedScope: z.enum(['CLUB', 'TEAM', 'PERSONAL']),
-    subteamId: z.string().optional(),
+    teamId: z.string().optional(),
     targetMembershipId: z.string().optional(),
     eventId: z.string().optional(), // For event-based assignments
   })),
@@ -37,7 +37,7 @@ export async function POST(
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    const isAdminUser = await isAdmin(session.user.id, test.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can assign tests' },
@@ -57,7 +57,7 @@ export async function POST(
         data: validatedData.assignments.map((a) => ({
           testId: params.testId,
           assignedScope: a.assignedScope,
-          subteamId: a.subteamId,
+          teamId: a.teamId,
           targetMembershipId: a.targetMembershipId,
           eventId: a.eventId,
         })),
@@ -68,7 +68,7 @@ export async function POST(
     const assignments = await prisma.testAssignment.findMany({
       where: { testId: params.testId },
       include: {
-        subteam: {
+        team: {
           select: {
             id: true,
             name: true,

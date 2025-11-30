@@ -35,7 +35,7 @@ export async function GET(
                 },
               },
             },
-            subteam: true,
+            team: true,
           },
         },
         checkIns: {
@@ -60,7 +60,7 @@ export async function GET(
       return NextResponse.json({ error: 'Attendance not found' }, { status: 404 })
     }
 
-    await requireMember(session.user.id, attendance.teamId)
+    await requireMember(session.user.id, attendance.clubId)
 
     return NextResponse.json({ attendance })
   } catch (error) {
@@ -99,7 +99,7 @@ export async function DELETE(
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, attendance.teamId)
+    const isAdminUser = await isAdmin(session.user.id, attendance.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can delete attendance records' },

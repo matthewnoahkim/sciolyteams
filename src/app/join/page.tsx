@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
-import { JoinTeamPage } from '@/components/join-team-page'
+import { JoinClubPage } from '@/components/join-club-page'
 
 type JoinPageProps = {
   searchParams?: {
@@ -21,7 +21,5 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
     redirect(`/login?callbackUrl=${encodeURIComponent(target)}`)
   }
 
-  return <JoinTeamPage initialCode={code} autoJoin={autoJoin} />
+  return <JoinClubPage initialCode={code} autoJoin={autoJoin} />
 }
-
-

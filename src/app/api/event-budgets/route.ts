@@ -6,14 +6,14 @@ import { requireMember, isAdmin, getUserMembership } from '@/lib/rbac'
 import { z } from 'zod'
 
 const createEventBudgetSchema = z.object({
-  teamId: z.string(),
+  clubId: z.string(),
   eventId: z.string(),
-  subteamId: z.string().optional().nullable(),
+  teamId: z.string().optional().nullable(),
   maxBudget: z.number().min(0),
   budgetId: z.string().optional(), // For editing existing budgets
 })
 
-// GET /api/event-budgets?teamId=xxx
+// GET /api/event-budgets?clubId=xxx
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -22,41 +22,41 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID is required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID is required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
-    // Get user's membership to check role and subteam
-    const membership = await getUserMembership(session.user.id, teamId)
+    // Get user's membership to check role and team
+    const membership = await getUserMembership(session.user.id, clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
     // Check if user is admin
-    const isAdminUser = await isAdmin(session.user.id, teamId)
+    const isAdminUser = await isAdmin(session.user.id, clubId)
 
     // Build where clause to filter budgets
-    // Admins see all budgets, regular members only see their subteam's budgets or team-wide budgets
+    // Admins see all budgets, regular members only see their team's budgets or club-wide budgets
     const whereClause: any = {
-      teamId,
+      clubId,
     }
 
     if (!isAdminUser) {
       // Non-admin members can only see:
-      // 1. Team-wide budgets (subteamId is null)
-      // 2. Budgets for their own subteam
-      if (membership.subteamId) {
+      // 1. Club-wide budgets (teamId is null)
+      // 2. Budgets for their own team
+      if (membership.teamId) {
         whereClause.OR = [
-          { subteamId: null }, // Team-wide budgets
-          { subteamId: membership.subteamId }, // Their subteam's budgets
+          { teamId: null }, // Club-wide budgets
+          { teamId: membership.teamId }, // Their team's budgets
         ]
       } else {
-        // Member without subteam can only see team-wide budgets
-        whereClause.subteamId = null
+        // Member without team can only see club-wide budgets
+        whereClause.teamId = null
       }
     }
     // If admin, no additional filtering - they see all budgets
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
             division: true,
           },
         },
-        subteam: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -87,22 +87,22 @@ export async function GET(req: NextRequest) {
     // Calculate remaining budget and requested amounts for each event
     const budgetsWithRemaining = await Promise.all(
       budgets.map(async (budget) => {
-        // Build where clauses that match the budget's scope (team-wide or subteam-specific)
+        // Build where clauses that match the budget's scope (club-wide or team-specific)
         const expenseWhere: any = {
-          teamId,
+          clubId,
           eventId: budget.eventId,
         }
         const requestWhere: any = {
-          teamId,
+          clubId,
           eventId: budget.eventId,
           status: 'PENDING',
         }
 
-        // If budget is subteam-specific, only count expenses/requests for that subteam
-        // For team-wide budgets (subteamId is null), count all expenses/requests for the event
-        if (budget.subteamId) {
-          expenseWhere.subteamId = budget.subteamId
-          requestWhere.subteamId = budget.subteamId
+        // If budget is team-specific, only count expenses/requests for that team
+        // For club-wide budgets (teamId is null), count all expenses/requests for the event
+        if (budget.teamId) {
+          expenseWhere.teamId = budget.teamId
+          requestWhere.teamId = budget.teamId
         }
 
         const [expenses, pendingRequests] = await Promise.all([
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
     const validatedData = createEventBudgetSchema.parse(body)
 
     // Only admins can create/update budgets
-    const isAdminUser = await isAdmin(session.user.id, validatedData.teamId)
+    const isAdminUser = await isAdmin(session.user.id, validatedData.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can manage event budgets' },
@@ -172,14 +172,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    // Verify subteam belongs to team if provided
-    if (validatedData.subteamId) {
-      const subteam = await prisma.subteam.findUnique({
-        where: { id: validatedData.subteamId },
+    // Verify team belongs to club if provided
+    if (validatedData.teamId) {
+      const team = await prisma.team.findUnique({
+        where: { id: validatedData.teamId },
       })
-      if (!subteam || subteam.teamId !== validatedData.teamId) {
+      if (!team || team.clubId !== validatedData.clubId) {
         return NextResponse.json(
-          { error: 'Subteam does not belong to this team' },
+          { error: 'Team does not belong to this club' },
           { status: 400 }
         )
       }
@@ -197,24 +197,24 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Budget not found' }, { status: 404 })
       }
 
-      // Verify the budget belongs to the team
-      if (existingBudget.teamId !== validatedData.teamId) {
+      // Verify the budget belongs to the club
+      if (existingBudget.clubId !== validatedData.clubId) {
         return NextResponse.json(
-          { error: 'Budget does not belong to this team' },
+          { error: 'Budget does not belong to this club' },
           { status: 403 }
         )
       }
 
-      // Check if changing eventId/subteamId would create a duplicate
+      // Check if changing eventId/teamId would create a duplicate
       const whereClause: any = {
-        teamId: validatedData.teamId,
+        clubId: validatedData.clubId,
         eventId: validatedData.eventId,
       }
       
-      if (validatedData.subteamId) {
-        whereClause.subteamId = validatedData.subteamId
+      if (validatedData.teamId) {
+        whereClause.teamId = validatedData.teamId
       } else {
-        whereClause.subteamId = null
+        whereClause.teamId = null
       }
 
       const conflictingBudget = await prisma.eventBudget.findFirst({
@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
 
       if (conflictingBudget) {
         return NextResponse.json(
-          { error: 'A budget already exists for this event and subteam combination' },
+          { error: 'A budget already exists for this event and team combination' },
           { status: 400 }
         )
       }
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
         where: { id: validatedData.budgetId },
         data: {
           eventId: validatedData.eventId,
-          subteamId: validatedData.subteamId || null,
+          teamId: validatedData.teamId || null,
           maxBudget: validatedData.maxBudget,
         },
         include: {
@@ -248,7 +248,7 @@ export async function POST(req: NextRequest) {
               division: true,
             },
           },
-          subteam: {
+          team: {
             select: {
               id: true,
               name: true,
@@ -259,14 +259,14 @@ export async function POST(req: NextRequest) {
     } else {
       // Creating a new budget - check if one already exists for this combination
       const whereClause: any = {
-        teamId: validatedData.teamId,
+        clubId: validatedData.clubId,
         eventId: validatedData.eventId,
       }
       
-      if (validatedData.subteamId) {
-        whereClause.subteamId = validatedData.subteamId
+      if (validatedData.teamId) {
+        whereClause.teamId = validatedData.teamId
       } else {
-        whereClause.subteamId = null
+        whereClause.teamId = null
       }
       
       const existingBudget = await prisma.eventBudget.findFirst({
@@ -289,7 +289,7 @@ export async function POST(req: NextRequest) {
                 division: true,
               },
             },
-            subteam: {
+            team: {
               select: {
                 id: true,
                 name: true,
@@ -301,9 +301,9 @@ export async function POST(req: NextRequest) {
         // Create new budget
         budget = await prisma.eventBudget.create({
           data: {
-            teamId: validatedData.teamId,
+            clubId: validatedData.clubId,
             eventId: validatedData.eventId,
-            subteamId: validatedData.subteamId || null,
+            teamId: validatedData.teamId || null,
             maxBudget: validatedData.maxBudget,
           },
           include: {
@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
                 division: true,
               },
             },
-            subteam: {
+            team: {
               select: {
                 id: true,
                 name: true,
@@ -328,18 +328,18 @@ export async function POST(req: NextRequest) {
 
     // Calculate remaining budget and requested amounts (same logic as GET)
     const expenseWhere: any = {
-      teamId: validatedData.teamId,
+      clubId: validatedData.clubId,
       eventId: budget.eventId,
     }
     const requestWhere: any = {
-      teamId: validatedData.teamId,
+      clubId: validatedData.clubId,
       eventId: budget.eventId,
       status: 'PENDING',
     }
 
-    if (budget.subteamId) {
-      expenseWhere.subteamId = budget.subteamId
-      requestWhere.subteamId = budget.subteamId
+    if (budget.teamId) {
+      expenseWhere.teamId = budget.teamId
+      requestWhere.teamId = budget.teamId
     }
 
     const [expenses, pendingRequests] = await Promise.all([
@@ -387,7 +387,7 @@ export async function POST(req: NextRequest) {
       }
       if (error.message.includes('Foreign key constraint')) {
         return NextResponse.json(
-          { error: 'Invalid event or team ID' },
+          { error: 'Invalid event or club ID' },
           { status: 400 }
         )
       }
@@ -399,4 +399,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

@@ -49,7 +49,7 @@ export default async function HomePage() {
     {
       icon: Users2,
       title: 'Team Organization',
-      description: 'Organize members into subteams, manage rosters, and assign roles with precision.',
+      description: 'Organize members into teams, manage rosters, and assign roles with precision.',
       color: 'pink',
       gradient: 'from-pink-500 to-rose-500'
     },
@@ -361,7 +361,7 @@ export default async function HomePage() {
                       <div className="p-8 rounded-3xl bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-2xl transform hover:scale-105 transition-transform duration-300">
                         <Users2 className="h-10 w-10 mb-4" />
                         <h3 className="text-xl font-bold mb-2">Team Management</h3>
-                        <p className="text-sm opacity-90">Organize members and subteams efficiently</p>
+                        <p className="text-sm opacity-90">Organize members and teams efficiently</p>
                       </div>
                     </ScrollAnimate>
                   </div>

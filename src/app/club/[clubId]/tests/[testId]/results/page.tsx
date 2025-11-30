@@ -28,7 +28,7 @@ export default async function TestResultsPage({
   const test = await prisma.test.findFirst({
     where: {
       id: params.testId,
-      teamId: params.clubId,
+      clubId: params.clubId,
     },
     select: {
       id: true,
@@ -43,8 +43,6 @@ export default async function TestResultsPage({
     notFound()
   }
 
-  // Fetch attempt directly from database (for initial render)
-  // The ViewResultsClient will fetch from API which applies score release filtering
   const attempt = await prisma.testAttempt.findFirst({
     where: {
       membershipId: membership.id,
@@ -77,14 +75,13 @@ export default async function TestResultsPage({
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">No Results Found</h1>
           <p className="text-muted-foreground">
-            You haven&apos;t submitted any attempts for this test yet.
+            You have not submitted any attempts for this test yet.
           </p>
         </div>
       </div>
     )
   }
 
-  // Transform attempt data to match API format
   const sortedAnswers = attempt.answers.sort((a, b) => a.question.order - b.question.order)
   const attemptData = {
     id: attempt.id,
@@ -120,7 +117,6 @@ export default async function TestResultsPage({
     })),
   }
 
-  // Apply score release filtering for non-admins
   const filteredAttemptData = filterAttemptByReleaseMode(
     attemptData,
     {
@@ -143,4 +139,5 @@ export default async function TestResultsPage({
     />
   )
 }
+
 

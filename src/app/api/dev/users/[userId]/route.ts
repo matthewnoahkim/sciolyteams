@@ -14,8 +14,8 @@ export async function DELETE(
     // Handle teams where this user is the creator
     // Transfer ownership to another admin before deleting the user
     await prisma.$transaction(async (tx) => {
-      // Find all teams created by this user
-      const teamsCreatedByUser = await tx.team.findMany({
+      // Find all clubs created by this user
+      const clubsCreatedByUser = await tx.club.findMany({
         where: { createdById: userId },
         include: {
           memberships: {
@@ -29,19 +29,19 @@ export async function DELETE(
         },
       })
 
-      // For each team, transfer ownership to another admin if available
-      for (const team of teamsCreatedByUser) {
-        if (team.memberships.length > 0) {
+      // For each club, transfer ownership to another admin if available
+      for (const club of clubsCreatedByUser) {
+        if (club.memberships.length > 0) {
           // Transfer to first available admin
-          await tx.team.update({
-            where: { id: team.id },
-            data: { createdById: team.memberships[0].userId },
+          await tx.club.update({
+            where: { id: club.id },
+            data: { createdById: club.memberships[0].userId },
           })
         } else {
           // No other admin exists - find any member to transfer to
           const anyMember = await tx.membership.findFirst({
             where: {
-              teamId: team.id,
+              clubId: club.id,
               userId: { not: userId },
             },
             orderBy: { createdAt: 'asc' },
@@ -49,8 +49,8 @@ export async function DELETE(
 
           if (anyMember) {
             // Transfer to first available member and make them admin
-            await tx.team.update({
-              where: { id: team.id },
+            await tx.club.update({
+              where: { id: club.id },
               data: { createdById: anyMember.userId },
             })
             await tx.membership.update({
@@ -58,18 +58,18 @@ export async function DELETE(
               data: { role: 'ADMIN' },
             })
           } else {
-            // No other members - this team will be orphaned
-            // In dev panel, we allow this - the team will be deleted when user is deleted
+            // No other members - this club will be orphaned
+            // In dev panel, we allow this - the club will be deleted when user is deleted
             // due to cascade, but createdById constraint will prevent it
-            // So we need to delete the team first or handle the constraint
-            // For now, we'll try to delete the team if it has no other members
+            // So we need to delete the club first or handle the constraint
+            // For now, we'll try to delete the club if it has no other members
             try {
-              await tx.team.delete({
-                where: { id: team.id },
+              await tx.club.delete({
+                where: { id: club.id },
               })
             } catch (e) {
-              // If team deletion fails, we can't proceed with user deletion
-              throw new Error(`Cannot delete user: team "${team.name}" has no other members and cannot be transferred`)
+              // If club deletion fails, we can't proceed with user deletion
+              throw new Error(`Cannot delete user: club "${club.name}" has no other members and cannot be transferred`)
             }
           }
         }

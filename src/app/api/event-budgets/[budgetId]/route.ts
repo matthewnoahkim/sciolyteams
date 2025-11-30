@@ -25,7 +25,7 @@ export async function DELETE(
     }
 
     // Only admins can delete budgets
-    const isAdminUser = await isAdmin(session.user.id, budget.teamId)
+    const isAdminUser = await isAdmin(session.user.id, budget.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can delete event budgets' },

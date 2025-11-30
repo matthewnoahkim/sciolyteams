@@ -45,9 +45,9 @@ export async function POST(
     }
 
     // Verify user is a member of the team
-    await requireMember(session.user.id, attendance.teamId)
+    await requireMember(session.user.id, attendance.clubId)
 
-    const membership = await getUserMembership(session.user.id, attendance.teamId)
+    const membership = await getUserMembership(session.user.id, attendance.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }

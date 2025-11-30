@@ -22,38 +22,38 @@ export async function POST(req: NextRequest) {
 
     // Verify the target exists and user has access
     let hasAccess = false
-    let teamId = ''
+    let clubId = ''
 
     if (targetType === 'announcement') {
       const announcement = await prisma.announcement.findUnique({
         where: { id: targetId },
-        select: { id: true, teamId: true },
+        select: { id: true, clubId: true },
       })
       if (announcement) {
         hasAccess = true
-        teamId = announcement.teamId
+        clubId = announcement.clubId
       }
     } else if (targetType === 'event') {
       const event = await prisma.calendarEvent.findUnique({
         where: { id: targetId },
-        select: { id: true, teamId: true },
+        select: { id: true, clubId: true },
       })
       if (event) {
         hasAccess = true
-        teamId = event.teamId
+        clubId = event.clubId
       }
     } else if (targetType === 'reply') {
       const reply = await prisma.announcementReply.findUnique({
         where: { id: targetId },
         include: {
           announcement: {
-            select: { teamId: true },
+            select: { clubId: true },
           },
         },
       })
       if (reply) {
         hasAccess = true
-        teamId = reply.announcement.teamId
+        clubId = reply.announcement.clubId
       }
     }
 
@@ -64,9 +64,9 @@ export async function POST(req: NextRequest) {
     // Verify user is a member of the team
     const membership = await prisma.membership.findUnique({
       where: {
-        userId_teamId: {
+        userId_clubId: {
           userId: session.user.id,
-          teamId: teamId,
+          clubId: clubId,
         },
       },
     })

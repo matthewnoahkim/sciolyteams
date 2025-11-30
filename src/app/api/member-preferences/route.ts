@@ -43,11 +43,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    await requireMember(session.user.id, membership.teamId)
+    await requireMember(session.user.id, membership.clubId)
 
     // Only admins can view other members' preferences
-    const currentMembership = await getUserMembership(session.user.id, membership.teamId)
-    const isAdminUser = await isAdmin(session.user.id, membership.teamId)
+    const currentMembership = await getUserMembership(session.user.id, membership.clubId)
+    const isAdminUser = await isAdmin(session.user.id, membership.clubId)
 
     if (currentMembership?.id !== membershipId && !isAdminUser) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -83,10 +83,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    await requireMember(session.user.id, targetMembership.teamId)
+    await requireMember(session.user.id, targetMembership.clubId)
 
     // Only admins can update preferences
-    const isAdminUser = await isAdmin(session.user.id, targetMembership.teamId)
+    const isAdminUser = await isAdmin(session.user.id, targetMembership.clubId)
     if (!isAdminUser) {
       return NextResponse.json({ error: 'Only admins can update preferences' }, { status: 403 })
     }

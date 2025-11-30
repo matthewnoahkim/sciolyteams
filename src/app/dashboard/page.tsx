@@ -14,8 +14,8 @@ export default async function DashboardPage() {
   const memberships = await prisma.membership.findMany({
     where: { userId: session.user.id },
     include: {
+      club: true,
       team: true,
-      subteam: true,
       rosterAssignments: {
         include: {
           event: true,
@@ -29,4 +29,3 @@ export default async function DashboardPage() {
 
   return <HomeClient memberships={memberships} user={session.user} />
 }
-

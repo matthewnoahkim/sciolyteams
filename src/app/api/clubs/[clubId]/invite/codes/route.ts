@@ -7,7 +7,7 @@ import { decryptInviteCode } from '@/lib/invite-codes'
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { teamId: string } }
+  { params }: { params: { clubId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -15,22 +15,22 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await requireAdmin(session.user.id, params.teamId)
+    await requireAdmin(session.user.id, params.clubId)
 
-    const team = await prisma.team.findUnique({
-      where: { id: params.teamId },
+    const club = await prisma.club.findUnique({
+      where: { id: params.clubId },
       select: {
         adminInviteCodeEncrypted: true,
         memberInviteCodeEncrypted: true,
       },
     })
 
-    if (!team) {
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    if (!club) {
+      return NextResponse.json({ error: 'Club not found' }, { status: 404 })
     }
 
-    // Check if codes need to be regenerated (for existing teams that were created before encrypted codes)
-    const needsRegeneration = team.adminInviteCodeEncrypted === 'NEEDS_REGENERATION'
+    // Check if codes need to be regenerated (for existing clubs that were created before encrypted codes)
+    const needsRegeneration = club.adminInviteCodeEncrypted === 'NEEDS_REGENERATION'
 
     if (needsRegeneration) {
       return NextResponse.json({
@@ -40,8 +40,8 @@ export async function GET(
     }
 
     // Decrypt the codes
-    const adminCode = decryptInviteCode(team.adminInviteCodeEncrypted)
-    const memberCode = decryptInviteCode(team.memberInviteCodeEncrypted)
+    const adminCode = decryptInviteCode(club.adminInviteCodeEncrypted)
+    const memberCode = decryptInviteCode(club.memberInviteCodeEncrypted)
 
     return NextResponse.json({
       needsRegeneration: false,

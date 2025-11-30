@@ -25,7 +25,7 @@ export default async function TakeTestPage({
   const test = await prisma.test.findFirst({
     where: {
       id: params.testId,
-      teamId: params.clubId,
+      clubId: params.clubId,
     },
     select: {
       id: true,
@@ -47,7 +47,7 @@ export default async function TakeTestPage({
       scoreReleaseMode: true,
       assignments: {
         include: {
-          subteam: {
+          team: {
             select: {
               id: true,
               name: true,
@@ -89,7 +89,7 @@ export default async function TakeTestPage({
     const userEventAssignments = await prisma.rosterAssignment.findMany({
       where: {
         membershipId: membership.id,
-        subteam: { teamId: params.clubId },
+        team: { clubId: params.clubId },
       },
       select: { eventId: true },
     })
@@ -105,8 +105,8 @@ export default async function TakeTestPage({
       (a) =>
         // CLUB scope - everyone in the club gets access
         a.assignedScope === 'CLUB' ||
-        // Subteam-based - user's primary subteam matches assignment's subteam
-        (a.subteamId && membership.subteamId && a.subteamId === membership.subteamId) ||
+        // Team-based - user's primary team matches assignment's team
+        (a.teamId && membership.teamId && a.teamId === membership.teamId) ||
         // PERSONAL scope - directly assigned to this user
         a.targetMembershipId === membership.id ||
         // Event-based assignments - user must have the event in their roster
@@ -152,4 +152,5 @@ export default async function TakeTestPage({
     />
   )
 }
+
 

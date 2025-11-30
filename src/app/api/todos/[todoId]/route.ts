@@ -40,7 +40,7 @@ export async function GET(
                 image: true,
               },
             },
-            subteam: {
+            team: {
               select: {
                 id: true,
                 name: true,
@@ -55,14 +55,14 @@ export async function GET(
       return NextResponse.json({ error: 'Todo not found' }, { status: 404 })
     }
 
-    await requireMember(session.user.id, todo.teamId)
+    await requireMember(session.user.id, todo.clubId)
 
-    const membership = await getUserMembership(session.user.id, todo.teamId)
+    const membership = await getUserMembership(session.user.id, todo.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    const isAdminUser = await isAdmin(session.user.id, todo.teamId)
+    const isAdminUser = await isAdmin(session.user.id, todo.clubId)
 
     // Only owner or admin can view
     if (todo.membershipId !== membership.id && !isAdminUser) {
@@ -101,14 +101,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Todo not found' }, { status: 404 })
     }
 
-    await requireMember(session.user.id, todo.teamId)
+    await requireMember(session.user.id, todo.clubId)
 
-    const membership = await getUserMembership(session.user.id, todo.teamId)
+    const membership = await getUserMembership(session.user.id, todo.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    const isAdminUser = await isAdmin(session.user.id, todo.teamId)
+    const isAdminUser = await isAdmin(session.user.id, todo.clubId)
 
     // Only owner or admin can update
     if (todo.membershipId !== membership.id && !isAdminUser) {
@@ -152,7 +152,7 @@ export async function PATCH(
                 image: true,
               },
             },
-            subteam: {
+            team: {
               select: {
                 id: true,
                 name: true,
@@ -201,14 +201,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Todo not found' }, { status: 404 })
     }
 
-    await requireMember(session.user.id, todo.teamId)
+    await requireMember(session.user.id, todo.clubId)
 
-    const membership = await getUserMembership(session.user.id, todo.teamId)
+    const membership = await getUserMembership(session.user.id, todo.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    const isAdminUser = await isAdmin(session.user.id, todo.teamId)
+    const isAdminUser = await isAdmin(session.user.id, todo.clubId)
 
     // Only owner or admin can delete
     if (todo.membershipId !== membership.id && !isAdminUser) {

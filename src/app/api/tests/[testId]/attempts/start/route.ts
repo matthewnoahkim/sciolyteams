@@ -30,13 +30,13 @@ export async function POST(
       return NextResponse.json({ error: 'Test not found' }, { status: 404 })
     }
 
-    const membership = await getUserMembership(session.user.id, test.teamId)
+    const membership = await getUserMembership(session.user.id, test.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Not a team member' }, { status: 403 })
     }
 
     // Check if user is admin (admins bypass password)
-    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    const isAdminUser = await isAdmin(session.user.id, test.clubId)
 
     // Verify test password if required (non-admins only)
     if (!isAdminUser && test.testPasswordHash) {
@@ -73,8 +73,8 @@ export async function POST(
       const userEventAssignments = await prisma.rosterAssignment.findMany({
         where: {
           membershipId: membership.id,
-          subteam: {
-            teamId: test.teamId,
+          team: {
+            clubId: test.clubId,
           },
         },
         select: {
@@ -88,8 +88,8 @@ export async function POST(
         (a) =>
           // CLUB scope - everyone gets access
           a.assignedScope === 'CLUB' ||
-          // Subteam-based - user's subteam matches assignment's subteam
-          (a.subteamId && membership.subteamId && a.subteamId === membership.subteamId) ||
+          // Subteam-based - user's team matches assignment's team
+          (a.teamId && membership.teamId && a.teamId === membership.teamId) ||
           // PERSONAL scope - directly assigned to this user
           a.targetMembershipId === membership.id ||
           // Event-based assignments - user must have the event in their roster

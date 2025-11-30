@@ -6,7 +6,7 @@ import { requireMember, isAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const createExpenseSchema = z.object({
-  teamId: z.string(),
+  clubId: z.string(),
   eventId: z.string().optional(),
   description: z.string().min(1).max(500),
   category: z.string().optional(),
@@ -15,7 +15,7 @@ const createExpenseSchema = z.object({
   notes: z.string().optional(),
 })
 
-// GET /api/expenses?teamId=xxx
+// GET /api/expenses?clubId=xxx
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -24,16 +24,16 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID is required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID is required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
     const expenses = await prisma.expense.findMany({
-      where: { teamId },
+      where: { clubId },
       orderBy: { date: 'desc' },
       include: {
         event: {
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
         id: { in: addedByIds },
       },
       include: {
-        subteam: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
         id: { in: requesterIds },
       },
       include: {
-        subteam: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -106,11 +106,11 @@ export async function GET(req: NextRequest) {
     const addedByMap = new Map(addedByMemberships.map((m) => [m.id, m]))
     const requesterMap = new Map(requesterMemberships.map((m) => [m.id, m]))
 
-    // Attach membership/subteam info to each expense
-    // For expenses from purchase requests, use the requester's subteam
-    // For direct expenses, use the addedBy's subteam
+    // Attach membership/team info to each expense
+    // For expenses from purchase requests, use the requester's team
+    // For direct expenses, use the addedBy's team
     const expensesWithPurchaser = expenses.map((expense) => {
-      // If expense comes from a purchase request, use requester's subteam
+      // If expense comes from a purchase request, use requester's team
       if (expense.purchaseRequest?.requesterId) {
         const requesterMembership = requesterMap.get(expense.purchaseRequest.requesterId)
         return {
@@ -147,8 +147,8 @@ export async function POST(req: NextRequest) {
     const validatedData = createExpenseSchema.parse(body)
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, validatedData.teamId)
-      if (!isAdminUser) {
+    const isAdminUser = await isAdmin(session.user.id, validatedData.clubId)
+    if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can add expenses' },
         { status: 403 }
@@ -158,9 +158,9 @@ export async function POST(req: NextRequest) {
     // Get the user's membership ID
     const membership = await prisma.membership.findUnique({
       where: {
-        userId_teamId: {
+        userId_clubId: {
           userId: session.user.id,
-          teamId: validatedData.teamId,
+          clubId: validatedData.clubId,
         },
       },
     })
@@ -171,9 +171,9 @@ export async function POST(req: NextRequest) {
 
     const expense = await prisma.expense.create({
       data: {
-        teamId: validatedData.teamId,
+        clubId: validatedData.clubId,
         eventId: validatedData.eventId,
-        subteamId: membership.subteamId, // Link to admin's subteam (or null for team-wide)
+        teamId: membership.teamId, // Link to admin's team (or null for club-wide)
         description: validatedData.description,
         category: validatedData.category,
         amount: validatedData.amount,
@@ -211,4 +211,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

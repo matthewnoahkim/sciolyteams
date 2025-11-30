@@ -22,16 +22,16 @@ import { groupEventsByCategory, categoryOrder, type EventCategory } from '@/lib/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface PeopleTabProps {
-  team: any
+  club: any
   currentMembership: any
   isAdmin: boolean
 }
 
-export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: PeopleTabProps) {
+export function PeopleTab({ club: initialClub, currentMembership, isAdmin }: PeopleTabProps) {
   const { toast } = useToast()
   
-  // Local team state for immediate updates
-  const [team, setTeam] = useState<any>(initialTeam)
+  // Local club state for immediate updates
+  const [club, setClub] = useState<any>(initialClub)
   
   // Team management state
   const [selectedTeam, setSelectedTeam] = useState<any>(null)
@@ -48,7 +48,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
   const [assignments, setAssignments] = useState<any[]>([])
   const [rosterViewMode, setRosterViewMode] = useState<'category' | 'conflict'>('category')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [teamToDelete, setTeamToDelete] = useState<any>(null)
+  const [teamToDelete, setClubToDelete] = useState<any>(null)
   const [memberSortBy, setMemberSortBy] = useState<'alphabetical' | 'events' | 'team' | 'role'>('alphabetical')
   const [memberSortDirection, setMemberSortDirection] = useState<'low-to-high' | 'high-to-low'>('low-to-high')
   const [addMemberSelectValues, setAddMemberSelectValues] = useState<Record<string, string>>({})
@@ -58,17 +58,17 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
     fetchEvents()
     fetchConflictGroups()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [team.id])
+  }, [club.id])
 
   // Update assignments whenever team memberships change
   useEffect(() => {
     fetchAssignments()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [team.memberships])
+  }, [club.memberships])
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch(`/api/events?division=${team.division}`)
+      const response = await fetch(`/api/events?division=${club.division}`)
       if (response.ok) {
         const data = await response.json()
         setEvents(data.events)
@@ -80,7 +80,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
 
   const fetchConflictGroups = async () => {
     try {
-      const response = await fetch(`/api/conflicts?division=${team.division}`)
+      const response = await fetch(`/api/conflicts?division=${club.division}`)
       if (response.ok) {
         const data = await response.json()
         setConflictGroups(data.conflictGroups || [])
@@ -92,7 +92,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
 
   const fetchAssignments = () => {
     const allAssignments: any[] = []
-    team.memberships.forEach((m: any) => {
+    club.memberships.forEach((m: any) => {
       m.rosterAssignments.forEach((a: any) => {
         allAssignments.push({
           ...a,
@@ -108,7 +108,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
     setLoading(true)
 
     try {
-      const response = await fetch(`/api/teams/${team.id}/subteams`, {
+      const response = await fetch(`/api/clubs/${club.id}/teams`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newTeamName }),
@@ -117,16 +117,16 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
       if (!response.ok) throw new Error('Failed to create team')
 
       const data = await response.json()
-      const newSubteam = data.subteam
+      const newSubteam = data.team
 
       // Update local state immediately
-      setTeam((prev: any) => ({
+      setClub((prev: any) => ({
         ...prev,
-        subteams: [
-          ...prev.subteams,
+        teams: [
+          ...prev.teams,
           {
             id: newSubteam.id,
-            name: newSubteam.name,
+            name: newSubclub.name,
             teamId: newSubteam.teamId,
             createdAt: newSubteam.createdAt,
             updatedAt: newSubteam.updatedAt,
@@ -162,7 +162,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
     setLoading(true)
 
     try {
-      const response = await fetch(`/api/teams/${team.id}/subteams/${editingTeam.id}`, {
+      const response = await fetch(`/api/clubs/${club.id}/teams/${editingTeam.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editTeamName }),
@@ -171,9 +171,9 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
       if (!response.ok) throw new Error('Failed to update team')
 
       // Update local state immediately
-      setTeam((prev: any) => ({
+      setClub((prev: any) => ({
         ...prev,
-        subteams: prev.subteams.map((s: any) =>
+        teams: prev.teams.map((s: any) =>
           s.id === editingTeam.id ? { ...s, name: editTeamName } : s
         ),
       }))
@@ -202,8 +202,8 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
     }
   }
 
-  const openDeleteDialog = (subteam: any) => {
-    setTeamToDelete(subteam)
+  const openDeleteDialog = (team: any) => {
+    setClubToDelete(team)
     setDeleteDialogOpen(true)
   }
 
@@ -213,7 +213,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
     setLoading(true)
 
     try {
-      const response = await fetch(`/api/teams/${team.id}/subteams/${teamToDelete.id}`, {
+      const response = await fetch(`/api/clubs/${club.id}/teams/${teamToDelete.id}`, {
         method: 'DELETE',
       })
 
@@ -222,11 +222,11 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
       }
 
       // Update local state immediately
-      setTeam((prev: any) => ({
+      setClub((prev: any) => ({
         ...prev,
-        subteams: prev.subteams.filter((s: any) => s.id !== teamToDelete.id),
+        teams: prev.teams.filter((s: any) => s.id !== teamToDelete.id),
         memberships: prev.memberships.map((m: any) =>
-          m.subteamId === teamToDelete.id ? { ...m, subteamId: null } : m
+          m.teamId === teamToDelete.id ? { ...m, teamId: null } : m
         ),
       }))
 
@@ -240,7 +240,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
         description: `${teamToDelete.name} has been deleted`,
       })
 
-      setTeamToDelete(null)
+      setClubToDelete(null)
       setDeleteDialogOpen(false)
     } catch (error: any) {
       toast({
@@ -253,9 +253,9 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
     }
   }
 
-  const openEditDialog = (subteam: any) => {
-    setEditingTeam(subteam)
-    setEditTeamName(subteam.name)
+  const openEditDialog = (team: any) => {
+    setEditingTeam(team)
+    setEditTeamName(subclub.name)
     setEditOpen(true)
   }
 
@@ -268,7 +268,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subteamId: selectedTeam.id,
+          teamId: selectedTeam.id,
           membershipId: membershipId,
           eventId: eventId,
         }),
@@ -286,7 +286,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
       setAssignments((prev) => [...prev, newAssignment])
 
       // Update local team state to include the new roster assignment
-      setTeam((prev: any) => ({
+      setClub((prev: any) => ({
         ...prev,
         memberships: prev.memberships.map((m: any) =>
           m.id === membershipId
@@ -344,7 +344,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
 
       // Update local team state to remove the roster assignment
       if (assignmentToRemove) {
-        setTeam((prev: any) => ({
+        setClub((prev: any) => ({
           ...prev,
           memberships: prev.memberships.map((m: any) =>
             m.id === assignmentToRemove.membershipId
@@ -374,14 +374,14 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
   }
 
 
-  const getAssignmentsForEvent = (eventId: string, subteamId: string) => {
-    return assignments.filter((a) => a.eventId === eventId && a.subteamId === subteamId)
+  const getAssignmentsForEvent = (eventId: string, teamId: string) => {
+    return assignments.filter((a) => a.eventId === eventId && a.teamId === teamId)
   }
 
   const getAvailableEventsForMember = (member: any) => {
     if (!selectedTeam) return []
     
-    const memberAssignments = assignments.filter((a) => a.membership.id === member.id && a.subteamId === selectedTeam.id)
+    const memberAssignments = assignments.filter((a) => a.membership.id === member.id && a.teamId === selectedTeam.id)
     const assignedEventIds = memberAssignments.map((a) => a.eventId)
     
     // Filter available events
@@ -397,10 +397,10 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
     })
   }
 
-  const handleAssignToTeamFromMenu = async (membershipId: string, subteamId: string | null, memberName: string) => {
+  const handleAssignToTeamFromMenu = async (membershipId: string, teamId: string | null, memberName: string) => {
     // Check if target team is at capacity (15 members)
-    if (subteamId) {
-      const targetTeam = team.subteams.find((s: any) => s.id === subteamId)
+    if (teamId) {
+      const targetTeam = club.teams.find((s: any) => s.id === teamId)
       if (targetTeam && targetTeam.members.length >= 15) {
         toast({
           title: 'Team at capacity',
@@ -417,28 +417,28 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
       const response = await fetch(`/api/memberships/${membershipId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subteamId }),
+        body: JSON.stringify({ teamId }),
       })
 
       if (!response.ok) throw new Error('Failed to assign member')
 
-      const teamName = subteamId 
-        ? team.subteams.find((s: any) => s.id === subteamId)?.name 
+      const teamName = teamId 
+        ? club.teams.find((s: any) => s.id === teamId)?.name 
         : 'Unassigned'
 
       // Update local state immediately
-      setTeam((prev: any) => {
+      setClub((prev: any) => {
         const member = prev.memberships.find((m: any) => m.id === membershipId)
-        const updatedMember = { ...member, subteamId }
+        const updatedMember = { ...member, teamId }
         
         return {
           ...prev,
           memberships: prev.memberships.map((m: any) => 
             m.id === membershipId ? updatedMember : m
           ),
-          subteams: prev.subteams.map((s: any) => ({
+          teams: prev.teams.map((s: any) => ({
             ...s,
-            members: s.id === subteamId
+            members: s.id === teamId
               // Add member to new team (if assigning to a team)
               ? [...s.members.filter((m: any) => m.id !== membershipId), updatedMember]
               // Remove member from other teams
@@ -472,7 +472,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subteamId: selectedTeam.id,
+          teamId: selectedTeam.id,
           membershipId,
           eventId,
         }),
@@ -490,7 +490,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
       setAssignments((prev) => [...prev, newAssignment])
 
       // Update local team state to include the new roster assignment
-      setTeam((prev: any) => ({
+      setClub((prev: any) => ({
         ...prev,
         memberships: prev.memberships.map((m: any) =>
           m.id === membershipId
@@ -536,12 +536,12 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
       if (!response.ok) throw new Error('Failed to update role')
 
       // Update local state immediately
-      setTeam((prev: any) => ({
+      setClub((prev: any) => ({
         ...prev,
         memberships: prev.memberships.map((m: any) => 
           m.id === membershipId ? { ...m, roles: newRoles } : m
         ),
-        subteams: prev.subteams.map((s: any) => ({
+        teams: prev.teams.map((s: any) => ({
           ...s,
           members: s.members.map((m: any) => 
             m.id === membershipId ? { ...m, roles: newRoles } : m
@@ -569,17 +569,17 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
     let csvContent = "data:text/csv;charset=utf-8,"
     
     // Add header
-    csvContent += `${team.name} - Event Rosters\n\n`
+    csvContent += `${club.name} - Event Rosters\n\n`
     
-    // For each subteam
-    team.subteams.forEach((subteam: any) => {
-      csvContent += `\nTeam: ${subteam.name}\n`
+    // For each team
+    club.teams.forEach((team: any) => {
+      csvContent += `\nTeam: ${subclub.name}\n`
       csvContent += "Event,Member 1,Member 2,Member 3\n"
       
-      // Get events and assignments for this subteam
+      // Get events and assignments for this team
       events.forEach((event: any) => {
         const eventAssignments = assignments.filter(
-          (a) => a.eventId === event.id && a.subteamId === subteam.id
+          (a) => a.eventId === event.id && a.teamId === team.id
         )
         
         if (eventAssignments.length > 0) {
@@ -595,7 +595,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement("a")
     link.setAttribute("href", encodedUri)
-    link.setAttribute("download", `${team.name}-rosters.csv`)
+    link.setAttribute("download", `${club.name}-rosters.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -606,13 +606,13 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
     })
   }
 
-  const teamMembers = selectedTeam ? team.memberships.filter((m: any) => m.subteamId === selectedTeam.id) : []
-  const unassignedMembers = team.memberships.filter((m: any) => !m.subteamId)
+  const teamMembers = selectedTeam ? club.memberships.filter((m: any) => m.teamId === selectedTeam.id) : []
+  const unassignedMembers = club.memberships.filter((m: any) => !m.teamId)
 
   // Get event counts for all members
   const getAllMemberEventCounts = () => {
     const counts: Record<string, number> = {}
-    team.memberships.forEach((member: any) => {
+    club.memberships.forEach((member: any) => {
       counts[member.id] = member.rosterAssignments?.length || 0
     })
     return counts
@@ -621,7 +621,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
   // Sort all members
   const getSortedMembers = () => {
     const eventCounts = getAllMemberEventCounts()
-    let sorted = [...team.memberships]
+    let sorted = [...club.memberships]
     const isReversed = memberSortDirection === 'high-to-low'
 
     switch (memberSortBy) {
@@ -640,11 +640,11 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
         })
         break
       case 'team':
-        // Sort by team creation order (using subteam array index as proxy for creation order)
+        // Sort by team creation order (using team array index as proxy for creation order)
         sorted.sort((a, b) => {
           const getTeamOrder = (member: any) => {
-            if (!member.subteamId) return team.subteams.length // Unassigned goes last
-            return team.subteams.findIndex((st: any) => st.id === member.subteamId)
+            if (!member.teamId) return club.teams.length // Unassigned goes last
+            return club.teams.findIndex((st: any) => st.id === member.teamId)
           }
           const result = getTeamOrder(a) - getTeamOrder(b)
           return isReversed ? -result : result
@@ -668,14 +668,14 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
   }
 
   const handleEmailAll = () => {
-    const allMembers = team.memberships
+    const allMembers = club.memberships
     const admins = allMembers.filter((m: any) => String(m.role).toUpperCase() === 'ADMIN')
     const regularMembers = allMembers.filter((m: any) => String(m.role).toUpperCase() !== 'ADMIN')
     
     const bccEmails = regularMembers.map((m: any) => m.user.email).join(',')
     const ccEmails = admins.map((m: any) => m.user.email).join(',')
     
-    const mailtoLink = `mailto:?bcc=${encodeURIComponent(bccEmails)}&cc=${encodeURIComponent(ccEmails)}&subject=${encodeURIComponent(`${team.name} Team Communication`)}`
+    const mailtoLink = `mailto:?bcc=${encodeURIComponent(bccEmails)}&cc=${encodeURIComponent(ccEmails)}&subject=${encodeURIComponent(`${club.name} Team Communication`)}`
     window.location.href = mailtoLink
   }
 
@@ -704,27 +704,27 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
         </div>
 
         <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {team.subteams.map((subteam: any) => (
+          {club.teams.map((team: any) => (
             <Card 
-              key={subteam.id}
+              key={team.id}
               className="cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-xl"
               onClick={(e) => {
                 if (!(e.target as HTMLElement).closest('button')) {
-                  setSelectedTeam(subteam)
+                  setSelectedTeam(team)
                 }
               }}
             >
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <span className="break-words">{subteam.name}</span>
+                  <span className="break-words">{subclub.name}</span>
                   <span className="text-xs sm:text-sm font-normal text-muted-foreground whitespace-nowrap">
-                    ({subteam.members.length} / 15)
+                    ({team.members.length} / 15)
                   </span>
                 </CardTitle>
               </CardHeader>
                 <CardContent className="pt-0">
                   <div className="space-y-2.5">
-                    {subteam.members.slice(0, 5).map((member: any) => (
+                    {team.members.slice(0, 5).map((member: any) => (
                       <div key={member.id} className="flex items-center gap-2.5">
                         <Avatar className="h-9 w-9 sm:h-8 sm:w-8 flex-shrink-0">
                           <AvatarImage src={member.user.image || ''} />
@@ -751,12 +751,12 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
                         </div>
                       </div>
                     ))}
-                    {subteam.members.length > 5 && (
+                    {team.members.length > 5 && (
                       <p className="text-xs sm:text-sm text-muted-foreground pl-11 sm:pl-10">
-                        +{subteam.members.length - 5} more
+                        +{team.members.length - 5} more
                       </p>
                     )}
-                    {subteam.members.length === 0 && (
+                    {team.members.length === 0 && (
                       <p className="text-xs sm:text-sm text-muted-foreground text-center py-2">No members assigned</p>
                     )}
                   </div>
@@ -874,7 +874,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
                             </SelectContent>
                           </Select>
                           <Select
-                            value={member.subteamId || 'UNASSIGNED'}
+                            value={member.teamId || 'UNASSIGNED'}
                             onValueChange={(value) => handleAssignToTeamFromMenu(member.id, value === 'UNASSIGNED' ? null : value, member.user.name || member.user.email)}
                           >
                             <SelectTrigger className="text-xs sm:text-sm h-9 w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
@@ -882,13 +882,13 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
                             </SelectTrigger>
                             <SelectContent onClick={(e) => e.stopPropagation()}>
                               <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
-                              {team.subteams.map((subteam: any) => (
+                              {club.teams.map((team: any) => (
                                 <SelectItem 
-                                  key={subteam.id} 
-                                  value={subteam.id}
-                                  disabled={subteam.id !== member.subteamId && subteam.members.length >= 15}
+                                  key={team.id} 
+                                  value={team.id}
+                                  disabled={team.id !== member.teamId && team.members.length >= 15}
                                 >
-                                  {subteam.name} ({subteam.members.length}/15)
+                                  {subclub.name} ({team.members.length}/15)
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -909,11 +909,11 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
   const renderTeamView = () => {
     if (!selectedTeam) return null
 
-    const teamMembers = team.memberships.filter((m: any) => m.subteamId === selectedTeam.id)
+    const teamMembers = club.memberships.filter((m: any) => m.teamId === selectedTeam.id)
 
     const handleEmailTeam = () => {
       const teamMembersForEmail = teamMembers
-      const allAdmins = team.memberships.filter((m: any) => String(m.role).toUpperCase() === 'ADMIN')
+      const allAdmins = club.memberships.filter((m: any) => String(m.role).toUpperCase() === 'ADMIN')
       
       const bccEmails = teamMembersForEmail.map((m: any) => m.user.email).join(',')
       const ccEmails = allAdmins.map((m: any) => m.user.email).join(',')
@@ -963,7 +963,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
             <div className="space-y-3">
               {teamMembers.map((member: any) => {
                 const memberEventAssignments = assignments.filter(
-                  (a) => a.membership.id === member.id && a.subteamId === selectedTeam.id
+                  (a) => a.membership.id === member.id && a.teamId === selectedTeam.id
                 )
                 return (
                   <div key={member.id} className="flex items-start justify-between rounded-lg border p-3">
@@ -1389,7 +1389,7 @@ export function PeopleTab({ team: initialTeam, currentMembership, isAdmin }: Peo
           <DialogHeader>
             <DialogTitle>Create New Team</DialogTitle>
             <DialogDescription>
-              Create a new subteam for roster management
+              Create a new team for roster management
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateTeam}>

@@ -44,7 +44,7 @@ export async function PATCH(
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, noteSheet.test.teamId)
+    const isAdminUser = await isAdmin(session.user.id, noteSheet.test.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can review note sheets' },
@@ -55,7 +55,7 @@ export async function PATCH(
     // Get reviewer's membership
     const reviewerMembership = await getUserMembership(
       session.user.id,
-      noteSheet.test.teamId
+      noteSheet.test.clubId
     )
     if (!reviewerMembership) {
       return NextResponse.json(

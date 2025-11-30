@@ -16,10 +16,10 @@ export async function DELETE(
 
     const { announcementId, replyId } = params
 
-    // Verify announcement exists and get its teamId
+    // Verify announcement exists and get its clubId
     const announcement = await prisma.announcement.findUnique({
       where: { id: announcementId },
-      select: { teamId: true },
+      select: { clubId: true },
     })
 
     if (!announcement) {
@@ -27,7 +27,7 @@ export async function DELETE(
     }
 
     // Ensure user is a member of the team
-    await requireMember(session.user.id, announcement.teamId)
+    await requireMember(session.user.id, announcement.clubId)
 
     // Get the reply to verify ownership
     const reply = await prisma.announcementReply.findUnique({

@@ -25,7 +25,7 @@ import {
 
 interface AssignmentView {
   assignedScope: 'TEAM' | 'SUBTEAM' | 'PERSONAL'
-  subteamName?: string | null
+  teamName?: string | null
 }
 
 interface OptionView {
@@ -44,7 +44,7 @@ interface QuestionView {
 }
 
 export interface TestDetailViewProps {
-  teamId: string
+  clubId: string
   test: {
     id: string
     name: string
@@ -72,7 +72,7 @@ const STATUS_CONFIG: Record<
   CLOSED: { label: 'Closed', variant: 'destructive' },
 }
 
-export function TestDetailView({ teamId, test }: TestDetailViewProps) {
+export function TestDetailView({ clubId, test }: TestDetailViewProps) {
   const statusConfig = STATUS_CONFIG[test.status]
 
   const assignmentSummary = useMemo(() => {
@@ -84,7 +84,7 @@ export function TestDetailView({ teamId, test }: TestDetailViewProps) {
         case 'TEAM':
           return 'Everyone on the team'
         case 'SUBTEAM':
-          return assignment.subteamName ?? 'Subteam assignment'
+          return assignment.teamName ?? 'Subteam assignment'
         case 'PERSONAL':
         default:
           return 'Specific member'
@@ -97,7 +97,7 @@ export function TestDetailView({ teamId, test }: TestDetailViewProps) {
     <div className="container mx-auto max-w-6xl space-y-8 py-8 px-4 lg:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-2">
-          <Link href={`/club/${teamId}?tab=tests`} className="w-fit">
+          <Link href={`/club/${clubId}?tab=tests`} className="w-fit">
             <Button variant="ghost" size="sm" className="h-8 gap-2 px-2">
               <ArrowLeft className="h-4 w-4" />
               Back to Tests

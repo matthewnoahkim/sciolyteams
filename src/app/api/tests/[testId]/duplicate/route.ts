@@ -38,7 +38,7 @@ export async function POST(
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, originalTest.teamId)
+    const isAdminUser = await isAdmin(session.user.id, originalTest.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can duplicate tests' },
@@ -47,7 +47,7 @@ export async function POST(
     }
 
     // Get membership for the new test
-    const membership = await getUserMembership(session.user.id, originalTest.teamId)
+    const membership = await getUserMembership(session.user.id, originalTest.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
@@ -57,7 +57,7 @@ export async function POST(
       // Create the new test (reset to DRAFT, clear scheduling and password)
       const newTest = await tx.test.create({
         data: {
-          teamId: originalTest.teamId,
+          clubId: originalTest.clubId,
           name: `${originalTest.name} (Copy)`,
           description: originalTest.description,
           instructions: originalTest.instructions,
@@ -100,7 +100,7 @@ export async function POST(
           data: originalTest.assignments.map((assignment) => ({
             testId: newTest.id,
             assignedScope: assignment.assignedScope,
-            subteamId: assignment.subteamId,
+            teamId: assignment.teamId,
             targetMembershipId: assignment.targetMembershipId,
           })),
         })

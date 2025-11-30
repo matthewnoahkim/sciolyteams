@@ -28,15 +28,15 @@ const questionSchema = z.object({
 const assignmentSchema = z
   .object({
     assignedScope: z.enum(['CLUB', 'TEAM', 'PERSONAL']),
-    subteamId: z.string().optional(),
+    teamId: z.string().optional(),
     targetMembershipId: z.string().optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.assignedScope === 'TEAM' && !value.subteamId) {
+    if (value.assignedScope === 'TEAM' && !value.teamId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'subteamId is required when assignedScope is TEAM',
-        path: ['subteamId'],
+        message: 'teamId is required when assignedScope is TEAM',
+        path: ['teamId'],
       })
     }
     if (value.assignedScope === 'PERSONAL' && !value.targetMembershipId) {
@@ -52,7 +52,7 @@ type AssignmentInput = z.infer<typeof assignmentSchema>
 type QuestionInput = z.infer<typeof questionSchema>
 
 const createTestSchema = z.object({
-  teamId: z.string(),
+  clubId: z.string(),
   name: z.string().min(1).max(200),
   description: z.string().optional(),
   instructions: z.string().optional(),
@@ -71,7 +71,7 @@ const createTestSchema = z.object({
   questions: z.array(questionSchema).optional(),
 })
 
-// GET /api/tests?teamId=xxx
+// GET /api/tests?clubId=xxx
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -80,23 +80,23 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID is required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID is required' }, { status: 400 })
     }
 
-    const membership = await getUserMembership(session.user.id, teamId)
+    const membership = await getUserMembership(session.user.id, clubId)
     if (!membership) {
-      return NextResponse.json({ error: 'Not a team member' }, { status: 403 })
+      return NextResponse.json({ error: 'Not a club member' }, { status: 403 })
     }
 
-    const isAdminUser = await isAdmin(session.user.id, teamId)
+    const isAdminUser = await isAdmin(session.user.id, clubId)
 
     // Fetch all tests with their assignments
     const allTests = await prisma.test.findMany({
       where: {
-        teamId,
+        clubId,
         // Non-admins only see published tests
         ...(!isAdminUser && { status: 'PUBLISHED' }),
       },
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
         assignments: {
           select: {
             assignedScope: true,
-            subteamId: true,
+            teamId: true,
             targetMembershipId: true,
             eventId: true,
           },
@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
     const userEventAssignments = await prisma.rosterAssignment.findMany({
       where: {
         membershipId: membership.id,
-        subteam: { teamId },
+        team: { clubId },
       },
       select: { eventId: true },
     })
@@ -168,8 +168,8 @@ export async function GET(req: NextRequest) {
         if (a.assignedScope === 'CLUB') {
           return true
         }
-        // Subteam assignment - user must be in that subteam
-        if (a.subteamId && membership.subteamId && a.subteamId === membership.subteamId) {
+        // Team assignment - user must be in that team
+        if (a.teamId && membership.teamId && a.teamId === membership.teamId) {
           return true
         }
         // Personal assignment - must be assigned to this user
@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
     const validatedData = createTestSchema.parse(body)
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, validatedData.teamId)
+    const isAdminUser = await isAdmin(session.user.id, validatedData.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can create tests' },
@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get membership ID
-    const membership = await getUserMembership(session.user.id, validatedData.teamId)
+    const membership = await getUserMembership(session.user.id, validatedData.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
     const {
       assignments,
       questions,
-      teamId,
+      clubId,
       name,
       description,
       instructions,
@@ -243,7 +243,7 @@ export async function POST(req: NextRequest) {
     const createdTest = await prisma.$transaction(async (tx) => {
       const baseTest = await tx.test.create({
         data: {
-          teamId,
+          clubId,
           name,
           description,
           instructions,
@@ -266,13 +266,13 @@ export async function POST(req: NextRequest) {
       const assignmentPayload: AssignmentInput[] =
         assignments && assignments.length > 0
           ? assignments
-          : [{ assignedScope: 'CLUB', subteamId: undefined, targetMembershipId: undefined }]
+          : [{ assignedScope: 'CLUB', teamId: undefined, targetMembershipId: undefined }]
 
       await tx.testAssignment.createMany({
         data: assignmentPayload.map((assignment) => ({
           testId: baseTest.id,
           assignedScope: assignment.assignedScope,
-          subteamId: assignment.subteamId ?? null,
+          teamId: assignment.teamId ?? null,
           targetMembershipId: assignment.targetMembershipId ?? null,
         })),
       })
@@ -352,4 +352,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

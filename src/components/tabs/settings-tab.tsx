@@ -258,7 +258,7 @@ function SortableColorItem({
 }
 
 interface SettingsTabProps {
-  team: any
+  club: any
   currentMembership: any
   isAdmin: boolean
   personalBackground?: any | null
@@ -450,7 +450,7 @@ export function SettingsTab({
     if (codesFetched) return
 
     try {
-      const response = await fetch(`/api/teams/${team.id}/invite/codes`)
+      const response = await fetch(`/api/clubs/${team.id}/invite/codes`)
       
       if (!response.ok) throw new Error('Failed to fetch codes')
 
@@ -502,7 +502,7 @@ export function SettingsTab({
     setLoading(true)
 
     try {
-      const response = await fetch(`/api/teams/${team.id}/invite/regenerate`, {
+      const response = await fetch(`/api/clubs/${team.id}/invite/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: codeTypeToRegenerate }),
@@ -551,7 +551,7 @@ export function SettingsTab({
     // If code is hidden or codes not fetched, fetch codes first
     if (code === '••••••••••••' || !codesFetched) {
       try {
-        const response = await fetch(`/api/teams/${team.id}/invite/codes`)
+        const response = await fetch(`/api/clubs/${team.id}/invite/codes`)
         if (!response.ok) throw new Error('Failed to fetch codes')
         const data = await response.json()
         if (type === 'Admin') {
@@ -604,7 +604,7 @@ export function SettingsTab({
     setDeleting(true)
 
     try {
-      const response = await fetch(`/api/teams/${team.id}`, {
+      const response = await fetch(`/api/clubs/${team.id}`, {
         method: 'DELETE',
       })
 
@@ -1219,7 +1219,7 @@ export function SettingsTab({
           </div>
           <div>
             <p className="text-sm font-medium">Teams</p>
-            <p className="text-lg">{team.subteams.length}</p>
+            <p className="text-lg">{team.teams.length}</p>
           </div>
         </CardContent>
       </Card>
@@ -1324,9 +1324,9 @@ export function SettingsTab({
                         {Array.isArray(membership.roles) && membership.roles.includes('CAPTAIN') && (
                           <Badge variant="outline" className="text-[10px] uppercase">Captain</Badge>
                         )}
-                        {membership.subteam && (
+                        {membership.team && (
                           <span className="text-xs text-muted-foreground">
-                            Team: {membership.subteam.name}
+                            Team: {membership.team.name}
                           </span>
                         )}
                       </div>

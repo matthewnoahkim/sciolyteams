@@ -6,12 +6,12 @@ import { requireMember, isAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const createAlbumSchema = z.object({
-  teamId: z.string(),
+  clubId: z.string(),
   name: z.string().min(1).max(200),
   description: z.string().optional(),
 })
 
-// GET - Get all albums for a team
+// GET - Get all albums for a club
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -20,16 +20,16 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
     const albums = await prisma.album.findMany({
-      where: { teamId },
+      where: { clubId },
       include: {
         _count: {
           select: {
@@ -63,11 +63,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validated = createAlbumSchema.parse(body)
 
-    await requireMember(session.user.id, validated.teamId)
+    await requireMember(session.user.id, validated.clubId)
 
     const album = await prisma.album.create({
       data: {
-        teamId: validated.teamId,
+        clubId: validated.clubId,
         name: validated.name,
         description: validated.description,
         createdById: session.user.id,
@@ -96,4 +96,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

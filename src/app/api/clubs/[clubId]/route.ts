@@ -6,7 +6,7 @@ import { requireMember, requireAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 
-const updateTeamSchema = z.object({
+const updateClubSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   backgroundType: z.enum(['grid', 'solid', 'gradient', 'image']).optional(),
   backgroundColor: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.null()]).optional(),
@@ -17,7 +17,7 @@ const updateTeamSchema = z.object({
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { teamId: string } }
+  { params }: { params: { clubId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -25,10 +25,10 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await requireMember(session.user.id, params.teamId)
+    await requireMember(session.user.id, params.clubId)
 
-    const team = await prisma.team.findUnique({
-      where: { id: params.teamId },
+    const club = await prisma.club.findUnique({
+      where: { id: params.clubId },
       include: {
         memberships: {
           include: {
@@ -40,7 +40,7 @@ export async function GET(
                 image: true,
               },
             },
-            subteam: true,
+            team: true,
             rosterAssignments: {
               include: {
                 event: true,
@@ -48,7 +48,7 @@ export async function GET(
             },
           },
         },
-        subteams: {
+        teams: {
           include: {
             members: {
               include: {
@@ -67,23 +67,23 @@ export async function GET(
       },
     })
 
-    if (!team) {
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    if (!club) {
+      return NextResponse.json({ error: 'Club not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ team })
+    return NextResponse.json({ club })
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
-    console.error('Get team error:', error)
+    console.error('Get club error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { teamId: string } }
+  { params }: { params: { clubId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -91,19 +91,19 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Only admins can update teams
-    await requireAdmin(session.user.id, params.teamId)
+    // Only admins can update clubs
+    await requireAdmin(session.user.id, params.clubId)
 
     const body = await req.json()
-    const validatedData = updateTeamSchema.parse(body)
+    const validatedData = updateClubSchema.parse(body)
 
-    // Verify team exists
-    const existingTeam = await prisma.team.findUnique({
-      where: { id: params.teamId },
+    // Verify club exists
+    const existingClub = await prisma.club.findUnique({
+      where: { id: params.clubId },
     })
 
-    if (!existingTeam) {
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    if (!existingClub) {
+      return NextResponse.json({ error: 'Club not found' }, { status: 404 })
     }
 
     // Build update data object
@@ -127,16 +127,16 @@ export async function PATCH(
       updateData.backgroundImageUrl = validatedData.backgroundImageUrl
     }
 
-    // Update team
-    const updatedTeam = await prisma.team.update({
-      where: { id: params.teamId },
+    // Update club
+    const updatedClub = await prisma.club.update({
+      where: { id: params.clubId },
       data: updateData,
     })
 
-    // Ensure club/team pages show the new background immediately
-    revalidatePath(`/club/${params.teamId}`)
+    // Ensure club pages show the new background immediately
+    revalidatePath(`/club/${params.clubId}`)
 
-    return NextResponse.json({ team: updatedTeam })
+    return NextResponse.json({ club: updatedClub })
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error('Validation error:', error.errors)
@@ -148,7 +148,7 @@ export async function PATCH(
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
-    console.error('Update team error:', error)
+    console.error('Update club error:', error)
     return NextResponse.json({ 
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -158,7 +158,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { teamId: string } }
+  { params }: { params: { clubId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -166,21 +166,21 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Only admins can delete teams
-    await requireAdmin(session.user.id, params.teamId)
+    // Only admins can delete clubs
+    await requireAdmin(session.user.id, params.clubId)
 
-    // Verify team exists
-    const team = await prisma.team.findUnique({
-      where: { id: params.teamId },
+    // Verify club exists
+    const club = await prisma.club.findUnique({
+      where: { id: params.clubId },
     })
 
-    if (!team) {
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    if (!club) {
+      return NextResponse.json({ error: 'Club not found' }, { status: 404 })
     }
 
-    // Delete team (cascading deletes will handle related records)
-    await prisma.team.delete({
-      where: { id: params.teamId },
+    // Delete club (cascading deletes will handle related records)
+    await prisma.club.delete({
+      where: { id: params.clubId },
     })
 
     return NextResponse.json({ success: true })
@@ -188,7 +188,7 @@ export async function DELETE(
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
-    console.error('Delete team error:', error)
+    console.error('Delete club error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

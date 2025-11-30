@@ -65,14 +65,14 @@ export async function GET(
         },
         registrations: {
           include: {
-            team: {
+            club: {
               select: {
                 id: true,
                 name: true,
                 division: true,
               },
             },
-            subteam: {
+            team: {
               include: {
                 members: {
                   include: {

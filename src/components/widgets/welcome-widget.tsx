@@ -4,13 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users, Sparkles } from 'lucide-react'
 
 interface WelcomeWidgetProps {
-  teamName: string
+  clubName: string
   memberCount: number
   config?: any
 }
 
-export function WelcomeWidget({ teamName, memberCount, config }: WelcomeWidgetProps) {
-  const customMessage = config?.message || `Welcome to ${teamName}!`
+export function WelcomeWidget({ clubName, memberCount, config }: WelcomeWidgetProps) {
+  const customMessage = config?.message || `Welcome to ${clubName}!`
   const showMemberCount = config?.showMemberCount !== false
 
   return (

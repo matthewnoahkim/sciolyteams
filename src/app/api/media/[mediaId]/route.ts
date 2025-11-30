@@ -37,7 +37,7 @@ export async function PATCH(
     }
 
     // Only the uploader or admin can update
-    const isAdminUser = await isAdmin(session.user.id, existingMedia.teamId)
+    const isAdminUser = await isAdmin(session.user.id, existingMedia.clubId)
     if (existingMedia.uploadedById !== session.user.id && !isAdminUser) {
       return NextResponse.json(
         { error: 'Only the uploader or admin can update this media' },
@@ -97,7 +97,7 @@ export async function DELETE(
     }
 
     // Only the uploader or admin can delete
-    const isAdminUser = await isAdmin(session.user.id, existingMedia.teamId)
+    const isAdminUser = await isAdmin(session.user.id, existingMedia.clubId)
     if (existingMedia.uploadedById !== session.user.id && !isAdminUser) {
       return NextResponse.json(
         { error: 'Only the uploader or admin can delete this media' },

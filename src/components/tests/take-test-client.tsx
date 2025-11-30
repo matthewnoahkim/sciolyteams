@@ -466,7 +466,7 @@ export function TakeTestClient({
 
       // Use window.location for full page navigation to ensure tab parameter is preserved
       // Extract clubId from membership or current URL path
-      const clubId = membership?.teamId || window.location.pathname.split('/')[2]
+      const clubId = membership?.clubId || window.location.pathname.split('/')[2]
       window.location.href = `/club/${clubId}?tab=tests`
     } catch (error: any) {
       toast({
@@ -480,7 +480,7 @@ export function TakeTestClient({
         document.documentElement.requestFullscreen().catch(() => {})
       }
     }
-  }, [attempt, test.id, membership.teamId, test.requireFullscreen, toast, router, answers, saveAnswer])
+  }, [attempt, test.id, membership.clubId, test.requireFullscreen, toast, router, answers, saveAnswer])
 
   // Countdown timer
   useEffect(() => {
@@ -543,7 +543,7 @@ export function TakeTestClient({
   }, [started, attempt, test.durationMinutes, timeOffPageSeconds, toast, handleSubmit])
 
   if (!started) {
-    const teamId = membership?.teamId
+    const clubId = membership?.clubId
     
     return (
       <div className="container mx-auto max-w-2xl py-8 px-4">
@@ -551,11 +551,11 @@ export function TakeTestClient({
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>{test.name}</CardTitle>
-              {teamId && (
+              {clubId && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => router.push(`/club/${teamId}?tab=tests`)}
+                  onClick={() => router.push(`/club/${clubId}?tab=tests`)}
                   className="gap-2"
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -932,7 +932,7 @@ export function TakeTestClient({
                 setShowSaveExitDialog(false)
                 // Use window.location for full page navigation to ensure tab parameter is preserved
                 // Extract clubId from membership or current URL path
-                const clubId = membership?.teamId || window.location.pathname.split('/')[2]
+                const clubId = membership?.clubId || window.location.pathname.split('/')[2]
                 window.location.href = `/club/${clubId}?tab=tests`
               }}
             >

@@ -492,7 +492,7 @@ export function HealthTools() {
       escapeCSV(m.team?.name || 'N/A'),
       escapeCSV(m.team?.id || 'N/A'),
       escapeCSV(m.role || 'N/A'),
-      escapeCSV(m.subteam?.name || 'None'),
+      escapeCSV(m.team?.name || 'None'),
       escapeCSV(new Date(m.createdAt).toLocaleString()),
     ])
 

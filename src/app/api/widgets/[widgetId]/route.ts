@@ -40,7 +40,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Widget not found' }, { status: 404 })
     }
 
-    await requireAdmin(session.user.id, existingWidget.teamId)
+    await requireAdmin(session.user.id, existingWidget.clubId)
 
     const widget = await prisma.homePageWidget.update({
       where: { id: widgetId },
@@ -82,7 +82,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Widget not found' }, { status: 404 })
     }
 
-    await requireAdmin(session.user.id, existingWidget.teamId)
+    await requireAdmin(session.user.id, existingWidget.clubId)
 
     await prisma.homePageWidget.delete({
       where: { id: widgetId },

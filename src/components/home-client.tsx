@@ -5,8 +5,8 @@ import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { CreateTeamDialog } from '@/components/create-team-dialog'
-import { JoinTeamDialog } from '@/components/join-team-dialog'
+import { CreateClubDialog } from '@/components/create-club-dialog'
+import { JoinClubDialog } from '@/components/join-club-dialog'
 import { AppHeader } from '@/components/app-header'
 import { Users, Plus, Trophy } from 'lucide-react'
 import { useFaviconBadge } from '@/hooks/use-favicon-badge'
@@ -28,7 +28,7 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
   const [createOpen, setCreateOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
   const [memberships, setMemberships] = useState(initialMemberships)
-  const [teamNotifications, setTeamNotifications] = useState<Record<string, boolean>>({})
+  const [clubNotifications, setClubNotifications] = useState<Record<string, boolean>>({})
   const [totalUnreadCount, setTotalUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
 
@@ -41,7 +41,7 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
       setLoading(true)
     }
     try {
-      const response = await fetch('/api/teams')
+      const response = await fetch('/api/clubs')
       if (response.ok) {
         const data = await response.json()
         setMemberships(data.memberships || [])
@@ -65,21 +65,21 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
     },
   )
 
-  // Get last cleared time for a team from localStorage
-  const getLastClearedTime = (teamId: string): Date => {
+  // Get last cleared time for a club from localStorage
+  const getLastClearedTime = (clubId: string): Date => {
     if (typeof window === 'undefined') return new Date(0)
-    const key = `lastCleared_team_${teamId}_${user.id}`
+    const key = `lastCleared_club_${clubId}_${user.id}`
     const stored = localStorage.getItem(key)
     return stored ? new Date(stored) : new Date(0)
   }
 
-  // Clear notification for a team when it's clicked
-  const clearTeamNotification = (teamId: string) => {
+  // Clear notification for a club when it's clicked
+  const clearClubNotification = (clubId: string) => {
     if (typeof window === 'undefined') return
-    const key = `lastCleared_team_${teamId}_${user.id}`
+    const key = `lastCleared_club_${clubId}_${user.id}`
     localStorage.setItem(key, new Date().toISOString())
-    setTeamNotifications(prev => {
-      const updated = { ...prev, [teamId]: false }
+    setClubNotifications(prev => {
+      const updated = { ...prev, [clubId]: false }
       // Recalculate total count
       const newCount = Object.values(updated).filter(Boolean).length
       setTotalUnreadCount(newCount)
@@ -87,21 +87,21 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
     })
   }
 
-  // Check for new content in each team
+  // Check for new content in each club
   useEffect(() => {
     const checkForNewContent = async () => {
       const notifications: Record<string, boolean> = {}
       let totalUnreadItems = 0
 
       for (const membership of memberships) {
-        const teamId = membership.team.id
-        const lastCleared = getLastClearedTime(teamId)
+        const clubId = membership.club.id
+        const lastCleared = getLastClearedTime(clubId)
         let hasNew = false
-        let teamUnreadCount = 0
+        let clubUnreadCount = 0
 
         try {
           // Check announcements
-          const streamResponse = await fetch(`/api/announcements?teamId=${teamId}`)
+          const streamResponse = await fetch(`/api/announcements?clubId=${clubId}`)
           if (streamResponse.ok) {
             const streamData = await streamResponse.json()
             const newAnnouncements = streamData.announcements?.filter((announcement: any) => {
@@ -111,12 +111,12 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
             }) || []
             if (newAnnouncements.length > 0) {
               hasNew = true
-              teamUnreadCount += newAnnouncements.length
+              clubUnreadCount += newAnnouncements.length
             }
           }
 
           // Check calendar events
-          const calendarResponse = await fetch(`/api/calendar?teamId=${teamId}`)
+          const calendarResponse = await fetch(`/api/calendar?clubId=${clubId}`)
           if (calendarResponse.ok) {
             const calendarData = await calendarResponse.json()
             const events = calendarData.events || []
@@ -127,12 +127,12 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
             })
             if (newEvents.length > 0) {
               hasNew = true
-              teamUnreadCount += newEvents.length
+              clubUnreadCount += newEvents.length
             }
           }
 
           // Check purchase requests
-          const financeResponse = await fetch(`/api/purchase-requests?teamId=${teamId}`)
+          const financeResponse = await fetch(`/api/purchase-requests?clubId=${clubId}`)
           if (financeResponse.ok) {
             const financeData = await financeResponse.json()
             const purchaseRequests = financeData.purchaseRequests || []
@@ -143,12 +143,12 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
             })
             if (newRequests.length > 0) {
               hasNew = true
-              teamUnreadCount += newRequests.length
+              clubUnreadCount += newRequests.length
             }
           }
 
           // Check expenses
-          const expensesResponse = await fetch(`/api/expenses?teamId=${teamId}`)
+          const expensesResponse = await fetch(`/api/expenses?clubId=${clubId}`)
           if (expensesResponse.ok) {
             const expensesData = await expensesResponse.json()
             const expenses = expensesData.expenses || []
@@ -159,12 +159,12 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
             })
             if (newExpenses.length > 0) {
               hasNew = true
-              teamUnreadCount += newExpenses.length
+              clubUnreadCount += newExpenses.length
             }
           }
 
           // Check tests
-          const testsResponse = await fetch(`/api/tests?teamId=${teamId}`)
+          const testsResponse = await fetch(`/api/tests?clubId=${clubId}`)
           if (testsResponse.ok) {
             const testsData = await testsResponse.json()
             const newTests = testsData.tests?.filter((test: any) => {
@@ -174,18 +174,18 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
             }) || []
             if (newTests.length > 0) {
               hasNew = true
-              teamUnreadCount += newTests.length
+              clubUnreadCount += newTests.length
             }
           }
 
-          notifications[teamId] = hasNew
-          totalUnreadItems += teamUnreadCount
+          notifications[clubId] = hasNew
+          totalUnreadItems += clubUnreadCount
         } catch (error) {
-          console.error(`Failed to check notifications for team ${teamId}:`, error)
+          console.error(`Failed to check notifications for club ${clubId}:`, error)
         }
       }
 
-      setTeamNotifications(notifications)
+      setClubNotifications(notifications)
       setTotalUnreadCount(totalUnreadItems)
     }
 
@@ -296,14 +296,14 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
                   key={membership.id}
                   className="cursor-pointer group relative overflow-hidden bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
                   onClick={() => {
-                    clearTeamNotification(membership.team.id)
-                    router.push(`/club/${membership.team.id}`)
+                    clearClubNotification(membership.club.id)
+                    router.push(`/club/${membership.club.id}`)
                   }}
                 >
                   {/* Gradient overlay on hover */}
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   
-                  {teamNotifications[membership.team.id] && (
+                  {clubNotifications[membership.club.id] && (
                     <div className="absolute right-4 top-4 z-10">
                       <span className="relative flex h-3 w-3">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -316,21 +316,21 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-lg sm:text-xl md:text-2xl mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-gray-900 dark:text-white break-words">
-                          {membership.team.name}
+                          {membership.club.name}
                         </CardTitle>
                         <CardDescription className="text-sm sm:text-base flex items-center gap-2">
                           <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-semibold">
-                            Division {membership.team.division}
+                            Division {membership.club.division}
                           </span>
                         </CardDescription>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="relative space-y-2.5 sm:space-y-3 pt-0">
-                    {membership.subteam && (
+                    {membership.team && (
                       <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
                         <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                        <span className="break-words">Team: <span className="font-semibold text-gray-900 dark:text-white">{membership.subteam.name}</span></span>
+                        <span className="break-words">Team: <span className="font-semibold text-gray-900 dark:text-white">{membership.team.name}</span></span>
                       </div>
                     )}
                     {membership.rosterAssignments && membership.rosterAssignments.length > 0 && (
@@ -373,10 +373,9 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
           </>
         )}
 
-        <CreateTeamDialog open={createOpen} onOpenChange={setCreateOpen} />
-        <JoinTeamDialog open={joinOpen} onOpenChange={setJoinOpen} />
+        <CreateClubDialog open={createOpen} onOpenChange={setCreateOpen} />
+        <JoinClubDialog open={joinOpen} onOpenChange={setJoinOpen} />
       </main>
     </div>
   )
 }
-

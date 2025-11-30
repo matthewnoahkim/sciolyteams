@@ -38,10 +38,10 @@ export async function GET(
       return NextResponse.json({ error: 'Form not found' }, { status: 404 })
     }
 
-    await requireMember(session.user.id, form.teamId)
+    await requireMember(session.user.id, form.clubId)
 
     // Only admins can view all submissions
-    const isAdminUser = await isAdmin(session.user.id, form.teamId)
+    const isAdminUser = await isAdmin(session.user.id, form.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can view all submissions' },
@@ -68,7 +68,7 @@ export async function GET(
 
     // Get all team members to show who hasn't submitted
     const memberships = await prisma.membership.findMany({
-      where: { teamId: form.teamId },
+      where: { teamId: form.clubId },
       include: {
         user: {
           select: {
@@ -125,9 +125,9 @@ export async function POST(
       return NextResponse.json({ error: 'Form not found' }, { status: 404 })
     }
 
-    await requireMember(session.user.id, form.teamId)
+    await requireMember(session.user.id, form.clubId)
 
-    const membership = await getUserMembership(session.user.id, form.teamId)
+    const membership = await getUserMembership(session.user.id, form.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }

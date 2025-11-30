@@ -16,12 +16,12 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { ButtonLoading } from '@/components/ui/loading-spinner'
 
-interface JoinTeamDialogProps {
+interface JoinClubDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
+export function JoinClubDialog({ open, onOpenChange }: JoinClubDialogProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -32,7 +32,7 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/teams/join', {
+      const response = await fetch('/api/clubs/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: code.trim() }),
@@ -41,7 +41,7 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to join team')
+        throw new Error(data.error || 'Failed to join club')
       }
 
       toast({
@@ -51,12 +51,12 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
       onOpenChange(false)
       // Refresh the router to update server-side data
       router.refresh()
-      // Navigate to the team
-      router.push(`/club/${data.membership.team.id}`)
+      // Navigate to the club
+      router.push(`/club/${data.membership.club.id}`)
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to join team. Please check the invite code.',
+        description: error.message || 'Failed to join club. Please check the invite code.',
         variant: 'destructive',
       })
     } finally {
@@ -100,4 +100,7 @@ export function JoinTeamDialog({ open, onOpenChange }: JoinTeamDialogProps) {
     </Dialog>
   )
 }
+
+// Keep backward compatibility export
+export { JoinClubDialog as JoinTeamDialog }
 

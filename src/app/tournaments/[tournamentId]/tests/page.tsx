@@ -77,17 +77,17 @@ export default async function TournamentTestsPage({
     },
   })
 
-  // Get user's teams where they are admin and match tournament division
+  // Get user's clubs where they are admin and match tournament division
   const memberships = await prisma.membership.findMany({
     where: {
       userId: session.user.id,
       role: Role.ADMIN,
-      team: {
+      club: {
         division: tournament.division,
       },
     },
     include: {
-      team: {
+      club: {
         select: {
           id: true,
           name: true,
@@ -97,7 +97,7 @@ export default async function TournamentTestsPage({
     },
   })
 
-  const userTeams = memberships.map(m => m.team)
+  const userClubs = memberships.map(m => m.club)
 
   return (
     <TournamentTestsClient
@@ -105,7 +105,7 @@ export default async function TournamentTestsPage({
       tournamentName={tournament.name}
       tournamentDivision={tournament.division}
       events={events}
-      userTeams={userTeams}
+      userClubs={userClubs}
       user={session.user}
     />
   )

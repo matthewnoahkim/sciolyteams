@@ -45,7 +45,7 @@ export async function POST(
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    const isAdminUser = await isAdmin(session.user.id, test.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can add questions' },

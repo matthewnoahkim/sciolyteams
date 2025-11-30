@@ -6,7 +6,7 @@ import { requireMember, getUserMembership, isAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const createTodoSchema = z.object({
-  teamId: z.string(),
+  clubId: z.string(),
   title: z.string().min(1).max(500),
   description: z.string().max(2000).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
@@ -14,7 +14,7 @@ const createTodoSchema = z.object({
   membershipId: z.string().optional(), // Admin can create for other users
 })
 
-// GET /api/todos?teamId=xxx - List todos
+// GET /api/todos?clubId=xxx - List todos
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -23,25 +23,25 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
     const membershipId = searchParams.get('membershipId')
     const showAll = searchParams.get('showAll') === 'true'
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID is required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID is required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
-    const membership = await getUserMembership(session.user.id, teamId)
+    const membership = await getUserMembership(session.user.id, clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    const isAdminUser = await isAdmin(session.user.id, teamId)
+    const isAdminUser = await isAdmin(session.user.id, clubId)
 
     // Build where clause
-    const where: Record<string, unknown> = { teamId }
+    const where: Record<string, unknown> = { clubId }
 
     if (showAll && isAdminUser) {
       // Admin viewing all todos
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
                 image: true,
               },
             },
-            subteam: {
+            team: {
               select: {
                 id: true,
                 name: true,
@@ -104,14 +104,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validated = createTodoSchema.parse(body)
 
-    await requireMember(session.user.id, validated.teamId)
+    await requireMember(session.user.id, validated.clubId)
 
-    const membership = await getUserMembership(session.user.id, validated.teamId)
+    const membership = await getUserMembership(session.user.id, validated.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    const isAdminUser = await isAdmin(session.user.id, validated.teamId)
+    const isAdminUser = await isAdmin(session.user.id, validated.clubId)
 
     // Determine whose todo this is
     let targetMembershipId = membership.id
@@ -124,11 +124,11 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         )
       }
-      // Verify target membership exists and is in the same team
+      // Verify target membership exists and is in the same club
       const targetMembership = await prisma.membership.findUnique({
         where: { id: validated.membershipId },
       })
-      if (!targetMembership || targetMembership.teamId !== validated.teamId) {
+      if (!targetMembership || targetMembership.clubId !== validated.clubId) {
         return NextResponse.json({ error: 'Invalid membership' }, { status: 400 })
       }
       targetMembershipId = validated.membershipId
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
 
     const todo = await prisma.todo.create({
       data: {
-        teamId: validated.teamId,
+        clubId: validated.clubId,
         membershipId: targetMembershipId,
         title: validated.title,
         description: validated.description,
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
                 image: true,
               },
             },
-            subteam: {
+            team: {
               select: {
                 id: true,
                 name: true,
@@ -180,4 +180,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

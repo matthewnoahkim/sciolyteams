@@ -56,9 +56,9 @@ export default async function TeamTestDetailPage({
 
   const membership = await prisma.membership.findUnique({
     where: {
-      userId_teamId: {
+      userId_clubId: {
         userId: session.user.id,
-        teamId: params.clubId,
+        clubId: params.clubId,
       },
     },
     select: {
@@ -79,7 +79,7 @@ export default async function TeamTestDetailPage({
   const test = await prisma.test.findFirst({
     where: {
       id: params.testId,
-      teamId: params.clubId,
+      clubId: params.clubId,
     },
     select: {
       id: true,
@@ -107,7 +107,7 @@ export default async function TeamTestDetailPage({
       updatedAt: true,
       assignments: {
         include: {
-          subteam: {
+          team: {
             select: {
               id: true,
               name: true,
@@ -155,13 +155,13 @@ export default async function TeamTestDetailPage({
 
   // If the test is a draft, show the builder/editor interface
   if (test.status === 'DRAFT') {
-    const team = await prisma.team.findUnique({
+    const club = await prisma.club.findUnique({
       where: { id: params.clubId },
       select: {
         id: true,
         name: true,
         division: true,
-        subteams: {
+        teams: {
           select: {
             id: true,
             name: true,
@@ -173,8 +173,8 @@ export default async function TeamTestDetailPage({
       },
     })
 
-    if (!team) {
-      redirect('/teams')
+    if (!club) {
+      redirect('/clubs')
     }
 
     // Transform the test data to match NewTestBuilder's expected format
@@ -238,10 +238,10 @@ export default async function TeamTestDetailPage({
             </div>
           )}
           <NewTestBuilder 
-            teamId={team.id} 
-            teamName={team.name}
-            teamDivision={team.division}
-            subteams={team.subteams}
+            clubId={club.id} 
+            clubName={club.name}
+            clubDivision={club.division}
+            teams={club.teams}
             test={transformedTest}
             tournamentId={tournamentTest?.tournament.id}
             tournamentName={tournamentTest?.tournament.name}
@@ -272,12 +272,12 @@ export default async function TeamTestDetailPage({
         hasClub = true
       } else if (assignment.assignedScope === 'TEAM') {
         // TEAM scope can mean:
-        // 1. Specific subteam (has subteamId)
+        // 1. Specific team (has teamId)
         // 2. Event-based assignment (has eventId)
-        if (assignment.subteamId && assignment.subteam) {
-          if (!seenSubteams.has(assignment.subteamId)) {
-            parts.push(assignment.subteam.name)
-            seenSubteams.add(assignment.subteamId)
+        if (assignment.teamId && assignment.team) {
+          if (!seenSubteams.has(assignment.teamId)) {
+            parts.push(assignment.team.name)
+            seenSubteams.add(assignment.teamId)
           }
         } else if (assignment.eventId && assignment.event) {
           if (!seenEvents.has(assignment.eventId)) {
@@ -380,7 +380,7 @@ export default async function TeamTestDetailPage({
           <DuplicateTestButton
             testId={test.id}
             testName={test.name}
-            teamId={params.clubId}
+            clubId={params.clubId}
           />
         </div>
       </div>

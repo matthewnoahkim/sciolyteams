@@ -63,7 +63,7 @@ export function getConflictingEvents(division: Division, eventId: string): strin
  */
 export async function checkConflicts(
   membershipId: string,
-  subteamId: string,
+  teamId: string,
   eventId: string
 ): Promise<{ hasConflict: boolean; conflictingEvents?: string[] }> {
   // Get the event to know its division
@@ -86,11 +86,11 @@ export async function checkConflicts(
     return { hasConflict: false }
   }
 
-  // Check if member is already assigned to any conflicting events in this subteam
+  // Check if member is already assigned to any conflicting events in this team
   const existingAssignments = await prisma.rosterAssignment.findMany({
     where: {
       membershipId,
-      subteamId,
+      teamId,
       eventId: {
         in: conflictingEventIds,
       },
@@ -116,7 +116,7 @@ export async function checkConflicts(
  * Check if adding a member to an event would exceed capacity
  */
 export async function checkCapacity(
-  subteamId: string,
+  teamId: string,
   eventId: string
 ): Promise<{ atCapacity: boolean; currentCount: number; maxCount: number }> {
   const event = await prisma.event.findUnique({
@@ -130,7 +130,7 @@ export async function checkCapacity(
 
   const currentCount = await prisma.rosterAssignment.count({
     where: {
-      subteamId,
+      teamId,
       eventId,
     },
   })
@@ -147,7 +147,7 @@ export async function checkCapacity(
  */
 export async function validateRosterAssignment(
   membershipId: string,
-  subteamId: string,
+  teamId: string,
   eventId: string
 ): Promise<{ valid: boolean; error?: string; code?: string }> {
   // Check if assignment already exists
@@ -169,7 +169,7 @@ export async function validateRosterAssignment(
   }
 
   // Check capacity
-  const capacityCheck = await checkCapacity(subteamId, eventId)
+  const capacityCheck = await checkCapacity(teamId, eventId)
   if (capacityCheck.atCapacity) {
     return {
       valid: false,
@@ -179,7 +179,7 @@ export async function validateRosterAssignment(
   }
 
   // Check conflicts
-  const conflictCheck = await checkConflicts(membershipId, subteamId, eventId)
+  const conflictCheck = await checkConflicts(membershipId, teamId, eventId)
   if (conflictCheck.hasConflict) {
     return {
       valid: false,
@@ -188,12 +188,12 @@ export async function validateRosterAssignment(
     }
   }
 
-  // Check that member belongs to the subteam
+  // Check that member belongs to the team
   const membership = await prisma.membership.findUnique({
     where: { id: membershipId },
     include: {
-      subteam: true,
       team: true,
+      club: true,
     },
   })
 
@@ -205,11 +205,11 @@ export async function validateRosterAssignment(
     }
   }
 
-  if (membership.subteamId !== subteamId) {
+  if (membership.teamId !== teamId) {
     return {
       valid: false,
-      error: 'Member does not belong to this subteam',
-      code: 'INVALID_SUBTEAM',
+      error: 'Member does not belong to this team',
+      code: 'INVALID_TEAM',
     }
   }
 
@@ -227,14 +227,13 @@ export async function validateRosterAssignment(
     }
   }
 
-  if (event.division !== membership.team.division) {
+  if (event.division !== membership.club.division) {
     return {
       valid: false,
-      error: `Event is for Division ${event.division}, but team is Division ${membership.team.division}`,
+      error: `Event is for Division ${event.division}, but club is Division ${membership.club.division}`,
       code: 'DIVISION_MISMATCH',
     }
   }
 
   return { valid: true }
 }
-

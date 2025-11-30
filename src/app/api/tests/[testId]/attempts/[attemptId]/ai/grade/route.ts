@@ -29,19 +29,19 @@ export async function POST(
 
     const test = await prisma.test.findUnique({
       where: { id: resolvedParams.testId },
-      select: { teamId: true },
+      select: { clubId: true },
     })
 
     if (!test) {
       return NextResponse.json({ error: 'Test not found' }, { status: 404 })
     }
 
-    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    const isAdminUser = await isAdmin(session.user.id, test.clubId)
     if (!isAdminUser) {
       return NextResponse.json({ error: 'Only admins can request AI grading' }, { status: 403 })
     }
 
-    const adminMembership = await getUserMembership(session.user.id, test.teamId)
+    const adminMembership = await getUserMembership(session.user.id, test.clubId)
 
     const attempt = await prisma.testAttempt.findUnique({
       where: { id: resolvedParams.attemptId },

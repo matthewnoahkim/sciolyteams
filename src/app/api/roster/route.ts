@@ -7,7 +7,7 @@ import { validateRosterAssignment } from '@/lib/conflicts'
 import { z } from 'zod'
 
 const createAssignmentSchema = z.object({
-  subteamId: z.string(),
+  teamId: z.string(),
   membershipId: z.string(),
   eventId: z.string(),
 })
@@ -22,22 +22,22 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validated = createAssignmentSchema.parse(body)
 
-    // Get subteam to verify team access
-    const subteam = await prisma.subteam.findUnique({
-      where: { id: validated.subteamId },
-      include: { team: true },
+    // Get team to verify club access
+    const team = await prisma.team.findUnique({
+      where: { id: validated.teamId },
+      include: { club: true },
     })
 
-    if (!subteam) {
-      return NextResponse.json({ error: 'Subteam not found' }, { status: 404 })
+    if (!team) {
+      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
     }
 
-    await requireAdmin(session.user.id, subteam.teamId)
+    await requireAdmin(session.user.id, team.clubId)
 
     // Validate the assignment
     const validation = await validateRosterAssignment(
       validated.membershipId,
-      validated.subteamId,
+      validated.teamId,
       validated.eventId
     )
 
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     // Create assignment
     const assignment = await prisma.rosterAssignment.create({
       data: {
-        subteamId: validated.subteamId,
+        teamId: validated.teamId,
         membershipId: validated.membershipId,
         eventId: validated.eventId,
       },
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
           },
         },
         event: true,
-        subteam: true,
+        team: true,
       },
     })
 
@@ -85,4 +85,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

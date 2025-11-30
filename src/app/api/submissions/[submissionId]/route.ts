@@ -38,7 +38,7 @@ export async function PATCH(
     }
 
     // Only admins can update submission status
-    const isAdminUser = await isAdmin(session.user.id, existingSubmission.form.teamId)
+    const isAdminUser = await isAdmin(session.user.id, existingSubmission.form.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can update submission status' },

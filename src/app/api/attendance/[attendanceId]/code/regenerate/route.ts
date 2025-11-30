@@ -31,7 +31,7 @@ export async function POST(
     }
 
     // Only admins can regenerate codes
-    await requireAdmin(session.user.id, attendance.teamId)
+    await requireAdmin(session.user.id, attendance.clubId)
 
     // Admins can generate codes anytime (not just during meeting window)
     // This allows pre-meeting preparation

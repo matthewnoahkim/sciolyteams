@@ -65,8 +65,8 @@ function generateRecurrenceInstances(
 }
 
 const createEventSchema = z.object({
-  teamId: z.string(),
-  scope: z.enum(['PERSONAL', 'SUBTEAM', 'TEAM']),
+  clubId: z.string(),
+  scope: z.enum(['PERSONAL', 'TEAM', 'CLUB']),
   title: z.string().min(1).max(200),
   description: z.string().optional(),
   startUTC: z.string().datetime(),
@@ -75,7 +75,7 @@ const createEventSchema = z.object({
   color: z.string().optional(),
   rsvpEnabled: z.boolean().optional(),
   important: z.boolean().optional(),
-  subteamId: z.string().optional(),
+  teamId: z.string().optional(),
   attendeeId: z.string().optional(),
   targetRoles: z.array(z.enum(['COACH', 'CAPTAIN', 'MEMBER'])).optional(),
   targetEvents: z.array(z.string()).optional(),
@@ -97,27 +97,27 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validated = createEventSchema.parse(body)
 
-    await requireMember(session.user.id, validated.teamId)
+    await requireMember(session.user.id, validated.clubId)
 
-    const membership = await getUserMembership(session.user.id, validated.teamId)
+    const membership = await getUserMembership(session.user.id, validated.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
     // Validate scope permissions
-    if (validated.scope === 'TEAM' || validated.scope === 'SUBTEAM') {
-      const isAdminUser = await isAdmin(session.user.id, validated.teamId)
+    if (validated.scope === 'CLUB' || validated.scope === 'TEAM') {
+      const isAdminUser = await isAdmin(session.user.id, validated.clubId)
       if (!isAdminUser) {
         return NextResponse.json(
-          { error: 'Only admins can create team/subteam events' },
+          { error: 'Only admins can create club/team events' },
           { status: 403 }
         )
       }
     }
 
     // Validate scope-specific fields
-    if (validated.scope === 'SUBTEAM' && !validated.subteamId) {
-      return NextResponse.json({ error: 'Subteam ID required for SUBTEAM scope' }, { status: 400 })
+    if (validated.scope === 'TEAM' && !validated.teamId) {
+      return NextResponse.json({ error: 'Team ID required for TEAM scope' }, { status: 400 })
     }
 
     if (validated.scope === 'PERSONAL' && !validated.attendeeId) {
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
 
     // Build the event data object
     const eventData: any = {
-      teamId: validated.teamId,
+      clubId: validated.clubId,
       creatorId: membership.id,
       scope: validated.scope as CalendarScope,
       title: validated.title,
@@ -149,8 +149,8 @@ export async function POST(req: NextRequest) {
     if (validated.location) {
       eventData.location = validated.location
     }
-    if (validated.subteamId) {
-      eventData.subteamId = validated.subteamId
+    if (validated.teamId) {
+      eventData.teamId = validated.teamId
     }
     if (validated.attendeeId) {
       eventData.attendeeId = validated.attendeeId
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
             },
           },
         },
-        subteam: true,
+        team: true,
         attendee: {
           include: {
             user: {
@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
           data: childInstances.map((instanceStart) => {
             const instanceEnd = new Date(instanceStart.getTime() + eventDuration)
             return {
-              teamId: validated.teamId,
+              clubId: validated.clubId,
               creatorId: membership.id,
               scope: validated.scope as CalendarScope,
               title: validated.title,
@@ -262,7 +262,7 @@ export async function POST(req: NextRequest) {
               color: validated.color || '#3b82f6',
               rsvpEnabled,
               important: validated.important || false,
-              subteamId: validated.subteamId,
+              teamId: validated.teamId,
               attendeeId: validated.attendeeId,
               parentEventId: event.id,
             }
@@ -271,8 +271,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Automatically create attendance record for TEAM and SUBTEAM events
-    if (validated.scope === 'TEAM' || validated.scope === 'SUBTEAM') {
+    // Automatically create attendance record for CLUB and TEAM events
+    if (validated.scope === 'CLUB' || validated.scope === 'TEAM') {
       try {
         const initialCode = generateAttendanceCode()
         const codeHash = await hashAttendanceCode(initialCode)
@@ -280,7 +280,7 @@ export async function POST(req: NextRequest) {
         await prisma.attendance.create({
           data: {
             calendarEventId: event.id,
-            teamId: validated.teamId,
+            clubId: validated.clubId,
             codeHash: codeHash,
             graceMinutes: 0, // Default grace period, can be customized later
             status: 'UPCOMING',
@@ -295,7 +295,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create calendar event targets for role and event targeting
-    if (validated.scope === 'TEAM' || validated.scope === 'SUBTEAM') {
+    if (validated.scope === 'CLUB' || validated.scope === 'TEAM') {
       try {
         // Create target records for roles
         if (validated.targetRoles && validated.targetRoles.length > 0) {
@@ -351,7 +351,7 @@ export async function POST(req: NextRequest) {
       if (error.message.includes('Unknown argument')) {
         userFriendlyMessage = 'Invalid event data submitted'
       } else if (error.message.includes('Foreign key constraint')) {
-        userFriendlyMessage = 'Invalid team or subteam selected'
+        userFriendlyMessage = 'Invalid club or team selected'
       } else if (error.message.includes('Unique constraint')) {
         userFriendlyMessage = 'This event conflicts with an existing record'
       } else if (error.message.includes('attendance')) {
@@ -376,70 +376,70 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
-    const membership = await getUserMembership(session.user.id, teamId)
+    const membership = await getUserMembership(session.user.id, clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, teamId)
+    const isAdminUser = await isAdmin(session.user.id, clubId)
 
     // Get user's event assignments from roster (for filtering targeted events)
     const userRosterAssignments = await prisma.rosterAssignment.findMany({
       where: {
         membershipId: membership.id,
-        subteam: { teamId },
+        team: { clubId },
       },
       select: { 
         eventId: true,
-        subteamId: true,
+        teamId: true,
       },
     })
     const userEventIds = userRosterAssignments.map(ra => ra.eventId)
-    const userSubteamIds = [...new Set(userRosterAssignments.map(ra => ra.subteamId))]
+    const userTeamIds = [...new Set(userRosterAssignments.map(ra => ra.teamId))]
 
     // Get events visible to this user
-    // Admins can see team-wide events, all subteam events, and only their own personal events
-    // Regular members only see team-wide, their subteam, and their personal events
+    // Admins can see club-wide events, all team events, and only their own personal events
+    // Regular members only see club-wide, their team, and their personal events
     const events = await prisma.calendarEvent.findMany({
       where: {
-        teamId,
+        clubId,
         OR: [
-          // Team-wide events (visible to all) - will be filtered further below
-          { scope: CalendarScope.TEAM },
-          // Subteam events
+          // Club-wide events (visible to all) - will be filtered further below
+          { scope: CalendarScope.CLUB },
+          // Team events
           ...(isAdminUser
             ? [
-                // Admins see all subteam events
-                { scope: CalendarScope.SUBTEAM },
+                // Admins see all team events
+                { scope: CalendarScope.TEAM },
               ]
-            : membership.subteamId
+            : membership.teamId
             ? [
-                // Regular members see their primary subteam events
+                // Regular members see their primary team events
                 {
-                  scope: CalendarScope.SUBTEAM,
-                  subteamId: membership.subteamId,
+                  scope: CalendarScope.TEAM,
+                  teamId: membership.teamId,
                 },
-                // Also see events for subteams they have roster assignments in
-                ...(userSubteamIds.length > 0 ? [{
-                  scope: CalendarScope.SUBTEAM,
-                  subteamId: { in: userSubteamIds },
+                // Also see events for teams they have roster assignments in
+                ...(userTeamIds.length > 0 ? [{
+                  scope: CalendarScope.TEAM,
+                  teamId: { in: userTeamIds },
                 }] : []),
               ]
-            : userSubteamIds.length > 0
+            : userTeamIds.length > 0
             ? [
-                // Members without primary subteam but with roster assignments
+                // Members without primary team but with roster assignments
                 {
-                  scope: CalendarScope.SUBTEAM,
-                  subteamId: { in: userSubteamIds },
+                  scope: CalendarScope.TEAM,
+                  teamId: { in: userTeamIds },
                 },
               ]
             : []),
@@ -463,7 +463,7 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-        subteam: true,
+        team: true,
         attendee: {
           include: {
             user: {
@@ -507,7 +507,7 @@ export async function GET(req: NextRequest) {
             assignments: {
               select: {
                 assignedScope: true,
-                subteamId: true,
+                teamId: true,
                 targetMembershipId: true,
                 eventId: true,
               },
@@ -525,7 +525,7 @@ export async function GET(req: NextRequest) {
       ? events
       : events.filter(event => {
           // If this is a test-linked calendar event, check test assignment visibility
-          // This applies to both TEAM and SUBTEAM scope events
+          // This applies to both CLUB and TEAM scope events
           if (event.testId && event.test) {
             const testAssignments = event.test.assignments
             
@@ -541,8 +541,8 @@ export async function GET(req: NextRequest) {
               if (a.assignedScope === 'CLUB') {
                 return true
               }
-              // Subteam-based - user's primary subteam matches assignment's subteam
-              if (a.subteamId && membership.subteamId && a.subteamId === membership.subteamId) {
+              // Team-based - user's primary team matches assignment's team
+              if (a.teamId && membership.teamId && a.teamId === membership.teamId) {
                 return true
               }
               // PERSONAL scope - directly assigned to this user
@@ -559,8 +559,8 @@ export async function GET(req: NextRequest) {
             return hasTestAccess
           }
 
-          // For non-test SUBTEAM events, already filtered by the query
-          if (event.scope === CalendarScope.SUBTEAM) {
+          // For non-test TEAM events, already filtered by the query
+          if (event.scope === CalendarScope.TEAM) {
             return true
           }
 
@@ -569,10 +569,10 @@ export async function GET(req: NextRequest) {
             return true
           }
 
-          // For non-test TEAM events, check CalendarEventTarget records
+          // For non-test CLUB events, check CalendarEventTarget records
           const targets = event.targets || []
           
-          // If no targets, event is visible to everyone in the team
+          // If no targets, event is visible to everyone in the club
           if (targets.length === 0) {
             return true
           }
@@ -611,4 +611,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

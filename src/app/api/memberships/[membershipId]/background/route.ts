@@ -48,13 +48,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    const requesterMembership = await getUserMembership(session.user.id, membership.teamId)
+    const requesterMembership = await getUserMembership(session.user.id, membership.clubId)
     if (!requesterMembership) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const isSelf = membership.userId === session.user.id
-    const isTeamAdmin = await isAdmin(session.user.id, membership.teamId)
+    const isTeamAdmin = await isAdmin(session.user.id, membership.clubId)
 
     if (!isSelf && !isTeamAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

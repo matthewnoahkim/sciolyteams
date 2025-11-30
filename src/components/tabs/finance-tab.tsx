@@ -19,15 +19,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 interface FinanceTabProps {
-  teamId: string
+  clubId: string
   isAdmin: boolean
   currentMembershipId: string
-  currentMembershipSubteamId?: string | null
+  currentMembershipTeamId?: string | null
   division?: 'B' | 'C'
   initialExpenses?: Expense[]
   initialPurchaseRequests?: PurchaseRequest[]
   initialBudgets?: EventBudget[]
-  initialSubteams?: Subteam[]
+  initialTeams?: Team[]
 }
 
 interface Expense {
@@ -54,8 +54,8 @@ interface Expense {
   }
   addedBy?: {
     id: string
-    subteamId: string | null
-    subteam: {
+    subclubId: string | null
+    team: {
       id: string
       name: string
     } | null
@@ -70,9 +70,9 @@ interface Expense {
 
 interface PurchaseRequest {
   id: string
-  teamId: string
+  clubId: string
   eventId: string | null
-  subteamId: string | null
+  subclubId: string | null
   requesterId: string
   description: string
   category: string | null
@@ -90,7 +90,7 @@ interface PurchaseRequest {
     name: string
     slug: string
   }
-  subteam?: {
+  team?: {
     id: string
     name: string
   } | null
@@ -114,17 +114,17 @@ interface Event {
   division: 'B' | 'C'
 }
 
-interface Subteam {
+interface Team {
   id: string
   name: string
-  teamId: string
+  clubId: string
 }
 
 interface EventBudget {
   id: string
-  teamId: string
+  clubId: string
   eventId: string
-  subteamId: string | null
+  subclubId: string | null
   maxBudget: number
   createdAt: string
   updatedAt: string
@@ -134,7 +134,7 @@ interface EventBudget {
     slug: string
     division: 'B' | 'C'
   }
-  subteam?: {
+  team?: {
     id: string
     name: string
   } | null
@@ -164,12 +164,12 @@ const highlightText = (text: string | null | undefined, searchQuery: string): st
   )
 }
 
-export default function FinanceTab({ teamId, isAdmin, currentMembershipId, currentMembershipSubteamId, division, initialExpenses, initialPurchaseRequests, initialBudgets, initialSubteams }: FinanceTabProps) {
+export default function FinanceTab({ clubId, isAdmin, currentMembershipId, currentMembershipSubclubId, division, initialExpenses, initialPurchaseRequests, initialBudgets, initialTeams }: FinanceTabProps) {
   const { toast } = useToast()
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses || [])
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>(initialPurchaseRequests || [])
   const [events, setEvents] = useState<Event[]>([])
-  const [subteams, setSubteams] = useState<Subteam[]>(initialSubteams || [])
+  const [teams, setTeams] = useState<Team[]>(initialTeams || [])
   const [budgets, setBudgets] = useState<EventBudget[]>(initialBudgets || [])
   const [loading, setLoading] = useState(!initialExpenses && !initialPurchaseRequests && !initialBudgets)
 
@@ -233,7 +233,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
   const [editingBudget, setEditingBudget] = useState<EventBudget | null>(null)
   const [budgetForm, setBudgetForm] = useState({
     eventId: '',
-    subteamId: '',
+    subclubId: '',
     maxBudget: '',
   })
   const [savingBudget, setSavingBudget] = useState(false)
@@ -256,10 +256,10 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
     }
     try {
       const requests: Promise<Response | null>[] = [
-        fetch(`/api/expenses?teamId=${teamId}`),
-        fetch(`/api/purchase-requests?teamId=${teamId}`),
-        fetch(`/api/event-budgets?teamId=${teamId}`),
-        fetch(`/api/teams/${teamId}/subteams`),
+        fetch(`/api/expenses?clubId=${clubId}`),
+        fetch(`/api/purchase-requests?clubId=${clubId}`),
+        fetch(`/api/event-budgets?clubId=${clubId}`),
+        fetch(`/api/clubs/${clubId}/teams`),
       ]
 
       if (division) {
@@ -268,7 +268,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         requests.push(Promise.resolve(null))
       }
 
-      const [expensesRes, requestsRes, budgetsRes, subteamsRes, eventsRes] = await Promise.all(requests)
+      const [expensesRes, requestsRes, budgetsRes, teamsRes, eventsRes] = await Promise.all(requests)
 
       if (expensesRes?.ok) {
         const data = await expensesRes.json()
@@ -285,9 +285,9 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         setBudgets(data.budgets || [])
       }
 
-      if (subteamsRes?.ok) {
-        const data = await subteamsRes.json()
-        setSubteams(data.subteams || [])
+      if (teamsRes?.ok) {
+        const data = await teamsRes.json()
+        setTeams(data.teams || [])
       }
 
       if (eventsRes?.ok) {
@@ -306,7 +306,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         setLoading(false)
       }
     }
-  }, [teamId, division, toast])
+  }, [clubId, division, toast])
 
   useEffect(() => {
     fetchData()
@@ -325,7 +325,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
     setAddingExpense(true)
 
     const expenseData = {
-      teamId,
+      clubId,
       eventId: expenseForm.eventId || undefined,
       description: expenseForm.description,
       category: expenseForm.category || undefined,
@@ -531,7 +531,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teamId,
+          clubId,
           eventId: purchaseRequestForm.eventId || undefined,
           description: purchaseRequestForm.description,
           category: purchaseRequestForm.category || undefined,
@@ -650,7 +650,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
       // If an expense was created, fetch the full expense list to get addedBy info
       if (newExpense && reviewForm.status === 'APPROVED') {
         try {
-          const expenseResponse = await fetch(`/api/expenses?teamId=${teamId}`)
+          const expenseResponse = await fetch(`/api/expenses?clubId=${clubId}`)
           if (expenseResponse.ok) {
             const expenseData = await expenseResponse.json()
             setExpenses(expenseData.expenses)
@@ -708,9 +708,9 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teamId,
+          clubId,
           eventId: budgetForm.eventId,
-          subteamId: budgetForm.subteamId || null,
+          subclubId: budgetForm.subclubId || null,
           maxBudget: parseFloat(budgetForm.maxBudget),
           ...(editingBudget && { budgetId: editingBudget.id }),
         }),
@@ -743,7 +743,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
 
       setBudgetDialogOpen(false)
       setEditingBudget(null)
-      setBudgetForm({ eventId: '', subteamId: '', maxBudget: '' })
+      setBudgetForm({ eventId: '', subclubId: '', maxBudget: '' })
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -759,7 +759,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
     setEditingBudget(budget)
     setBudgetForm({
       eventId: budget.eventId,
-      subteamId: budget.subteamId || '',
+      subclubId: budget.subclubId || '',
       maxBudget: budget.maxBudget.toString(),
     })
     setBudgetDialogOpen(true)
@@ -803,13 +803,13 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
     amount: number
     category: string | null
     event?: { id: string; name: string; slug: string }
-    subteam?: { id: string; name: string } | null
+    team?: { id: string; name: string } | null
     status?: 'PENDING' | 'APPROVED' | 'DENIED' | 'COMPLETED'
     isPending?: boolean
     addedBy?: { 
       id: string
-      subteamId: string | null
-      subteam: { id: string; name: string } | null
+      subclubId: string | null
+      team: { id: string; name: string } | null
       user?: {
         id: string
         name: string | null
@@ -828,7 +828,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
       amount: -exp.amount, // Negative for expenses
       category: exp.category,
       event: exp.event,
-      subteam: exp.addedBy?.subteam || null,
+      team: exp.addedBy?.team || null,
       isPending: false,
       addedBy: exp.addedBy,
     })),
@@ -842,13 +842,13 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         amount: -req.estimatedAmount, // Negative for pending requests
         category: req.category,
         event: req.event || undefined,
-        subteam: req.subteam || null,
+        team: req.team || null,
         status: req.status,
         isPending: true,
         addedBy: req.requester ? {
           id: req.requesterId,
-          subteamId: req.subteamId,
-          subteam: req.subteam || null,
+          subclubId: req.subclubId,
+          team: req.team || null,
           user: req.requester,
         } : null,
       })),
@@ -863,7 +863,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         transaction.description.toLowerCase().includes(query) ||
         transaction.category?.toLowerCase().includes(query) ||
         transaction.event?.name.toLowerCase().includes(query) ||
-        transaction.subteam?.name.toLowerCase().includes(query)
+        transaction.team?.name.toLowerCase().includes(query)
       )
       if (!matchesSearch) return false
     }
@@ -960,20 +960,20 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
     return colors[index]
   }
 
-  // Calculate subteam expenses based on purchaser's subteam
-  const subteamExpenses = expenses.reduce((acc, exp) => {
-    const purchaserSubteam = exp.addedBy?.subteam
-    const subteamId = purchaserSubteam?.id || 'club-wide'
-    const subteamName = purchaserSubteam?.name || 'Club-wide'
+  // Calculate team expenses based on purchaser's team
+  const teamExpenses = expenses.reduce((acc, exp) => {
+    const purchaserTeam = exp.addedBy?.team
+    const subclubId = purchaserTeam?.id || 'club-wide'
+    const teamName = purchaserTeam?.name || 'Club-wide'
     
-    if (!acc[subteamId]) {
-      acc[subteamId] = {
-        id: subteamId,
-        name: subteamName,
+    if (!acc[subclubId]) {
+      acc[subclubId] = {
+        id: subclubId,
+        name: teamName,
         total: 0,
       }
     }
-    acc[subteamId].total += exp.amount
+    acc[subclubId].total += exp.amount
     return acc
   }, {} as Record<string, { id: string; name: string; total: number }>)
 
@@ -984,14 +984,14 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
         id: exp.id,
         description: exp.description,
         amount: exp.amount,
-        purchaserSubteam: exp.addedBy?.subteam?.name || 'Club-wide',
+        purchaserTeam: exp.addedBy?.team?.name || 'Club-wide',
         fromPurchaseRequest: !!exp.purchaseRequest,
       })))
-      console.log('Subteam expenses breakdown:', subteamExpenses)
+      console.log('Team expenses breakdown:', teamExpenses)
     }
-  }, [expenses, subteamExpenses])
+  }, [expenses, teamExpenses])
 
-  const subteamExpensesList = Object.values(subteamExpenses).sort((a, b) => {
+  const teamExpensesList = Object.values(teamExpenses).sort((a, b) => {
     // Put "Club-wide" at the end
     if (a.id === 'club-wide') return 1
     if (b.id === 'club-wide') return -1
@@ -1117,12 +1117,12 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
             </CardContent>
           </Card>
 
-          {subteamExpensesList.length > 0 && subteamExpensesList.length <= 3 && (
-            subteamExpensesList.map((subteamExp) => (
-              <Card key={subteamExp.id}>
+          {teamExpensesList.length > 0 && teamExpensesList.length <= 3 && (
+            teamExpensesList.map((teamExp) => (
+              <Card key={teamExp.id}>
                 <CardContent className="pt-6">
-                  <p className="text-xs text-muted-foreground mb-1">{subteamExp.name}</p>
-                  <p className="text-xl font-semibold">${subteamExp.total.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground mb-1">{teamExp.name}</p>
+                  <p className="text-xl font-semibold">${teamExp.total.toFixed(2)}</p>
                 </CardContent>
               </Card>
             ))
@@ -1329,9 +1329,9 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                           <Badge variant="outline" className="text-xs">
                             {searchQuery ? highlightText(transaction.event.name, searchQuery) : transaction.event.name}
                           </Badge>
-                          {transaction.subteam && (
+                          {transaction.team && (
                             <Badge variant="outline" className="text-xs">
-                              {searchQuery ? highlightText(transaction.subteam.name, searchQuery) : transaction.subteam.name}
+                              {searchQuery ? highlightText(transaction.team.name, searchQuery) : transaction.team.name}
                             </Badge>
                           )}
                         </div>
@@ -1359,9 +1359,9 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                                  'U'}
                               </AvatarFallback>
                             </Avatar>
-                            {transaction.subteam && (
+                            {transaction.team && (
                               <span className="text-sm text-muted-foreground font-medium">
-                                {transaction.subteam.name}
+                                {transaction.team.name}
                               </span>
                             )}
                           </div>
@@ -1432,9 +1432,9 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-sm truncate">
                           {budget.event.name}
-                          {budget.subteam && (
+                          {budget.team && (
                             <Badge variant="outline" className="ml-2 text-xs">
-                              {budget.subteam.name}
+                              {budget.team.name}
                             </Badge>
                           )}
                         </h4>
@@ -1864,17 +1864,17 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                         if (isAdmin) return true
                         
                         // Members can only see events that have budgets for their team (or club-wide)
-                        if (!currentMembershipSubteamId) {
+                        if (!currentMembershipSubclubId) {
                           // Member without team - only show events with club-wide budgets
                           return budgets.some(
-                            (b) => b.eventId === event.id && b.subteamId === null
+                            (b) => b.eventId === event.id && b.subclubId === null
                           )
                         } else {
                           // Member with team - show events with their team's budget OR club-wide budget
                           return budgets.some(
                             (b) =>
                               b.eventId === event.id &&
-                              (b.subteamId === currentMembershipSubteamId || b.subteamId === null)
+                              (b.subclubId === currentMembershipSubclubId || b.subclubId === null)
                           )
                         }
                       })
@@ -1887,7 +1887,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                   </Select>
                   {!isAdmin && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Only events with budgets for your subteam are shown
+                      Only events with budgets for your team are shown
                     </p>
                   )}
                 </div>
@@ -1898,10 +1898,10 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                 const budget = budgets.find(b => {
                   if (b.eventId !== purchaseRequestForm.eventId) return false
                   // For members, find their team's budget or club-wide budget
-                  if (!isAdmin && currentMembershipSubteamId) {
-                    return b.subteamId === currentMembershipSubteamId || b.subteamId === null
+                  if (!isAdmin && currentMembershipSubclubId) {
+                    return b.subclubId === currentMembershipSubclubId || b.subclubId === null
                   } else if (!isAdmin) {
-                    return b.subteamId === null
+                    return b.subclubId === null
                   }
                   // For admins, show the first matching budget (they can see all)
                   return true
@@ -1910,7 +1910,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                 if (budget && selectedEvent) {
                   const requestAmount = parseFloat(purchaseRequestForm.estimatedAmount) || 0
                   const wouldExceed = requestAmount > budget.remaining
-                  const subteamName = budget.subteam ? ` (${budget.subteam.name})` : ''
+                  const teamName = budget.team ? ` (${budget.team.name})` : ''
                   
                   return (
                     <div className={`p-4 rounded-lg border-2 ${
@@ -1926,7 +1926,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                         }`} />
                         <div className="flex-1">
                           <h4 className="font-semibold text-sm mb-1">
-                            Budget Reminder: {selectedEvent.name}{subteamName}
+                            Budget Reminder: {selectedEvent.name}{teamName}
                           </h4>
                           <div className="space-y-1 text-sm">
                             <div className="flex justify-between">
@@ -2221,20 +2221,20 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                   </Select>
                 </div>
               )}
-              {subteams.length > 0 && (
+              {teams.length > 0 && (
                 <div>
-                  <Label htmlFor="budget-subteam">Subteam (Optional)</Label>
+                  <Label htmlFor="budget-team">Team (Optional)</Label>
                   <Select
-                    value={budgetForm.subteamId || undefined}
-                    onValueChange={(value) => setBudgetForm({ ...budgetForm, subteamId: value || '' })}
+                    value={budgetForm.subclubId || undefined}
+                    onValueChange={(value) => setBudgetForm({ ...budgetForm, subclubId: value || '' })}
                   >
-                    <SelectTrigger id="budget-subteam">
+                    <SelectTrigger id="budget-team">
                       <SelectValue placeholder="Club-wide (all teams)" />
                     </SelectTrigger>
                     <SelectContent>
-                      {subteams.map((subteam) => (
-                        <SelectItem key={subteam.id} value={subteam.id}>
-                          {subteam.name}
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {team.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2271,7 +2271,7 @@ export default function FinanceTab({ teamId, isAdmin, currentMembershipId, curre
                 onClick={() => {
                   setBudgetDialogOpen(false)
                   setEditingBudget(null)
-                  setBudgetForm({ eventId: '', subteamId: '', maxBudget: '' })
+                  setBudgetForm({ eventId: '', subclubId: '', maxBudget: '' })
                 }}
               >
                 Cancel

@@ -7,7 +7,7 @@ import { logActivity } from '@/lib/activity-log'
 import { z } from 'zod'
 import { Division, Role } from '@prisma/client'
 
-const createTeamSchema = z.object({
+const createClubSchema = z.object({
   name: z.string().min(1).max(100),
   division: z.enum(['B', 'C']),
 })
@@ -20,13 +20,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Ensure user exists in database (fix for JWT session strategy)
-    console.log('[Team Create] Session user ID:', session.user.id)
+    console.log('[Club Create] Session user ID:', session.user.id)
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
     })
 
     if (!user) {
-      console.log('[Team Create] User not found in database, creating...')
+      console.log('[Club Create] User not found in database, creating...')
       // Create the user if they don't exist (shouldn't happen with proper OAuth, but safeguard)
       try {
         await prisma.user.create({
@@ -37,24 +37,24 @@ export async function POST(req: NextRequest) {
             image: session.user.image,
           },
         })
-        console.log('[Team Create] User created successfully')
+        console.log('[Club Create] User created successfully')
       } catch (createError) {
-        console.error('[Team Create] Error creating user:', createError)
+        console.error('[Club Create] Error creating user:', createError)
         throw createError
       }
     } else {
-      console.log('[Team Create] User found in database:', user.email)
+      console.log('[Club Create] User found in database:', user.email)
     }
 
     const body = await req.json()
-    const validated = createTeamSchema.parse(body)
+    const validated = createClubSchema.parse(body)
 
     // Create invite codes
     const { adminHash, memberHash, adminCode, memberCode, adminEncrypted, memberEncrypted } = await createInviteCodes()
 
-    // Create team and membership in a transaction
+    // Create club and membership in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      const team = await tx.team.create({
+      const club = await tx.club.create({
         data: {
           name: validated.name,
           division: validated.division as Division,
@@ -69,28 +69,28 @@ export async function POST(req: NextRequest) {
       const membership = await tx.membership.create({
         data: {
           userId: session.user.id,
-          teamId: team.id,
-            role: Role.ADMIN,
+          clubId: club.id,
+          role: Role.ADMIN,
         },
       })
 
-      return { team, membership, adminCode, memberCode }
+      return { club, membership, adminCode, memberCode }
     })
 
-    // Log the team creation
+    // Log the club creation
     await logActivity({
-      action: 'TEAM_CREATED',
-      description: `Team "${result.team.name}" (${result.team.division}) was created`,
+      action: 'CLUB_CREATED',
+      description: `Club "${result.club.name}" (${result.club.division}) was created`,
       userId: session.user.id,
       metadata: {
-        teamId: result.team.id,
-        teamName: result.team.name,
-        division: result.team.division,
+        clubId: result.club.id,
+        clubName: result.club.name,
+        division: result.club.division,
       },
     })
 
     return NextResponse.json({
-      team: result.team,
+      club: result.club,
       inviteCodes: {
         admin: result.adminCode,
         member: result.memberCode,
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 })
     }
-    console.error('Create team error:', error)
+    console.error('Create club error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -115,8 +115,8 @@ export async function GET(req: NextRequest) {
     const memberships = await prisma.membership.findMany({
       where: { userId: session.user.id },
       include: {
+        club: true,
         team: true,
-        subteam: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ memberships })
   } catch (error) {
-    console.error('Get teams error:', error)
+    console.error('Get clubs error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

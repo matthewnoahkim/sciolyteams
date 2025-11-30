@@ -17,12 +17,12 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useToast } from '@/components/ui/use-toast'
 import { ButtonLoading } from '@/components/ui/loading-spinner'
 
-interface CreateTeamDialogProps {
+interface CreateClubDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) {
+export function CreateClubDialog({ open, onOpenChange }: CreateClubDialogProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -34,14 +34,14 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
     setLoading(true)
 
     try {
-      const response = await fetch('/api/teams', {
+      const response = await fetch('/api/clubs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, division }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to create team')
+        throw new Error('Failed to create club')
       }
 
       const data = await response.json()
@@ -51,12 +51,12 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
       })
       // Refresh the router to update server-side data
       router.refresh()
-      // Navigate to the new team
-      router.push(`/club/${data.team.id}`)
+      // Navigate to the new club
+      router.push(`/club/${data.club.id}`)
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to create team. Please try again.',
+        description: 'Failed to create club. Please try again.',
         variant: 'destructive',
       })
     } finally {
@@ -71,7 +71,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
           <DialogHeader>
             <DialogTitle>Create New Club</DialogTitle>
             <DialogDescription>
-              Set up a new team. You&apos;ll be the team admin.
+              Set up a new club. You&apos;ll be the club admin.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -117,4 +117,7 @@ export function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) 
     </Dialog>
   )
 }
+
+// Keep backward compatibility export
+export { CreateClubDialog as CreateTeamDialog }
 

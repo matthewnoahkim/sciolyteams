@@ -7,8 +7,8 @@ import { getOpenAIClient } from '@/lib/ai'
 import { z } from 'zod'
 
 const generateRosterSchema = z.object({
-  teamId: z.string(),
-  subteamId: z.string().optional(),
+  clubId: z.string(),
+  teamId: z.string().optional(),
   additionalInstructions: z.string().optional(),
 })
 
@@ -23,15 +23,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validated = generateRosterSchema.parse(body)
 
-    await requireMember(session.user.id, validated.teamId)
+    await requireMember(session.user.id, validated.clubId)
 
     // Only admins can generate rosters
-    const isAdminUser = await isAdmin(session.user.id, validated.teamId)
+    const isAdminUser = await isAdmin(session.user.id, validated.clubId)
     if (!isAdminUser) {
       return NextResponse.json({ error: 'Only admins can generate rosters' }, { status: 403 })
     }
 
-    const membership = await getUserMembership(session.user.id, validated.teamId)
+    const membership = await getUserMembership(session.user.id, validated.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
@@ -42,20 +42,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'AI features are not configured' }, { status: 503 })
     }
 
-    // Get team info
-    const team = await prisma.team.findUnique({
-      where: { id: validated.teamId },
+    // Get club info
+    const club = await prisma.club.findUnique({
+      where: { id: validated.clubId },
       select: { id: true, name: true, division: true },
     })
 
-    if (!team) {
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    if (!club) {
+      return NextResponse.json({ error: 'Club not found' }, { status: 404 })
     }
 
     // Build where clause for memberships
-    const membershipWhere: Record<string, unknown> = { teamId: validated.teamId }
-    if (validated.subteamId) {
-      membershipWhere.subteamId = validated.subteamId
+    const membershipWhere: Record<string, unknown> = { clubId: validated.clubId }
+    if (validated.teamId) {
+      membershipWhere.teamId = validated.teamId
     }
 
     // Get all relevant data for roster generation
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
             email: true,
           },
         },
-        subteam: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     // Get test scores
     const testAttempts = await prisma.testAttempt.findMany({
       where: {
-        test: { teamId: validated.teamId },
+        test: { clubId: validated.clubId },
         status: { in: ['SUBMITTED', 'GRADED'] },
         membershipId: { in: memberships.map(m => m.id) },
       },
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
 
     // Get events for division
     const events = await prisma.event.findMany({
-      where: { division: team.division },
+      where: { division: club.division },
       select: {
         id: true,
         name: true,
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
         membershipId: m.id,
         name: m.user.name || m.user.email,
         role: m.role,
-        subteam: m.subteam?.name || null,
+        team: m.team?.name || null,
         preferredEvents: m.preferences?.preferredEvents || [],
         avoidEvents: m.preferences?.avoidEvents || [],
         experienceLevel: m.preferences?.experienceLevel || 'INTERMEDIATE',
@@ -178,12 +178,12 @@ export async function POST(req: NextRequest) {
     })
 
     // Build the AI prompt
-    const prompt = `You are an expert Science Olympiad coach helping to create optimal team rosters for Division ${team.division}.
+    const prompt = `You are an expert Science Olympiad coach helping to create optimal team rosters for Division ${club.division}.
 
 ## Team Information
-- Team Name: ${team.name}
-- Division: ${team.division}
-- ${validated.subteamId ? 'Creating roster for a specific subteam' : 'Creating roster for the entire team'}
+- Club Name: ${club.name}
+- Division: ${club.division}
+- ${validated.teamId ? 'Creating roster for a specific team' : 'Creating roster for the entire team'}
 
 ## Available Events (${events.length} total)
 ${events.map(e => `- ${e.name} (${e.slug}): max ${e.maxCompetitors} competitors`).join('\n')}
@@ -192,7 +192,7 @@ ${events.map(e => `- ${e.name} (${e.slug}): max ${e.maxCompetitors} competitors`
 ${memberProfiles.map(m => `
 ### ${m.name}
 - Role: ${m.role}
-- Subteam: ${m.subteam || 'None'}
+- Subteam: ${m.team || 'None'}
 - Experience Level: ${m.experienceLevel}
 - Preferred Events: ${m.preferredEvents.length > 0 ? m.preferredEvents.join(', ') : 'None specified'}
 - Events to Avoid: ${m.avoidEvents.length > 0 ? m.avoidEvents.join(', ') : 'None specified'}
@@ -272,8 +272,8 @@ Return ONLY valid JSON, no additional text.`
     // Store the generation in the database
     const generation = await prisma.aIRosterGeneration.create({
       data: {
+        clubId: validated.clubId,
         teamId: validated.teamId,
-        subteamId: validated.subteamId,
         prompt: prompt,
         response: responseText,
         generatedRoster: generatedRoster,
@@ -340,7 +340,7 @@ export async function GET(req: NextRequest) {
       take: 10,
       select: {
         id: true,
-        subteamId: true,
+        teamId: true,
         generatedRoster: true,
         appliedAt: true,
         createdAt: true,

@@ -66,8 +66,8 @@ import { CustomTextWidget } from '@/components/widgets/custom-text-widget'
 import { ImportantLinksWidget } from '@/components/widgets/important-links-widget'
 
 interface HomePageTabProps {
-  teamId: string
-  team: any
+  clubId: string
+  club: any
   isAdmin: boolean
   user: any
   initialEvents?: any[]
@@ -198,7 +198,7 @@ function SortableWidgetItem({
   )
 }
 
-export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initialAnnouncements, initialTests }: HomePageTabProps) {
+export function HomePageTab({ clubId, club, isAdmin, user, initialEvents, initialAnnouncements, initialTests }: HomePageTabProps) {
   const { toast } = useToast()
   const [widgets, setWidgets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -214,7 +214,7 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
   const [events, setEvents] = useState<any[]>(initialEvents || [])
   const [tests, setTests] = useState<any[]>(initialTests || [])
   const [stats, setStats] = useState({
-    memberCount: team.memberships?.length || 0,
+    memberCount: club.memberships?.length || 0,
     announcementCount: initialAnnouncements?.length || 0,
     eventCount: initialEvents?.length || 0,
     testCount: initialTests?.length || 0,
@@ -226,21 +226,21 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
     if (!user?.id) return
     fetchWidgets()
     fetchData()
-  }, [teamId, user?.id])
+  }, [clubId, user?.id])
 
   // Calculate stats when data changes
   useEffect(() => {
     setStats({
-      memberCount: team.memberships?.length || 0,
+      memberCount: club.memberships?.length || 0,
       announcementCount: announcements.length,
       eventCount: events.length,
       testCount: tests.length,
     })
-  }, [announcements.length, events.length, tests.length, team.memberships?.length])
+  }, [announcements.length, events.length, tests.length, club.memberships?.length])
 
   const fetchWidgets = async () => {
     try {
-      const response = await fetch(`/api/widgets?teamId=${teamId}`)
+      const response = await fetch(`/api/widgets?clubId=${clubId}`)
       if (!response.ok) throw new Error('Failed to fetch widgets')
       const data = await response.json()
       setWidgets(data.widgets || [])
@@ -260,7 +260,7 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
     try {
       // Only fetch if we don't have initial data
       if (!initialAnnouncements) {
-        const announcementsRes = await fetch(`/api/announcements?teamId=${teamId}`)
+        const announcementsRes = await fetch(`/api/announcements?clubId=${clubId}`)
         if (announcementsRes.ok) {
           const data = await announcementsRes.json()
           setAnnouncements(data.announcements || [])
@@ -269,7 +269,7 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
 
       // Only fetch if we don't have initial data
       if (!initialEvents) {
-        const eventsRes = await fetch(`/api/calendar?teamId=${teamId}`)
+        const eventsRes = await fetch(`/api/calendar?clubId=${clubId}`)
         if (eventsRes.ok) {
           const data = await eventsRes.json()
           setEvents(data.events || [])
@@ -278,7 +278,7 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
 
       // Only fetch if we don't have initial data
       if (!initialTests) {
-        const testsRes = await fetch(`/api/tests?teamId=${teamId}`)
+        const testsRes = await fetch(`/api/tests?clubId=${clubId}`)
         if (testsRes.ok) {
           const data = await testsRes.json()
           setTests(data.tests || [])
@@ -287,7 +287,7 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
 
       // Calculate stats - use current state values
       setStats(prev => ({
-        memberCount: team.memberships?.length || 0,
+        memberCount: club.memberships?.length || 0,
         announcementCount: announcements.length,
         eventCount: events.length,
         testCount: tests.length,
@@ -306,7 +306,7 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teamId,
+          clubId,
           ...widgetData,
           position: newPosition,
         }),
@@ -481,8 +481,8 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
       case 'WELCOME_MESSAGE':
         return (
           <WelcomeWidget
-            teamName={team.name}
-            memberCount={team.memberships?.length || 0}
+            clubName={club.name}
+            memberCount={club.memberships?.length || 0}
             {...widgetProps}
           />
         )
@@ -490,7 +490,7 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
         return (
           <RecentAnnouncementsWidget
             announcements={announcements}
-            teamId={teamId}
+            clubId={clubId}
             {...widgetProps}
           />
         )
@@ -498,7 +498,7 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
         return (
           <UpcomingEventsWidget
             events={events}
-            teamId={teamId}
+            clubId={clubId}
             {...widgetProps}
           />
         )
@@ -507,7 +507,7 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
       case 'QUICK_ACTIONS':
         return (
           <QuickActionsWidget
-            teamId={teamId}
+            clubId={clubId}
             isAdmin={isAdmin}
             {...widgetProps}
           />
@@ -516,7 +516,7 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
         return (
           <UpcomingTestsWidget
             tests={tests}
-            teamId={teamId}
+            clubId={clubId}
             {...widgetProps}
           />
         )
@@ -569,7 +569,7 @@ export function HomePageTab({ teamId, team, isAdmin, user, initialEvents, initia
         <div className="min-w-0 flex-1">
           <h2 className="text-xl sm:text-2xl font-bold truncate">Home</h2>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 truncate">
-            Welcome back to {team.name}
+            Welcome back to {club.name}
           </p>
         </div>
         {canConfigureWidgets && (

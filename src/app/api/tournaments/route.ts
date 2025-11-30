@@ -109,13 +109,13 @@ export async function GET(req: NextRequest) {
         },
         registrations: {
           include: {
-            team: {
+            club: {
               select: {
                 id: true,
                 name: true,
               },
             },
-            subteam: {
+            team: {
               select: {
                 id: true,
                 name: true,

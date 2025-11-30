@@ -40,13 +40,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Announcement not found' }, { status: 404 })
     }
 
-    const membership = await getUserMembership(session.user.id, announcement.teamId)
+    const membership = await getUserMembership(session.user.id, announcement.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
     // Check permissions: must be an admin (admins can edit all announcements)
-    const isAdminUser = await isAdmin(session.user.id, announcement.teamId)
+    const isAdminUser = await isAdmin(session.user.id, announcement.clubId)
 
     if (!isAdminUser) {
       return NextResponse.json(
@@ -79,7 +79,7 @@ export async function PATCH(
           },
           visibilities: {
             include: {
-              subteam: true,
+              team: true,
             },
           },
           calendarEvent: true,
@@ -140,14 +140,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Announcement not found' }, { status: 404 })
     }
 
-    const membership = await getUserMembership(session.user.id, announcement.teamId)
+    const membership = await getUserMembership(session.user.id, announcement.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
     // Check permissions: must be author or admin
     const isAuthor = announcement.authorId === membership.id
-    const isAdminUser = await isAdmin(session.user.id, announcement.teamId)
+    const isAdminUser = await isAdmin(session.user.id, announcement.clubId)
 
     if (!isAuthor && !isAdminUser) {
       return NextResponse.json(

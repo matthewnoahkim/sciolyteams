@@ -24,7 +24,7 @@ export async function GET(
       where: { id: testId },
       select: {
         id: true,
-        teamId: true,
+        clubId: true,
         releaseScoresAt: true,
         scoreReleaseMode: true,
         status: true,
@@ -35,12 +35,12 @@ export async function GET(
       return NextResponse.json({ error: 'Test not found' }, { status: 404 })
     }
 
-    const membership = await getUserMembership(session.user.id, test.teamId)
+    const membership = await getUserMembership(session.user.id, test.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Not a team member' }, { status: 403 })
     }
 
-    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    const isAdminUser = await isAdmin(session.user.id, test.clubId)
 
     // Get all submitted/graded attempts for this user
     const attempts = await prisma.testAttempt.findMany({

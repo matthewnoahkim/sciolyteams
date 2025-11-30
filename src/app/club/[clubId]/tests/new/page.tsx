@@ -17,9 +17,9 @@ export default async function NewTestPage({
 
   const membership = await prisma.membership.findUnique({
     where: {
-      userId_teamId: {
+      userId_clubId: {
         userId: session.user.id,
-        teamId: params.clubId,
+        clubId: params.clubId,
       },
     },
     select: {
@@ -32,12 +32,13 @@ export default async function NewTestPage({
     redirect(`/club/${params.clubId}?tab=tests`)
   }
 
-  const team = await prisma.team.findUnique({
+  const club = await prisma.club.findUnique({
     where: { id: params.clubId },
     select: {
       id: true,
       name: true,
-      subteams: {
+      division: true,
+      teams: {
         select: {
           id: true,
           name: true,
@@ -49,7 +50,7 @@ export default async function NewTestPage({
     },
   })
 
-  if (!team) {
+  if (!club) {
     redirect('/dashboard')
   }
 
@@ -66,9 +67,10 @@ export default async function NewTestPage({
       </div>
 
       <div className="relative z-10 px-4 py-8 lg:px-8">
-        <NewTestBuilder teamId={team.id} teamName={team.name} subteams={team.subteams} />
+        <NewTestBuilder clubId={club.id} clubName={club.name} clubDivision={club.division} teams={club.teams} />
       </div>
     </div>
   )
 }
+
 

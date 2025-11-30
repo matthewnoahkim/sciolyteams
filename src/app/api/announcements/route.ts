@@ -8,11 +8,11 @@ import { z } from 'zod'
 import { AnnouncementScope } from '@prisma/client'
 
 const createAnnouncementSchema = z.object({
-  teamId: z.string(),
+  clubId: z.string(),
   title: z.string().min(1).max(200),
   content: z.string().min(1),
-  scope: z.enum(['TEAM', 'SUBTEAM']),
-  subteamIds: z.array(z.string()).optional(),
+  scope: z.enum(['CLUB', 'TEAM']),
+  teamIds: z.array(z.string()).optional(),
   targetRoles: z.array(z.enum(['COACH', 'CAPTAIN', 'MEMBER'])).optional(),
   targetEvents: z.array(z.string()).optional(),
   sendEmail: z.boolean().default(true),
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const validated = createAnnouncementSchema.parse(body)
 
     // Only admins can create announcements
-    const isAdminUser = await isAdmin(session.user.id, validated.teamId)
+    const isAdminUser = await isAdmin(session.user.id, validated.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can create announcements' },
@@ -39,23 +39,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    await requireMember(session.user.id, validated.teamId)
+    await requireMember(session.user.id, validated.clubId)
 
-    const membership = await getUserMembership(session.user.id, validated.teamId)
+    const membership = await getUserMembership(session.user.id, validated.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    // Validate subteam IDs if provided
-    if (validated.scope === 'SUBTEAM' && (!validated.subteamIds || validated.subteamIds.length === 0)) {
-      return NextResponse.json({ error: 'Subteam IDs required for SUBTEAM scope' }, { status: 400 })
+    // Validate team IDs if provided
+    if (validated.scope === 'TEAM' && (!validated.teamIds || validated.teamIds.length === 0)) {
+      return NextResponse.json({ error: 'Team IDs required for TEAM scope' }, { status: 400 })
     }
 
     // Create announcement with visibilities
     const announcement = await prisma.$transaction(async (tx) => {
       const ann = await tx.announcement.create({
         data: {
-          teamId: validated.teamId,
+          clubId: validated.clubId,
           authorId: membership.id,
           title: validated.title,
           content: validated.content,
@@ -65,21 +65,21 @@ export async function POST(req: NextRequest) {
       })
 
       // Create visibility records
-      if (validated.scope === 'TEAM') {
+      if (validated.scope === 'CLUB') {
         await tx.announcementVisibility.create({
           data: {
             announcementId: ann.id,
-            scope: AnnouncementScope.TEAM,
+            scope: AnnouncementScope.CLUB,
           },
         })
-      } else if (validated.subteamIds) {
+      } else if (validated.teamIds) {
         await Promise.all(
-          validated.subteamIds.map((subteamId) =>
+          validated.teamIds.map((teamId) =>
             tx.announcementVisibility.create({
               data: {
                 announcementId: ann.id,
-                scope: AnnouncementScope.SUBTEAM,
-                subteamId,
+                scope: AnnouncementScope.TEAM,
+                teamId,
               },
             })
           )
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
             tx.announcementVisibility.create({
               data: {
                 announcementId: ann.id,
-                scope: validated.scope === 'TEAM' ? AnnouncementScope.TEAM : AnnouncementScope.SUBTEAM,
+                scope: validated.scope === 'CLUB' ? AnnouncementScope.CLUB : AnnouncementScope.TEAM,
                 targetRole: role,
               },
             })
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
             tx.announcementVisibility.create({
               data: {
                 announcementId: ann.id,
-                scope: validated.scope === 'TEAM' ? AnnouncementScope.TEAM : AnnouncementScope.SUBTEAM,
+                scope: validated.scope === 'CLUB' ? AnnouncementScope.CLUB : AnnouncementScope.TEAM,
                 eventId,
               },
             })
@@ -121,14 +121,14 @@ export async function POST(req: NextRequest) {
 
     // Send emails if requested
     if (validated.sendEmail) {
-      const team = await prisma.team.findUnique({
-        where: { id: validated.teamId },
+      const club = await prisma.club.findUnique({
+        where: { id: validated.clubId },
         select: { name: true },
       })
 
-      // Get all team memberships with role info
+      // Get all club memberships with role info
       const allMemberships = await prisma.membership.findMany({
-        where: { teamId: validated.teamId },
+        where: { clubId: validated.clubId },
         include: {
           user: {
             select: { id: true, email: true },
@@ -151,18 +151,18 @@ export async function POST(req: NextRequest) {
       // Get target members based on scope (will be BCC'd)
       let targetMembers: { email: string; id: string }[] = []
 
-      if (validated.scope === 'TEAM') {
+      if (validated.scope === 'CLUB') {
         // All members (exclude admins and author)
         targetMembers = allMemberships
           .filter(m => m.role === 'MEMBER')
           .map(m => ({ email: m.user.email, id: m.user.id }))
           .filter(m => m.email)
-      } else if (validated.subteamIds) {
-        // Members in selected subteams
-        const subteamMemberships = allMemberships.filter(m => 
-          m.role === 'MEMBER' && m.subteamId && validated.subteamIds?.includes(m.subteamId)
+      } else if (validated.teamIds) {
+        // Members in selected teams
+        const teamMemberships = allMemberships.filter(m => 
+          m.role === 'MEMBER' && m.teamId && validated.teamIds?.includes(m.teamId)
         )
-        targetMembers = subteamMemberships
+        targetMembers = teamMemberships
           .map(m => ({ email: m.user.email, id: m.user.id }))
           .filter(m => m.email)
       }
@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
         adminCount: adminEmails.length,
         memberCount: targetMembers.length,
         scope: validated.scope,
-        subteamIds: validated.subteamIds,
+        teamIds: validated.teamIds,
       })
 
       // Only send email if we have valid recipients
@@ -216,8 +216,8 @@ export async function POST(req: NextRequest) {
               cc: adminEmails.length > 0 ? adminEmails : undefined, // CC all other admins
               bcc: targetMembers.length > 0 ? targetMembers.map(u => u.email) : undefined, // BCC all members
               replyTo: authorEmail,
-              teamId: validated.teamId,
-              teamName: team?.name || 'Team',
+              clubId: validated.clubId,
+              clubName: club?.name || 'Club',
               title: validated.title,
               content: validated.content,
               announcementId: announcement.id,
@@ -239,7 +239,7 @@ export async function POST(req: NextRequest) {
                     data: {
                       announcementId: announcement.id,
                       toUserId: recipient.id,
-                      subject: `[${team?.name}] ${validated.title}`,
+                      subject: `[${club?.name}] ${validated.title}`,
                       providerMessageId: result.messageId,
                     },
                   }).catch(err => console.error('Failed to log email for', recipient.email, err))
@@ -272,7 +272,7 @@ export async function POST(req: NextRequest) {
         },
         visibilities: {
           include: {
-            subteam: true,
+            team: true,
           },
         },
         calendarEvent: {
@@ -289,7 +289,7 @@ export async function POST(req: NextRequest) {
                 },
               },
             },
-            subteam: true,
+            team: true,
           },
         },
         attachments: {
@@ -329,7 +329,7 @@ export async function POST(req: NextRequest) {
       if (error.message.includes('Unknown argument')) {
         userFriendlyMessage = 'Invalid data submitted'
       } else if (error.message.includes('Foreign key constraint')) {
-        userFriendlyMessage = 'Invalid team or subteam selected'
+        userFriendlyMessage = 'Invalid club or team selected'
       } else if (error.message.includes('Unique constraint')) {
         userFriendlyMessage = 'This announcement conflicts with an existing record'
       }
@@ -352,45 +352,45 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
-    const membership = await getUserMembership(session.user.id, teamId)
+    const membership = await getUserMembership(session.user.id, clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, teamId)
+    const isAdminUser = await isAdmin(session.user.id, clubId)
 
     // Get announcements visible to this user
-    // Admins can see all announcements, regular members only see team-wide and their subteam
+    // Admins can see all announcements, regular members only see club-wide and their team
     const announcements = await prisma.announcement.findMany({
       where: {
-        teamId,
-        // Admins see all announcements for the team
+        clubId,
+        // Admins see all announcements for the club
         ...(isAdminUser ? {} : {
           OR: [
-            // Team-wide announcements
+            // Club-wide announcements
             {
               visibilities: {
                 some: {
-                  scope: AnnouncementScope.TEAM,
+                  scope: AnnouncementScope.CLUB,
                 },
               },
             },
-            // Subteam announcements for user's subteam
-            ...(membership.subteamId
+            // Team announcements for user's team
+            ...(membership.teamId
               ? [{
                   visibilities: {
                     some: {
-                      scope: AnnouncementScope.SUBTEAM,
-                      subteamId: membership.subteamId,
+                      scope: AnnouncementScope.TEAM,
+                      teamId: membership.teamId,
                     },
                   },
                 }]
@@ -413,7 +413,7 @@ export async function GET(req: NextRequest) {
         },
         visibilities: {
           include: {
-            subteam: true,
+            team: true,
           },
         },
         replies: {
@@ -479,7 +479,7 @@ export async function GET(req: NextRequest) {
                 },
               },
             },
-            subteam: true,
+            team: true,
           },
         },
         attachments: {
@@ -509,4 +509,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

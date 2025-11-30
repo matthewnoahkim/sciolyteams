@@ -36,7 +36,7 @@ export async function PATCH(
     }
 
     // Only the creator or admin can update
-    const isAdminUser = await isAdmin(session.user.id, existingAlbum.teamId)
+    const isAdminUser = await isAdmin(session.user.id, existingAlbum.clubId)
     if (existingAlbum.createdById !== session.user.id && !isAdminUser) {
       return NextResponse.json(
         { error: 'Only the creator or admin can update this album' },
@@ -92,7 +92,7 @@ export async function DELETE(
     }
 
     // Only the creator or admin can delete
-    const isAdminUser = await isAdmin(session.user.id, existingAlbum.teamId)
+    const isAdminUser = await isAdmin(session.user.id, existingAlbum.clubId)
     if (existingAlbum.createdById !== session.user.id && !isAdminUser) {
       return NextResponse.json(
         { error: 'Only the creator or admin can delete this album' },

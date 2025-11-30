@@ -98,31 +98,31 @@ export async function POST(
       return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
     }
 
-    // Find a team to use (tests require a teamId, but we'll handle it internally)
-    // Use the current user's first admin team matching the tournament division
+    // Find a club to use (tests require a clubId, but we'll handle it internally)
+    // Use the current user's first admin club matching the tournament division
     const userMembership = await prisma.membership.findFirst({
       where: {
         userId: session.user.id,
         role: Role.ADMIN,
-        team: {
+        club: {
           division: tournament.division,
         },
       },
       select: {
-        teamId: true,
+        clubId: true,
       },
     })
 
     if (!userMembership) {
       return NextResponse.json({ 
-        error: 'You need at least one team in the tournament division to create tests' 
+        error: 'You need at least one club in the tournament division to create tests' 
       }, { status: 400 })
     }
 
-    const teamId = userMembership.teamId
+    const clubId = userMembership.clubId
 
     // Get membership for the test creation
-    const membership = await getUserMembership(session.user.id, teamId)
+    const membership = await getUserMembership(session.user.id, clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
@@ -152,7 +152,7 @@ export async function POST(
     const createdTest = await prisma.$transaction(async (tx) => {
       const baseTest = await tx.test.create({
         data: {
-          teamId,
+          clubId,
           name,
           description,
           instructions,

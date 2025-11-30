@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { requireMember } from '@/lib/rbac'
 
-// GET - Get all media items for a team or album
+// GET - Get all media items for a club or album
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -13,17 +13,17 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
     const albumId = searchParams.get('albumId')
     const mediaType = searchParams.get('mediaType') as 'IMAGE' | 'VIDEO' | null
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
-    const whereClause: any = { teamId }
+    const whereClause: any = { clubId }
 
     if (albumId) {
       whereClause.albumId = albumId
@@ -60,4 +60,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

@@ -50,7 +50,7 @@ interface TournamentTest {
     allowCalculator: boolean
     calculatorType: 'FOUR_FUNCTION' | 'SCIENTIFIC' | 'GRAPHING' | null
     maxAttempts: number | null
-    teamId: string
+    clubId: string
     team: {
       id: string
       name: string
@@ -76,7 +76,7 @@ interface TournamentTestsClientProps {
     name: string
     slug: string
   }>
-  userTeams: Array<{
+  userClubs: Array<{
     id: string
     name: string
     division: 'B' | 'C'
@@ -115,7 +115,7 @@ export function TournamentTestsClient({
   tournamentName,
   tournamentDivision,
   events,
-  userTeams,
+  userClubs,
   user,
 }: TournamentTestsClientProps) {
   const router = useRouter()
@@ -256,7 +256,7 @@ export function TournamentTestsClient({
 
   const handleViewTest = (tournamentTest: TournamentTest) => {
     // Navigate to team's test detail page for editing
-    router.push(`/club/${tournamentTest.test.teamId}/tests/${tournamentTest.test.id}`)
+    router.push(`/club/${tournamentTest.test.clubId}/tests/${tournamentTest.test.id}`)
   }
 
   const getStatusBadge = (status: string) => {

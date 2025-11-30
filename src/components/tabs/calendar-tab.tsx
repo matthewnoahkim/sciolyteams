@@ -27,7 +27,7 @@ import { AttachmentDisplay } from '@/components/ui/attachment-display'
 import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 interface CalendarTabProps {
-  teamId: string
+  clubId: string
   currentMembership: any
   isAdmin: boolean
   user: {
@@ -41,12 +41,12 @@ interface CalendarTabProps {
 
 type ViewMode = 'month' | 'week'
 
-export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialEvents }: CalendarTabProps) {
+export function CalendarTab({ clubId, currentMembership, isAdmin, user, initialEvents }: CalendarTabProps) {
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [events, setEvents] = useState<any[]>(initialEvents || [])
-  const [subteams, setSubteams] = useState<any[]>([])
+  const [teams, setTeams] = useState<any[]>([])
   const [availableEvents, setAvailableEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(!initialEvents)
   const [createOpen, setCreateOpen] = useState(false)
@@ -136,8 +136,8 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
       endDate: formatDateLocal(end),
       location: '',
       color: '#3b82f6', // Default blue
-      scope: 'PERSONAL' as 'PERSONAL' | 'SUBTEAM' | 'TEAM',
-      subteamId: '',
+      scope: 'PERSONAL' as 'PERSONAL' | 'TEAM' | 'CLUB',
+      teamId: '',
       attendeeId: currentMembership.id,
       rsvpEnabled: true, // Default to enabled
       important: false,
@@ -160,7 +160,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
       setLoading(true)
     }
     try {
-      const response = await fetch(`/api/calendar?teamId=${teamId}`)
+      const response = await fetch(`/api/calendar?clubId=${clubId}`)
       if (response.ok) {
         const data = await response.json()
         setEvents(data.events)
@@ -172,24 +172,24 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
         setLoading(false)
       }
     }
-  }, [teamId])
+  }, [clubId])
 
   const fetchSubteams = useCallback(async () => {
     try {
-      const response = await fetch(`/api/teams/${teamId}/subteams`)
+      const response = await fetch(`/api/clubs/${clubId}/teams`)
       if (response.ok) {
         const data = await response.json()
-        setSubteams(data.subteams)
+        setTeams(data.teams)
       }
     } catch (error) {
-      console.error('Failed to fetch subteams:', error)
+      console.error('Failed to fetch teams:', error)
     }
-  }, [teamId])
+  }, [clubId])
 
   const fetchAvailableEvents = useCallback(async () => {
     try {
       // Get team info to determine division
-      const teamResponse = await fetch(`/api/teams/${teamId}`)
+      const teamResponse = await fetch(`/api/clubs/${clubId}`)
       if (teamResponse.ok) {
         const teamData = await teamResponse.json()
         const division = teamData.team?.division
@@ -205,7 +205,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
     } catch (error) {
       console.error('Failed to fetch Science Olympiad events:', error)
     }
-  }, [teamId])
+  }, [clubId])
 
   useEffect(() => {
     // Skip initial fetch if we already have data from server
@@ -279,7 +279,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
       }
 
       const payload: any = {
-        teamId,
+        clubId,
         scope: formData.scope,
         title: formData.title,
         startUTC: startISO,
@@ -288,8 +288,8 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
         important: formData.important,
       }
 
-      // Only include rsvpEnabled for TEAM and SUBTEAM events
-      if (formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') {
+      // Only include rsvpEnabled for CLUB and TEAM events
+      if (formData.scope === 'CLUB' || formData.scope === 'TEAM') {
         payload.rsvpEnabled = formData.rsvpEnabled
       }
 
@@ -300,16 +300,16 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
         payload.location = formData.location
       }
 
-      if (formData.scope === 'SUBTEAM') {
-        if (formData.subteamId) {
-          payload.subteamId = formData.subteamId
+      if (formData.scope === 'TEAM') {
+        if (formData.teamId) {
+          payload.teamId = formData.teamId
         }
       } else if (formData.scope === 'PERSONAL') {
         payload.attendeeId = formData.attendeeId
       }
 
-      // Add role and event targeting for team/subteam events
-      if (isAdmin && (formData.scope === 'TEAM' || formData.scope === 'SUBTEAM')) {
+      // Add role and event targeting for club/team events
+      if (isAdmin && (formData.scope === 'CLUB' || formData.scope === 'TEAM')) {
         if (formData.targetRoles && formData.targetRoles.length > 0) {
           payload.targetRoles = formData.targetRoles
         }
@@ -397,8 +397,8 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
       setSelectedFiles([])
       fetchEvents()
 
-      // Show announcement modal for TEAM or SUBTEAM events created by admins
-      if (isAdmin && (createdFormData.scope === 'TEAM' || createdFormData.scope === 'SUBTEAM')) {
+      // Show announcement modal for CLUB or TEAM events created by admins
+      if (isAdmin && (createdFormData.scope === 'CLUB' || createdFormData.scope === 'TEAM')) {
         setCreatedEvent({ ...newEvent, formData: createdFormData })
         setShowAnnouncementModal(true)
       }
@@ -463,15 +463,15 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
         important: formData.important,
       }
 
-      // Only include rsvpEnabled for TEAM and SUBTEAM events
-      if (formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') {
+      // Only include rsvpEnabled for CLUB and TEAM events
+      if (formData.scope === 'CLUB' || formData.scope === 'TEAM') {
         payload.rsvpEnabled = formData.rsvpEnabled
       }
 
-      if (formData.scope === 'SUBTEAM') {
-        payload.subteamId = formData.subteamId || null
+      if (formData.scope === 'TEAM') {
+        payload.teamId = formData.teamId || null
       } else {
-        payload.subteamId = null
+        payload.teamId = null
       }
 
       const response = await fetch(`/api/calendar/${selectedEvent.id}`, {
@@ -561,8 +561,8 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
     switch (event.scope) {
       case 'TEAM':
         return <Badge variant="default" className="text-xs">CLUB</Badge>
-      case 'SUBTEAM':
-        return <Badge variant="secondary" className="text-xs">{event.subteam?.name || 'SUBTEAM'}</Badge>
+      case 'TEAM':
+        return <Badge variant="secondary" className="text-xs">{event.team?.name || 'TEAM'}</Badge>
       case 'PERSONAL':
         return <Badge variant="outline" className="text-xs">PERSONAL</Badge>
     }
@@ -577,7 +577,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
     switch (event.scope) {
       case 'TEAM':
         return 'bg-blue-500 hover:bg-blue-600 text-white'
-      case 'SUBTEAM':
+      case 'TEAM':
         return 'bg-purple-500 hover:bg-purple-600 text-white'
       case 'PERSONAL':
         return 'bg-green-500 hover:bg-green-600 text-white'
@@ -796,7 +796,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
       rsvpEnabled: event.rsvpEnabled !== undefined ? event.rsvpEnabled : true,
       important: event.important || false,
       scope: event.scope,
-      subteamId: event.subteamId || '',
+      teamId: event.teamId || '',
       attendeeId: event.attendeeId || currentMembership.id,
       targetRoles: event.targetRoles || [],
       targetEvents: event.targetEvents || [],
@@ -930,21 +930,21 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
       // Content is just the event description - time/date/location will be pulled from calendarEvent
       const content = createdEvent.description || 'Event details coming soon!'
 
-      // Determine scope and subteam IDs based on the event
-      const scope = createdEvent.scope === 'TEAM' ? 'TEAM' : 'SUBTEAM'
-      const subteamIds = createdEvent.scope === 'SUBTEAM' && createdEvent.subteamId 
-        ? [createdEvent.subteamId] 
+      // Determine scope and team IDs based on the event
+      const scope = createdEvent.scope === 'CLUB' ? 'CLUB' : 'TEAM'
+      const teamIds = createdEvent.scope === 'TEAM' && createdEvent.teamId 
+        ? [createdEvent.teamId] 
         : undefined
 
       const response = await fetch('/api/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teamId,
+          clubId,
           title: createdEvent.title,
           content,
           scope,
-          subteamIds,
+          teamIds,
           sendEmail,
           calendarEventId: createdEvent.id,
           important: createdEvent.important || false,
@@ -1952,7 +1952,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                 <h4 className="text-sm font-semibold">Visibility</h4>
                 <RadioGroup 
                   value={formData.scope} 
-                  onValueChange={(value) => setFormData({ ...formData, scope: value as 'PERSONAL' | 'TEAM' | 'SUBTEAM', subteamId: '' })}
+                  onValueChange={(value) => setFormData({ ...formData, scope: value as 'PERSONAL' | 'TEAM' | 'CLUB', teamId: '' })}
                   className="space-y-2"
                 >
                   <div className="flex items-center gap-2">
@@ -1970,34 +1970,34 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                         </Label>
                       </div>
                       <div className="flex items-center gap-2">
-                        <RadioGroupItem value="SUBTEAM" id="scope-subteam" />
-                        <Label htmlFor="scope-subteam" className="cursor-pointer font-normal text-sm">
+                        <RadioGroupItem value="TEAM" id="scope-team" />
+                        <Label htmlFor="scope-team" className="cursor-pointer font-normal text-sm">
                           Specific team
                         </Label>
                       </div>
                     </>
                   )}
                 </RadioGroup>
-                {formData.scope === 'SUBTEAM' && (
+                {formData.scope === 'TEAM' && (
                   <div className="pt-2">
-                    <Label htmlFor="subteam" className="text-xs text-muted-foreground">Select Team</Label>
+                    <Label htmlFor="team" className="text-xs text-muted-foreground">Select Team</Label>
                     <select
-                      id="subteam"
-                      value={formData.subteamId}
-                      onChange={(e) => setFormData({ ...formData, subteamId: e.target.value })}
+                      id="team"
+                      value={formData.teamId}
+                      onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
                       required
                       className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <option value="">Select a team...</option>
-                      {subteams.map((subteam) => (
-                        <option key={subteam.id} value={subteam.id}>
-                          {subteam.name}
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
                         </option>
                       ))}
                     </select>
                   </div>
                 )}
-                {(formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') && (
+                {(formData.scope === 'CLUB' || formData.scope === 'TEAM') && (
                   <div className="pt-1">
                     <label className="inline-flex items-center gap-2 cursor-pointer">
                       <Checkbox
@@ -2024,7 +2024,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
               </div>
 
               {/* Advanced Targeting - Collapsible */}
-              {isAdmin && (formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') && (
+              {isAdmin && (formData.scope === 'CLUB' || formData.scope === 'TEAM') && (
                 <Collapsible>
                   <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium hover:underline">
                     <ChevronDown className="h-4 w-4" />
@@ -2267,7 +2267,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                           })
                           if (response.ok) {
                             // Refresh events and update selected event
-                            const eventsResponse = await fetch(`/api/calendar?teamId=${teamId}`)
+                            const eventsResponse = await fetch(`/api/calendar?clubId=${clubId}`)
                             if (eventsResponse.ok) {
                               const data = await eventsResponse.json()
                               setEvents(data.events)
@@ -2294,7 +2294,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                       onClick={() => {
                         setEventDetailsOpen(false)
                         // Navigate to test start page
-                        router.push(`/club/${teamId}/tests/${selectedEvent.testId}/take`)
+                        router.push(`/club/${clubId}/tests/${selectedEvent.testId}/take`)
                       }}
                     >
                       <FileText className="mr-2 h-4 w-4" />
@@ -2575,7 +2575,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                 <Label>Scope</Label>
                 <RadioGroup 
                   value={formData.scope} 
-                  onValueChange={(value) => setFormData({ ...formData, scope: value as 'PERSONAL' | 'TEAM' | 'SUBTEAM', subteamId: '' })}
+                  onValueChange={(value) => setFormData({ ...formData, scope: value as 'PERSONAL' | 'TEAM' | 'CLUB', teamId: '' })}
                   className="mt-2 space-y-2"
                 >
                   <div className="flex items-center gap-2">
@@ -2593,34 +2593,34 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
                         </Label>
                       </div>
                       <div className="flex items-center gap-2">
-                        <RadioGroupItem value="SUBTEAM" id="edit-scope-subteam" />
-                        <Label htmlFor="edit-scope-subteam" className="cursor-pointer font-normal text-sm">
+                        <RadioGroupItem value="TEAM" id="edit-scope-team" />
+                        <Label htmlFor="edit-scope-team" className="cursor-pointer font-normal text-sm">
                           Specific team
                         </Label>
                       </div>
                     </>
                   )}
                 </RadioGroup>
-                {formData.scope === 'SUBTEAM' && (
+                {formData.scope === 'TEAM' && (
                   <div className="mt-3">
-                    <Label htmlFor="edit-subteam">Select Team</Label>
+                    <Label htmlFor="edit-team">Select Team</Label>
                     <select
-                      id="edit-subteam"
-                      value={formData.subteamId}
-                      onChange={(e) => setFormData({ ...formData, subteamId: e.target.value })}
+                      id="edit-team"
+                      value={formData.teamId}
+                      onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
                       required
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
                       <option value="">Select a team...</option>
-                      {subteams.map((subteam) => (
-                        <option key={subteam.id} value={subteam.id}>
-                          {subteam.name}
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
                         </option>
                       ))}
                     </select>
                   </div>
                 )}
-                {(formData.scope === 'TEAM' || formData.scope === 'SUBTEAM') && (
+                {(formData.scope === 'CLUB' || formData.scope === 'TEAM') && (
                   <div className="mt-3">
                     <div className="flex items-center gap-2">
                       <Checkbox
@@ -2686,7 +2686,7 @@ export function CalendarTab({ teamId, currentMembership, isAdmin, user, initialE
           onConfirm={handleAnnouncementConfirm}
           eventTitle={createdEvent.title}
           eventScope={createdEvent.scope}
-          subteamName={createdEvent.subteam?.name}
+          teamName={createdEvent.team?.name}
         />
       )}
     </div>

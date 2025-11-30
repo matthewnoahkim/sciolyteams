@@ -20,14 +20,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface PublishTestButtonProps {
   testId: string
-  teamId: string
+  clubId: string
   currentStatus: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
   questionCount: number
 }
 
 export function PublishTestButton({
   testId,
-  teamId,
+  clubId,
   currentStatus,
   questionCount,
 }: PublishTestButtonProps) {

@@ -37,14 +37,14 @@ export async function PATCH(
     // Get the test and verify admin access
     const test = await prisma.test.findUnique({
       where: { id: resolvedParams.testId },
-      select: { teamId: true },
+      select: { clubId: true },
     })
 
     if (!test) {
       return NextResponse.json({ error: 'Test not found' }, { status: 404 })
     }
 
-    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    const isAdminUser = await isAdmin(session.user.id, test.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can grade test attempts' },
@@ -52,7 +52,7 @@ export async function PATCH(
       )
     }
 
-    const adminMembership = await getUserMembership(session.user.id, test.teamId)
+    const adminMembership = await getUserMembership(session.user.id, test.clubId)
     if (!adminMembership) {
       return NextResponse.json({ error: 'Membership not found for admin user' }, { status: 403 })
     }

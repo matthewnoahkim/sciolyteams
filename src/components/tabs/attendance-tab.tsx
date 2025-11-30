@@ -36,7 +36,7 @@ import {
 import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 interface AttendanceTabProps {
-  teamId: string
+  clubId: string
   isAdmin: boolean
   user: {
     id: string
@@ -47,7 +47,7 @@ interface AttendanceTabProps {
   initialAttendances?: any[]
 }
 
-export function AttendanceTab({ teamId, isAdmin, user, initialAttendances }: AttendanceTabProps) {
+export function AttendanceTab({ clubId, isAdmin, user, initialAttendances }: AttendanceTabProps) {
   const { toast } = useToast()
   const [attendances, setAttendances] = useState<any[]>(initialAttendances || [])
   const [loading, setLoading] = useState(false)
@@ -73,7 +73,7 @@ export function AttendanceTab({ teamId, isAdmin, user, initialAttendances }: Att
       setLoading(true)
     }
     try {
-      const response = await fetch(`/api/attendance?teamId=${teamId}`)
+      const response = await fetch(`/api/attendance?clubId=${clubId}`)
       if (response.ok) {
         const data = await response.json()
         setAttendances(data.attendances)
@@ -92,7 +92,7 @@ export function AttendanceTab({ teamId, isAdmin, user, initialAttendances }: Att
         setLoading(false)
       }
     }
-  }, [teamId, toast])
+  }, [clubId, toast])
 
   useEffect(() => {
     // Skip initial fetch if we already have data from server
@@ -416,7 +416,7 @@ export function AttendanceTab({ teamId, isAdmin, user, initialAttendances }: Att
           <CalendarIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <h3 className="text-lg font-semibold mb-2">No Events Yet</h3>
           <p className="text-sm text-muted-foreground">
-            Attendance tracking will automatically appear for team and subteam events.
+            Attendance tracking will automatically appear for team and team events.
           </p>
         </Card>
       ) : (
@@ -433,9 +433,9 @@ export function AttendanceTab({ teamId, isAdmin, user, initialAttendances }: Att
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold">{event.title}</h3>
                       {getStatusBadge(attendance.status)}
-                      {event.scope === 'SUBTEAM' && event.subteam && (
+                      {event.scope === 'SUBTEAM' && event.team && (
                         <Badge variant="secondary" className="text-xs">
-                          {event.subteam.name}
+                          {event.team.name}
                         </Badge>
                       )}
                     </div>

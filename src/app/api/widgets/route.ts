@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { HomeWidgetType, WidgetWidth, WidgetHeight } from '@prisma/client'
 
 const createWidgetSchema = z.object({
-  teamId: z.string(),
+  clubId: z.string(),
   widgetType: z.nativeEnum(HomeWidgetType),
   title: z.string().optional(),
   position: z.number().optional(),
@@ -17,7 +17,7 @@ const createWidgetSchema = z.object({
   config: z.any().optional(),
 })
 
-// GET - Get all widgets for a team
+// GET - Get all widgets for a club
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -26,16 +26,16 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
     const widgets = await prisma.homePageWidget.findMany({
-      where: { teamId },
+      where: { clubId },
       orderBy: { position: 'asc' },
     })
 
@@ -60,11 +60,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const validated = createWidgetSchema.parse(body)
 
-    await requireAdmin(session.user.id, validated.teamId)
+    await requireAdmin(session.user.id, validated.clubId)
 
     const widget = await prisma.homePageWidget.create({
       data: {
-        teamId: validated.teamId,
+        clubId: validated.clubId,
         ownerId: session.user.id,
         widgetType: validated.widgetType,
         title: validated.title,
@@ -91,4 +91,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

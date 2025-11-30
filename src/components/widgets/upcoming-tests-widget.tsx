@@ -8,13 +8,13 @@ import Link from 'next/link'
 
 interface UpcomingTestsWidgetProps {
   tests: any[]
-  teamId: string
+  clubId: string
   config?: any
 }
 
 export function UpcomingTestsWidget({ 
   tests, 
-  teamId,
+  clubId,
   config 
 }: UpcomingTestsWidgetProps) {
   const limit = config?.limit || 5
@@ -60,7 +60,7 @@ export function UpcomingTestsWidget({
               return (
                 <Link
                   key={test.id}
-                  href={`/club/${teamId}?tab=tests`}
+                  href={`/club/${clubId}?tab=tests`}
                   className="group block p-3 rounded-lg hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 dark:hover:from-orange-950/30 dark:hover:to-red-950/30 transition-all duration-200 border border-gray-100 dark:border-gray-800 hover:border-orange-200 dark:hover:border-orange-800 hover:shadow-sm"
                 >
                   <div className="flex items-start gap-3">

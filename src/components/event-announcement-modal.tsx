@@ -19,7 +19,7 @@ interface EventAnnouncementModalProps {
   onConfirm: (postToStream: boolean, sendEmail: boolean) => void
   eventTitle: string
   eventScope: 'TEAM' | 'SUBTEAM'
-  subteamName?: string
+  teamName?: string
 }
 
 export function EventAnnouncementModal({
@@ -28,7 +28,7 @@ export function EventAnnouncementModal({
   onConfirm,
   eventTitle,
   eventScope,
-  subteamName,
+  teamName,
 }: EventAnnouncementModalProps) {
   const [postToStream, setPostToStream] = useState(true)
   const [sendEmail, setSendEmail] = useState(false)
@@ -48,7 +48,7 @@ export function EventAnnouncementModal({
     setSendEmail(false)
   }
 
-  const scopeText = eventScope === 'TEAM' ? 'entire club' : subteamName ? `${subteamName}` : 'team'
+  const scopeText = eventScope === 'TEAM' ? 'entire club' : teamName ? `${teamName}` : 'team'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

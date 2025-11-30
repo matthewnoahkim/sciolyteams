@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 interface TestsTabProps {
-  teamId: string
+  clubId: string
   isAdmin: boolean
   initialTests?: any[]
 }
@@ -72,7 +72,7 @@ const highlightText = (text: string | null | undefined, searchQuery: string): st
   )
 }
 
-export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProps) {
+export default function TestsTab({ clubId, isAdmin, initialTests }: TestsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
   // Ensure initialTests have proper _count structure - memoize to prevent infinite loops
@@ -197,7 +197,7 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
       setLoading(true)
     }
     try {
-      const response = await fetch(`/api/tests?teamId=${teamId}`)
+      const response = await fetch(`/api/tests?clubId=${clubId}`)
       if (response.ok) {
         const data = await response.json()
         // Ensure _count structure exists
@@ -232,7 +232,7 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
         setLoading(false)
       }
     }
-  }, [teamId, isAdmin, toast, fetchUserAttempts, fetchNoteSheets])
+  }, [clubId, isAdmin, toast, fetchUserAttempts, fetchNoteSheets])
 
   useEffect(() => {
     // Skip initial fetch if we already have data from server
@@ -395,12 +395,12 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
   const handleViewTest = (test: Test) => {
     // Navigate to test detail page
     // The page will automatically show the builder for drafts or detail view for published tests
-    window.location.href = `/club/${teamId}/tests/${test.id}`
+    window.location.href = `/club/${clubId}/tests/${test.id}`
   }
 
   const handleTakeTest = (test: Test) => {
     // Navigate to test player
-    window.location.href = `/club/${teamId}/tests/${test.id}/take`
+    window.location.href = `/club/${clubId}/tests/${test.id}/take`
   }
 
   const handleNoteSheetUpload = (testId: string) => {
@@ -741,7 +741,7 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
                       {test.maxAttempts === null ? 'Retake Test' : 'Take Test'}
                     </Button>
                     <Button
-                      onClick={() => router.push(`/club/${teamId}/tests/${test.id}/results`)}
+                      onClick={() => router.push(`/club/${clubId}/tests/${test.id}/results`)}
                       className="flex-1"
                       variant="outline"
                     >
@@ -756,7 +756,7 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
               if (hasCompletedAttempt) {
                 return (
                   <Button
-                    onClick={() => router.push(`/club/${teamId}/tests/${test.id}/results`)}
+                    onClick={() => router.push(`/club/${clubId}/tests/${test.id}/results`)}
                     className="w-full"
                     variant="outline"
                   >
@@ -806,7 +806,7 @@ export default function TestsTab({ teamId, isAdmin, initialTests }: TestsTabProp
             </p>
           </div>
           {isAdmin && (
-            <Button onClick={() => router.push(`/club/${teamId}/tests/new`)}>
+            <Button onClick={() => router.push(`/club/${clubId}/tests/new`)}>
               <Plus className="h-4 w-4 mr-2" />
               Create Test
             </Button>

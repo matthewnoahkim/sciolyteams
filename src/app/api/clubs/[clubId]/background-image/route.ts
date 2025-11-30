@@ -14,7 +14,7 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'
 // POST - Upload background image
 export async function POST(
   req: NextRequest,
-  { params }: { params: { teamId: string } }
+  { params }: { params: { clubId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -23,7 +23,7 @@ export async function POST(
     }
 
     // Only admins can upload background images
-    await requireAdmin(session.user.id, params.teamId)
+    await requireAdmin(session.user.id, params.clubId)
 
     const formData = await req.formData()
     const file = formData.get('file') as File
@@ -48,19 +48,19 @@ export async function POST(
       )
     }
 
-    // Verify team exists
-    const team = await prisma.team.findUnique({
-      where: { id: params.teamId },
+    // Verify club exists
+    const club = await prisma.club.findUnique({
+      where: { id: params.clubId },
     })
 
-    if (!team) {
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    if (!club) {
+      return NextResponse.json({ error: 'Club not found' }, { status: 404 })
     }
 
     // Delete old background image if it exists
-    if (team.backgroundImageUrl) {
+    if (club.backgroundImageUrl) {
       try {
-        const oldFilePath = join(process.cwd(), 'public', team.backgroundImageUrl)
+        const oldFilePath = join(process.cwd(), 'public', club.backgroundImageUrl)
         if (existsSync(oldFilePath)) {
           await unlink(oldFilePath)
         }
@@ -90,16 +90,16 @@ export async function POST(
 
     const imageUrl = `/uploads/${filename}`
 
-    // Update team with new background image URL
-    await prisma.team.update({
-      where: { id: params.teamId },
+    // Update club with new background image URL
+    await prisma.club.update({
+      where: { id: params.clubId },
       data: {
         backgroundImageUrl: imageUrl,
         backgroundType: 'image',
       },
     })
 
-    revalidatePath(`/club/${params.teamId}`)
+    revalidatePath(`/club/${params.clubId}`)
 
     return NextResponse.json({ imageUrl })
   } catch (error) {
@@ -114,7 +114,7 @@ export async function POST(
 // DELETE - Delete background image
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { teamId: string } }
+  { params }: { params: { clubId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -123,21 +123,21 @@ export async function DELETE(
     }
 
     // Only admins can delete background images
-    await requireAdmin(session.user.id, params.teamId)
+    await requireAdmin(session.user.id, params.clubId)
 
-    // Get team to find the image URL
-    const team = await prisma.team.findUnique({
-      where: { id: params.teamId },
+    // Get club to find the image URL
+    const club = await prisma.club.findUnique({
+      where: { id: params.clubId },
     })
 
-    if (!team) {
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    if (!club) {
+      return NextResponse.json({ error: 'Club not found' }, { status: 404 })
     }
 
     // Delete file from filesystem
-    if (team.backgroundImageUrl) {
+    if (club.backgroundImageUrl) {
       try {
-        const filePath = join(process.cwd(), 'public', team.backgroundImageUrl)
+        const filePath = join(process.cwd(), 'public', club.backgroundImageUrl)
         if (existsSync(filePath)) {
           await unlink(filePath)
         }
@@ -147,16 +147,16 @@ export async function DELETE(
       }
     }
 
-    // Update team to remove background image
-    await prisma.team.update({
-      where: { id: params.teamId },
+    // Update club to remove background image
+    await prisma.club.update({
+      where: { id: params.clubId },
       data: {
         backgroundImageUrl: null,
         backgroundType: 'image', // Keep image type selected for future uploads
       },
     })
 
-    revalidatePath(`/club/${params.teamId}`)
+    revalidatePath(`/club/${params.clubId}`)
 
     return NextResponse.json({ success: true })
   } catch (error) {

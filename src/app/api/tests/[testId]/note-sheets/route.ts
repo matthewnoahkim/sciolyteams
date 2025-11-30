@@ -29,7 +29,7 @@ export async function POST(
     const test = await prisma.test.findUnique({
       where: { id: params.testId },
       include: {
-        team: true,
+        club: true,
       },
     })
 
@@ -37,9 +37,9 @@ export async function POST(
       return NextResponse.json({ error: 'Test not found' }, { status: 404 })
     }
 
-    await requireMember(session.user.id, test.teamId)
+    await requireMember(session.user.id, test.clubId)
 
-    const membership = await getUserMembership(session.user.id, test.teamId)
+    const membership = await getUserMembership(session.user.id, test.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
@@ -239,7 +239,7 @@ export async function GET(
     const test = await prisma.test.findUnique({
       where: { id: params.testId },
       include: {
-        team: true,
+        club: true,
       },
     })
 
@@ -247,16 +247,16 @@ export async function GET(
       return NextResponse.json({ error: 'Test not found' }, { status: 404 })
     }
 
-    await requireMember(session.user.id, test.teamId)
+    await requireMember(session.user.id, test.clubId)
 
-    const membership = await getUserMembership(session.user.id, test.teamId)
+    const membership = await getUserMembership(session.user.id, test.clubId)
     if (!membership) {
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
     if (adminView) {
       // Admin view - get all note sheets for this test
-      const isAdminUser = await isAdmin(session.user.id, test.teamId)
+      const isAdminUser = await isAdmin(session.user.id, test.clubId)
       if (!isAdminUser) {
         return NextResponse.json(
           { error: 'Only admins can view all note sheets' },

@@ -9,13 +9,13 @@ import Link from 'next/link'
 
 interface RecentAnnouncementsWidgetProps {
   announcements: any[]
-  teamId: string
+  clubId: string
   config?: any
 }
 
 export function RecentAnnouncementsWidget({ 
   announcements, 
-  teamId,
+  clubId,
   config 
 }: RecentAnnouncementsWidgetProps) {
   const limit = config?.limit || 5
@@ -55,7 +55,7 @@ export function RecentAnnouncementsWidget({
             {displayAnnouncements.map((announcement) => (
               <Link
                 key={announcement.id}
-                href={`/club/${teamId}?tab=stream`}
+                href={`/club/${clubId}?tab=stream`}
                 className="group block p-3 rounded-lg hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-950/30 dark:hover:to-indigo-950/30 transition-all duration-200 border border-gray-100 dark:border-gray-800 hover:border-blue-200 dark:hover:border-blue-800 hover:shadow-sm"
               >
                 <div className="flex items-start gap-3">

@@ -46,7 +46,7 @@ export async function PATCH(
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    const isAdminUser = await isAdmin(session.user.id, test.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can edit questions' },
@@ -137,7 +137,7 @@ export async function DELETE(
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, test.teamId)
+    const isAdminUser = await isAdmin(session.user.id, test.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can delete questions' },

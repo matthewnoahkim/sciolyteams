@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { requireMember, isAdmin } from '@/lib/rbac'
 
-// GET /api/stats?teamId=xxx - Get comprehensive stats for all team members
+// GET /api/stats?clubId=xxx - Get comprehensive stats for all club members
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -13,33 +13,33 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID is required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID is required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
     // Only admins can view stats
-    const isAdminUser = await isAdmin(session.user.id, teamId)
+    const isAdminUser = await isAdmin(session.user.id, clubId)
     if (!isAdminUser) {
       return NextResponse.json({ error: 'Only admins can view stats' }, { status: 403 })
     }
 
-    // Get team with division
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
+    // Get club with division
+    const club = await prisma.club.findUnique({
+      where: { id: clubId },
       select: { id: true, division: true },
     })
 
-    if (!team) {
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    if (!club) {
+      return NextResponse.json({ error: 'Club not found' }, { status: 404 })
     }
 
     // Get all memberships with user info
     const memberships = await prisma.membership.findMany({
-      where: { teamId },
+      where: { clubId },
       include: {
         user: {
           select: {
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
             image: true,
           },
         },
-        subteam: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -81,10 +81,10 @@ export async function GET(req: NextRequest) {
       console.log('MemberPreferences table not available')
     }
 
-    // Get all test attempts for the team
+    // Get all test attempts for the club
     const testAttempts = await prisma.testAttempt.findMany({
       where: {
-        test: { teamId },
+        test: { clubId },
         status: { in: ['SUBMITTED', 'GRADED'] },
       },
       select: {
@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
     // Get attendance records  
     const attendanceRecords = await prisma.attendanceCheckIn.findMany({
       where: {
-        attendance: { teamId },
+        attendance: { clubId },
       },
       select: {
         id: true,
@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
 
     // Get todos for completion stats
     const todos = await prisma.todo.findMany({
-      where: { teamId },
+      where: { clubId },
       select: {
         id: true,
         membershipId: true,
@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
 
     // Get events for the division
     const events = await prisma.event.findMany({
-      where: { division: team.division },
+      where: { division: club.division },
       select: {
         id: true,
         name: true,
@@ -177,7 +177,7 @@ export async function GET(req: NextRequest) {
         email: membership.user.email,
         image: membership.user.image,
         role: membership.role,
-        subteam: membership.subteam,
+        team: membership.team,
         preferences: preferencesMap[membership.id] || null,
         stats: {
           testScores,
@@ -195,9 +195,9 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // Get subteams
-    const subteams = await prisma.subteam.findMany({
-      where: { teamId },
+    // Get teams
+    const teams = await prisma.team.findMany({
+      where: { clubId },
       select: {
         id: true,
         name: true,
@@ -206,10 +206,10 @@ export async function GET(req: NextRequest) {
     })
 
     return NextResponse.json({
-      teamId,
-      division: team.division,
+      clubId,
+      division: club.division,
       events,
-      subteams,
+      teams,
       members: memberStats,
     })
   } catch (error) {
@@ -220,4 +220,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

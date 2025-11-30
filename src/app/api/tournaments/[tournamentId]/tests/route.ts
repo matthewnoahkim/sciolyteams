@@ -56,8 +56,8 @@ export async function GET(
             allowCalculator: true,
             calculatorType: true,
             maxAttempts: true,
-            teamId: true,
-            team: {
+            clubId: true,
+            club: {
               select: {
                 id: true,
                 name: true,

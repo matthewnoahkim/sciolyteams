@@ -35,7 +35,7 @@ export async function POST(
     const membership = await prisma.membership.findFirst({
       where: {
         userId: session.user.id,
-        team: {
+        club: {
           tests: {
             some: {
               id: params.testId,

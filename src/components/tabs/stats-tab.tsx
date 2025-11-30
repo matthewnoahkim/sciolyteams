@@ -60,7 +60,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Checkbox } from '@/components/ui/checkbox'
 
 interface StatsTabProps {
-  teamId: string
+  clubId: string
   division: 'B' | 'C'
 }
 
@@ -71,7 +71,7 @@ interface MemberStats {
   email: string
   image: string | null
   role: string
-  subteam: { id: string; name: string } | null
+  team: { id: string; name: string } | null
   preferences: {
     id: string
     preferredEvents: string[]
@@ -127,12 +127,12 @@ interface AIRoster {
   recommendations: string[]
 }
 
-export function StatsTab({ teamId, division }: StatsTabProps) {
+export function StatsTab({ clubId, division }: StatsTabProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [members, setMembers] = useState<MemberStats[]>([])
   const [events, setEvents] = useState<Event[]>([])
-  const [subteams, setSubteams] = useState<{ id: string; name: string }[]>([])
+  const [teams, setSubteams] = useState<{ id: string; name: string }[]>([])
   
   // Filter state
   const [selectedSubteam, setSelectedSubteam] = useState<string>('all')
@@ -161,12 +161,12 @@ export function StatsTab({ teamId, division }: StatsTabProps) {
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/stats?teamId=${teamId}`)
+      const response = await fetch(`/api/stats?clubId=${clubId}`)
       if (!response.ok) throw new Error('Failed to fetch stats')
       const data = await response.json()
       setMembers(data.members || [])
       setEvents(data.events || [])
-      setSubteams(data.subteams || [])
+      setSubteams(data.teams || [])
     } catch (error) {
       console.error('Failed to fetch stats:', error)
       toast({
@@ -177,7 +177,7 @@ export function StatsTab({ teamId, division }: StatsTabProps) {
     } finally {
       setLoading(false)
     }
-  }, [teamId, toast])
+  }, [clubId, toast])
 
   useEffect(() => {
     fetchStats()
@@ -235,8 +235,8 @@ export function StatsTab({ teamId, division }: StatsTabProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teamId,
-          subteamId: selectedSubteam !== 'all' ? selectedSubteam : undefined,
+          clubId,
+          subclubId: selectedSubteam !== 'all' ? selectedSubteam : undefined,
           additionalInstructions: aiInstructions || undefined,
         }),
       })
@@ -279,7 +279,7 @@ export function StatsTab({ teamId, division }: StatsTabProps) {
 
   // Filter and sort members
   const filteredMembers = members
-    .filter(m => selectedSubteam === 'all' || m.subteam?.id === selectedSubteam)
+    .filter(m => selectedSubteam === 'all' || m.team?.id === selectedSubteam)
     .sort((a, b) => {
       let comparison = 0
       switch (sortBy) {
@@ -400,7 +400,7 @@ export function StatsTab({ teamId, division }: StatsTabProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Members</SelectItem>
-                  {subteams.map(s => (
+                  {teams.map(s => (
                     <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -482,7 +482,7 @@ export function StatsTab({ teamId, division }: StatsTabProps) {
                             {member.role}
                           </Badge>
                         </TableCell>
-                        <TableCell>{member.subteam?.name || '-'}</TableCell>
+                        <TableCell>{member.team?.name || '-'}</TableCell>
                         <TableCell className="text-right">
                           {member.stats.avgTestScore !== null 
                             ? `${member.stats.avgTestScore.toFixed(1)}%` 
@@ -753,7 +753,7 @@ export function StatsTab({ teamId, division }: StatsTabProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Members</SelectItem>
-                    {subteams.map(s => (
+                    {teams.map(s => (
                       <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                     ))}
                   </SelectContent>

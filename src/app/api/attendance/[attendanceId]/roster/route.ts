@@ -30,7 +30,7 @@ export async function GET(
     }
 
     // Only admins can view full roster
-    await requireAdmin(session.user.id, attendance.teamId)
+    await requireAdmin(session.user.id, attendance.clubId)
 
     // Get all check-ins with user details
     const checkIns = await prisma.attendanceCheckIn.findMany({
@@ -46,7 +46,7 @@ export async function GET(
         },
         membership: {
           include: {
-            subteam: true,
+            team: true,
           },
         },
       },
@@ -57,7 +57,7 @@ export async function GET(
 
     // Get all team members for comparison
     const allMembers = await prisma.membership.findMany({
-      where: { teamId: attendance.teamId },
+      where: { teamId: attendance.clubId },
       include: {
         user: {
           select: {
@@ -67,7 +67,7 @@ export async function GET(
             image: true,
           },
         },
-        subteam: true,
+        team: true,
       },
     })
 

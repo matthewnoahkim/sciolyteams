@@ -44,7 +44,7 @@ interface Tournament {
       id: string
       name: string
     }
-    subteam: {
+    team: {
       id: string
       name: string
     } | null
@@ -59,7 +59,7 @@ interface Team {
   id: string
   name: string
   division: 'B' | 'C'
-  subteams?: Array<{
+  teams?: Array<{
     id: string
     name: string
   }>
@@ -89,13 +89,13 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [signupDialogOpen, setSignupDialogOpen] = useState(false)
-  const [selectedTeams, setSelectedTeams] = useState<Array<{ teamId: string; subteamId?: string; subteamIds?: string[]; eventIds: string[] }>>([])
+  const [selectedTeams, setSelectedTeams] = useState<Array<{ clubId: string; subclubId?: string; subclubIds?: string[]; eventIds: string[] }>>([])
   const [submitting, setSubmitting] = useState(false)
-  const [registeredTeams, setRegisteredTeams] = useState<Array<{ id: string; teamId: string; subteamId?: string | null; teamName: string; subteamName?: string | null }>>([])
+  const [registeredTeams, setRegisteredTeams] = useState<Array<{ id: string; clubId: string; subclubId?: string | null; teamName: string; teamName?: string | null }>>([])
   const [totalRegisteredSubteams, setTotalRegisteredSubteams] = useState(0)
   const [totalCost, setTotalCost] = useState(0)
   const [deregisterDialogOpen, setDeregisterDialogOpen] = useState(false)
-  const [registrationToDeregister, setRegistrationToDeregister] = useState<{ id: string; teamName: string; subteamName?: string | null } | null>(null)
+  const [registrationToDeregister, setRegistrationToDeregister] = useState<{ id: string; teamName: string; teamName?: string | null } | null>(null)
   const [deregistering, setDeregistering] = useState(false)
 
   useEffect(() => {
@@ -118,17 +118,17 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
       setTournament(tournamentData)
       // Track which of user's teams are registered
       const userRegisteredTeams = (tournamentData.registrations || [])
-        .filter((r: any) => userTeams.some(t => t.id === r.teamId))
+        .filter((r: any) => userTeams.some(t => t.id === r.clubId))
         .map((r: any) => ({
           id: r.id,
-          teamId: r.teamId,
-          subteamId: r.subteamId || null,
+          clubId: r.clubId,
+          subclubId: r.subclubId || null,
           teamName: r.team?.name || 'Unknown Team',
-          subteamName: r.subteam?.name || null,
+          teamName: r.team?.name || null,
         }))
       setRegisteredTeams(userRegisteredTeams)
       
-      // Calculate total subteams registered and total cost
+      // Calculate total teams registered and total cost
       const totalSubteams = userRegisteredTeams.length
       const calculatedCost = totalSubteams * (data.tournament.price || 0)
       setTotalRegisteredSubteams(totalSubteams)
@@ -164,14 +164,14 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
   }, [tournament])
 
   const addTeam = () => {
-    setSelectedTeams([...selectedTeams, { teamId: '', subteamId: undefined, subteamIds: undefined, eventIds: [] }])
+    setSelectedTeams([...selectedTeams, { clubId: '', subclubId: undefined, subclubIds: undefined, eventIds: [] }])
   }
 
   const removeTeam = (index: number) => {
     setSelectedTeams(selectedTeams.filter((_, i) => i !== index))
   }
 
-  const updateTeam = (index: number, updates: Partial<{ teamId: string; subteamId?: string; subteamIds?: string[]; eventIds: string[] }>) => {
+  const updateTeam = (index: number, updates: Partial<{ clubId: string; subclubId?: string; subclubIds?: string[]; eventIds: string[] }>) => {
     const updated = [...selectedTeams]
     updated[index] = { ...updated[index], ...updates }
     setSelectedTeams(updated)
@@ -187,9 +187,9 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
       return
     }
 
-    // Validate all teams have teamId, subteamId (if team has subteams), and at least one event
+    // Validate all teams have clubId, subclubId (if team has teams), and at least one event
     for (const team of selectedTeams) {
-      if (!team.teamId) {
+      if (!team.clubId) {
         toast({
           title: 'Error',
           description: 'Please select a team for all entries',
@@ -198,22 +198,22 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
         return
       }
       
-      // Check if team has subteams - subteams are required for tournament registration
-      const teamData = filteredTeams.find(t => t.id === team.teamId)
-      if (!teamData?.subteams || teamData.subteams.length === 0) {
+      // Check if team has teams - teams are required for tournament registration
+      const teamData = filteredTeams.find(t => t.id === team.clubId)
+      if (!teamData?.teams || teamData.teams.length === 0) {
         toast({
           title: 'Error',
-          description: `${teamData?.name || 'This team'} must have at least one subteam to register for tournaments. Please create a subteam first.`,
+          description: `${teamData?.name || 'This team'} must have at least one team to register for tournaments. Please create a team first.`,
           variant: 'destructive',
         })
         return
       }
       
-      // Require at least one subteamId in subteamIds
-      if (!team.subteamIds || team.subteamIds.length === 0) {
+      // Require at least one subclubId in subclubIds
+      if (!team.subclubIds || team.subclubIds.length === 0) {
         toast({
           title: 'Error',
-          description: `Please select at least one subteam for ${teamData.name}`,
+          description: `Please select at least one team for ${teamData.name}`,
           variant: 'destructive',
         })
         return
@@ -232,26 +232,26 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
     try {
       setSubmitting(true)
       
-      // Build registrations array - one per team/subteam combination
-      const registrations: Array<{ teamId: string; subteamId?: string; eventIds: string[] }> = []
+      // Build registrations array - one per team/team combination
+      const registrations: Array<{ clubId: string; subclubId?: string; eventIds: string[] }> = []
       
       for (const team of selectedTeams) {
-        const teamData = filteredTeams.find(t => t.id === team.teamId)
+        const teamData = filteredTeams.find(t => t.id === team.clubId)
         
-        if (teamData?.subteams && teamData.subteams.length > 0 && team.subteamIds && team.subteamIds.length > 0) {
-          // Has subteams selected - create one registration per selected subteam
-          for (const subteamId of team.subteamIds) {
+        if (teamData?.teams && teamData.teams.length > 0 && team.subclubIds && team.subclubIds.length > 0) {
+          // Has teams selected - create one registration per selected team
+          for (const subclubId of team.subclubIds) {
             registrations.push({
-              teamId: team.teamId,
-              subteamId: subteamId,
+              clubId: team.clubId,
+              subclubId: subclubId,
               eventIds: team.eventIds,
             })
           }
         } else {
-          // No subteams or no subteams selected - single registration without subteamId
+          // No teams or no teams selected - single registration without subclubId
           registrations.push({
-            teamId: team.teamId,
-            subteamId: undefined, // Explicitly set to undefined for teams without subteams
+            clubId: team.clubId,
+            subclubId: undefined, // Explicitly set to undefined for teams without teams
             eventIds: team.eventIds,
           })
         }
@@ -456,7 +456,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                           {tournament.registrations.map((reg) => (
                             <Badge key={reg.id} variant="secondary" className="text-xs">
                               {reg.team.name}
-                              {reg.subteam && ` - ${reg.subteam.name}`}
+                              {reg.team && ` - ${reg.team.name}`}
                             </Badge>
                           ))}
                         </div>
@@ -495,7 +495,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                                 <CheckCircle2 className="h-4 w-4" />
                                 <span>
                                   {reg.teamName}
-                                  {reg.subteamName && ` - ${reg.subteamName}`}
+                                  {reg.teamName && ` - ${reg.teamName}`}
                                 </span>
                               </div>
                               <Button
@@ -505,7 +505,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                                   setRegistrationToDeregister({
                                     id: reg.id,
                                     teamName: reg.teamName,
-                                    subteamName: reg.subteamName || null,
+                                    teamName: reg.teamName || null,
                                   })
                                   setDeregisterDialogOpen(true)
                                 }}
@@ -534,12 +534,12 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                       onClick={() => {
                         // Pre-populate with teams that aren't registered yet
                         const unregisteredTeams = filteredTeams.filter(t => 
-                          !registeredTeams.some(r => r.teamId === t.id && !r.subteamId)
+                          !registeredTeams.some(r => r.clubId === t.id && !r.subclubId)
                         )
                         if (unregisteredTeams.length > 0) {
-                          setSelectedTeams([{ teamId: unregisteredTeams[0].id, subteamId: undefined, subteamIds: undefined, eventIds: [] }])
+                          setSelectedTeams([{ clubId: unregisteredTeams[0].id, subclubId: undefined, subclubIds: undefined, eventIds: [] }])
                         } else {
-                          setSelectedTeams([{ teamId: '', subteamId: undefined, subteamIds: undefined, eventIds: [] }])
+                          setSelectedTeams([{ clubId: '', subclubId: undefined, subclubIds: undefined, eventIds: [] }])
                         }
                         setSignupDialogOpen(true)
                       }} 
@@ -578,14 +578,14 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
               )}
 
               {selectedTeams.map((teamReg, index) => {
-                const selectedTeam = filteredTeams.find(t => t.id === teamReg.teamId)
-                const hasSubteams = selectedTeam?.subteams && selectedTeam.subteams.length > 0
+                const selectedTeam = filteredTeams.find(t => t.id === teamReg.clubId)
+                const hasSubteams = selectedTeam?.teams && selectedTeam.teams.length > 0
                 
-                // Get already registered subteam IDs for this team
-                const alreadyRegisteredSubteamIds = new Set(
+                // Get already registered team IDs for this team
+                const alreadyRegisteredSubclubIds = new Set(
                   tournament.registrations
-                    ?.filter((r: any) => r.teamId === teamReg.teamId && r.subteamId)
-                    .map((r: any) => r.subteamId) || []
+                    ?.filter((r: any) => r.clubId === teamReg.clubId && r.subclubId)
+                    .map((r: any) => r.subclubId) || []
                 )
 
                 return (
@@ -608,9 +608,9 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                       <div>
                         <label className="text-sm font-medium mb-2 block">Select Team</label>
                         <Select
-                          value={teamReg.teamId}
+                          value={teamReg.clubId}
                           onValueChange={(value) => {
-                            updateTeam(index, { teamId: value, subteamId: undefined, eventIds: [] })
+                            updateTeam(index, { clubId: value, subclubId: undefined, eventIds: [] })
                           }}
                         >
                           <SelectTrigger>
@@ -626,20 +626,20 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                         </Select>
                       </div>
 
-                      {teamReg.teamId && (
+                      {teamReg.clubId && (
                         <div>
                           {hasSubteams ? (
                             <>
                               <div className="flex items-center justify-between mb-2">
                                 <label className="text-sm font-medium block">
-                                  Select Subteam{selectedTeam?.subteams && selectedTeam.subteams.length > 1 ? 's' : ''} <span className="text-destructive">*</span>
+                                  Select Subteam{selectedTeam?.teams && selectedTeam.teams.length > 1 ? 's' : ''} <span className="text-destructive">*</span>
                                 </label>
-                                {selectedTeam?.subteams && selectedTeam.subteams.length > 1 && (() => {
-                                  // Only get subteams that aren't already registered
-                                  const availableSubteamIds = selectedTeam.subteams
-                                    ?.filter(s => !alreadyRegisteredSubteamIds.has(s.id))
+                                {selectedTeam?.teams && selectedTeam.teams.length > 1 && (() => {
+                                  // Only get teams that aren't already registered
+                                  const availableSubclubIds = selectedTeam.teams
+                                    ?.filter(s => !alreadyRegisteredSubclubIds.has(s.id))
                                     .map(s => s.id) || []
-                                  const allSelected = availableSubteamIds.every(id => teamReg.subteamIds?.includes(id))
+                                  const allSelected = availableSubclubIds.every(id => teamReg.subclubIds?.includes(id))
                                   return (
                                     <Button
                                       type="button"
@@ -647,8 +647,8 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                                       size="sm"
                                       onClick={() => {
                                         updateTeam(index, { 
-                                          subteamIds: allSelected ? [] : availableSubteamIds,
-                                          subteamId: undefined
+                                          subclubIds: allSelected ? [] : availableSubclubIds,
+                                          subclubId: undefined
                                         })
                                       }}
                                       className="h-7 text-xs"
@@ -658,45 +658,45 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                                   )
                                 })()}
                               </div>
-                              {alreadyRegisteredSubteamIds.size > 0 && (
+                              {alreadyRegisteredSubclubIds.size > 0 && (
                                 <div className="mb-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
                                   <div className="flex items-start gap-2">
                                     <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
                                     <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                                      {alreadyRegisteredSubteamIds.size} subteam{alreadyRegisteredSubteamIds.size !== 1 ? 's' : ''} already registered for this tournament
+                                      {alreadyRegisteredSubclubIds.size} team{alreadyRegisteredSubclubIds.size !== 1 ? 's' : ''} already registered for this tournament
                                     </p>
                                   </div>
                                 </div>
                               )}
                               <div className="space-y-2 border rounded-lg p-4 max-h-[200px] overflow-y-auto">
-                                {selectedTeam?.subteams?.map(subteam => {
-                                  const isSelected = teamReg.subteamIds?.includes(subteam.id) || false
-                                  const isAlreadyRegistered = alreadyRegisteredSubteamIds.has(subteam.id)
+                                {selectedTeam?.teams?.map(team => {
+                                  const isSelected = teamReg.subclubIds?.includes(team.id) || false
+                                  const isAlreadyRegistered = alreadyRegisteredSubclubIds.has(team.id)
                                   return (
-                                    <div key={subteam.id} className="flex items-center justify-between space-x-2">
+                                    <div key={team.id} className="flex items-center justify-between space-x-2">
                                       <div className="flex items-center space-x-2 flex-1">
                                         <Checkbox
-                                          id={`${index}-subteam-${subteam.id}`}
+                                          id={`${index}-team-${team.id}`}
                                           checked={isSelected}
                                           disabled={isAlreadyRegistered}
                                           onCheckedChange={(checked) => {
                                             if (isAlreadyRegistered) return
-                                            const currentSubteamIds = teamReg.subteamIds || []
-                                            const newSubteamIds = checked
-                                              ? [...currentSubteamIds, subteam.id]
-                                              : currentSubteamIds.filter(id => id !== subteam.id)
-                                            updateTeam(index, { subteamIds: newSubteamIds, subteamId: undefined })
+                                            const currentSubclubIds = teamReg.subclubIds || []
+                                            const newSubclubIds = checked
+                                              ? [...currentSubclubIds, team.id]
+                                              : currentSubclubIds.filter(id => id !== team.id)
+                                            updateTeam(index, { subclubIds: newSubclubIds, subclubId: undefined })
                                           }}
                                         />
                                         <label
-                                          htmlFor={`${index}-subteam-${subteam.id}`}
+                                          htmlFor={`${index}-team-${team.id}`}
                                           className={`text-sm font-medium leading-none cursor-pointer ${
                                             isAlreadyRegistered 
                                               ? 'opacity-50 cursor-not-allowed' 
                                               : 'peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
                                           }`}
                                         >
-                                          {subteam.name}
+                                          {team.name}
                                         </label>
                                       </div>
                                       {isAlreadyRegistered && (
@@ -716,14 +716,14 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                                 <div className="flex-1">
                                   <p className="text-sm font-medium mb-1 text-destructive">Subteams Required</p>
                                   <p className="text-sm text-muted-foreground mb-3">
-                                    This team must have at least one subteam to register for tournaments. Please create a subteam first.
+                                    This team must have at least one team to register for tournaments. Please create a team first.
                                   </p>
                                   <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
                                     onClick={() => {
-                                      router.push(`/club/${teamReg.teamId}?tab=people`)
+                                      router.push(`/club/${teamReg.clubId}?tab=people`)
                                       setSignupDialogOpen(false)
                                     }}
                                   >
@@ -736,7 +736,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                         </div>
                       )}
 
-                      {teamReg.teamId && (
+                      {teamReg.clubId && (
                         <div>
                           <div className="flex items-center justify-between mb-3">
                             <label className="text-sm font-medium block">Select Events for This Team</label>
@@ -816,13 +816,13 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                   submitting || 
                   selectedTeams.length === 0 || 
                   selectedTeams.some(t => {
-                    if (!t.teamId || t.eventIds.length === 0) return true
-                    // Check if team has subteams - subteams are required
-                    const teamData = filteredTeams.find(team => team.id === t.teamId)
-                    // Team must have subteams to register
-                    if (!teamData?.subteams || teamData.subteams.length === 0) return true
-                    // Require at least one subteam in subteamIds
-                    if (!t.subteamIds || t.subteamIds.length === 0) return true
+                    if (!t.clubId || t.eventIds.length === 0) return true
+                    // Check if team has teams - teams are required
+                    const teamData = filteredTeams.find(team => team.id === t.clubId)
+                    // Team must have teams to register
+                    if (!teamData?.teams || teamData.teams.length === 0) return true
+                    // Require at least one team in subclubIds
+                    if (!t.subclubIds || t.subclubIds.length === 0) return true
                     return false
                   })
                 }
@@ -842,7 +842,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                 Are you sure you want to deregister{' '}
                 <span className="font-medium">
                   {registrationToDeregister?.teamName}
-                  {registrationToDeregister?.subteamName && ` - ${registrationToDeregister.subteamName}`}
+                  {registrationToDeregister?.teamName && ` - ${registrationToDeregister.teamName}`}
                 </span>{' '}
                 from this tournament? This action cannot be undone.
               </DialogDescription>

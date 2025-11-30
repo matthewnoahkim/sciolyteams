@@ -38,10 +38,10 @@ export async function POST(
     }
 
     // Only admins can manually add check-ins
-    await requireAdmin(session.user.id, attendance.teamId)
+    await requireAdmin(session.user.id, attendance.clubId)
 
     // Verify the user being checked in is a member of the team
-    const targetMembership = await getUserMembership(validated.userId, attendance.teamId)
+    const targetMembership = await getUserMembership(validated.userId, attendance.clubId)
     if (!targetMembership) {
       return NextResponse.json({ error: 'User is not a member of this team' }, { status: 404 })
     }

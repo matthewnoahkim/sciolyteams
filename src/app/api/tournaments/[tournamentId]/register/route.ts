@@ -8,8 +8,8 @@ import { z } from 'zod'
 
 const registerSchema = z.object({
   registrations: z.array(z.object({
-    teamId: z.string(),
-    subteamId: z.string().optional(),
+    clubId: z.string(),
+    teamId: z.string().optional(),
     eventIds: z.array(z.string()).min(1, 'At least one event must be selected'),
   })).min(1, 'At least one team must be registered'),
 })
@@ -39,44 +39,44 @@ export async function POST(
 
     // Validate all registrations
     for (const reg of validated.registrations) {
-      // Verify user is an admin of the team
-      const membership = await getUserMembership(session.user.id, reg.teamId)
+      // Verify user is an admin of the club
+      const membership = await getUserMembership(session.user.id, reg.clubId)
       if (!membership) {
-        return NextResponse.json({ error: `You must be a member of team ${reg.teamId}` }, { status: 403 })
+        return NextResponse.json({ error: `You must be a member of club ${reg.clubId}` }, { status: 403 })
       }
       
       // Check if user is an admin
       if (membership.role !== Role.ADMIN) {
         return NextResponse.json({ 
-          error: `You must be an admin of ${membership.team.name} to register for tournaments` 
+          error: `You must be an admin of ${membership.club.name} to register for tournaments` 
         }, { status: 403 })
       }
 
-      // If subteamId is provided, verify it belongs to the team
-      if (reg.subteamId) {
-        const subteam = await prisma.subteam.findFirst({
+      // If teamId is provided, verify it belongs to the club
+      if (reg.teamId) {
+        const team = await prisma.team.findFirst({
           where: {
-            id: reg.subteamId,
-            teamId: reg.teamId,
+            id: reg.teamId,
+            clubId: reg.clubId,
           },
         })
-        if (!subteam) {
-          return NextResponse.json({ error: 'Subteam does not belong to the specified team' }, { status: 400 })
+        if (!team) {
+          return NextResponse.json({ error: 'Team does not belong to the specified club' }, { status: 400 })
         }
       }
 
-      // Check if already registered (with same subteam if specified)
-      // Use findFirst for nullable subteamId since findUnique can have issues with null in composite keys
+      // Check if already registered (with same team if specified)
+      // Use findFirst for nullable teamId since findUnique can have issues with null in composite keys
       const existingRegistration = await prisma.tournamentRegistration.findFirst({
         where: {
           tournamentId: params.tournamentId,
-          teamId: reg.teamId,
-          subteamId: reg.subteamId ?? null,
+          clubId: reg.clubId,
+          teamId: reg.teamId ?? null,
         },
       })
 
       if (existingRegistration) {
-        return NextResponse.json({ error: 'This team/subteam is already registered for this tournament' }, { status: 400 })
+        return NextResponse.json({ error: 'This team/team is already registered for this tournament' }, { status: 400 })
       }
 
       // Verify all events exist and match tournament division
@@ -98,8 +98,8 @@ export async function POST(
         prisma.tournamentRegistration.create({
           data: {
             tournamentId: params.tournamentId,
-            teamId: reg.teamId,
-            subteamId: reg.subteamId ?? null, // Use ?? to properly handle undefined
+            clubId: reg.clubId,
+            teamId: reg.teamId ?? null, // Use ?? to properly handle undefined
             registeredById: session.user.id,
             status: 'CONFIRMED',
             eventSelections: {
@@ -109,14 +109,14 @@ export async function POST(
             },
           },
           include: {
-            team: {
+            club: {
               select: {
                 id: true,
                 name: true,
                 division: true,
               },
             },
-            subteam: {
+            team: {
               select: {
                 id: true,
                 name: true,

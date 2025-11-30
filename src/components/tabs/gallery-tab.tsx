@@ -45,12 +45,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ButtonLoading, PageLoading } from '@/components/ui/loading-spinner'
 
 interface GalleryTabProps {
-  teamId: string
+  clubId: string
   user: any
   isAdmin: boolean
 }
 
-export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
+export function GalleryTab({ clubId, user, isAdmin }: GalleryTabProps) {
   const { toast } = useToast()
   const [mediaItems, setMediaItems] = useState<any[]>([])
   const [albums, setAlbums] = useState<any[]>([])
@@ -77,11 +77,11 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
   useEffect(() => {
     fetchMedia()
     fetchAlbums()
-  }, [teamId, selectedAlbum, filterType])
+  }, [clubId, selectedAlbum, filterType])
 
   const fetchMedia = async () => {
     try {
-      let url = `/api/media?teamId=${teamId}`
+      let url = `/api/media?clubId=${clubId}`
       if (selectedAlbum) {
         url += `&albumId=${selectedAlbum}`
       }
@@ -109,7 +109,7 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
 
   const fetchAlbums = async () => {
     try {
-      const response = await fetch(`/api/albums?teamId=${teamId}`)
+      const response = await fetch(`/api/albums?clubId=${clubId}`)
       if (!response.ok) throw new Error('Failed to fetch albums')
       const data = await response.json()
       setAlbums(data.albums || [])
@@ -128,7 +128,7 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
       for (const file of Array.from(files)) {
         const formData = new FormData()
         formData.append('file', file)
-        formData.append('teamId', teamId)
+        formData.append('clubId', clubId)
         if (selectedAlbum) {
           formData.append('albumId', selectedAlbum)
         }
@@ -168,7 +168,7 @@ export function GalleryTab({ teamId, user, isAdmin }: GalleryTabProps) {
       const response = await fetch('/api/albums', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId, name, description }),
+        body: JSON.stringify({ clubId, name, description }),
       })
 
       if (!response.ok) throw new Error('Failed to create album')

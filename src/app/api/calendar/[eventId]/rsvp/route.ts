@@ -27,7 +27,7 @@ export async function POST(
     // Get the event to check team membership
     const event = await prisma.calendarEvent.findUnique({
       where: { id: eventId },
-      select: { teamId: true },
+      select: { clubId: true },
     })
 
     if (!event) {
@@ -35,7 +35,7 @@ export async function POST(
     }
 
     // Verify user is a member of the team
-    await requireMember(session.user.id, event.teamId)
+    await requireMember(session.user.id, event.clubId)
 
     // Upsert RSVP (create if doesn't exist, update if it does)
     const rsvp = await prisma.eventRSVP.upsert({
@@ -93,7 +93,7 @@ export async function DELETE(
     // Get the event to check team membership
     const event = await prisma.calendarEvent.findUnique({
       where: { id: eventId },
-      select: { teamId: true },
+      select: { clubId: true },
     })
 
     if (!event) {
@@ -101,7 +101,7 @@ export async function DELETE(
     }
 
     // Verify user is a member of the team
-    await requireMember(session.user.id, event.teamId)
+    await requireMember(session.user.id, event.clubId)
 
     // Delete the RSVP
     await prisma.eventRSVP.delete({

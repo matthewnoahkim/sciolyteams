@@ -15,8 +15,8 @@ export interface SendAnnouncementEmailParams {
   cc?: string[]
   bcc?: string[]
   replyTo?: string
-  teamId: string
-  teamName: string
+  clubId: string
+  clubName: string
   title: string
   content: string
   announcementId: string
@@ -83,8 +83,8 @@ export async function sendAnnouncementEmail({
   cc,
   bcc,
   replyTo,
-  teamId,
-  teamName,
+  clubId,
+  clubName,
   title,
   content,
   announcementId,
@@ -103,9 +103,9 @@ export async function sendAnnouncementEmail({
       return { messageId: null }
     }
 
-    // Build the team stream URL
+    // Build the club stream URL
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-    const teamStreamUrl = `${baseUrl}/club/${teamId}?tab=stream`
+    const clubStreamUrl = `${baseUrl}/club/${clubId}?tab=stream`
 
     // Build event details section if this is an event announcement
     let eventDetailsHtml = ''
@@ -121,7 +121,7 @@ export async function sendAnnouncementEmail({
           ${calendarEvent.rsvpEnabled ? `
           <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #d1d5db;">
             <p style="color: #6b7280; font-size: 13px; margin: 0;">
-              💬 <strong>Please RSVP on the team stream</strong> to let us know if you're coming!
+              💬 <strong>Please RSVP on the club stream</strong> to let us know if you're coming!
             </p>
           </div>
           ` : ''}
@@ -133,7 +133,7 @@ export async function sendAnnouncementEmail({
       to: to.length,
       cc: cc?.length || 0,
       bcc: bcc?.length || 0,
-      subject: `[${teamName}] ${title}`,
+      subject: `[${clubName}] ${title}`,
     })
 
     const { data, error } = await resend.emails.send({
@@ -141,15 +141,15 @@ export async function sendAnnouncementEmail({
       to,
       cc,
       bcc,
-    reply_to: replyTo,
-      subject: `[${teamName}] ${title}`,
+      reply_to: replyTo,
+      subject: `[${clubName}] ${title}`,
       html: `
         <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h1 style="color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; margin-top: 0;">
             ${title}
           </h1>
           <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">
-            Posted in <strong>${teamName}</strong>
+            Posted in <strong>${clubName}</strong>
           </p>
           
           ${eventDetailsHtml}
@@ -162,15 +162,15 @@ export async function sendAnnouncementEmail({
           
           <div style="text-align: center; padding: 20px; background-color: #f9fafb; border-radius: 8px;">
             <p style="color: #6b7280; font-size: 14px; margin: 0 0 12px 0;">
-              View and respond to this announcement on your team stream
+              View and respond to this announcement on your club stream
             </p>
-            <a href="${teamStreamUrl}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 10px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">
-              Go to Team Stream
+            <a href="${clubStreamUrl}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 10px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">
+              Go to Club Stream
             </a>
           </div>
           
           <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 20px;">
-            Teamy • Team Management Platform
+            Teamy • Club Management Platform
           </p>
         </div>
       `,
@@ -188,4 +188,3 @@ export async function sendAnnouncementEmail({
     return { messageId: null }
   }
 }
-

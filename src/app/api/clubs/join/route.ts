@@ -21,29 +21,29 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { code } = joinSchema.parse(body)
 
-    // Find all teams and check which one this code belongs to
-    const teams = await prisma.team.findMany()
+    // Find all clubs and check which one this code belongs to
+    const clubs = await prisma.club.findMany()
     
-    let matchedTeam: typeof teams[0] | null = null
+    let matchedClub: typeof clubs[0] | null = null
     let role: Role | null = null
 
-    for (const team of teams) {
-      const isAdminCode = await verifyInviteCode(code, team.adminInviteCodeHash)
+    for (const club of clubs) {
+      const isAdminCode = await verifyInviteCode(code, club.adminInviteCodeHash)
       if (isAdminCode) {
-        matchedTeam = team
+        matchedClub = club
         role = Role.ADMIN
         break
       }
 
-      const isMemberCode = await verifyInviteCode(code, team.memberInviteCodeHash)
+      const isMemberCode = await verifyInviteCode(code, club.memberInviteCodeHash)
       if (isMemberCode) {
-        matchedTeam = team
+        matchedClub = club
         role = Role.MEMBER
         break
       }
     }
 
-    if (!matchedTeam || !role) {
+    if (!matchedClub || !role) {
       return NextResponse.json(
         { error: 'Invalid or expired invite code', code: 'INVALID_CODE' },
         { status: 401 }
@@ -53,16 +53,16 @@ export async function POST(req: NextRequest) {
     // Check if user is already a member
     const existing = await prisma.membership.findUnique({
       where: {
-        userId_teamId: {
+        userId_clubId: {
           userId: session.user.id,
-          teamId: matchedTeam.id,
+          clubId: matchedClub.id,
         },
       },
     })
 
     if (existing) {
       return NextResponse.json(
-        { error: 'You are already a member of this team', code: 'ALREADY_MEMBER' },
+        { error: 'You are already a member of this club', code: 'ALREADY_MEMBER' },
         { status: 400 }
       )
     }
@@ -71,11 +71,11 @@ export async function POST(req: NextRequest) {
     const membership = await prisma.membership.create({
       data: {
         userId: session.user.id,
-        teamId: matchedTeam.id,
+        clubId: matchedClub.id,
         role,
       },
       include: {
-        team: true,
+        club: true,
         user: {
           select: {
             id: true,
@@ -87,14 +87,14 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Log the team join
+    // Log the club join
     await logActivity({
-      action: 'USER_JOINED_TEAM',
-      description: `${membership.user.name || membership.user.email} joined team "${matchedTeam.name}" as ${role}`,
+      action: 'USER_JOINED_CLUB',
+      description: `${membership.user.name || membership.user.email} joined club "${matchedClub.name}" as ${role}`,
       userId: session.user.id,
       metadata: {
-        teamId: matchedTeam.id,
-        teamName: matchedTeam.name,
+        clubId: matchedClub.id,
+        clubName: matchedClub.name,
         role,
         membershipId: membership.id,
       },
@@ -102,13 +102,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       membership,
-      message: `Successfully joined team as ${role.toLowerCase()}`,
+      message: `Successfully joined club as ${role.toLowerCase()}`,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 })
     }
-    console.error('Join team error:', error)
+    console.error('Join club error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

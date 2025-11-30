@@ -7,7 +7,7 @@ import { z } from 'zod'
 
 const updateExpenseSchema = z.object({
   eventId: z.string().optional().nullable(),
-  subteamId: z.string().optional().nullable(),
+  teamId: z.string().optional().nullable(),
   description: z.string().min(1).max(500).optional(),
   category: z.string().optional(),
   amount: z.number().min(0).optional(),
@@ -39,7 +39,7 @@ export async function PATCH(
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, expense.teamId)
+    const isAdminUser = await isAdmin(session.user.id, expense.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can edit expenses' },
@@ -49,7 +49,7 @@ export async function PATCH(
 
     const updateData: any = {}
     if (validatedData.eventId !== undefined) updateData.eventId = validatedData.eventId
-    if (validatedData.subteamId !== undefined) updateData.subteamId = validatedData.subteamId
+    if (validatedData.teamId !== undefined) updateData.teamId = validatedData.teamId
     if (validatedData.description !== undefined) updateData.description = validatedData.description
     if (validatedData.category !== undefined) updateData.category = validatedData.category
     if (validatedData.amount !== undefined) updateData.amount = validatedData.amount
@@ -111,7 +111,7 @@ export async function DELETE(
     }
 
     // Check if user is an admin
-    const isAdminUser = await isAdmin(session.user.id, expense.teamId)
+    const isAdminUser = await isAdmin(session.user.id, expense.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can delete expenses' },

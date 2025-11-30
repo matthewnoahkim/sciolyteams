@@ -38,12 +38,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ButtonLoading, PageLoading } from '@/components/ui/loading-spinner'
 
 interface PaperworkTabProps {
-  teamId: string
+  clubId: string
   user: any
   isAdmin: boolean
 }
 
-export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
+export function PaperworkTab({ clubId, user, isAdmin }: PaperworkTabProps) {
   const { toast } = useToast()
   const [forms, setForms] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -70,7 +70,7 @@ export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
     }, 100)
     
     return () => clearTimeout(timer)
-  }, [teamId])
+  }, [clubId])
 
   const fetchForms = async () => {
     try {
@@ -78,7 +78,7 @@ export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 10000)
       
-      const response = await fetch(`/api/forms?teamId=${teamId}`, {
+      const response = await fetch(`/api/forms?clubId=${clubId}`, {
         signal: controller.signal,
       })
       
@@ -459,7 +459,7 @@ export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
         open={uploadFormDialogOpen}
         onOpenChange={setUploadFormDialogOpen}
         onUpload={handleUploadForm}
-        teamId={teamId}
+        clubId={clubId}
         uploading={uploading}
       />
 
@@ -499,7 +499,7 @@ export function PaperworkTab({ teamId, user, isAdmin }: PaperworkTabProps) {
 }
 
 // Upload Form Dialog Component
-function UploadFormDialog({ open, onOpenChange, onUpload, teamId, uploading }: any) {
+function UploadFormDialog({ open, onOpenChange, onUpload, clubId, uploading }: any) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
@@ -513,7 +513,7 @@ function UploadFormDialog({ open, onOpenChange, onUpload, teamId, uploading }: a
 
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('teamId', teamId)
+    formData.append('clubId', clubId)
     formData.append('title', title)
     if (description) formData.append('description', description)
     if (dueDate) formData.append('dueDate', dueDate)

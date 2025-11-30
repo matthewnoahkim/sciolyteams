@@ -100,8 +100,8 @@ async function seed() {
   await prisma.calendarEvent.deleteMany()
   await prisma.emailLog.deleteMany()
   await prisma.membership.deleteMany()
-  await prisma.subteam.deleteMany()
   await prisma.team.deleteMany()
+  await prisma.club.deleteMany()
 
   // Seed Division C Events
   console.log('📚 Seeding Division C events...')

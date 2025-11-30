@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Announcement not found' }, { status: 404 })
       }
 
-      teamId = announcement.teamId
+      teamId = announcement.clubId
       await requireMember(session.user.id, teamId)
 
       const membership = await getUserMembership(session.user.id, teamId)
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Calendar event not found' }, { status: 404 })
       }
 
-      teamId = calendarEvent.teamId
+      teamId = calendarEvent.clubId
       await requireMember(session.user.id, teamId)
 
       const membership = await getUserMembership(session.user.id, teamId)
@@ -223,7 +223,7 @@ export async function DELETE(req: NextRequest) {
     let canDelete = false
 
     if (attachment.announcementId && attachment.announcement) {
-      teamId = attachment.announcement.teamId
+      teamId = attachment.announcement.clubId
       await requireMember(session.user.id, teamId)
 
       const membership = await getUserMembership(session.user.id, teamId)
@@ -237,7 +237,7 @@ export async function DELETE(req: NextRequest) {
       const isAdminUser = await isAdmin(session.user.id, teamId)
       canDelete = isUploader || isAuthor || isAdminUser
     } else if (attachment.calendarEventId && attachment.calendarEvent) {
-      teamId = attachment.calendarEvent.teamId
+      teamId = attachment.calendarEvent.clubId
       await requireMember(session.user.id, teamId)
 
       const membership = await getUserMembership(session.user.id, teamId)

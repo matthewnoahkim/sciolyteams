@@ -36,7 +36,7 @@ interface Tournament {
       id: string
       name: string
     }
-    subteam: {
+    team: {
       id: string
       name: string
       members: Array<{
@@ -132,9 +132,9 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
   // Filter and sort registrations
   const filteredRegistrations = tournament.registrations.filter((reg) => {
     const searchLower = searchQuery.toLowerCase()
-    const teamName = reg.team.name.toLowerCase()
-    const subteamName = reg.subteam?.name.toLowerCase() || ''
-    return teamName.includes(searchLower) || subteamName.includes(searchLower)
+    const clubName = reg.club.name.toLowerCase()
+    const teamName = reg.team?.name.toLowerCase() || ''
+    return clubName.includes(searchLower) || teamName.includes(searchLower)
   })
 
   const sortedRegistrations = [...filteredRegistrations].sort((a, b) => {
@@ -279,7 +279,7 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                         <div className="relative flex-1">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10 shrink-0 will-change-transform" />
                           <Input
-                            placeholder="Search teams or subteams..."
+                            placeholder="Search teams or teams..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-9"
@@ -308,7 +308,7 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                     ) : (
                       <div className="space-y-4">
                         {sortedRegistrations.map((registration) => {
-                          const memberCount = registration.subteam?.members.length || 0
+                          const memberCount = registration.team?.members.length || 0
                           const maxMembers = 15
                           
                           return (
@@ -319,9 +319,9 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                                     <div className="flex-1">
                                       <div className="flex items-center gap-3 mb-2">
                                         <h3 className="font-semibold text-lg">{registration.team.name}</h3>
-                                        {registration.subteam && (
+                                        {registration.team && (
                                           <Badge variant="outline" className="font-normal">
-                                            {registration.subteam.name}
+                                            {registration.team.name}
                                           </Badge>
                                         )}
                                       </div>
@@ -340,11 +340,11 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                                     </div>
                                   </div>
                                   
-                                  {registration.subteam && registration.subteam.members.length > 0 && (
+                                  {registration.team && registration.team.members.length > 0 && (
                                     <div className="pt-2 border-t">
                                       <p className="text-sm font-medium text-muted-foreground mb-2">Members:</p>
                                       <div className="space-y-1">
-                                        {registration.subteam.members.map((member) => (
+                                        {registration.team.members.map((member) => (
                                           <div key={member.id} className="text-sm text-foreground">
                                             {member.user.name || member.user.email}
                                           </div>

@@ -31,7 +31,7 @@ export async function GET(
     }
 
     // Only admins can reveal codes
-    await requireAdmin(session.user.id, attendance.teamId)
+    await requireAdmin(session.user.id, attendance.clubId)
 
     // Check if within meeting window
     const inWindow = isWithinMeetingWindow(

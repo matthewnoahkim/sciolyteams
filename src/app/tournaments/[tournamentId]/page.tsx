@@ -12,16 +12,16 @@ export default async function TournamentDetailPage({ params }: { params: { tourn
     redirect('/login')
   }
 
-  // Get user's teams with subteams for registration - only teams where user is admin
+  // Get user's clubs with teams for registration - only clubs where user is admin
   const memberships = await prisma.membership.findMany({
     where: { 
       userId: session.user.id,
-      role: Role.ADMIN, // Only get teams where user is an admin
+      role: Role.ADMIN, // Only get clubs where user is an admin
     },
     include: {
-      team: {
+      club: {
         include: {
-          subteams: {
+          teams: {
             select: {
               id: true,
               name: true,
@@ -32,21 +32,21 @@ export default async function TournamentDetailPage({ params }: { params: { tourn
     },
   })
 
-  // Get unique teams (user might have multiple memberships in same team)
-  const uniqueTeams = new Map()
+  // Get unique clubs (user might have multiple memberships in same club)
+  const uniqueClubs = new Map()
   for (const membership of memberships) {
-    if (!uniqueTeams.has(membership.team.id)) {
-      uniqueTeams.set(membership.team.id, {
-        id: membership.team.id,
-        name: membership.team.name,
-        division: membership.team.division,
-        subteams: membership.team.subteams || [],
+    if (!uniqueClubs.has(membership.club.id)) {
+      uniqueClubs.set(membership.club.id, {
+        id: membership.club.id,
+        name: membership.club.name,
+        division: membership.club.division,
+        teams: membership.club.teams || [],
       })
     }
   }
 
-  const teamsWithSubteams = Array.from(uniqueTeams.values())
+  const clubsWithTeams = Array.from(uniqueClubs.values())
 
-  return <TournamentDetailClient tournamentId={params.tournamentId} userTeams={teamsWithSubteams} user={session.user} />
+  return <TournamentDetailClient tournamentId={params.tournamentId} userTeams={clubsWithTeams} user={session.user} />
 }
 

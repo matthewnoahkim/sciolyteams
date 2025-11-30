@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { TeamPage } from '@/components/team-page'
+import { ClubPage } from '@/components/club-page'
 import { Suspense } from 'react'
 import { PageLoading } from '@/components/ui/loading-spinner'
 import { getUserMembership, isAdmin } from '@/lib/rbac'
@@ -12,7 +12,7 @@ import { CalendarScope, AnnouncementScope } from '@prisma/client'
 // Revalidate every 60 seconds in production
 export const revalidate = 60
 
-export default async function TeamDetailPage({ params }: { params: { clubId: string } }) {
+export default async function ClubDetailPage({ params }: { params: { clubId: string } }) {
   const session = await getServerSession(authOptions)
 
   if (!session?.user) {
@@ -22,9 +22,9 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
   // Check membership
   const membership = await prisma.membership.findUnique({
     where: {
-      userId_teamId: {
+      userId_clubId: {
         userId: session.user.id,
-        teamId: params.clubId,
+        clubId: params.clubId,
       },
     },
     include: {
@@ -36,7 +36,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
     redirect('/dashboard')
   }
 
-  const team = await prisma.team.findUnique({
+  const club = await prisma.club.findUnique({
     where: { id: params.clubId },
     include: {
       memberships: {
@@ -49,7 +49,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
               image: true,
             },
           },
-          subteam: true,
+          team: true,
           rosterAssignments: {
             include: {
               event: true,
@@ -58,7 +58,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
           preferences: true,
         },
       },
-      subteams: {
+      teams: {
         include: {
           members: {
             include: {
@@ -82,7 +82,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
     },
   })
 
-  if (!team) {
+  if (!club) {
     redirect('/dashboard')
   }
 
@@ -91,11 +91,11 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
   const [attendances, expenses, purchaseRequests, eventBudgets] = await Promise.all([
     // Attendance data
     prisma.attendance.findMany({
-      where: { calendarEvent: { teamId: params.clubId } },
+      where: { calendarEvent: { clubId: params.clubId } },
       include: {
         calendarEvent: {
           include: {
-            subteam: true,
+            team: true,
           },
         },
         checkIns: {
@@ -124,7 +124,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
     }),
     // Expenses data
     prisma.expense.findMany({
-      where: { teamId: params.clubId },
+      where: { clubId: params.clubId },
       include: {
         event: {
           select: {
@@ -133,7 +133,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
             slug: true,
           },
         },
-        subteam: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -153,7 +153,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
     }),
     // Purchase requests data
     prisma.purchaseRequest.findMany({
-      where: { teamId: params.clubId },
+      where: { clubId: params.clubId },
       include: {
         event: {
           select: {
@@ -162,7 +162,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
             slug: true,
           },
         },
-        subteam: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -182,7 +182,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
     }),
     // Event budgets data
     prisma.eventBudget.findMany({
-      where: { teamId: params.clubId },
+      where: { clubId: params.clubId },
       include: {
         event: {
           select: {
@@ -192,7 +192,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
             division: true,
           },
         },
-        subteam: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -207,11 +207,11 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
     eventBudgets.map(async (budget) => {
       const totalSpent = await prisma.expense.aggregate({
         where: {
-          teamId: params.clubId,
+          clubId: params.clubId,
           eventId: budget.eventId,
-          ...(budget.subteamId && {
+          ...(budget.teamId && {
             addedBy: {
-              subteamId: budget.subteamId,
+              teamId: budget.teamId,
             },
           }),
         },
@@ -222,11 +222,11 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
 
       const totalRequested = await prisma.purchaseRequest.aggregate({
         where: {
-          teamId: params.clubId,
+          clubId: params.clubId,
           eventId: budget.eventId,
           status: 'PENDING',
-          ...(budget.subteamId && {
-            subteamId: budget.subteamId,
+          ...(budget.teamId && {
+            teamId: budget.teamId,
           }),
         },
         _sum: {
@@ -254,33 +254,33 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
   const userRosterAssignments = await prisma.rosterAssignment.findMany({
     where: {
       membershipId: membership.id,
-      subteam: { teamId: params.clubId },
+      team: { clubId: params.clubId },
     },
     select: { 
       eventId: true,
-      subteamId: true,
+      teamId: true,
     },
   })
   const userEventIds = userRosterAssignments.map(ra => ra.eventId)
-  const userSubteamIds = [...new Set(userRosterAssignments.map(ra => ra.subteamId))]
+  const userTeamIds = [...new Set(userRosterAssignments.map(ra => ra.teamId))]
 
   // Get events visible to this user (simplified version for homepage)
   const calendarEvents = await prisma.calendarEvent.findMany({
     where: {
-      teamId: params.clubId,
+      clubId: params.clubId,
       OR: [
-        // Team-wide events
-        { scope: CalendarScope.TEAM },
-        // Subteam events
+        // Club-wide events
+        { scope: CalendarScope.CLUB },
+        // Team events
         ...(isAdminUser
-          ? [{ scope: CalendarScope.SUBTEAM }]
-          : membership.subteamId
+          ? [{ scope: CalendarScope.TEAM }]
+          : membership.teamId
           ? [
-              { scope: CalendarScope.SUBTEAM, subteamId: membership.subteamId },
-              ...(userSubteamIds.length > 0 ? [{ scope: CalendarScope.SUBTEAM, subteamId: { in: userSubteamIds } }] : []),
+              { scope: CalendarScope.TEAM, teamId: membership.teamId },
+              ...(userTeamIds.length > 0 ? [{ scope: CalendarScope.TEAM, teamId: { in: userTeamIds } }] : []),
             ]
-          : userSubteamIds.length > 0
-          ? [{ scope: CalendarScope.SUBTEAM, subteamId: { in: userSubteamIds } }]
+          : userTeamIds.length > 0
+          ? [{ scope: CalendarScope.TEAM, teamId: { in: userTeamIds } }]
           : []),
         // Personal events for this user only
         { scope: CalendarScope.PERSONAL, attendeeId: membership.id },
@@ -299,7 +299,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
           },
         },
       },
-      subteam: true,
+      team: true,
       attendee: {
         include: {
           user: {
@@ -363,25 +363,25 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
   // Fetch announcements for homepage (with proper filtering)
   const announcements = await prisma.announcement.findMany({
     where: {
-      teamId: params.clubId,
-      // Admins see all announcements for the team
+      clubId: params.clubId,
+      // Admins see all announcements for the club
       ...(isAdminUser ? {} : {
         OR: [
-          // Team-wide announcements
+          // Club-wide announcements
           {
             visibilities: {
               some: {
-                scope: AnnouncementScope.TEAM,
+                scope: AnnouncementScope.CLUB,
               },
             },
           },
-          // Subteam announcements for user's subteam
-          ...(membership.subteamId
+          // Team announcements for user's team
+          ...(membership.teamId
             ? [{
                 visibilities: {
                   some: {
-                    scope: AnnouncementScope.SUBTEAM,
-                    subteamId: membership.subteamId,
+                    scope: AnnouncementScope.TEAM,
+                    teamId: membership.teamId,
                   },
                 },
               }]
@@ -404,7 +404,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
       },
       visibilities: {
         include: {
-          subteam: true,
+          team: true,
         },
       },
       replies: {
@@ -470,7 +470,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
               },
             },
           },
-          subteam: true,
+          team: true,
         },
       },
       attachments: {
@@ -494,7 +494,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
   // Fetch tests for homepage (with proper filtering)
   const allTests = await prisma.test.findMany({
     where: {
-      teamId: params.clubId,
+      clubId: params.clubId,
       // Non-admins only see published tests
       ...(!isAdminUser && { status: 'PUBLISHED' }),
     },
@@ -520,7 +520,7 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
       assignments: {
         select: {
           assignedScope: true,
-          subteamId: true,
+          teamId: true,
           targetMembershipId: true,
           eventId: true,
         },
@@ -550,8 +550,8 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
         if (a.assignedScope === 'CLUB') {
           return true
         }
-        // Subteam assignment - user must be in that subteam
-        if (a.subteamId && membership.subteamId && a.subteamId === membership.subteamId) {
+        // Team assignment - user must be in that team
+        if (a.teamId && membership.teamId && a.teamId === membership.teamId) {
           return true
         }
         // Personal assignment - must be assigned to this user
@@ -574,12 +574,12 @@ export default async function TeamDetailPage({ params }: { params: { clubId: str
     <Suspense fallback={
       <PageLoading 
         title="Loading club" 
-        description="Fetching team data and member information..." 
+        description="Fetching club data and member information..." 
         variant="orbit" 
       />
     }>
-      <TeamPage
-        team={team}
+      <ClubPage
+        club={club}
         currentMembership={membership}
         user={session.user}
         initialData={{

@@ -36,7 +36,7 @@ interface Tournament {
       id: string
       name: string
     }
-    subteam: {
+    team: {
       id: string
       name: string
     } | null
@@ -408,7 +408,7 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                           {tournament.registrations.map((reg) => (
                             <Badge key={reg.id} variant="secondary" className="text-xs">
                               {reg.team.name}
-                              {reg.subteam && ` - ${reg.subteam.name}`}
+                              {reg.team && ` - ${reg.team.name}`}
                             </Badge>
                           ))}
                         </div>

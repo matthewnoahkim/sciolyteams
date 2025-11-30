@@ -87,7 +87,7 @@ export async function POST(
         },
       },
       include: {
-        team: {
+        club: {
           include: {
             memberships: {
               include: {

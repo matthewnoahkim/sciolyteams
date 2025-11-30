@@ -17,13 +17,13 @@ import { Copy } from 'lucide-react'
 interface DuplicateTestButtonProps {
   testId: string
   testName: string
-  teamId: string
+  clubId: string
 }
 
 export function DuplicateTestButton({
   testId,
   testName,
-  teamId,
+  clubId,
 }: DuplicateTestButtonProps) {
   const { toast } = useToast()
   const router = useRouter()
@@ -51,7 +51,7 @@ export function DuplicateTestButton({
 
       setOpen(false)
       // Navigate to the new test's page (will show builder for draft)
-      router.push(`/club/${teamId}/tests/${data.test.id}`)
+      router.push(`/club/${clubId}/tests/${data.test.id}`)
     } catch (error: any) {
       toast({
         title: 'Error',

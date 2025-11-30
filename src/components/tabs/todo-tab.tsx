@@ -50,7 +50,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { format, isPast, isToday, isTomorrow } from 'date-fns'
 
 interface TodoTabProps {
-  teamId: string
+  clubId: string
   currentMembershipId: string
   user: {
     id: string
@@ -80,7 +80,7 @@ interface Todo {
       email: string
       image: string | null
     }
-    subteam: {
+    team: {
       id: string
       name: string
     } | null
@@ -96,7 +96,7 @@ interface TeamMember {
     email: string
     image: string | null
   }
-  subteam: {
+  team: {
     id: string
     name: string
   } | null
@@ -109,7 +109,7 @@ const PRIORITY_CONFIG = {
   URGENT: { label: 'Urgent', color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300', icon: AlertTriangle },
 }
 
-export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabProps) {
+export function TodoTab({ clubId, currentMembershipId, user, isAdmin }: TodoTabProps) {
   const { toast } = useToast()
   const [todos, setTodos] = useState<Todo[]>([])
   const [allTodos, setAllTodos] = useState<Todo[]>([])
@@ -141,7 +141,7 @@ export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabP
   const fetchTodos = useCallback(async () => {
     try {
       const showAll = viewMode === 'all' && isAdmin
-      const params = new URLSearchParams({ teamId })
+      const params = new URLSearchParams({ clubId })
       if (showAll) {
         params.append('showAll', 'true')
         if (selectedMemberId !== 'all') {
@@ -168,15 +168,15 @@ export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabP
     } finally {
       setLoading(false)
     }
-  }, [teamId, viewMode, selectedMemberId, isAdmin, toast])
+  }, [clubId, viewMode, selectedMemberId, isAdmin, toast])
 
   const fetchTeamMembers = useCallback(async () => {
     if (!isAdmin) return
     try {
-      const response = await fetch(`/api/teams/${teamId}/subteams`)
+      const response = await fetch(`/api/clubs/${clubId}/teams`)
       if (!response.ok) return
       // We need to fetch memberships separately
-      const membersResponse = await fetch(`/api/memberships?teamId=${teamId}`)
+      const membersResponse = await fetch(`/api/memberships?clubId=${clubId}`)
       if (membersResponse.ok) {
         const data = await membersResponse.json()
         setTeamMembers(data.memberships || [])
@@ -184,7 +184,7 @@ export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabP
     } catch (error) {
       console.error('Failed to fetch team members:', error)
     }
-  }, [teamId, isAdmin])
+  }, [clubId, isAdmin])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -212,7 +212,7 @@ export function TodoTab({ teamId, currentMembershipId, user, isAdmin }: TodoTabP
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teamId,
+          clubId,
           title: formData.title,
           description: formData.description || undefined,
           priority: formData.priority,

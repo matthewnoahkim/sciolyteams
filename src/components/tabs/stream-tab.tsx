@@ -21,9 +21,9 @@ import { PageLoading } from '@/components/ui/loading-spinner'
 import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 interface StreamTabProps {
-  teamId: string
+  clubId: string
   currentMembership: any
-  subteams: any[]
+  teams: any[]
   isAdmin: boolean
   user: {
     id: string
@@ -52,15 +52,15 @@ async function performRequest(url: string, options: RequestInit = {}, fallbackMe
   return response
 }
 
-export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }: StreamTabProps) {
+export function StreamTab({ clubId, currentMembership, teams, isAdmin, user }: StreamTabProps) {
   const { toast } = useToast()
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [posting, setPosting] = useState(false)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [scope, setScope] = useState<'TEAM' | 'SUBTEAM'>('TEAM')
-  const [selectedSubteams, setSelectedSubteams] = useState<string[]>([])
+  const [scope, setScope] = useState<'CLUB' | 'TEAM'>('CLUB')
+  const [selectedTeams, setSelectedSubteams] = useState<string[]>([])
   const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const [selectedEvents, setSelectedEvents] = useState<string[]>([])
   const [availableEvents, setAvailableEvents] = useState<any[]>([])
@@ -117,7 +117,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
     }
     try {
       const response = await performRequest(
-        `/api/announcements?teamId=${teamId}`,
+        `/api/announcements?clubId=${clubId}`,
         {},
         'Failed to fetch announcements',
       )
@@ -130,7 +130,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
         setLoading(false)
       }
     }
-  }, [teamId])
+  }, [clubId])
 
   useEffect(() => {
     fetchAnnouncements()
@@ -149,7 +149,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
     const fetchEvents = async () => {
       try {
         // Get team's division from first membership
-        const teamResponse = await fetch(`/api/teams/${teamId}`)
+        const teamResponse = await fetch(`/api/clubs/${clubId}`)
         if (teamResponse.ok) {
           const teamData = await teamResponse.json()
           const division = teamData.team?.division
@@ -168,7 +168,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
     }
     
     fetchEvents()
-  }, [teamId])
+  }, [clubId])
 
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -179,7 +179,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
       title,
       content,
       scope,
-      selectedSubteams,
+      selectedTeams,
       selectedRoles,
       selectedEvents,
       sendEmail,
@@ -209,10 +209,10 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
       attachments: [],
       visibilities: scope === 'TEAM' 
         ? [{ scope: 'TEAM' }]
-        : selectedSubteams.map((subteamId) => ({
-            scope: 'SUBTEAM',
-            subteamId,
-            subteam: subteams.find((s) => s.id === subteamId),
+        : selectedTeams.map((teamId) => ({
+            scope: 'TEAM',
+            subclubId,
+            team: teams.find((s) => s.id === teamId),
           })),
     }
 
@@ -234,11 +234,11 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teamId,
+          clubId,
           title: formDataToPost.title,
           content: formDataToPost.content,
           scope: formDataToPost.scope,
-          subteamIds: formDataToPost.scope === 'SUBTEAM' ? formDataToPost.selectedSubteams : undefined,
+          teamIds: formDataToPost.scope === 'TEAM' ? formDataToPost.selectedTeams : undefined,
           targetRoles: formDataToPost.selectedRoles.length > 0 ? formDataToPost.selectedRoles : undefined,
           targetEvents: formDataToPost.selectedEvents.length > 0 ? formDataToPost.selectedEvents : undefined,
           sendEmail: formDataToPost.sendEmail,
@@ -927,7 +927,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
             {/* Audience Section */}
             <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
               <h4 className="text-sm font-semibold">Audience</h4>
-              <RadioGroup value={scope} onValueChange={(value) => setScope(value as 'TEAM' | 'SUBTEAM')} className="flex gap-4">
+              <RadioGroup value={scope} onValueChange={(value) => setScope(value as 'CLUB' | 'TEAM')} className="flex gap-4">
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="TEAM" id="scope-team" />
                   <Label htmlFor="scope-team" className="cursor-pointer font-normal text-sm">
@@ -935,30 +935,30 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="SUBTEAM" id="scope-subteam" />
-                  <Label htmlFor="scope-subteam" className="cursor-pointer font-normal text-sm">
+                  <RadioGroupItem value="TEAM" id="scope-team" />
+                  <Label htmlFor="scope-team" className="cursor-pointer font-normal text-sm">
                     Specific Teams
                   </Label>
                 </div>
               </RadioGroup>
-              {scope === 'SUBTEAM' && (
+              {scope === 'TEAM' && (
                 <div className="pt-2">
                   <Label className="text-xs text-muted-foreground mb-2 block">Select Teams</Label>
                   <div className="flex flex-wrap gap-2">
-                    {subteams.map((subteam) => (
-                      <label key={subteam.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-background cursor-pointer hover:bg-accent transition-colors">
+                    {teams.map((team) => (
+                      <label key={team.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-background cursor-pointer hover:bg-accent transition-colors">
                         <Checkbox
-                          id={`subteam-${subteam.id}`}
-                          checked={selectedSubteams.includes(subteam.id)}
+                          id={`team-${team.id}`}
+                          checked={selectedTeams.includes(team.id)}
                           onCheckedChange={(checked) => {
-                            setSelectedSubteams((prev) =>
+                            setSelectedTeams((prev) =>
                               checked
-                                ? [...prev, subteam.id]
-                                : prev.filter((id) => id !== subteam.id)
+                                ? [...prev, team.id]
+                                : prev.filter((id) => id !== team.id)
                             )
                           }}
                         />
-                        <span className="text-sm">{subteam.name}</span>
+                        <span className="text-sm">{team.name}</span>
                       </label>
                     ))}
                   </div>
@@ -1167,7 +1167,7 @@ export function StreamTab({ teamId, currentMembership, subteams, isAdmin, user }
                     <div className="flex gap-1">
                       {announcement.visibilities.map((v: any) => (
                         <Badge key={v.id} variant="secondary" className="text-xs">
-                          {v.scope === 'TEAM' ? 'CLUB' : v.subteam?.name || 'SUBTEAM'}
+                          {v.scope === 'CLUB' ? 'CLUB' : v.team?.name || 'TEAM'}
                         </Badge>
                       ))}
                     </div>

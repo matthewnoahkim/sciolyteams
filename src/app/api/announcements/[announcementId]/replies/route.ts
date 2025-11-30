@@ -24,7 +24,7 @@ export async function POST(
     // Get the announcement to verify it exists and get the team ID
     const announcement = await prisma.announcement.findUnique({
       where: { id: params.announcementId },
-      select: { id: true, teamId: true },
+      select: { id: true, clubId: true },
     })
 
     if (!announcement) {
@@ -34,9 +34,9 @@ export async function POST(
     // Verify user is a member of the team
     const membership = await prisma.membership.findUnique({
       where: {
-        userId_teamId: {
+        userId_clubId: {
           userId: session.user.id,
-          teamId: announcement.teamId,
+          clubId: announcement.clubId,
         },
       },
     })
@@ -91,7 +91,7 @@ export async function GET(
     // Get the announcement to verify access
     const announcement = await prisma.announcement.findUnique({
       where: { id: params.announcementId },
-      select: { id: true, teamId: true },
+      select: { id: true, clubId: true },
     })
 
     if (!announcement) {
@@ -101,9 +101,9 @@ export async function GET(
     // Verify user is a member of the team
     const membership = await prisma.membership.findUnique({
       where: {
-        userId_teamId: {
+        userId_clubId: {
           userId: session.user.id,
-          teamId: announcement.teamId,
+          clubId: announcement.clubId,
         },
       },
     })

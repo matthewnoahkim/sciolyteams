@@ -10,12 +10,12 @@ import { useToast } from '@/components/ui/use-toast'
 import Link from 'next/link'
 import { Loader2, ShieldCheck } from 'lucide-react'
 
-interface JoinTeamPageProps {
+interface JoinClubPageProps {
   initialCode?: string
   autoJoin?: boolean
 }
 
-export function JoinTeamPage({ initialCode = '', autoJoin = false }: JoinTeamPageProps) {
+export function JoinClubPage({ initialCode = '', autoJoin = false }: JoinClubPageProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [code, setCode] = useState(initialCode)
@@ -39,7 +39,7 @@ export function JoinTeamPage({ initialCode = '', autoJoin = false }: JoinTeamPag
       setError(null)
 
       try {
-        const response = await fetch('/api/teams/join', {
+        const response = await fetch('/api/clubs/join', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code: codeToUse }),
@@ -48,7 +48,7 @@ export function JoinTeamPage({ initialCode = '', autoJoin = false }: JoinTeamPag
         const data = await response.json()
 
         if (!response.ok) {
-          throw new Error(data.error || 'Failed to join team')
+          throw new Error(data.error || 'Failed to join club')
         }
 
         toast({
@@ -57,9 +57,9 @@ export function JoinTeamPage({ initialCode = '', autoJoin = false }: JoinTeamPag
         })
 
         router.refresh()
-        router.push(`/club/${data.membership.team.id}`)
+        router.push(`/club/${data.membership.club.id}`)
       } catch (err: any) {
-        const message = err?.message || 'Failed to join team'
+        const message = err?.message || 'Failed to join club'
         setError(message)
         toast({
           title: 'Unable to join',
@@ -165,4 +165,6 @@ export function JoinTeamPage({ initialCode = '', autoJoin = false }: JoinTeamPag
   )
 }
 
+// Keep backward compatibility export
+export { JoinClubPage as JoinTeamPage }
 

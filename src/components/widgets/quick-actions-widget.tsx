@@ -13,12 +13,12 @@ import {
 import Link from 'next/link'
 
 interface QuickActionsWidgetProps {
-  teamId: string
+  clubId: string
   isAdmin: boolean
   config?: any
 }
 
-export function QuickActionsWidget({ teamId, isAdmin, config }: QuickActionsWidgetProps) {
+export function QuickActionsWidget({ clubId, isAdmin, config }: QuickActionsWidgetProps) {
   const showActions = config?.showActions || ['stream', 'calendar', 'people', 'tests']
 
   const allActions = [
@@ -26,7 +26,7 @@ export function QuickActionsWidget({ teamId, isAdmin, config }: QuickActionsWidg
       key: 'stream',
       label: 'View Stream',
       icon: MessageSquare,
-      href: `/club/${teamId}?tab=stream`,
+      href: `/club/${clubId}?tab=stream`,
       color: 'text-blue-600 dark:text-blue-400',
       bgColor: 'bg-blue-100 dark:bg-blue-900/30',
       hoverColor: 'hover:bg-blue-200 dark:hover:bg-blue-900/50',
@@ -36,7 +36,7 @@ export function QuickActionsWidget({ teamId, isAdmin, config }: QuickActionsWidg
       key: 'calendar',
       label: 'View Calendar',
       icon: Calendar,
-      href: `/club/${teamId}?tab=calendar`,
+      href: `/club/${clubId}?tab=calendar`,
       color: 'text-purple-600 dark:text-purple-400',
       bgColor: 'bg-purple-100 dark:bg-purple-900/30',
       hoverColor: 'hover:bg-purple-200 dark:hover:bg-purple-900/50',
@@ -46,7 +46,7 @@ export function QuickActionsWidget({ teamId, isAdmin, config }: QuickActionsWidg
       key: 'people',
       label: 'View Team',
       icon: Users,
-      href: `/club/${teamId}?tab=people`,
+      href: `/club/${clubId}?tab=people`,
       color: 'text-green-600 dark:text-green-400',
       bgColor: 'bg-green-100 dark:bg-green-900/30',
       hoverColor: 'hover:bg-green-200 dark:hover:bg-green-900/50',
@@ -56,7 +56,7 @@ export function QuickActionsWidget({ teamId, isAdmin, config }: QuickActionsWidg
       key: 'tests',
       label: 'View Tests',
       icon: FileText,
-      href: `/club/${teamId}?tab=tests`,
+      href: `/club/${clubId}?tab=tests`,
       color: 'text-orange-600 dark:text-orange-400',
       bgColor: 'bg-orange-100 dark:bg-orange-900/30',
       hoverColor: 'hover:bg-orange-200 dark:hover:bg-orange-900/50',
@@ -66,7 +66,7 @@ export function QuickActionsWidget({ teamId, isAdmin, config }: QuickActionsWidg
       key: 'finance',
       label: 'View Finance',
       icon: DollarSign,
-      href: `/club/${teamId}?tab=finance`,
+      href: `/club/${clubId}?tab=finance`,
       color: 'text-yellow-600 dark:text-yellow-400',
       bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
       hoverColor: 'hover:bg-yellow-200 dark:hover:bg-yellow-900/50',

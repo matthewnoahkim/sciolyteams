@@ -28,7 +28,7 @@ export async function DELETE(
     }
 
     // Only admins can delete check-ins
-    await requireAdmin(session.user.id, attendance.teamId)
+    await requireAdmin(session.user.id, attendance.clubId)
 
     // Verify the check-in belongs to this attendance
     const checkIn = await prisma.attendanceCheckIn.findUnique({

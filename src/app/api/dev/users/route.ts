@@ -31,14 +31,14 @@ export async function GET(request: NextRequest) {
       include: {
         memberships: {
           include: {
-            team: {
+            club: {
               select: {
                 id: true,
                 name: true,
                 division: true,
               },
             },
-            subteam: {
+            team: {
               select: {
                 id: true,
                 name: true,
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
             },
           },
           ...(teamId ? {
-            where: { teamId },
+            where: { clubId: teamId },
           } : {}),
           ...(role ? {
             where: { role: role as any },
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     if (role || teamId) {
       filteredUsers = users.filter(user => {
         if (!user.memberships || user.memberships.length === 0) return false
-        if (teamId && !user.memberships.some(m => m.teamId === teamId)) return false
+        if (teamId && !user.memberships.some(m => m.clubId === teamId)) return false
         if (role && !user.memberships.some(m => m.role === role)) return false
         return true
       })

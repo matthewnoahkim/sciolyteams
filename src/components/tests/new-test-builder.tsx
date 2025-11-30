@@ -53,7 +53,7 @@ import { QuestionPrompt } from '@/components/tests/question-prompt'
 
 type QuestionType = 'MCQ_SINGLE' | 'MCQ_MULTI' | 'LONG_TEXT'
 
-interface SubteamInfo {
+interface TeamInfo {
   id: string
   name: string
 }
@@ -76,10 +76,10 @@ interface QuestionDraft {
 }
 
 interface NewTestBuilderProps {
-  teamId?: string
-  teamName?: string
-  teamDivision?: 'B' | 'C'
-  subteams?: SubteamInfo[]
+  clubId?: string
+  clubName?: string
+  clubDivision?: 'B' | 'C'
+  teams?: TeamInfo[]
   tournamentId?: string
   tournamentName?: string
   tournamentDivision?: 'B' | 'C'
@@ -101,8 +101,8 @@ interface NewTestBuilderProps {
     status: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
     assignments: Array<{
       assignedScope: 'CLUB' | 'TEAM' | 'PERSONAL'
-      subteamId: string | null
-      subteam: { id: string; name: string } | null
+      teamId: string | null
+      team: { id: string; name: string } | null
     }>
     questions: Array<{
       id: string
@@ -158,7 +158,7 @@ function reconstructMarkdown(text: string, images: Array<{ alt: string; src: str
   return textPart || imageParts
 }
 
-export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tournamentId, tournamentName, tournamentDivision, test }: NewTestBuilderProps) {
+export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tournamentId, tournamentName, tournamentDivision, test }: NewTestBuilderProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
@@ -190,11 +190,11 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
     return 'CLUB'
   })
   
-  const [selectedSubteams, setSelectedSubteams] = useState<string[]>(() => {
+  const [selectedTeams, setSelectedSubteams] = useState<string[]>(() => {
     if (test) {
       return test.assignments
-        .filter(a => a.assignedScope === 'TEAM' && a.subteamId)
-        .map(a => a.subteamId!)
+        .filter(a => a.assignedScope === 'TEAM' && a.teamId)
+        .map(a => a.teamId!)
     }
     return []
   })
@@ -342,19 +342,19 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
     reader.readAsDataURL(file)
   }
 
-  const toggleSubteam = (subteamId: string) => {
+  const toggleTeam = (teamId: string) => {
     setSelectedSubteams((prev) =>
-      prev.includes(subteamId)
-        ? prev.filter((id) => id !== subteamId)
-        : [...prev, subteamId]
+      prev.includes(teamId)
+        ? prev.filter((id) => id !== teamId)
+        : [...prev, teamId]
     )
   }
 
   // Fetch events when publish dialog opens
   useEffect(() => {
-    if (publishDialogOpen && teamDivision && events.length === 0 && !loadingEvents) {
+    if (publishDialogOpen && clubDivision && events.length === 0 && !loadingEvents) {
       setLoadingEvents(true)
-      fetch(`/api/events?division=${teamDivision}`)
+      fetch(`/api/events?division=${clubDivision}`)
         .then(res => res.json())
         .then(data => {
           if (data.events) {
@@ -371,7 +371,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
         })
         .finally(() => setLoadingEvents(false))
     }
-  }, [publishDialogOpen, teamDivision, events.length, loadingEvents, toast])
+  }, [publishDialogOpen, clubDivision, events.length, loadingEvents, toast])
 
   // Draft validation - basic requirements for saving (no assignment validation)
   const draftValidation = useMemo(() => {
@@ -428,7 +428,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
 
     // Skip assignment validation for tournament tests (they're assigned via tournament system)
     if (!tournamentId) {
-      if (assignmentMode === 'TEAM' && selectedSubteams.length === 0) {
+      if (assignmentMode === 'TEAM' && selectedTeams.length === 0) {
         errors.push('Select at least one team or assign to the entire club.')
       }
 
@@ -440,7 +440,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
     return {
       errors,
     }
-  }, [draftValidation.errors, assignmentMode, selectedSubteams, selectedEventId])
+  }, [draftValidation.errors, assignmentMode, selectedTeams, selectedEventId])
 
   // Use publish validation for backward compatibility with existing code that references validationSummary
   const validationSummary = publishValidation
@@ -473,13 +473,13 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
       ? []
       : assignmentMode === 'CLUB'
         ? [{ assignedScope: 'CLUB' as const }]
-        : selectedSubteams.map((subteamId) => ({
+        : selectedTeams.map((teamId) => ({
             assignedScope: 'TEAM' as const,
-            subteamId,
+            teamId,
           }))
 
     const payload = {
-      ...(teamId && !tournamentId ? { teamId } : {}),
+      ...(clubId && !tournamentId ? { clubId } : {}),
       name: details.name.trim(),
       description: details.description.trim() || undefined,
       instructions: details.instructions.trim() || undefined,
@@ -612,7 +612,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
             router.push(`/tournaments/${tournamentId}/tests`)
             sessionStorage.removeItem('tournamentId')
           } else {
-            router.push(`/club/${teamId}?tab=tests`)
+            router.push(`/club/${clubId}?tab=tests`)
           }
           router.refresh()
         }
@@ -622,9 +622,9 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
           ? `/api/tournaments/${tournamentId}/tests/create`
           : '/api/tests'
         
-        // For tournament mode, remove teamId from payload
+        // For tournament mode, remove clubId from payload
         const createPayload = tournamentId 
-          ? { ...payload, teamId: undefined }
+          ? { ...payload, clubId: undefined }
           : payload
 
         const response = await fetch(apiUrl, {
@@ -663,7 +663,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
           if (tournamentId) {
             router.push(`/tournaments/${tournamentId}/tests`)
           } else {
-            router.push(`/club/${teamId}?tab=tests`)
+            router.push(`/club/${clubId}?tab=tests`)
           }
           router.refresh()
         }
@@ -762,7 +762,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
           requireFullscreen: publishFormData.requireFullscreen,
           ...(!tournamentId && {
             assignmentMode,
-            selectedSubteams: assignmentMode === 'TEAM' ? selectedSubteams : undefined,
+            selectedTeams: assignmentMode === 'TEAM' ? selectedTeams : undefined,
             selectedEventId: assignmentMode === 'EVENT' ? selectedEventId : undefined,
           }),
           addToCalendar: addToCalendar,
@@ -804,8 +804,8 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
           sessionStorage.removeItem('tournamentId')
         }
         router.push(`/tournaments/${savedTournamentId}/tests`)
-      } else if (teamId) {
-        router.push(`/club/${teamId}?tab=tests`)
+      } else if (clubId) {
+        router.push(`/club/${clubId}?tab=tests`)
       }
       router.refresh()
     } catch (error: any) {
@@ -824,7 +824,7 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">
-            {tournamentId ? `Tournament • ${tournamentName || 'Tournament'}` : `Team • ${teamName || 'Team'}`}
+            {tournamentId ? `Tournament • ${tournamentName || 'Tournament'}` : `Team • ${clubName || 'Team'}`}
           </p>
           <h1 className="text-3xl font-semibold tracking-tight">
             {isEditMode ? 'Edit Test' : 'Create a Test'}
@@ -837,16 +837,16 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => router.push(`/club/${teamId}?tab=tests`)}
+            onClick={() => router.push(`/club/${clubId}?tab=tests`)}
             disabled={saving}
           >
             Cancel
           </Button>
-          {isEditMode && test && teamId && (
+          {isEditMode && test && clubId && (
             <DuplicateTestButton
               testId={test.id}
               testName={test.name}
-              teamId={teamId}
+              clubId={clubId}
             />
           )}
           <Button onClick={() => handleSave(false)} disabled={saving || draftValidation.errors.length > 0} variant="outline">
@@ -1229,28 +1229,28 @@ export function NewTestBuilder({ teamId, teamName, teamDivision, subteams, tourn
                     </Label>
                   {assignmentMode === 'TEAM' && (
                     <div className="mt-2 space-y-2 rounded-md border border-input bg-muted/30 p-3 max-h-32 overflow-y-auto">
-                      {(!subteams || subteams.length === 0) && (
+                      {(!teams || teams.length === 0) && (
                         <p className="text-sm text-muted-foreground">
                           No teams yet—everyone will receive this test.
                         </p>
                       )}
-                      {subteams?.map((subteam) => (
+                      {teams?.map((team) => (
                         <div
-                          key={subteam.id}
+                          key={team.id}
                           className={cn(
                             'flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm transition',
-                            selectedSubteams.includes(subteam.id)
+                            selectedTeams.includes(team.id)
                               ? 'bg-primary/10 border-primary/40'
                               : 'hover:bg-muted'
                           )}
                         >
                           <Checkbox
-                            id={`subteam-${subteam.id}`}
-                            checked={selectedSubteams.includes(subteam.id)}
-                            onCheckedChange={() => toggleSubteam(subteam.id)}
+                            id={`team-${team.id}`}
+                            checked={selectedTeams.includes(team.id)}
+                            onCheckedChange={() => toggleTeam(team.id)}
                           />
-                          <Label htmlFor={`subteam-${subteam.id}`} className="cursor-pointer font-normal flex-1">
-                            {subteam.name}
+                          <Label htmlFor={`team-${team.id}`} className="cursor-pointer font-normal flex-1">
+                            {team.name}
                           </Label>
                         </div>
                       ))}

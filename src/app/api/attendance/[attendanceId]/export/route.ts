@@ -45,7 +45,7 @@ export async function GET(
     }
 
     // Only admins can export
-    await requireAdmin(session.user.id, attendance.teamId)
+    await requireAdmin(session.user.id, attendance.clubId)
 
     // Generate CSV
     const csv = generateAttendanceCSV({

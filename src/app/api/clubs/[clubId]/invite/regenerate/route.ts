@@ -12,7 +12,7 @@ const regenerateSchema = z.object({
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { teamId: string } }
+  { params }: { params: { clubId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -20,7 +20,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await requireAdmin(session.user.id, params.teamId)
+    await requireAdmin(session.user.id, params.clubId)
 
     const body = await req.json()
     const { type } = regenerateSchema.parse(body)
@@ -39,8 +39,8 @@ export async function POST(
           memberInviteCodeEncrypted: newEncrypted 
         }
 
-    await prisma.team.update({
-      where: { id: params.teamId },
+    await prisma.club.update({
+      where: { id: params.clubId },
       data: updateData,
     })
 

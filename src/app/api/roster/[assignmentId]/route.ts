@@ -17,9 +17,9 @@ export async function DELETE(
     const assignment = await prisma.rosterAssignment.findUnique({
       where: { id: params.assignmentId },
       include: {
-        subteam: {
+        team: {
           include: {
-            team: true,
+            club: true,
           },
         },
       },
@@ -29,7 +29,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
     }
 
-    await requireAdmin(session.user.id, assignment.subteam.team.id)
+    await requireAdmin(session.user.id, assignment.team.club.id)
 
     await prisma.rosterAssignment.delete({
       where: { id: params.assignmentId },

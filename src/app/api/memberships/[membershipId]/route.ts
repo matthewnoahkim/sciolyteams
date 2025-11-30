@@ -6,7 +6,7 @@ import { requireAdmin } from '@/lib/rbac'
 import { z } from 'zod'
 
 const updateMembershipSchema = z.object({
-  subteamId: z.string().nullable().optional(),
+  teamId: z.string().nullable().optional(),
   roles: z
     .array(z.enum(['COACH', 'CAPTAIN', 'MEMBER']))
     .optional()
@@ -32,37 +32,37 @@ export async function PATCH(
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    await requireAdmin(session.user.id, membership.teamId)
+    await requireAdmin(session.user.id, membership.clubId)
 
     const body = await req.json()
-    const { subteamId, roles, role } = updateMembershipSchema.parse(body)
+    const { teamId, roles, role } = updateMembershipSchema.parse(body)
 
-    // If subteamId is provided, verify it belongs to the same team and check size limit
-    if (subteamId) {
-      const subteam = await prisma.subteam.findUnique({
-        where: { id: subteamId },
+    // If teamId is provided, verify it belongs to the same club and check size limit
+    if (teamId) {
+      const team = await prisma.team.findUnique({
+        where: { id: teamId },
       })
 
-      if (!subteam || subteam.teamId !== membership.teamId) {
-        return NextResponse.json({ error: 'Invalid subteam' }, { status: 400 })
+      if (!team || team.clubId !== membership.clubId) {
+        return NextResponse.json({ error: 'Invalid team' }, { status: 400 })
       }
 
-      // Check subteam size cap (15 members per subteam)
-      const subteamMemberCount = await prisma.membership.count({
-        where: { subteamId },
+      // Check team size cap (15 members per team)
+      const teamMemberCount = await prisma.membership.count({
+        where: { teamId },
       })
 
-      if (subteamMemberCount >= 15) {
+      if (teamMemberCount >= 15) {
         return NextResponse.json(
-          { error: 'Subteam is full (maximum 15 members per subteam)' },
+          { error: 'Team is full (maximum 15 members per team)' },
           { status: 400 }
         )
       }
     }
 
     const updateData: Record<string, any> = {}
-    if (subteamId !== undefined) {
-      updateData.subteamId = subteamId
+    if (teamId !== undefined) {
+      updateData.teamId = teamId
     }
     if (roles !== undefined) {
       updateData.roles = roles
@@ -71,7 +71,7 @@ export async function PATCH(
       if (role === 'MEMBER' && membership.role === 'ADMIN') {
         const adminCount = await prisma.membership.count({
           where: {
-            teamId: membership.teamId,
+            clubId: membership.clubId,
             role: 'ADMIN',
           },
         })
@@ -103,7 +103,7 @@ export async function PATCH(
             image: true,
           },
         },
-        subteam: true,
+        team: true,
       },
     })
 
@@ -133,7 +133,7 @@ export async function DELETE(
     const membership = await prisma.membership.findUnique({
       where: { id: params.membershipId },
       include: {
-        team: {
+        club: {
           include: {
             memberships: {
               where: {
@@ -149,18 +149,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Membership not found' }, { status: 404 })
     }
 
-    // Check if the requester is an admin of the team
+    // Check if the requester is an admin of the club
     const requesterMembership = await prisma.membership.findUnique({
       where: {
-        userId_teamId: {
+        userId_clubId: {
           userId: session.user.id,
-          teamId: membership.teamId,
+          clubId: membership.clubId,
         },
       },
     })
 
     if (!requesterMembership) {
-      return NextResponse.json({ error: 'You are not a member of this team' }, { status: 403 })
+      return NextResponse.json({ error: 'You are not a member of this club' }, { status: 403 })
     }
 
     const isRequesterAdmin = requesterMembership.role === 'ADMIN'
@@ -174,11 +174,11 @@ export async function DELETE(
     // Check if this is the last admin
     if (
       membership.role === 'ADMIN' &&
-      membership.team.memberships.length === 1 &&
+      membership.club.memberships.length === 1 &&
       !isSelfRemoval
     ) {
       return NextResponse.json(
-        { error: 'Cannot remove the only admin. Please promote another member to admin first or delete the team.' },
+        { error: 'Cannot remove the only admin. Please promote another member to admin first or delete the club.' },
         { status: 400 }
       )
     }
@@ -194,4 +194,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

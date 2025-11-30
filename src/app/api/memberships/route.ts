@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { requireMember } from '@/lib/rbac'
 
-// GET /api/memberships?teamId=xxx - List team memberships
+// GET /api/memberships?clubId=xxx - List club memberships
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -13,16 +13,16 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID is required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID is required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
     const memberships = await prisma.membership.findMany({
-      where: { teamId },
+      where: { clubId },
       include: {
         user: {
           select: {
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
             image: true,
           },
         },
-        subteam: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -54,4 +54,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

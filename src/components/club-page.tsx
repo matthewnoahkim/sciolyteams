@@ -15,7 +15,7 @@ const StreamTab = dynamic(() => import('@/components/tabs/stream-tab').then(mod 
   loading: () => <PageLoading title="Loading stream" description="Fetching announcements and posts..." variant="orbit" />
 })
 const PeopleTab = dynamic(() => import('@/components/tabs/people-tab').then(mod => ({ default: mod.PeopleTab })), {
-  loading: () => <PageLoading title="Loading people" description="Fetching team members and rosters..." variant="orbit" />
+  loading: () => <PageLoading title="Loading people" description="Fetching club members and rosters..." variant="orbit" />
 })
 const CalendarTab = dynamic(() => import('@/components/tabs/calendar-tab').then(mod => ({ default: mod.CalendarTab })), {
   loading: () => <PageLoading title="Loading calendar" description="Fetching events and schedules..." variant="orbit" />
@@ -62,8 +62,8 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useFaviconBadge } from '@/hooks/use-favicon-badge'
 
-interface TeamPageProps {
-  team: any
+interface ClubPageProps {
+  club: any
   currentMembership: any
   user: {
     id: string
@@ -82,14 +82,14 @@ interface TeamPageProps {
   }
 }
 
-export function TeamPage({ team, currentMembership, user, initialData }: TeamPageProps) {
+export function ClubPage({ club, currentMembership, user, initialData }: ClubPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'home')
   const [editClubNameOpen, setEditClubNameOpen] = useState(false)
-  const [currentClubName, setCurrentClubName] = useState(team.name)
-  const [newClubName, setNewClubName] = useState(team.name)
+  const [currentClubName, setCurrentClubName] = useState(club.name)
+  const [newClubName, setNewClubName] = useState(club.name)
   const [updatingClubName, setUpdatingClubName] = useState(false)
   const [tabNotifications, setTabNotifications] = useState<Record<string, boolean>>({})
   const [totalUnreadCount, setTotalUnreadCount] = useState(0)
@@ -114,7 +114,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
   // Get last cleared time for a tab from localStorage
   const getLastClearedTime = (tab: string): Date => {
     if (typeof window === 'undefined') return new Date(0)
-    const key = `lastCleared_${team.id}_${tab}_${user.id}`
+    const key = `lastCleared_${club.id}_${tab}_${user.id}`
     const stored = localStorage.getItem(key)
     return stored ? new Date(stored) : new Date(0)
   }
@@ -122,7 +122,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
   // Clear notification for a tab when it's opened
   const clearTabNotification = (tab: string) => {
     if (typeof window === 'undefined') return
-    const key = `lastCleared_${team.id}_${tab}_${user.id}`
+    const key = `lastCleared_${club.id}_${tab}_${user.id}`
     localStorage.setItem(key, new Date().toISOString())
     setTabNotifications(prev => {
       const updated = { ...prev, [tab]: false }
@@ -139,10 +139,9 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
       const notifications: Record<string, boolean> = {}
 
       // Stream: Check for new announcements
-      // Also check calendar events that were posted to stream (have calendarEventId in announcement)
       if (activeTab !== 'stream') {
         try {
-          const streamResponse = await fetch(`/api/announcements?teamId=${team.id}`)
+          const streamResponse = await fetch(`/api/announcements?clubId=${club.id}`)
           if (streamResponse.ok) {
             const streamData = await streamResponse.json()
             const lastCleared = getLastClearedTime('stream')
@@ -152,12 +151,10 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
               return isNew && isFromOtherUser
             })
             
-            // Also check if any calendar events were posted to stream (announcements with calendarEventId)
             const hasNewCalendarPost = streamData.announcements?.some((announcement: any) => {
               const announcementCreated = new Date(announcement.createdAt)
               const isNew = announcementCreated > lastCleared
               const isFromOtherUser = announcement.author?.user?.id !== user.id
-              // If announcement has calendarEventId, it means a calendar event was posted to stream
               return isNew && announcement.calendarEventId && isFromOtherUser
             })
             
@@ -169,10 +166,9 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
       }
 
       // Calendar: Check for new events
-      // Also check announcements that are linked to calendar events (RSVP events posted to stream)
       if (activeTab !== 'calendar') {
         try {
-          const calendarResponse = await fetch(`/api/calendar?teamId=${team.id}`)
+          const calendarResponse = await fetch(`/api/calendar?clubId=${club.id}`)
           if (calendarResponse.ok) {
             const calendarData = await calendarResponse.json()
             const lastCleared = getLastClearedTime('calendar')
@@ -183,17 +179,15 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
               return isNew && isFromOtherUser
             })
             
-            // Also check announcements - if a new announcement has a calendarEventId, it means an event was posted
             let hasNewEventFromAnnouncement = false
             try {
-              const announcementsResponse = await fetch(`/api/announcements?teamId=${team.id}`)
+              const announcementsResponse = await fetch(`/api/announcements?clubId=${club.id}`)
               if (announcementsResponse.ok) {
                 const announcementsData = await announcementsResponse.json()
                 hasNewEventFromAnnouncement = announcementsData.announcements?.some((announcement: any) => {
                   const announcementCreated = new Date(announcement.createdAt)
                   const isNew = announcementCreated > lastCleared
                   const isFromOtherUser = announcement.author?.user?.id !== user.id
-                  // If announcement has calendarEventId, it's linked to a calendar event
                   return isNew && announcement.calendarEventId && isFromOtherUser
                 })
               }
@@ -209,10 +203,9 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
       }
 
       // Attendance: Check for new attendance records
-      // Also check calendar events since creating a calendar event creates an attendance record
       if (activeTab !== 'attendance') {
         try {
-          const attendanceResponse = await fetch(`/api/attendance?teamId=${team.id}`)
+          const attendanceResponse = await fetch(`/api/attendance?clubId=${club.id}`)
           if (attendanceResponse.ok) {
             const attendanceData = await attendanceResponse.json()
             const lastCleared = getLastClearedTime('attendance')
@@ -222,10 +215,9 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
               return isNew && isFromOtherUser
             })
             
-            // Also check calendar events - if a new calendar event was created, it likely created an attendance record
             let hasNewCalendarEvent = false
             try {
-              const calendarResponse = await fetch(`/api/calendar?teamId=${team.id}`)
+              const calendarResponse = await fetch(`/api/calendar?clubId=${club.id}`)
               if (calendarResponse.ok) {
                 const calendarData = await calendarResponse.json()
                 const events = calendarData.events || []
@@ -247,13 +239,11 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
       }
 
       // Finance: Check for new purchase requests or expenses
-      // Also check when purchase requests are approved (they become expenses)
       if (activeTab !== 'finance') {
         try {
           const lastCleared = getLastClearedTime('finance')
           
-          // Check purchase requests
-          const financeResponse = await fetch(`/api/purchase-requests?teamId=${team.id}`)
+          const financeResponse = await fetch(`/api/purchase-requests?clubId=${club.id}`)
           let hasNewRequest = false
           if (financeResponse.ok) {
             const financeData = await financeResponse.json()
@@ -265,8 +255,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
             })
           }
           
-          // Check expenses (including those created from approved purchase requests)
-          const expensesResponse = await fetch(`/api/expenses?teamId=${team.id}`)
+          const expensesResponse = await fetch(`/api/expenses?clubId=${club.id}`)
           let hasNewExpense = false
           if (expensesResponse.ok) {
             const expensesData = await expensesResponse.json()
@@ -278,13 +267,11 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
             })
           }
           
-          // Check for purchase requests that were recently approved (status change)
           let hasNewApproval = false
           if (financeResponse.ok) {
             const financeData = await financeResponse.json()
             const purchaseRequests = financeData.purchaseRequests || []
             hasNewApproval = purchaseRequests.some((request: any) => {
-              // If request is approved and has a reviewedAt date after last cleared
               if (request.status === 'APPROVED' && request.reviewedAt) {
                 const isNew = new Date(request.reviewedAt) > lastCleared
                 const isFromOtherUser = request.requesterId !== currentMembership.id
@@ -303,7 +290,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
       // Tests: Check for new tests
       if (activeTab !== 'tests') {
         try {
-          const testsResponse = await fetch(`/api/tests?teamId=${team.id}`)
+          const testsResponse = await fetch(`/api/tests?clubId=${club.id}`)
           if (testsResponse.ok) {
             const testsData = await testsResponse.json()
             const lastCleared = getLastClearedTime('tests')
@@ -323,9 +310,8 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
       if (activeTab !== 'people') {
         try {
           const lastCleared = getLastClearedTime('people')
-          const hasNew = team.memberships?.some((membership: any) => {
+          const hasNew = club.memberships?.some((membership: any) => {
             const isNew = new Date(membership.createdAt) > lastCleared
-            // New members are always from other users (you can't add yourself)
             return isNew
           })
           notifications.people = !!hasNew
@@ -336,7 +322,6 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
       setTabNotifications(prev => {
         const updated = { ...prev, ...notifications }
-        // Calculate total unread count across all tabs
         const totalCount = Object.values(updated).filter(Boolean).length
         setTotalUnreadCount(totalCount)
         return updated
@@ -344,17 +329,16 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
     }
 
     checkForNewContent()
-    // Poll every 30 seconds for new content
     const interval = setInterval(checkForNewContent, 30000)
     return () => clearInterval(interval)
-  }, [team.id, team.memberships, user.id, currentMembership.id, activeTab])
+  }, [club.id, club.memberships, user.id, currentMembership.id, activeTab])
 
   // Clear notification when tab is opened
   useEffect(() => {
     if (activeTab) {
       clearTabNotification(activeTab)
     }
-  }, [activeTab, team.id, user.id])
+  }, [activeTab, club.id, user.id])
 
   useEffect(() => {
     const tabParam = searchParams.get('tab')
@@ -364,10 +348,9 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
   }, [searchParams])
 
   const handleTabChange = (newTab: string) => {
-    // Clear notification when tab is clicked
     clearTabNotification(newTab)
     setActiveTab(newTab)
-    setMobileMenuOpen(false) // Close mobile menu when tab changes
+    setMobileMenuOpen(false)
     const url = new URL(window.location.href)
     url.searchParams.set('tab', newTab)
     router.replace(url.pathname + url.search, { scroll: false })
@@ -388,7 +371,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
     setUpdatingClubName(true)
 
     try {
-      const response = await fetch(`/api/teams/${team.id}`, {
+      const response = await fetch(`/api/clubs/${club.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newClubName.trim() }),
@@ -404,11 +387,8 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
         description: `Club name changed to "${newClubName.trim()}"`,
       })
 
-      // Update local state immediately (optimistic update)
       setCurrentClubName(newClubName.trim())
       setEditClubNameOpen(false)
-      
-      // Update team name in props if needed - the state is already updated
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -420,7 +400,6 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
     }
   }
 
-  // Notify parent when background preferences change from Settings tab
   const handleBackgroundUpdate = (prefs: any | null) => {
     setPersonalBackground(prefs)
   }
@@ -428,7 +407,6 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
   const resolvedBackgroundSource =
     personalBackground?.backgroundType ? personalBackground : DEFAULT_BACKGROUND
 
-  // Get background style based on personal or team settings
   const getBackgroundStyle = () => {
     const bgType = resolvedBackgroundSource.backgroundType || 'grid'
     
@@ -438,7 +416,6 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
         backgroundAttachment: 'fixed',
       }
     } else if (bgType === 'gradient') {
-      // Support new gradientColors array or backward compatible start/end colors
       let gradientColors: string[] = []
       if (resolvedBackgroundSource.gradientColors && resolvedBackgroundSource.gradientColors.length > 0) {
         gradientColors = resolvedBackgroundSource.gradientColors
@@ -466,15 +443,13 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
       }
     }
     
-    // Default grid pattern - will be handled by the overlay div
     return {}
   }
 
   const effectiveBgType = resolvedBackgroundSource.backgroundType || 'grid'
   const showGridPattern = effectiveBgType === 'grid'
-  const showAnimatedBlobs = effectiveBgType === 'grid' // Only show animated blobs with grid
+  const showAnimatedBlobs = effectiveBgType === 'grid'
 
-  // Render navigation buttons (reusable for sidebar and mobile menu)
   const renderNavigationButtons = () => (
     <>
       <Button
@@ -637,7 +612,6 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
   return (
     <div className="min-h-screen" style={getBackgroundStyle()}>
-      {/* Animated background elements - only show for grid */}
       {showAnimatedBlobs && (
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-40 animate-blob"></div>
@@ -646,7 +620,6 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
         </div>
       )}
       
-      {/* Grid pattern overlay - only show for grid */}
       {showGridPattern && (
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)]"></div>
@@ -657,7 +630,6 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
       <main className="relative z-10 container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 max-w-full overflow-x-hidden">
         <div className="flex gap-4 sm:gap-6 lg:gap-8 items-start">
-          {/* Vertical Navigation Sidebar */}
           <aside className="w-48 lg:w-52 flex-shrink-0 hidden md:block self-start">
             <div className="sticky top-24 will-change-transform">
               <nav className="space-y-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 p-3 rounded-2xl shadow-lg">
@@ -666,7 +638,6 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
             </div>
           </aside>
 
-          {/* Mobile Menu Button */}
           <div className="md:hidden fixed top-[4.5rem] left-1.5 sm:left-2 z-40">
             <Button
               variant="outline"
@@ -679,7 +650,6 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
             </Button>
           </div>
 
-          {/* Mobile Navigation Sheet */}
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetContent side="left" className="w-[260px] sm:w-[280px] p-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm">
               <SheetHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-gray-200/50 dark:border-gray-800/50">
@@ -691,9 +661,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
             </SheetContent>
           </Sheet>
 
-          {/* Main Content Area */}
           <div className="flex-1 min-w-0 md:pl-0 pl-9 sm:pl-10">
-            {/* Team Info Header - visible on settings tab */}
             {activeTab === 'settings' && (
               <div className="mb-4 sm:mb-5 md:mb-6 p-4 sm:p-5 md:p-6 rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50">
                 <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
@@ -714,12 +682,12 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
                         </Button>
                       )}
                       <Badge variant="outline" className="border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold text-xs sm:text-sm">
-                        Division {team.division}
+                        Division {club.division}
                       </Badge>
                     </div>
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
                       <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      {team.memberships.length} member{team.memberships.length !== 1 ? 's' : ''}
+                      {club.memberships.length} member{club.memberships.length !== 1 ? 's' : ''}
                     </p>
                   </div>
                 </div>
@@ -728,8 +696,8 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
             {activeTab === 'home' && (
               <HomePageTab
-                teamId={team.id}
-                team={team}
+                clubId={club.id}
+                club={club}
                 isAdmin={isAdmin}
                 user={user}
                 initialEvents={initialData?.calendarEvents}
@@ -740,9 +708,9 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
             {activeTab === 'stream' && (
               <StreamTab
-                teamId={team.id}
+                clubId={club.id}
                 currentMembership={currentMembership}
-                subteams={team.subteams}
+                teams={club.teams}
                 isAdmin={isAdmin}
                 user={user}
               />
@@ -750,7 +718,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
             {activeTab === 'people' && (
               <PeopleTab
-                team={team}
+                club={club}
                 currentMembership={currentMembership}
                 isAdmin={isAdmin}
               />
@@ -758,7 +726,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
             {activeTab === 'calendar' && (
               <CalendarTab
-                teamId={team.id}
+                clubId={club.id}
                 currentMembership={currentMembership}
                 isAdmin={isAdmin}
                 user={user}
@@ -768,7 +736,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
             {activeTab === 'attendance' && (
               <AttendanceTab
-                teamId={team.id}
+                clubId={club.id}
                 isAdmin={isAdmin}
                 user={user}
                 initialAttendances={initialData?.attendances}
@@ -777,21 +745,21 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
             {activeTab === 'finance' && (
               <FinanceTab
-                teamId={team.id}
+                clubId={club.id}
                 isAdmin={isAdmin}
                 currentMembershipId={currentMembership.id}
-                currentMembershipSubteamId={currentMembership.subteamId}
-                division={team.division}
+                currentMembershipTeamId={currentMembership.teamId}
+                division={club.division}
                 initialExpenses={initialData?.expenses}
                 initialPurchaseRequests={initialData?.purchaseRequests}
                 initialBudgets={initialData?.eventBudgets}
-                initialSubteams={team.subteams}
+                initialTeams={club.teams}
               />
             )}
 
             {activeTab === 'tests' && (
               <TestsTab
-                teamId={team.id}
+                clubId={club.id}
                 isAdmin={isAdmin}
                 initialTests={initialData?.tests}
               />
@@ -799,7 +767,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
             {activeTab === 'gallery' && (
               <GalleryTab
-                teamId={team.id}
+                clubId={club.id}
                 user={user}
                 isAdmin={isAdmin}
               />
@@ -807,7 +775,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
             {activeTab === 'paperwork' && (
               <PaperworkTab
-                teamId={team.id}
+                clubId={club.id}
                 user={user}
                 isAdmin={isAdmin}
               />
@@ -815,7 +783,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
             {activeTab === 'todos' && (
               <TodoTab
-                teamId={team.id}
+                clubId={club.id}
                 currentMembershipId={currentMembership.id}
                 user={user}
                 isAdmin={isAdmin}
@@ -824,26 +792,24 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
 
             {activeTab === 'stats' && isAdmin && (
               <StatsTab
-                teamId={team.id}
-                division={team.division}
+                clubId={club.id}
+                division={club.division}
               />
             )}
 
             {activeTab === 'settings' && (
-          <SettingsTab
-            team={team}
-            currentMembership={currentMembership}
-            isAdmin={isAdmin}
-            personalBackground={personalBackground}
-            onBackgroundUpdate={handleBackgroundUpdate}
-          />
+              <SettingsTab
+                club={club}
+                currentMembership={currentMembership}
+                isAdmin={isAdmin}
+                personalBackground={personalBackground}
+                onBackgroundUpdate={handleBackgroundUpdate}
+              />
             )}
           </div>
         </div>
       </main>
 
-
-      {/* Edit Club Name Dialog */}
       <Dialog open={editClubNameOpen} onOpenChange={setEditClubNameOpen}>
         <DialogContent>
           <form onSubmit={handleUpdateClubName}>
@@ -903,4 +869,7 @@ export function TeamPage({ team, currentMembership, user, initialData }: TeamPag
     </div>
   )
 }
+
+// Keep backward compatibility export
+export { ClubPage as TeamPage }
 

@@ -7,11 +7,11 @@ import { updateAttendanceStatuses } from '@/lib/attendance'
 import { z } from 'zod'
 
 const getAttendanceSchema = z.object({
-  teamId: z.string(),
+  clubId: z.string(),
 })
 
-// GET /api/attendance?teamId=xxx
-// List all attendance events for a team
+// GET /api/attendance?clubId=xxx
+// List all attendance events for a club
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -20,23 +20,23 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
     // Update statuses before fetching
-    await updateAttendanceStatuses(teamId)
+    await updateAttendanceStatuses(clubId)
 
-    const isAdminUser = await isAdmin(session.user.id, teamId)
+    const isAdminUser = await isAdmin(session.user.id, clubId)
 
-    // Get all attendance records for team events
+    // Get all attendance records for club events
     const attendances = await prisma.attendance.findMany({
       where: {
-        teamId,
+        clubId,
       },
       include: {
         calendarEvent: {
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
                 },
               },
             },
-            subteam: true,
+            team: true,
           },
         },
         checkIns: {
@@ -107,4 +107,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

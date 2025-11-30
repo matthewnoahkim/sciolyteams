@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     // Create media item in database
     const mediaItem = await prisma.mediaItem.create({
       data: {
-        teamId,
+        clubId: teamId,
         albumId: albumId || null,
         filename,
         originalFilename: file.name,

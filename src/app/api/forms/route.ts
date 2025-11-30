@@ -17,7 +17,7 @@ const ALLOWED_TYPES = [
   'image/png',
 ]
 
-// GET - Get all forms for a team
+// GET - Get all forms for a club
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -26,18 +26,18 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const teamId = searchParams.get('teamId')
+    const clubId = searchParams.get('clubId')
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
+    if (!clubId) {
+      return NextResponse.json({ error: 'Club ID required' }, { status: 400 })
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
-    const membership = await getUserMembership(session.user.id, teamId)
+    const membership = await getUserMembership(session.user.id, clubId)
 
     const forms = await prisma.form.findMany({
-      where: { teamId },
+      where: { clubId },
       include: {
         submissions: {
           where: { userId: session.user.id },
@@ -80,21 +80,21 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData()
     const file = formData.get('file') as File
-    const teamId = formData.get('teamId') as string
+    const clubId = formData.get('clubId') as string
     const title = formData.get('title') as string
     const description = formData.get('description') as string | null
     const dueDate = formData.get('dueDate') as string | null
     const isRequired = formData.get('isRequired') === 'true'
 
-    if (!file || !teamId || !title) {
+    if (!file || !clubId || !title) {
       return NextResponse.json(
-        { error: 'File, teamId, and title are required' },
+        { error: 'File, clubId, and title are required' },
         { status: 400 }
       )
     }
 
     // Only admins can upload forms
-    const isAdminUser = await isAdmin(session.user.id, teamId)
+    const isAdminUser = await isAdmin(session.user.id, clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can upload forms' },
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    await requireMember(session.user.id, teamId)
+    await requireMember(session.user.id, clubId)
 
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     // Create form in database
     const form = await prisma.form.create({
       data: {
-        teamId,
+        clubId,
         title,
         description,
         filename,
@@ -172,4 +172,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

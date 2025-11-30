@@ -39,7 +39,7 @@ export async function PATCH(
     }
 
     // Only admins can update forms
-    const isAdminUser = await isAdmin(session.user.id, existingForm.teamId)
+    const isAdminUser = await isAdmin(session.user.id, existingForm.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can update forms' },
@@ -99,7 +99,7 @@ export async function DELETE(
     }
 
     // Only admins can delete forms
-    const isAdminUser = await isAdmin(session.user.id, existingForm.teamId)
+    const isAdminUser = await isAdmin(session.user.id, existingForm.clubId)
     if (!isAdminUser) {
       return NextResponse.json(
         { error: 'Only admins can delete forms' },

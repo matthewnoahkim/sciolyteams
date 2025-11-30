@@ -20,13 +20,13 @@ async function ensureAccess(sessionUserId: string, membershipId: string) {
     return { error: NextResponse.json({ error: 'Membership not found' }, { status: 404 }) }
   }
 
-  const requesterMembership = await getUserMembership(sessionUserId, membership.teamId)
+  const requesterMembership = await getUserMembership(sessionUserId, membership.clubId)
   if (!requesterMembership) {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
   }
 
   const isSelf = membership.userId === sessionUserId
-  const isTeamAdmin = await isAdmin(sessionUserId, membership.teamId)
+  const isTeamAdmin = await isAdmin(sessionUserId, membership.clubId)
 
   if (!isSelf && !isTeamAdmin) {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
