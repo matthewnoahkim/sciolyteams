@@ -126,7 +126,7 @@ export function PeopleTab({ club: initialClub, currentMembership, isAdmin }: Peo
           ...prev.teams,
           {
             id: newSubteam.id,
-            name: newSubclub.name,
+            name: newSubteam.name,
             teamId: newSubteam.teamId,
             createdAt: newSubteam.createdAt,
             updatedAt: newSubteam.updatedAt,
@@ -255,7 +255,7 @@ export function PeopleTab({ club: initialClub, currentMembership, isAdmin }: Peo
 
   const openEditDialog = (team: any) => {
     setEditingTeam(team)
-    setEditTeamName(subclub.name)
+    setEditTeamName(team.name)
     setEditOpen(true)
   }
 
@@ -573,7 +573,7 @@ export function PeopleTab({ club: initialClub, currentMembership, isAdmin }: Peo
     
     // For each team
     club.teams.forEach((team: any) => {
-      csvContent += `\nTeam: ${subclub.name}\n`
+      csvContent += `\nTeam: ${team.name}\n`
       csvContent += "Event,Member 1,Member 2,Member 3\n"
       
       // Get events and assignments for this team
@@ -716,7 +716,7 @@ export function PeopleTab({ club: initialClub, currentMembership, isAdmin }: Peo
             >
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <span className="break-words">{subclub.name}</span>
+                  <span className="break-words">{team.name}</span>
                   <span className="text-xs sm:text-sm font-normal text-muted-foreground whitespace-nowrap">
                     ({team.members.length} / 15)
                   </span>
@@ -888,7 +888,7 @@ export function PeopleTab({ club: initialClub, currentMembership, isAdmin }: Peo
                                   value={team.id}
                                   disabled={team.id !== member.teamId && team.members.length >= 15}
                                 >
-                                  {subclub.name} ({team.members.length}/15)
+                                  {team.name} ({team.members.length}/15)
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -1009,7 +1009,7 @@ export function PeopleTab({ club: initialClub, currentMembership, isAdmin }: Peo
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>
-                  Event Roster - Division {team.division}
+                  Event Roster - Division {club.division}
                 </CardTitle>
                 {isAdmin && (
                   <p className="text-sm text-muted-foreground mt-1">
@@ -1041,7 +1041,7 @@ export function PeopleTab({ club: initialClub, currentMembership, isAdmin }: Peo
             {rosterViewMode === 'category' ? (
               // Group by Category
               <div className="space-y-6">
-                {Object.entries(groupEventsByCategory(events, team.division))
+                {Object.entries(groupEventsByCategory(events, club.division))
                   .sort(([a], [b]) => 
                     categoryOrder.indexOf(a as EventCategory) - categoryOrder.indexOf(b as EventCategory)
                   )

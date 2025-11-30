@@ -32,7 +32,7 @@ interface Tournament {
   registrations: Array<{
     id: string
     createdAt: string
-    team: {
+    club: {
       id: string
       name: string
     }
@@ -318,7 +318,7 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                                   <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                       <div className="flex items-center gap-3 mb-2">
-                                        <h3 className="font-semibold text-lg">{registration.team.name}</h3>
+                                        <h3 className="font-semibold text-lg">{registration.club.name}</h3>
                                         {registration.team && (
                                           <Badge variant="outline" className="font-normal">
                                             {registration.team.name}

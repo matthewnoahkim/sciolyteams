@@ -266,7 +266,7 @@ interface SettingsTabProps {
 }
 
 export function SettingsTab({
-  team,
+  club,
   currentMembership,
   isAdmin,
   personalBackground,
@@ -293,10 +293,10 @@ export function SettingsTab({
   const [selectedAdminTransferId, setSelectedAdminTransferId] = useState('')
   const [transferringAdmin, setTransferringAdmin] = useState(false)
   const [dismissedTransferPrompt, setDismissedTransferPrompt] = useState(false)
-  const adminMemberships = team.memberships.filter(
+  const adminMemberships = club.memberships.filter(
     (membership: any) => String(membership.role).toUpperCase() === 'ADMIN'
   )
-  const regularMembers = team.memberships.filter(
+  const regularMembers = club.memberships.filter(
     (membership: any) =>
       membership.id !== currentMembership.id && String(membership.role).toUpperCase() === 'MEMBER'
   )
@@ -450,7 +450,7 @@ export function SettingsTab({
     if (codesFetched) return
 
     try {
-      const response = await fetch(`/api/clubs/${team.id}/invite/codes`)
+      const response = await fetch(`/api/clubs/${club.id}/invite/codes`)
       
       if (!response.ok) throw new Error('Failed to fetch codes')
 
@@ -502,7 +502,7 @@ export function SettingsTab({
     setLoading(true)
 
     try {
-      const response = await fetch(`/api/clubs/${team.id}/invite/regenerate`, {
+      const response = await fetch(`/api/clubs/${club.id}/invite/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: codeTypeToRegenerate }),
@@ -551,7 +551,7 @@ export function SettingsTab({
     // If code is hidden or codes not fetched, fetch codes first
     if (code === '••••••••••••' || !codesFetched) {
       try {
-        const response = await fetch(`/api/clubs/${team.id}/invite/codes`)
+        const response = await fetch(`/api/clubs/${club.id}/invite/codes`)
         if (!response.ok) throw new Error('Failed to fetch codes')
         const data = await response.json()
         if (type === 'Admin') {
@@ -592,7 +592,7 @@ export function SettingsTab({
   }
 
   const handleDeleteTeam = async () => {
-    if (deleteConfirmation !== team.name) {
+    if (deleteConfirmation !== club.name) {
       toast({
         title: 'Error',
         description: 'Team name does not match',
@@ -604,7 +604,7 @@ export function SettingsTab({
     setDeleting(true)
 
     try {
-      const response = await fetch(`/api/clubs/${team.id}`, {
+      const response = await fetch(`/api/clubs/${club.id}`, {
         method: 'DELETE',
       })
 
@@ -1207,19 +1207,19 @@ export function SettingsTab({
         <CardContent className="space-y-4">
           <div>
             <p className="text-sm font-medium">Club Name</p>
-            <p className="text-lg">{team.name}</p>
+            <p className="text-lg">{club.name}</p>
           </div>
           <div>
             <p className="text-sm font-medium">Division</p>
-            <Badge>{team.division}</Badge>
+            <Badge>{club.division}</Badge>
           </div>
           <div>
             <p className="text-sm font-medium">Members</p>
-            <p className="text-lg">{team.memberships.length}</p>
+            <p className="text-lg">{club.memberships.length}</p>
           </div>
           <div>
             <p className="text-sm font-medium">Teams</p>
-            <p className="text-lg">{team.teams.length}</p>
+            <p className="text-lg">{club.teams.length}</p>
           </div>
         </CardContent>
       </Card>
@@ -1300,7 +1300,7 @@ export function SettingsTab({
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {team.memberships.map((membership: any) => (
+              {club.memberships.map((membership: any) => (
                 <div
                   key={membership.id}
                   className="flex items-center justify-between p-3 rounded-lg border"
@@ -1326,7 +1326,7 @@ export function SettingsTab({
                         )}
                         {membership.team && (
                           <span className="text-xs text-muted-foreground">
-                            Team: {membership.team.name}
+                            Team: {membership.club.name}
                           </span>
                         )}
                       </div>
@@ -1461,7 +1461,7 @@ export function SettingsTab({
         </>
       )}
 
-      {team.memberships.length > 1 && (
+      {club.memberships.length > 1 && (
         <Card className="border-destructive/50">
           <CardHeader>
             <CardTitle className="text-destructive">Leave Club</CardTitle>
@@ -1517,7 +1517,7 @@ export function SettingsTab({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="delete-confirmation">
-                Type <span className="font-bold">{team.name}</span> to confirm
+                Type <span className="font-bold">{club.name}</span> to confirm
               </Label>
               <Input
                 id="delete-confirmation"
@@ -1541,7 +1541,7 @@ export function SettingsTab({
             <Button
               variant="destructive"
               onClick={handleDeleteTeam}
-              disabled={deleting || deleteConfirmation !== team.name}
+              disabled={deleting || deleteConfirmation !== club.name}
             >
               {deleting ? 'Deleting...' : 'Delete Club Permanently'}
             </Button>
@@ -1554,7 +1554,7 @@ export function SettingsTab({
           <DialogHeader>
             <DialogTitle>Leave Club</DialogTitle>
             <DialogDescription>
-              Are you sure you want to leave {team.name}? You will need an invite code to rejoin.
+              Are you sure you want to leave {club.name}? You will need an invite code to rejoin.
             </DialogDescription>
           </DialogHeader>
           {shouldShowTransferPrompt && (
@@ -1627,7 +1627,7 @@ export function SettingsTab({
           <DialogHeader>
             <DialogTitle>Remove Member</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove <strong>{memberToRemove?.name}</strong> from {team.name}? 
+              Are you sure you want to remove <strong>{memberToRemove?.name}</strong> from {club.name}? 
               This action cannot be undone and they will need an invite code to rejoin.
             </DialogDescription>
           </DialogHeader>

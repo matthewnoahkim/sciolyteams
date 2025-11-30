@@ -35,10 +35,6 @@ interface Tournament {
     team: {
       id: string
       name: string
-    }
-    team: {
-      id: string
-      name: string
     } | null
   }>
   _count: {
@@ -407,8 +403,7 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                         <div className="flex flex-wrap gap-1.5">
                           {tournament.registrations.map((reg) => (
                             <Badge key={reg.id} variant="secondary" className="text-xs">
-                              {reg.team.name}
-                              {reg.team && ` - ${reg.team.name}`}
+                              {reg.team?.name || 'Unknown Team'}
                             </Badge>
                           ))}
                         </div>

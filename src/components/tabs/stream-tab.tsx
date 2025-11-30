@@ -60,7 +60,7 @@ export function StreamTab({ clubId, currentMembership, teams, isAdmin, user }: S
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [scope, setScope] = useState<'CLUB' | 'TEAM'>('CLUB')
-  const [selectedTeams, setSelectedSubteams] = useState<string[]>([])
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([])
   const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const [selectedEvents, setSelectedEvents] = useState<string[]>([])
   const [availableEvents, setAvailableEvents] = useState<any[]>([])
@@ -211,7 +211,7 @@ export function StreamTab({ clubId, currentMembership, teams, isAdmin, user }: S
         ? [{ scope: 'TEAM' }]
         : selectedTeams.map((teamId) => ({
             scope: 'TEAM',
-            subclubId,
+            subclubId: teamId,
             team: teams.find((s) => s.id === teamId),
           })),
     }

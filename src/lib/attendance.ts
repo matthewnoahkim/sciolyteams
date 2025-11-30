@@ -168,10 +168,10 @@ export function generateAttendanceCSV(data: {
  * Update attendance statuses for all events in a team
  * Should be called periodically or when fetching attendance data
  */
-export async function updateAttendanceStatuses(teamId: string): Promise<void> {
+export async function updateAttendanceStatuses(clubId: string): Promise<void> {
   const attendances = await prisma.attendance.findMany({
     where: {
-      teamId,
+      clubId,
       status: {
         in: [AttendanceStatus.UPCOMING, AttendanceStatus.ACTIVE],
       },

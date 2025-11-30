@@ -43,10 +43,6 @@ interface Tournament {
     team: {
       id: string
       name: string
-    }
-    team: {
-      id: string
-      name: string
     } | null
   }>
   _count: {
@@ -91,11 +87,11 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
   const [signupDialogOpen, setSignupDialogOpen] = useState(false)
   const [selectedTeams, setSelectedTeams] = useState<Array<{ clubId: string; subclubId?: string; subclubIds?: string[]; eventIds: string[] }>>([])
   const [submitting, setSubmitting] = useState(false)
-  const [registeredTeams, setRegisteredTeams] = useState<Array<{ id: string; clubId: string; subclubId?: string | null; teamName: string; teamName?: string | null }>>([])
+  const [registeredTeams, setRegisteredTeams] = useState<Array<{ id: string; clubId: string; subclubId?: string | null; teamName: string | null }>>([])
   const [totalRegisteredSubteams, setTotalRegisteredSubteams] = useState(0)
   const [totalCost, setTotalCost] = useState(0)
   const [deregisterDialogOpen, setDeregisterDialogOpen] = useState(false)
-  const [registrationToDeregister, setRegistrationToDeregister] = useState<{ id: string; teamName: string; teamName?: string | null } | null>(null)
+  const [registrationToDeregister, setRegistrationToDeregister] = useState<{ id: string; teamName: string | null } | null>(null)
   const [deregistering, setDeregistering] = useState(false)
 
   useEffect(() => {
@@ -123,7 +119,6 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
           id: r.id,
           clubId: r.clubId,
           subclubId: r.subclubId || null,
-          teamName: r.team?.name || 'Unknown Team',
           teamName: r.team?.name || null,
         }))
       setRegisteredTeams(userRegisteredTeams)
@@ -455,8 +450,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                         <div className="flex flex-wrap gap-2">
                           {tournament.registrations.map((reg) => (
                             <Badge key={reg.id} variant="secondary" className="text-xs">
-                              {reg.team.name}
-                              {reg.team && ` - ${reg.team.name}`}
+                              {reg.team?.name || 'Unknown Team'}
                             </Badge>
                           ))}
                         </div>
@@ -504,7 +498,6 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                                 onClick={() => {
                                   setRegistrationToDeregister({
                                     id: reg.id,
-                                    teamName: reg.teamName,
                                     teamName: reg.teamName || null,
                                   })
                                   setDeregisterDialogOpen(true)

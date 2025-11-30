@@ -164,7 +164,7 @@ const highlightText = (text: string | null | undefined, searchQuery: string): st
   )
 }
 
-export default function FinanceTab({ clubId, isAdmin, currentMembershipId, currentMembershipSubclubId, division, initialExpenses, initialPurchaseRequests, initialBudgets, initialTeams }: FinanceTabProps) {
+export default function FinanceTab({ clubId, isAdmin, currentMembershipId, currentMembershipTeamId, division, initialExpenses, initialPurchaseRequests, initialBudgets, initialTeams }: FinanceTabProps) {
   const { toast } = useToast()
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses || [])
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>(initialPurchaseRequests || [])
@@ -1864,7 +1864,7 @@ export default function FinanceTab({ clubId, isAdmin, currentMembershipId, curre
                         if (isAdmin) return true
                         
                         // Members can only see events that have budgets for their team (or club-wide)
-                        if (!currentMembershipSubclubId) {
+                        if (!currentMembershipTeamId) {
                           // Member without team - only show events with club-wide budgets
                           return budgets.some(
                             (b) => b.eventId === event.id && b.subclubId === null
@@ -1874,7 +1874,7 @@ export default function FinanceTab({ clubId, isAdmin, currentMembershipId, curre
                           return budgets.some(
                             (b) =>
                               b.eventId === event.id &&
-                              (b.subclubId === currentMembershipSubclubId || b.subclubId === null)
+                              (b.subclubId === currentMembershipTeamId || b.subclubId === null)
                           )
                         }
                       })
@@ -1898,8 +1898,8 @@ export default function FinanceTab({ clubId, isAdmin, currentMembershipId, curre
                 const budget = budgets.find(b => {
                   if (b.eventId !== purchaseRequestForm.eventId) return false
                   // For members, find their team's budget or club-wide budget
-                  if (!isAdmin && currentMembershipSubclubId) {
-                    return b.subclubId === currentMembershipSubclubId || b.subclubId === null
+                  if (!isAdmin && currentMembershipTeamId) {
+                    return b.subclubId === currentMembershipTeamId || b.subclubId === null
                   } else if (!isAdmin) {
                     return b.subclubId === null
                   }
