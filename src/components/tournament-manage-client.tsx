@@ -152,9 +152,9 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, tournamentId])
   
-  // Initialize edit form when tournament loads or editing starts
+  // Initialize edit form when tournament loads
   useEffect(() => {
-    if (tournament && isEditing) {
+    if (tournament) {
       const startDate = new Date(tournament.startTime)
       const endDate = new Date(tournament.endTime)
       const startDateStr = startDate.toISOString().split('T')[0]
@@ -162,9 +162,15 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
       const startTimeStr = startDate.toTimeString().slice(0, 5)
       const endTimeStr = endDate.toTimeString().slice(0, 5)
       
-      setEditFormData({
+      // Ensure division is always 'B' or 'C'
+      const divisionValue = (tournament.division === 'B' || tournament.division === 'C') 
+        ? tournament.division 
+        : 'B'
+      
+      setEditFormData(prev => ({
+        ...prev,
         name: tournament.name || '',
-        division: tournament.division === 'B' ? 'B' : tournament.division === 'C' ? 'C' : 'B' as 'B' | 'C',
+        division: divisionValue,
         description: tournament.description || '',
         price: tournament.price?.toString() || '0',
         paymentInstructions: tournament.paymentInstructions || '',
@@ -174,9 +180,9 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
         startTime: startTimeStr,
         endTime: endTimeStr,
         location: tournament.location || '',
-      })
+      }))
     }
-  }, [tournament, isEditing])
+  }, [tournament])
 
   useEffect(() => {
     loadTournament()
@@ -561,12 +567,17 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
         return
       }
 
+      // Ensure division is always 'B' or 'C'
+      const divisionValue = (editFormData.division === 'B' || editFormData.division === 'C') 
+        ? editFormData.division 
+        : 'B'
+      
       const response = await fetch(`/api/tournaments/${tournamentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: editFormData.name,
-          division: editFormData.division,
+          division: divisionValue,
           description: editFormData.description || undefined,
           price: parseFloat(editFormData.price) || 0,
           paymentInstructions: editFormData.paymentInstructions || undefined,
@@ -884,7 +895,39 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                     <CardDescription>Edit tournament information</CardDescription>
                   </div>
                   {!isEditing ? (
-                    <Button onClick={() => setIsEditing(true)} size="sm">
+                    <Button 
+                      onClick={() => {
+                        if (tournament) {
+                          // Ensure form data is set with current tournament values before editing
+                          const startDate = new Date(tournament.startTime)
+                          const endDate = new Date(tournament.endTime)
+                          const startDateStr = startDate.toISOString().split('T')[0]
+                          const endDateStr = endDate.toISOString().split('T')[0]
+                          const startTimeStr = startDate.toTimeString().slice(0, 5)
+                          const endTimeStr = endDate.toTimeString().slice(0, 5)
+                          
+                          const divisionValue = (tournament.division === 'B' || tournament.division === 'C') 
+                            ? tournament.division 
+                            : 'B'
+                          
+                          setEditFormData({
+                            name: tournament.name || '',
+                            division: divisionValue,
+                            description: tournament.description || '',
+                            price: tournament.price?.toString() || '0',
+                            paymentInstructions: tournament.paymentInstructions || '',
+                            isOnline: tournament.isOnline ?? false,
+                            startDate: startDateStr,
+                            endDate: endDateStr,
+                            startTime: startTimeStr,
+                            endTime: endTimeStr,
+                            location: tournament.location || '',
+                          })
+                        }
+                        setIsEditing(true)
+                      }} 
+                      size="sm"
+                    >
                       <Edit className="h-4 w-4 mr-2" />
                       Edit
                     </Button>
@@ -925,7 +968,7 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                     <div className="space-y-2">
                       <Label htmlFor="edit-division">Division *</Label>
                       <Select
-                        value={editFormData.division}
+                        value={editFormData.division && (editFormData.division === 'B' || editFormData.division === 'C') ? editFormData.division : 'B'}
                         onValueChange={(value) => setEditFormData({ ...editFormData, division: value as 'B' | 'C' })}
                         required
                       >

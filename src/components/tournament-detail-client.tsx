@@ -482,20 +482,34 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                   <div className="flex items-start gap-2">
                     <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div className="flex-1">
-                      <p className="font-medium mb-2">
-                        {tournament._count.registrations} team{tournament._count.registrations !== 1 ? 's' : ''} registered
-                      </p>
-                      {tournament.registrations && tournament.registrations.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {tournament.registrations.map((reg) => (
-                            <Badge key={reg.id} variant="secondary" className="text-xs">
-                              {reg.club?.name 
-                                ? (reg.team?.name ? `${reg.club.name} - ${reg.team.name}` : reg.club.name)
-                                : (reg.team?.name || 'Unknown Team')}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
+                      {(() => {
+                        // Filter registrations to only show teams where user is an admin of the club
+                        const visibleRegistrations = (tournament.registrations || []).filter((reg: any) => {
+                          if (!reg.club?.memberships) return false
+                          // Check if current user is an admin of this club
+                          const isUserAdmin = reg.club.memberships.some((m: any) => m.user.id === user.id)
+                          return isUserAdmin
+                        })
+                        
+                        return (
+                          <>
+                            <p className="font-medium mb-2">
+                              {visibleRegistrations.length} team{visibleRegistrations.length !== 1 ? 's' : ''} registered
+                            </p>
+                            {visibleRegistrations.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {visibleRegistrations.map((reg: any) => (
+                                  <Badge key={reg.id} variant="secondary" className="text-xs">
+                                    {reg.club?.name 
+                                      ? (reg.team?.name ? `${reg.club.name} - ${reg.team.name}` : reg.club.name)
+                                      : (reg.team?.name || 'Unknown Team')}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -520,107 +534,119 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {(registeredTeams.length > 0 || (tournament.registrations && tournament.registrations.length > 0)) && (
-                      <>
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium">Registered Teams:</p>
-                          {(tournament.registrations || []).map((reg: any) => {
-                            const teamDisplayName = reg.club?.name 
-                              ? (reg.team?.name ? `${reg.club.name} - ${reg.team.name}` : reg.club.name)
-                              : (reg.team?.name || 'Unknown Team')
-                            const admins = reg.club?.memberships || []
-                            const isUserTeam = registeredTeams.some((rt: any) => rt.id === reg.id)
-                            
-                            return (
-                              <div key={reg.id} className="flex items-start justify-between group p-2 rounded-md border bg-card">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
-                                    <span className="font-medium truncate">
-                                      {teamDisplayName}
-                                    </span>
-                                  </div>
-                                  {admins.length > 0 && (
-                                    <div className="flex items-start gap-1.5 mt-1.5 text-xs text-muted-foreground">
-                                      <Shield className="h-3 w-3 mt-0.5 shrink-0" />
-                                      <span className="font-medium">Admins: </span>
-                                      <span>
-                                        {admins.map((m: any, idx: number) => (
-                                          <span key={m.user.id}>
-                                            {m.user.name || m.user.email}
-                                            {idx < admins.length - 1 ? ', ' : ''}
-                                          </span>
-                                        ))}
+                    {(() => {
+                      // Filter registrations to only show teams where user is an admin of the club
+                      const visibleRegistrations = (tournament.registrations || []).filter((reg: any) => {
+                        if (!reg.club?.memberships) return false
+                        // Check if current user is an admin of this club
+                        const isUserAdmin = reg.club.memberships.some((m: any) => m.user.id === user.id)
+                        return isUserAdmin
+                      })
+                      
+                      const hasVisibleRegistrations = visibleRegistrations.length > 0 || registeredTeams.length > 0
+                      
+                      return hasVisibleRegistrations ? (
+                        <>
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Registered Teams:</p>
+                            {visibleRegistrations.map((reg: any) => {
+                              const teamDisplayName = reg.club?.name 
+                                ? (reg.team?.name ? `${reg.club.name} - ${reg.team.name}` : reg.club.name)
+                                : (reg.team?.name || 'Unknown Team')
+                              const admins = reg.club?.memberships || []
+                              const isUserTeam = registeredTeams.some((rt: any) => rt.id === reg.id)
+                              
+                              return (
+                                <div key={reg.id} className="flex items-start justify-between group p-2 rounded-md border bg-card">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                                      <span className="font-medium truncate">
+                                        {teamDisplayName}
                                       </span>
                                     </div>
-                                  )}
-                                  <div className="mt-1.5">
-                                    {reg.paid ? (
-                                      <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-xs">
-                                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                                        Paid
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="outline" className="text-xs">
-                                        <AlertCircle className="h-3 w-3 mr-1" />
-                                        Unpaid
-                                      </Badge>
+                                    {admins.length > 0 && (
+                                      <div className="flex items-start gap-1.5 mt-1.5 text-xs text-muted-foreground">
+                                        <Shield className="h-3 w-3 mt-0.5 shrink-0" />
+                                        <span className="font-medium">Admins: </span>
+                                        <span>
+                                          {admins.map((m: any, idx: number) => (
+                                            <span key={m.user.id}>
+                                              {m.user.name || m.user.email}
+                                              {idx < admins.length - 1 ? ', ' : ''}
+                                            </span>
+                                          ))}
+                                        </span>
+                                      </div>
                                     )}
+                                    <div className="mt-1.5">
+                                      {reg.paid ? (
+                                        <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-xs">
+                                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                                          Paid
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="text-xs">
+                                          <AlertCircle className="h-3 w-3 mr-1" />
+                                          Unpaid
+                                        </Badge>
+                                      )}
+                                    </div>
                                   </div>
+                                  {isUserTeam && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setRegistrationToDeregister({
+                                          id: reg.id,
+                                          teamName: reg.team?.name || null,
+                                          clubName: reg.club?.name || null,
+                                        })
+                                        setDeregisterDialogOpen(true)
+                                      }}
+                                      className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive shrink-0 ml-2"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </div>
-                                {isUserTeam && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setRegistrationToDeregister({
-                                        id: reg.id,
-                                        teamName: reg.team?.name || null,
-                                        clubName: reg.club?.name || null,
-                                      })
-                                      setDeregisterDialogOpen(true)
-                                    }}
-                                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive shrink-0 ml-2"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                        <div className="pt-2 border-t space-y-1">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Total Teams:</span>
-                            <span className="font-medium">{tournament._count.registrations}</span>
+                              )
+                            })}
                           </div>
-                          {tournament.price > 0 && (
-                            <>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Total Cost:</span>
-                                <span className="font-medium">${(tournament._count.registrations * tournament.price).toFixed(2)}</span>
-                              </div>
-                              {tournament.registrations && tournament.registrations.length > 0 && (() => {
-                                const paidCount = tournament.registrations.filter((r: any) => r.paid).length
-                                const unpaidCount = tournament.registrations.length - paidCount
-                                return (
-                                  <>
-                                    <div className="flex items-center justify-between text-sm">
-                                      <span className="text-muted-foreground">Paid:</span>
-                                      <span className="font-medium text-green-600 dark:text-green-400">{paidCount}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-sm">
-                                      <span className="text-muted-foreground">Unpaid:</span>
-                                      <span className="font-medium">{unpaidCount}</span>
-                                    </div>
-                                  </>
-                                )
-                              })()}
-                            </>
-                          )}
-                        </div>
-                      </>
-                    )}
+                          <div className="pt-2 border-t space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Total Teams:</span>
+                              <span className="font-medium">{visibleRegistrations.length}</span>
+                            </div>
+                            {tournament.price > 0 && (
+                              <>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">Total Cost:</span>
+                                  <span className="font-medium">${(visibleRegistrations.length * tournament.price).toFixed(2)}</span>
+                                </div>
+                                {visibleRegistrations.length > 0 && (() => {
+                                  const paidCount = visibleRegistrations.filter((r: any) => r.paid).length
+                                  const unpaidCount = visibleRegistrations.length - paidCount
+                                  return (
+                                    <>
+                                      <div className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">Paid:</span>
+                                        <span className="font-medium text-green-600 dark:text-green-400">{paidCount}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">Unpaid:</span>
+                                        <span className="font-medium">{unpaidCount}</span>
+                                      </div>
+                                    </>
+                                  )
+                                })()}
+                              </>
+                            )}
+                          </div>
+                        </>
+                      ) : null
+                    })()}
                     <Button 
                       onClick={() => {
                         // Pre-populate with teams that aren't registered yet
