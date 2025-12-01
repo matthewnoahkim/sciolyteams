@@ -31,6 +31,7 @@ import {
   Loader2,
   Download,
   Trash2,
+  Trophy,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -115,7 +116,16 @@ export function HealthTools() {
 
   // Loading states
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'all' | 'api' | 'errors' | 'users'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'api' | 'errors' | 'users' | 'tournaments'>(() => {
+    // Load saved tab from localStorage, default to 'all'
+    if (typeof window !== 'undefined') {
+      const savedTab = localStorage.getItem('dev-tools-active-tab')
+      if (savedTab && ['all', 'api', 'errors', 'users', 'tournaments'].includes(savedTab)) {
+        return savedTab as 'all' | 'api' | 'errors' | 'users' | 'tournaments'
+      }
+    }
+    return 'all'
+  })
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('')
@@ -139,6 +149,13 @@ export function HealthTools() {
   const [userLoading, setUserLoading] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<any>(null)
+
+  // Tournaments
+  const [tournaments, setTournaments] = useState<any[]>([])
+  const [tournamentLoading, setTournamentLoading] = useState(false)
+  const [tournamentSearch, setTournamentSearch] = useState('')
+  const [showApprovedOnly, setShowApprovedOnly] = useState(false)
+  const [approvingTournamentId, setApprovingTournamentId] = useState<string | null>(null)
 
   // Scroll detection for pausing auto-refresh
   const [isScrolling, setIsScrolling] = useState(false)
@@ -266,12 +283,100 @@ export function HealthTools() {
     }
   }, [userSearch, activeTab])
 
+  // Fetch tournaments
+  const fetchTournaments = useCallback(async () => {
+    if (activeTab !== 'tournaments') return
+    
+    setTournamentLoading(true)
+    try {
+      // Include unapproved tournaments for dev panel
+      const response = await fetch('/api/tournaments?upcoming=false&includeUnapproved=true')
+      const data = await response.json()
+      let tournamentsList = data.tournaments || []
+      
+      // Ensure all tournaments have the approved field (default to false if missing)
+      tournamentsList = tournamentsList.map((t: any) => ({
+        ...t,
+        approved: t.approved ?? false
+      }))
+      
+      // Filter by approved status (treat null/undefined as false/unapproved)
+      if (showApprovedOnly) {
+        tournamentsList = tournamentsList.filter((t: any) => t.approved === true)
+      } else {
+        // Show unapproved by default (including null/undefined)
+        tournamentsList = tournamentsList.filter((t: any) => !t.approved)
+      }
+      
+      // Filter by search
+      if (tournamentSearch) {
+        const searchLower = tournamentSearch.toLowerCase()
+        tournamentsList = tournamentsList.filter((t: any) =>
+          t.name.toLowerCase().includes(searchLower) ||
+          t.createdBy?.email?.toLowerCase().includes(searchLower) ||
+          t.createdBy?.name?.toLowerCase().includes(searchLower) ||
+          t.description?.toLowerCase().includes(searchLower)
+        )
+      }
+      
+      setTournaments(tournamentsList)
+    } catch (error) {
+      console.error('Failed to fetch tournaments:', error)
+    } finally {
+      setTournamentLoading(false)
+    }
+  }, [activeTab, showApprovedOnly, tournamentSearch])
+
+  // Approve tournament
+  const handleApproveTournament = async (tournamentId: string) => {
+    setApprovingTournamentId(tournamentId)
+    try {
+      const response = await fetch(`/api/dev/tournaments/${tournamentId}/approve`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved: true }),
+      })
+
+      if (response.ok) {
+        // Update the tournament in the local state immediately for better UX
+        setTournaments(prevTournaments => 
+          prevTournaments.map(t => 
+            t.id === tournamentId ? { ...t, approved: true } : t
+          )
+        )
+        // Refresh tournaments list to ensure consistency
+        await fetchTournaments()
+        // Optionally refresh logs to show the approval activity
+        if (activeTab !== 'tournaments') {
+          fetchLogs()
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        alert(errorData.error || 'Failed to approve tournament')
+      }
+    } catch (error) {
+      console.error('Error approving tournament:', error)
+      alert('Error approving tournament')
+    } finally {
+      setApprovingTournamentId(null)
+    }
+  }
+
+  // Save active tab to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dev-tools-active-tab', activeTab)
+    }
+  }, [activeTab])
+
   // Initial load
   useEffect(() => {
-    if (activeTab !== 'users') {
-      fetchLogs()
-    } else {
+    if (activeTab === 'users') {
       fetchUsers()
+    } else if (activeTab === 'tournaments') {
+      fetchTournaments()
+    } else {
+      fetchLogs()
     }
   }, [activeTab])
 
@@ -282,8 +387,13 @@ export function HealthTools() {
         fetchUsers()
       }, 300)
       return () => clearTimeout(timer)
+    } else if (activeTab === 'tournaments') {
+      const timer = setTimeout(() => {
+        fetchTournaments()
+      }, 300)
+      return () => clearTimeout(timer)
     }
-  }, [userSearch, activeTab, fetchUsers])
+  }, [userSearch, tournamentSearch, showApprovedOnly, activeTab, fetchUsers, fetchTournaments])
 
   // Fetch logs when filters change
   useEffect(() => {
@@ -365,7 +475,7 @@ export function HealthTools() {
   // Auto-refresh logs every 1 second when on logs tabs (silent, no loading indicator)
   // Pauses when user is scrolling
   useEffect(() => {
-    if (activeTab === 'users' || isScrolling) return
+    if (activeTab === 'users' || activeTab === 'tournaments' || isScrolling) return
 
     // Set up interval to refresh every 1 second (silent refresh)
     const interval = setInterval(() => {
@@ -483,16 +593,17 @@ export function HealthTools() {
       ['Email', user.email],
       ['Created At', new Date(user.createdAt).toLocaleString()],
       [''],
-      ['Teams'],
-      ['Team Name', 'Team ID', 'Role', 'Subteam', 'Joined At']
+      ['Memberships'],
+      ['Club Name', 'Club ID', 'Team Name', 'Team ID', 'Role', 'Joined At']
     ]
 
     // Add team memberships
     const membershipRows = (user.memberships || []).map((m: any) => [
+      escapeCSV(m.club?.name || 'N/A'),
+      escapeCSV(m.club?.id || 'N/A'),
       escapeCSV(m.team?.name || 'N/A'),
       escapeCSV(m.team?.id || 'N/A'),
       escapeCSV(m.role || 'N/A'),
-      escapeCSV(m.team?.name || 'None'),
       escapeCSV(new Date(m.createdAt).toLocaleString()),
     ])
 
@@ -523,7 +634,7 @@ export function HealthTools() {
   return (
     <div className="space-y-6 animate-fade-in">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="all" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
             All Logs
@@ -539,6 +650,10 @@ export function HealthTools() {
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Users
+          </TabsTrigger>
+          <TabsTrigger value="tournaments" className="flex items-center gap-2">
+            <Trophy className="h-4 w-4" />
+            Tournaments
           </TabsTrigger>
         </TabsList>
 
@@ -1020,6 +1135,138 @@ export function HealthTools() {
           </Card>
         </TabsContent>
 
+        {/* Tournaments Tab */}
+        <TabsContent value="tournaments" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Tournament Approvals</CardTitle>
+                  <CardDescription>
+                    Review and approve pending tournament submissions
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchTournaments} disabled={tournamentLoading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${tournamentLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-4">
+                <div className="relative flex-1">
+                  <Search 
+                    className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none z-10" 
+                    style={{ 
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      willChange: 'transform'
+                    }} 
+                  />
+                  <Input
+                    placeholder="Search tournaments..."
+                    value={tournamentSearch}
+                    onChange={(e) => setTournamentSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="approved-only"
+                    checked={showApprovedOnly}
+                    onCheckedChange={(checked) => setShowApprovedOnly(checked as boolean)}
+                  />
+                  <Label htmlFor="approved-only" className="cursor-pointer text-sm font-normal">Show Approved</Label>
+                </div>
+              </div>
+
+              <ScrollArea className="h-[600px]">
+                {tournamentLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : tournaments.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {tournamentSearch ? 'No tournaments found' : showApprovedOnly ? 'No approved tournaments' : 'No pending tournaments'}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {tournaments.map((tournament) => (
+                      <div
+                        key={tournament.id}
+                        className="p-4 border rounded-xl hover:bg-muted/50 transition-all duration-200 hover:shadow-md apple-hover"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <Badge variant={tournament.approved === true ? 'default' : 'destructive'}>
+                                {tournament.approved === true ? 'Approved' : 'Pending Approval'}
+                              </Badge>
+                              <Badge variant="outline">Division {tournament.division}</Badge>
+                              {tournament.isOnline && (
+                                <Badge variant="outline">Online</Badge>
+                              )}
+                            </div>
+                            <p className="font-medium text-sm mb-1">
+                              {highlightText(tournament.name, tournamentSearch)}
+                            </p>
+                            {tournament.description && (
+                              <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                                {highlightText(tournament.description, tournamentSearch)}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                              <div className="flex items-center gap-1">
+                                <span>Created by:</span>
+                                <span className="font-medium">
+                                  {highlightText(
+                                    tournament.createdBy?.name || tournament.createdBy?.email || 'Unknown',
+                                    tournamentSearch
+                                  )}
+                                </span>
+                              </div>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {format(new Date(tournament.createdAt), 'MMM d, yyyy HH:mm:ss')}
+                              </span>
+                              {tournament.location && (
+                                <span>{highlightText(tournament.location, tournamentSearch)}</span>
+                              )}
+                              <span>${tournament.price.toFixed(2)}</span>
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0">
+                            {tournament.approved !== true && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => handleApproveTournament(tournament.id)}
+                                disabled={approvingTournamentId === tournament.id}
+                              >
+                                {approvingTournamentId === tournament.id ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Approving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                                    Approve
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Users Tab */}
         <TabsContent value="users" className="space-y-4">
           <Card>
@@ -1086,7 +1333,9 @@ export function HealthTools() {
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {user.memberships.map((membership: any) => (
                                   <Badge key={membership.id} variant="outline">
-                                    {membership.team.name} ({membership.role})
+                                    {membership.club?.name 
+                                      ? (membership.team?.name ? `${membership.club.name} - ${membership.team.name}` : membership.club.name)
+                                      : (membership.team?.name || 'No club/team')} ({membership.role})
                                   </Badge>
                                 ))}
                               </div>

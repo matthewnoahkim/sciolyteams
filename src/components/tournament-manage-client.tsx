@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Users, Settings, FileText, Search, Calendar, Plus, X, Trash2 } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ArrowLeft, Users, Settings, FileText, Search, Calendar, Plus, X, Trash2, Edit, Save, Mail, Download, DollarSign } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -28,10 +30,20 @@ interface Tournament {
   id: string
   name: string
   division: 'B' | 'C'
+  description: string | null
+  price: number
+  paymentInstructions: string | null
+  isOnline: boolean
+  startDate: string
+  endDate: string
+  startTime: string
+  endTime: string
+  location: string | null
   createdById: string
   registrations: Array<{
     id: string
     createdAt: string
+    paid: boolean
     club: {
       id: string
       name: string
@@ -78,6 +90,7 @@ interface TournamentManageClientProps {
 
 export function TournamentManageClient({ tournamentId, user }: TournamentManageClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [loading, setLoading] = useState(true)
@@ -87,6 +100,83 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
   const [adminEmail, setAdminEmail] = useState('')
   const [addingAdmin, setAddingAdmin] = useState(false)
   const [removingAdminId, setRemovingAdminId] = useState<string | null>(null)
+  const [updatingPaidStatus, setUpdatingPaidStatus] = useState<string | null>(null)
+  
+  // Initialize activeTab from URL param, default to 'registrations'
+  const tabParam = searchParams.get('tab')
+  const validTabs = ['registrations', 'admins', 'tests', 'details'] as const
+  const initialTab = (tabParam && validTabs.includes(tabParam as any)) ? tabParam as typeof validTabs[number] : 'registrations'
+  const [activeTab, setActiveTab] = useState<'registrations' | 'admins' | 'tests' | 'details'>(initialTab)
+  
+  // Edit form state
+  const [isEditing, setIsEditing] = useState(false)
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    division: 'B' as 'B' | 'C',
+    description: '',
+    price: '',
+    paymentInstructions: '',
+    isOnline: false,
+    startDate: '',
+    endDate: '',
+    startTime: '',
+    endTime: '',
+    location: '',
+  })
+  const [saving, setSaving] = useState(false)
+  
+  // Sync activeTab with URL param when it changes (e.g., browser back/forward)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    const validTabs = ['registrations', 'admins', 'tests', 'details'] as const
+    const newTab = (tabParam && validTabs.includes(tabParam as any)) ? tabParam as typeof validTabs[number] : 'registrations'
+    if (newTab !== activeTab) {
+      setActiveTab(newTab)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+  
+  // Update URL when tab changes (only if it doesn't already match)
+  useEffect(() => {
+    const currentTabParam = searchParams.get('tab') || 'registrations'
+    if (currentTabParam !== activeTab) {
+      const params = new URLSearchParams(searchParams.toString())
+      if (activeTab === 'registrations') {
+        params.delete('tab')
+      } else {
+        params.set('tab', activeTab)
+      }
+      const newUrl = params.toString() ? `/tournaments/${tournamentId}/manage?${params.toString()}` : `/tournaments/${tournamentId}/manage`
+      router.replace(newUrl, { scroll: false })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, tournamentId])
+  
+  // Initialize edit form when tournament loads or editing starts
+  useEffect(() => {
+    if (tournament && isEditing) {
+      const startDate = new Date(tournament.startTime)
+      const endDate = new Date(tournament.endTime)
+      const startDateStr = startDate.toISOString().split('T')[0]
+      const endDateStr = endDate.toISOString().split('T')[0]
+      const startTimeStr = startDate.toTimeString().slice(0, 5)
+      const endTimeStr = endDate.toTimeString().slice(0, 5)
+      
+      setEditFormData({
+        name: tournament.name || '',
+        division: tournament.division === 'B' ? 'B' : tournament.division === 'C' ? 'C' : 'B' as 'B' | 'C',
+        description: tournament.description || '',
+        price: tournament.price?.toString() || '0',
+        paymentInstructions: tournament.paymentInstructions || '',
+        isOnline: tournament.isOnline ?? false,
+        startDate: startDateStr,
+        endDate: endDateStr,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        location: tournament.location || '',
+      })
+    }
+  }, [tournament, isEditing])
 
   useEffect(() => {
     loadTournament()
@@ -131,10 +221,25 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
 
   // Filter and sort registrations
   const filteredRegistrations = tournament.registrations.filter((reg) => {
+    if (!searchQuery.trim()) return true
+    
     const searchLower = searchQuery.toLowerCase()
     const clubName = reg.club.name.toLowerCase()
     const teamName = reg.team?.name.toLowerCase() || ''
-    return clubName.includes(searchLower) || teamName.includes(searchLower)
+    
+    // Check member names/emails
+    const memberMatches = reg.team?.members.some(member => {
+      const name = (member.user.name || '').toLowerCase()
+      const email = member.user.email.toLowerCase()
+      return name.includes(searchLower) || email.includes(searchLower)
+    }) || false
+    
+    // Check event names
+    const eventMatches = reg.eventSelections.some(selection => 
+      selection.event.name.toLowerCase().includes(searchLower)
+    )
+    
+    return clubName.includes(searchLower) || teamName.includes(searchLower) || memberMatches || eventMatches
   })
 
   const sortedRegistrations = [...filteredRegistrations].sort((a, b) => {
@@ -142,6 +247,27 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
     const dateB = new Date(b.createdAt).getTime()
     return sortOrder === 'earliest' ? dateA - dateB : dateB - dateA
   })
+
+  // Helper function to highlight search terms in text (exact copy from tournaments-client)
+  const highlightText = (text: string | null | undefined, searchQuery: string): string | (string | JSX.Element)[] => {
+    if (!text || !searchQuery) return text || ''
+    
+    const query = searchQuery.trim()
+    if (!query) return text
+    
+    // Escape special regex characters
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(`(${escapedQuery})`, 'gi')
+    const parts = text.split(regex)
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-200 dark:bg-yellow-900 text-foreground px-0.5 rounded">
+          {part}
+        </mark>
+      ) : part
+    )
+  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -228,6 +354,254 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
     }
   }
 
+  const handleEmailAll = async () => {
+    try {
+      // Get unique club IDs from registrations
+      const clubIds = [...new Set(tournament.registrations.map(reg => reg.club.id))]
+      
+      // Fetch admin emails for all clubs
+      const response = await fetch(`/api/tournaments/${tournamentId}/club-admins?clubIds=${clubIds.join(',')}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch admin emails')
+      }
+      
+      const data = await response.json()
+      const adminEmails = data.adminEmails || []
+      
+      if (adminEmails.length === 0) {
+        toast({
+          title: 'No admins found',
+          description: 'No admin emails found for registered clubs',
+          variant: 'destructive',
+        })
+        return
+      }
+      
+      // Create mailto link with BCC
+      const subject = encodeURIComponent(`Tournament Update: ${tournament.name}`)
+      const body = encodeURIComponent(`Hello,\n\nThis is an update regarding the tournament: ${tournament.name}\n\nBest regards`)
+      const bcc = adminEmails.join(',')
+      const mailtoLink = `mailto:?bcc=${bcc}&subject=${subject}&body=${body}`
+      
+      window.location.href = mailtoLink
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to open email client',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleTogglePaidStatus = async (registrationId: string, currentPaidStatus: boolean) => {
+    try {
+      setUpdatingPaidStatus(registrationId)
+      
+      const response = await fetch(`/api/tournaments/${tournamentId}/register/${registrationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paid: !currentPaidStatus }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        const errorMsg = data.error || 'Failed to update paid status'
+        const details = data.details ? ` Details: ${JSON.stringify(data.details)}` : ''
+        throw new Error(`${errorMsg}${details}`)
+      }
+
+      // Update local state optimistically
+      setTournament((prev) => {
+        if (!prev) return null
+        return {
+          ...prev,
+          registrations: prev.registrations.map((reg) =>
+            reg.id === registrationId ? { ...reg, paid: !currentPaidStatus } : reg
+          ),
+        }
+      })
+
+      toast({
+        title: 'Success',
+        description: `Payment status updated to ${!currentPaidStatus ? 'paid' : 'unpaid'}`,
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update paid status',
+        variant: 'destructive',
+      })
+      // Reload tournament to revert optimistic update
+      loadTournament()
+    } finally {
+      setUpdatingPaidStatus(null)
+    }
+  }
+
+  const handleExportCSV = () => {
+    // Helper function to escape CSV fields
+    const escapeCSV = (value: any): string => {
+      if (value === null || value === undefined) return ''
+      const str = String(value)
+      // If contains comma, quote, or newline, wrap in quotes and escape quotes
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`
+      }
+      return str
+    }
+
+    // CSV Headers
+    const headers = [
+      'Club Name',
+      'Team Name',
+      'Registration Date',
+      'Paid',
+      'Member Count',
+      'Members',
+      'Events'
+    ]
+
+    // CSV Rows
+    const rows = sortedRegistrations.map((reg) => {
+      const memberCount = reg.team?.members.length || 0
+      const members = reg.team?.members.map(m => m.user.name || m.user.email).join('; ') || 'None'
+      const events = reg.eventSelections.map(s => s.event.name).join('; ') || 'None'
+      
+      return [
+        escapeCSV(reg.club.name),
+        escapeCSV(reg.team?.name || 'N/A'),
+        escapeCSV(new Date(reg.createdAt).toLocaleString()),
+        escapeCSV(reg.paid ? 'Yes' : 'No'),
+        escapeCSV(memberCount),
+        escapeCSV(members),
+        escapeCSV(events),
+      ]
+    })
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row: string[]) => row.join(',')),
+    ].join('\n')
+
+    // Add BOM for Excel compatibility with special characters
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const safeName = tournament.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()
+    link.download = `${safeName}-registrations-${new Date().toISOString().split('T')[0]}.csv`
+    link.href = url
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    toast({
+      title: 'Success',
+      description: 'CSV exported successfully',
+    })
+  }
+
+  const handleSaveDetails = async () => {
+    if (!editFormData.name?.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a tournament name',
+        variant: 'destructive',
+      })
+      return
+    }
+    
+    if (!editFormData.division || (editFormData.division !== 'B' && editFormData.division !== 'C')) {
+      toast({
+        title: 'Error',
+        description: 'Please select a division',
+        variant: 'destructive',
+      })
+      return
+    }
+    
+    if (!editFormData.startDate || !editFormData.endDate || !editFormData.startTime || !editFormData.endTime) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all date and time fields',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Validate date range
+    const startDateObj = new Date(editFormData.startDate)
+    const endDateObj = new Date(editFormData.endDate)
+    if (endDateObj < startDateObj) {
+      toast({
+        title: 'Error',
+        description: 'End date must be on or after start date',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setSaving(true)
+      
+      // Combine dates with times
+      const startDateTime = new Date(`${editFormData.startDate}T${editFormData.startTime}`)
+      const endDateTime = new Date(`${editFormData.endDate}T${editFormData.endTime}`)
+
+      // Validate that end datetime is after start datetime
+      if (endDateTime <= startDateTime) {
+        toast({
+          title: 'Error',
+          description: 'End date/time must be after start date/time',
+          variant: 'destructive',
+        })
+        setSaving(false)
+        return
+      }
+
+      const response = await fetch(`/api/tournaments/${tournamentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editFormData.name,
+          division: editFormData.division,
+          description: editFormData.description || undefined,
+          price: parseFloat(editFormData.price) || 0,
+          paymentInstructions: editFormData.paymentInstructions || undefined,
+          isOnline: editFormData.isOnline,
+          startDate: new Date(editFormData.startDate).toISOString(),
+          endDate: new Date(editFormData.endDate).toISOString(),
+          startTime: startDateTime.toISOString(),
+          endTime: endDateTime.toISOString(),
+          location: editFormData.location || undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to update tournament')
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Tournament updated successfully!',
+      })
+      
+      setIsEditing(false)
+      loadTournament()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update tournament',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader user={user} />
@@ -241,12 +615,12 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-2xl">{tournament.name}</CardTitle>
+            <CardTitle className="text-2xl break-words">{tournament.name}</CardTitle>
             <CardDescription>Tournament Management</CardDescription>
           </CardHeader>
         </Card>
 
-        <Tabs defaultValue="registrations" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'registrations' | 'admins' | 'tests' | 'details')} className="space-y-4">
           <TabsList>
             <TabsTrigger value="registrations">
               <Users className="h-4 w-4 mr-2" />
@@ -260,13 +634,33 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
               <FileText className="h-4 w-4 mr-2" />
               Tests
             </TabsTrigger>
+            <TabsTrigger value="details">
+              <Edit className="h-4 w-4 mr-2" />
+              Details
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="registrations" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Registered Teams</CardTitle>
-                <CardDescription>Teams that have registered for this tournament</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Registered Teams</CardTitle>
+                    <CardDescription>Teams that have registered for this tournament</CardDescription>
+                  </div>
+                  {tournament.registrations.length > 0 && (
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={handleEmailAll}>
+                        <Mail className="h-4 w-4 mr-2" />
+                        Email All
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export CSV
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {tournament.registrations.length === 0 ? (
@@ -279,7 +673,7 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                         <div className="relative flex-1">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10 shrink-0 will-change-transform" />
                           <Input
-                            placeholder="Search teams or teams..."
+                            placeholder="Search teams, members, or events..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-9"
@@ -318,10 +712,19 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                                   <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                       <div className="flex items-center gap-3 mb-2">
-                                        <h3 className="font-semibold text-lg">{registration.club.name}</h3>
-                                        {registration.team && (
-                                          <Badge variant="outline" className="font-normal">
-                                            {registration.team.name}
+                                        <h3 className="font-semibold text-lg">
+                                          {searchQuery ? highlightText(registration.club.name, searchQuery) : registration.club.name}
+                                          {registration.team && (
+                                            <>
+                                              {' - '}
+                                              {searchQuery ? highlightText(registration.team.name, searchQuery) : registration.team.name}
+                                            </>
+                                          )}
+                                        </h3>
+                                        {registration.paid && (
+                                          <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                                            <DollarSign className="h-3 w-3 mr-1" />
+                                            Paid
                                           </Badge>
                                         )}
                                       </div>
@@ -338,6 +741,21 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                                         </div>
                                       </div>
                                     </div>
+                                    <div className="flex items-center gap-2">
+                                      <Checkbox
+                                        id={`paid-${registration.id}`}
+                                        checked={registration.paid}
+                                        onCheckedChange={() => handleTogglePaidStatus(registration.id, registration.paid)}
+                                        disabled={updatingPaidStatus === registration.id}
+                                      />
+                                      <Label
+                                        htmlFor={`paid-${registration.id}`}
+                                        className="text-sm font-medium cursor-pointer flex items-center gap-2"
+                                      >
+                                        <DollarSign className="h-4 w-4" />
+                                        <span>Paid</span>
+                                      </Label>
+                                    </div>
                                   </div>
                                   
                                   {registration.team && registration.team.members.length > 0 && (
@@ -346,7 +764,9 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                                       <div className="space-y-1">
                                         {registration.team.members.map((member) => (
                                           <div key={member.id} className="text-sm text-foreground">
-                                            {member.user.name || member.user.email}
+                                            {searchQuery 
+                                              ? highlightText(member.user.name || member.user.email, searchQuery)
+                                              : (member.user.name || member.user.email)}
                                           </div>
                                         ))}
                                       </div>
@@ -359,7 +779,9 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                                       <div className="flex flex-wrap gap-2">
                                         {registration.eventSelections.map((selection) => (
                                           <Badge key={selection.event.id} variant="secondary">
-                                            {selection.event.name}
+                                            {searchQuery 
+                                              ? highlightText(selection.event.name, searchQuery)
+                                              : selection.event.name}
                                           </Badge>
                                         ))}
                                       </div>
@@ -449,6 +871,241 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                 <Button className="mt-4" onClick={() => router.push(`/tournaments/${tournamentId}/tests`)}>
                   Manage Tests
                 </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="details" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Tournament Details</CardTitle>
+                    <CardDescription>Edit tournament information</CardDescription>
+                  </div>
+                  {!isEditing ? (
+                    <Button onClick={() => setIsEditing(true)} size="sm">
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditing(false)
+                        }}
+                        size="sm"
+                        disabled={saving}
+                      >
+                        Cancel
+                      </Button>
+                      <Button onClick={handleSaveDetails} size="sm" disabled={saving}>
+                        <Save className="h-4 w-4 mr-2" />
+                        {saving ? 'Saving...' : 'Save'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isEditing ? (
+                  <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSaveDetails(); }}>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-name">Tournament Name *</Label>
+                      <Input
+                        id="edit-name"
+                        value={editFormData.name}
+                        onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                        placeholder="e.g., Los Altos High School Invitational"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-division">Division *</Label>
+                      <Select
+                        value={editFormData.division}
+                        onValueChange={(value) => setEditFormData({ ...editFormData, division: value as 'B' | 'C' })}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select division" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="B">Division B</SelectItem>
+                          <SelectItem value="C">Division C</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-description">Description</Label>
+                      <Textarea
+                        id="edit-description"
+                        value={editFormData.description}
+                        onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                        placeholder="Brief description of the tournament..."
+                        rows={4}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-price">Registration Fee ($) *</Label>
+                      <Input
+                        id="edit-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editFormData.price}
+                        onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-paymentInstructions">Payment Instructions</Label>
+                      <Textarea
+                        id="edit-paymentInstructions"
+                        value={editFormData.paymentInstructions}
+                        onChange={(e) => setEditFormData({ ...editFormData, paymentInstructions: e.target.value })}
+                        placeholder="e.g., Send payment via Venmo to @tournament-name or mail check to..."
+                        rows={4}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-location">Location</Label>
+                      <Input
+                        id="edit-location"
+                        value={editFormData.location}
+                        onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
+                        placeholder="e.g., Los Altos High School"
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="edit-isOnline"
+                        checked={editFormData.isOnline}
+                        onCheckedChange={(checked) => setEditFormData({ ...editFormData, isOnline: checked === true })}
+                      />
+                      <Label htmlFor="edit-isOnline" className="text-sm font-normal cursor-pointer">
+                        This is an online tournament
+                      </Label>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-startDate">Start Date *</Label>
+                        <Input
+                          id="edit-startDate"
+                          type="date"
+                          value={editFormData.startDate}
+                          onChange={(e) => setEditFormData({ ...editFormData, startDate: e.target.value })}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-endDate">End Date *</Label>
+                        <Input
+                          id="edit-endDate"
+                          type="date"
+                          value={editFormData.endDate}
+                          onChange={(e) => setEditFormData({ ...editFormData, endDate: e.target.value })}
+                          min={editFormData.startDate}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-startTime">Start Time *</Label>
+                        <Input
+                          id="edit-startTime"
+                          type="time"
+                          value={editFormData.startTime}
+                          onChange={(e) => setEditFormData({ ...editFormData, startTime: e.target.value })}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-endTime">End Time *</Label>
+                        <Input
+                          id="edit-endTime"
+                          type="time"
+                          value={editFormData.endTime}
+                          onChange={(e) => setEditFormData({ ...editFormData, endTime: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Tournament Name</Label>
+                      <p className="font-medium">{tournament.name}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Division</Label>
+                      <p className="font-medium">Division {tournament.division}</p>
+                    </div>
+                    {tournament.description && (
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Description</Label>
+                        <p className="font-medium break-words whitespace-pre-wrap">{tournament.description}</p>
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Registration Fee</Label>
+                      <p className="font-medium">
+                        {tournament.price === 0 ? 'Free' : `$${tournament.price.toFixed(2)}`}
+                      </p>
+                    </div>
+                    {tournament.paymentInstructions && (
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Payment Instructions</Label>
+                        <p className="font-medium whitespace-pre-wrap">{tournament.paymentInstructions}</p>
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Location</Label>
+                      <p className="font-medium">
+                        {tournament.isOnline ? 'Online Tournament' : (tournament.location || 'Not specified')}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Start Date/Time</Label>
+                      <p className="font-medium">
+                        {new Date(tournament.startTime).toLocaleString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">End Date/Time</Label>
+                      <p className="font-medium">
+                        {new Date(tournament.endTime).toLocaleString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

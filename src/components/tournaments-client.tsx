@@ -1,16 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { AppHeader } from '@/components/app-header'
 import { useToast } from '@/components/ui/use-toast'
 import { PageLoading } from '@/components/ui/loading-spinner'
-import { Plus, Search, Calendar, MapPin, Users, DollarSign, Trophy, Settings } from 'lucide-react'
+import { Plus, Search, Calendar, MapPin, Users, DollarSign, Trophy, Settings, Monitor } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 
@@ -20,6 +21,7 @@ interface Tournament {
   division: 'B' | 'C'
   description: string | null
   price: number
+  isOnline: boolean
   startDate: string
   endDate: string
   startTime: string
@@ -36,6 +38,10 @@ interface Tournament {
       id: string
       name: string
     } | null
+    club?: {
+      id: string
+      name: string
+    }
   }>
   _count: {
     registrations: number
@@ -55,15 +61,58 @@ interface TournamentsClientProps {
 
 export function TournamentsClient({ user }: TournamentsClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [divisionFilter, setDivisionFilter] = useState<string>('all')
   const [upcomingOnly, setUpcomingOnly] = useState(true)
-  const [viewFilter, setViewFilter] = useState<'all' | 'my'>('all')
+  
+  // Initialize viewFilter from URL param, default to 'all'
+  const tabParam = searchParams.get('tab')
+  const validTabs = ['all', 'my', 'managed', 'team'] as const
+  const initialTab = (tabParam && validTabs.includes(tabParam as any)) ? tabParam as typeof validTabs[number] : 'all'
+  const [viewFilter, setViewFilter] = useState<'all' | 'my' | 'managed' | 'team'>(initialTab)
   const [sortField, setSortField] = useState<'date' | 'price' | 'popularity'>('date')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  
+  // Sync viewFilter with URL param when it changes (e.g., browser back/forward)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    const validTabs = ['all', 'my', 'managed', 'team'] as const
+    const newTab = (tabParam && validTabs.includes(tabParam as any)) ? tabParam as typeof validTabs[number] : 'all'
+    if (newTab !== viewFilter) {
+      setViewFilter(newTab)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+  
+  // Update URL when tab changes (only if it doesn't already match)
+  useEffect(() => {
+    const currentTabParam = searchParams.get('tab') || 'all'
+    if (currentTabParam !== viewFilter) {
+      const params = new URLSearchParams(searchParams.toString())
+      if (viewFilter === 'all') {
+        params.delete('tab')
+      } else {
+        params.set('tab', viewFilter)
+      }
+      const newUrl = params.toString() ? `/tournaments?${params.toString()}` : '/tournaments'
+      router.replace(newUrl, { scroll: false })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewFilter])
+
+  // Reset filters when switching tabs
+  useEffect(() => {
+    setSearch('')
+    setDivisionFilter('all')
+    setUpcomingOnly(true)
+    setSortField('date')
+    setSortDirection('asc')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewFilter])
 
   useEffect(() => {
     loadTournaments()
@@ -81,9 +130,17 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
       if (upcomingOnly) {
         params.append('upcoming', 'true')
       }
-      // Filter by creator if viewing "My Tournaments"
+      // Filter by creator if viewing "My Tournaments" (created by me)
       if (viewFilter === 'my') {
         params.append('createdBy', 'me')
+      }
+      // Filter by tournaments managed by user (creator or admin)
+      if (viewFilter === 'managed') {
+        params.append('managedBy', 'me')
+      }
+      // Filter by tournaments where user's team is registered
+      if (viewFilter === 'team') {
+        params.append('teamRegistered', 'me')
       }
       // Add sort parameter
       params.append('sortBy', `${sortField}-${sortDirection}`)
@@ -185,23 +242,53 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+      {/* Animated background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-40 animate-blob"></div>
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-40 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-indigo-400/20 to-blue-400/20 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-40 animate-blob animation-delay-4000"></div>
+        
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)]"></div>
+      </div>
+
       <AppHeader user={user} />
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="flex items-center justify-between mb-8">
+      <div className="relative z-10 container mx-auto px-4 py-8 max-w-7xl">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-4xl font-bold text-foreground mb-2">Tournaments</h1>
             <p className="text-muted-foreground">
               {viewFilter === 'my' 
-                ? 'Manage your tournaments' 
+                ? 'Tournaments you created' 
+                : viewFilter === 'managed'
+                ? 'Tournaments you manage (created or admin)'
+                : viewFilter === 'team'
+                ? 'Tournaments your team is registered for'
                 : 'Discover and register for upcoming Science Olympiad tournaments'}
             </p>
           </div>
-          <Button onClick={() => router.push('/tournaments/create')}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Tournament
-          </Button>
+          {viewFilter === 'team' ? (
+            <Button onClick={() => setViewFilter('all')} variant="outline">
+              <Search className="h-4 w-4 mr-2" />
+              Search for Tournaments
+            </Button>
+          ) : (
+            <Button onClick={() => router.push('/tournaments/create')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Tournament
+            </Button>
+          )}
         </div>
+
+        {/* Tab Bar */}
+        <Tabs value={viewFilter} onValueChange={(value) => setViewFilter(value as 'all' | 'my' | 'managed' | 'team')} className="mb-6">
+          <TabsList className="w-full justify-start">
+            <TabsTrigger value="all">All Tournaments</TabsTrigger>
+            <TabsTrigger value="managed">My Managed</TabsTrigger>
+            <TabsTrigger value="team">Team Registrations</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {/* Filters */}
         <div className="space-y-4 mb-6">
@@ -215,15 +302,6 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                 className="pl-12"
               />
             </div>
-            <Select value={viewFilter} onValueChange={(value) => setViewFilter(value as 'all' | 'my')}>
-              <SelectTrigger className="w-full sm:w-[160px]">
-                <SelectValue placeholder="View" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Tournaments</SelectItem>
-                <SelectItem value="my">My Tournaments</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={divisionFilter} onValueChange={setDivisionFilter}>
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Division" />
@@ -299,16 +377,25 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
               <p className="text-muted-foreground mb-4">
                 {viewFilter === 'my'
                   ? 'You haven\'t created any tournaments yet'
+                  : viewFilter === 'managed'
+                  ? 'You don\'t manage any tournaments'
+                  : viewFilter === 'team'
+                  ? 'Your team isn\'t registered for any tournaments'
                   : search || divisionFilter !== 'all' 
                     ? 'Try adjusting your filters'
                     : 'Be the first to create a tournament!'}
               </p>
-              {(viewFilter === 'my' || (!search && divisionFilter === 'all')) && (
+              {viewFilter === 'team' ? (
+                <Button onClick={() => setViewFilter('all')} variant="outline">
+                  <Search className="h-4 w-4 mr-2" />
+                  Search for Tournaments
+                </Button>
+              ) : (viewFilter === 'my' || (viewFilter === 'all' && !search && divisionFilter === 'all')) ? (
                 <Button onClick={() => router.push('/tournaments/create')}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Tournament
                 </Button>
-              )}
+              ) : null}
             </CardContent>
           </Card>
         ) : (
@@ -318,7 +405,7 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                 <CardHeader>
                   <div className="flex items-start justify-between mb-2 gap-2">
                     <Link href={`/tournaments/${tournament.id}`} className="flex-1 min-w-0">
-                      <CardTitle className="text-xl hover:underline">
+                      <CardTitle className="text-xl hover:underline break-words">
                         {search ? highlightText(tournament.name, search) : tournament.name}
                       </CardTitle>
                     </Link>
@@ -342,7 +429,7 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                   </div>
                   {tournament.description && (
                     <Link href={`/tournaments/${tournament.id}`}>
-                      <CardDescription className="line-clamp-2">
+                      <CardDescription className="line-clamp-2 overflow-hidden text-ellipsis">
                         {search ? highlightText(tournament.description, search) : tournament.description}
                       </CardDescription>
                     </Link>
@@ -365,26 +452,36 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                             <div className="flex-1">
                               {formatted.isMultiDay ? (
                                 <div className="space-y-0.5">
-                                  <div className="font-medium">{formatted.startDateTime}</div>
-                                  <div className="font-medium">{formatted.endDateTime}</div>
+                                  <div className="font-medium">
+                                    <span className="text-muted-foreground">From: </span>
+                                    {formatted.startDateTime}
+                                  </div>
+                                  <div className="font-medium">
+                                    <span className="text-muted-foreground">To: </span>
+                                    {formatted.endDateTime}
+                                  </div>
                                 </div>
                               ) : (
-                                <>
-                                  <div className="font-medium">{formatted.dateStr}</div>
-                                  <div className="text-muted-foreground">{formatted.timeStr}</div>
-                                </>
+                                <div className="font-medium">
+                                  {formatted.dateStr}, {formatted.timeStr}
+                                </div>
                               )}
                             </div>
                           </div>
                         </div>
                       )
                     })()}
-                    {tournament.location && (
+                    {tournament.isOnline ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Monitor className="h-4 w-4" />
+                        <span>Online Tournament</span>
+                      </div>
+                    ) : tournament.location ? (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <MapPin className="h-4 w-4" />
                         <span className="line-clamp-1">{tournament.location}</span>
                       </div>
-                    )}
+                    ) : null}
                     <div className="flex items-center justify-between pt-2 border-t">
                       <div className="flex items-center gap-2 text-sm">
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -401,11 +498,18 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                       <div className="pt-2 space-y-1">
                         <div className="text-xs font-medium text-muted-foreground">Registered teams:</div>
                         <div className="flex flex-wrap gap-1.5">
-                          {tournament.registrations.map((reg) => (
+                          {tournament.registrations.slice(0, 6).map((reg) => (
                             <Badge key={reg.id} variant="secondary" className="text-xs">
-                              {reg.team?.name || 'Unknown Team'}
+                              {reg.club?.name 
+                                ? (reg.team?.name ? `${reg.club.name} - ${reg.team.name}` : reg.club.name)
+                                : (reg.team?.name || 'Unknown Team')}
                             </Badge>
                           ))}
+                          {tournament.registrations.length > 6 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{tournament.registrations.length - 6} more
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     )}

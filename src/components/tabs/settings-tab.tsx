@@ -1326,7 +1326,7 @@ export function SettingsTab({
                         )}
                         {membership.team && (
                           <span className="text-xs text-muted-foreground">
-                            Team: {membership.club.name}
+                            Team: {membership.team.name}
                           </span>
                         )}
                       </div>

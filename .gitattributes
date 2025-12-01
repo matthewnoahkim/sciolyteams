@@ -1,0 +1,4 @@
+# Prevent OneDrive from syncing build folders
+.next/ linguist-vendored
+node_modules/ linguist-vendored
+

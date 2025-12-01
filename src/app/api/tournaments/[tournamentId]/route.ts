@@ -3,18 +3,21 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { Division } from '@prisma/client'
+import { Division, Role } from '@prisma/client'
 
 const updateTournamentSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   division: z.enum(['B', 'C']).optional(),
   description: z.string().optional(),
   price: z.number().min(0).optional(),
+  paymentInstructions: z.string().optional(),
+  isOnline: z.boolean().optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
   startTime: z.string().datetime().optional(),
   endTime: z.string().datetime().optional(),
   location: z.string().optional(),
+  approved: z.boolean().optional(),
 })
 
 // Helper to check if user is tournament admin
@@ -70,6 +73,21 @@ export async function GET(
                 id: true,
                 name: true,
                 division: true,
+                memberships: {
+                  where: {
+                    role: Role.ADMIN,
+                  },
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        image: true,
+                      },
+                    },
+                  },
+                },
               },
             },
             team: {
@@ -170,11 +188,14 @@ export async function PUT(
     if (validated.division !== undefined) updateData.division = validated.division as Division
     if (validated.description !== undefined) updateData.description = validated.description
     if (validated.price !== undefined) updateData.price = validated.price
+    if (validated.paymentInstructions !== undefined) updateData.paymentInstructions = validated.paymentInstructions
+    if (validated.isOnline !== undefined) updateData.isOnline = validated.isOnline
     if (validated.startDate !== undefined) updateData.startDate = new Date(validated.startDate)
     if (validated.endDate !== undefined) updateData.endDate = new Date(validated.endDate)
     if (validated.startTime !== undefined) updateData.startTime = new Date(validated.startTime)
     if (validated.endTime !== undefined) updateData.endTime = new Date(validated.endTime)
     if (validated.location !== undefined) updateData.location = validated.location
+    if (validated.approved !== undefined) updateData.approved = validated.approved
 
     const tournament = await prisma.tournament.update({
       where: { id: params.tournamentId },

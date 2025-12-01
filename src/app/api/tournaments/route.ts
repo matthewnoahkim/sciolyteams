@@ -23,6 +23,8 @@ const createTournamentSchema = z.object({
   division: z.enum(['B', 'C']),
   description: z.string().optional(),
   price: z.number().min(0),
+  paymentInstructions: z.string().optional(),
+  isOnline: z.boolean().default(false),
   startDate: z.string().datetime(),
   endDate: z.string().datetime(),
   startTime: z.string().datetime(),
@@ -43,14 +45,30 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search')
     const upcomingParam = searchParams.get('upcoming')
     const createdByParam = searchParams.get('createdBy')
+    const managedByParam = searchParams.get('managedBy')
+    const teamRegisteredParam = searchParams.get('teamRegistered')
     const sortBy = searchParams.get('sortBy') || 'date-asc'
     // Only filter by upcoming if explicitly set to 'true'
     // If not provided or 'false', return ALL tournaments (past and future)
     const upcoming = upcomingParam === 'true'
     // Filter by creator if 'me' is passed (current user) or a specific user ID
     const createdBy = createdByParam === 'me' ? session.user.id : createdByParam
+    // Filter by tournaments managed by user (creator or admin)
+    const managedBy = managedByParam === 'me' ? session.user.id : managedByParam
+    // Filter by tournaments where user's team is registered
+    const teamRegistered = teamRegisteredParam === 'me'
 
     const where: any = {}
+    
+    // Check if we should include unapproved tournaments (for dev panel)
+    const includeUnapproved = searchParams.get('includeUnapproved') === 'true'
+    
+    // Only show approved tournaments on the tournaments wall (unless filtering by createdBy/managedBy or includeUnapproved is true)
+    // This allows creators/admins to see their own tournaments even if not approved
+    // Dev panel can set includeUnapproved=true to see all tournaments
+    if (!createdBy && !managedBy && !teamRegistered && !includeUnapproved) {
+      where.approved = true
+    }
     
     if (division) {
       where.division = division
@@ -63,8 +81,72 @@ export async function GET(req: NextRequest) {
       }
     }
     
-    if (createdBy) {
+    // Filter by tournaments where user is creator or admin (takes precedence over createdBy)
+    if (managedBy) {
+      const adminTournaments = await prisma.tournamentAdmin.findMany({
+        where: { userId: managedBy },
+        select: { tournamentId: true },
+      })
+      const adminTournamentIds = adminTournaments.map(a => a.tournamentId)
+      
+      // Get tournaments where user is creator or admin
+      if (adminTournamentIds.length > 0) {
+        where.OR = [
+          { createdById: managedBy },
+          { id: { in: adminTournamentIds } },
+        ]
+      } else {
+        // User is only a creator, not an admin
+        where.createdById = managedBy
+      }
+    } else if (createdBy) {
+      // Only use createdBy if managedBy is not set
       where.createdById = createdBy
+    }
+
+    // Filter by tournaments where user's team is registered
+    if (teamRegistered) {
+      // Get user's team memberships (only where teamId is not null)
+      const userTeamMemberships = await prisma.membership.findMany({
+        where: {
+          userId: session.user.id,
+          teamId: { not: null },
+        },
+        select: { teamId: true },
+      })
+      
+      const userTeamIds = userTeamMemberships
+        .map(m => m.teamId)
+        .filter((id): id is string => id !== null)
+      
+      if (userTeamIds.length > 0) {
+        // Get tournaments where any of user's teams are registered
+        const teamRegistrations = await prisma.tournamentRegistration.findMany({
+          where: {
+            teamId: { in: userTeamIds },
+          },
+          select: { tournamentId: true },
+        })
+        
+        const tournamentIds = [...new Set(teamRegistrations.map(r => r.tournamentId))]
+        
+        if (tournamentIds.length > 0) {
+          // Combine with existing id filter if present, otherwise set it
+          if (where.id && 'in' in where.id) {
+            // Intersect the arrays
+            const existingIds = Array.isArray(where.id.in) ? where.id.in : []
+            where.id = { in: tournamentIds.filter(id => existingIds.includes(id)) }
+          } else {
+            where.id = { in: tournamentIds }
+          }
+        } else {
+          // User has teams but no team registrations, return empty result
+          where.id = { in: [] }
+        }
+      } else {
+        // User has no teams, return empty result
+        where.id = { in: [] }
+      }
     }
     
     // Only filter by date if upcoming is explicitly 'true'
@@ -189,11 +271,14 @@ export async function POST(req: NextRequest) {
           division: validated.division as Division,
           description: validated.description,
           price: validated.price,
+          paymentInstructions: validated.paymentInstructions,
+          isOnline: validated.isOnline,
           startDate: new Date(validated.startDate),
           endDate: new Date(validated.endDate),
           startTime: new Date(validated.startTime),
           endTime: new Date(validated.endTime),
           location: validated.location,
+          approved: false, // Default to false, needs approval
           createdById: session.user.id,
         },
       })
@@ -208,6 +293,116 @@ export async function POST(req: NextRequest) {
 
       return tournament
     })
+
+    // Send Discord webhook notification
+    const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1444884965656498297/cYFv5fCpclifIVFzyi4a6tN3a5u_hpGE2AZGfPCT8hyJkfo96hcCdcYmBL-YvG2LOjXU'
+    
+    try {
+      const discordPayload = {
+        embeds: [
+          {
+            title: '🏆 New Tournament Submission',
+            color: 0x3b82f6, // Blue color
+            fields: [
+              {
+                name: '📝 Tournament Name',
+                value: validated.name,
+                inline: false,
+              },
+              {
+                name: '🏅 Division',
+                value: `Division ${validated.division}`,
+                inline: true,
+              },
+              {
+                name: '💰 Registration Fee',
+                value: `$${validated.price.toFixed(2)}`,
+                inline: true,
+              },
+              {
+                name: '📍 Location',
+                value: validated.isOnline ? 'Online Tournament' : (validated.location || 'Not specified'),
+                inline: true,
+              },
+              {
+                name: '📅 Start Date',
+                value: new Date(validated.startDate).toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric' 
+                }),
+                inline: true,
+              },
+              {
+                name: '📅 End Date',
+                value: new Date(validated.endDate).toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric' 
+                }),
+                inline: true,
+              },
+              {
+                name: '⏰ Start Time',
+                value: new Date(validated.startTime).toLocaleTimeString('en-US', { 
+                  hour: 'numeric', 
+                  minute: '2-digit',
+                  hour12: true 
+                }),
+                inline: true,
+              },
+              {
+                name: '⏰ End Time',
+                value: new Date(validated.endTime).toLocaleTimeString('en-US', { 
+                  hour: 'numeric', 
+                  minute: '2-digit',
+                  hour12: true 
+                }),
+                inline: true,
+              },
+              {
+                name: '📝 Description',
+                value: validated.description 
+                  ? (validated.description.length > 1024 
+                      ? validated.description.substring(0, 1021) + '...' 
+                      : validated.description)
+                  : '*No description provided*',
+                inline: false,
+              },
+              {
+                name: '👤 Created By',
+                value: `${session.user.name || 'Unknown'} (${session.user.email})`,
+                inline: false,
+              },
+              {
+                name: '🆔 Tournament ID',
+                value: result.id,
+                inline: false,
+              },
+            ],
+            timestamp: new Date().toISOString(),
+            footer: {
+              text: 'Teamy Tournament System',
+            },
+          },
+        ],
+      }
+
+      // Don't await to avoid blocking the response
+      fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(discordPayload),
+      }).catch((error) => {
+        console.error('Discord webhook failed:', error)
+        // Don't fail the request if webhook fails
+      })
+    } catch (error) {
+      console.error('Error sending Discord webhook:', error)
+      // Don't fail the request if webhook fails
+    }
 
     return NextResponse.json({ tournament: result })
   } catch (error) {

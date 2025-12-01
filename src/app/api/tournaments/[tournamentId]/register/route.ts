@@ -10,6 +10,7 @@ const registerSchema = z.object({
   registrations: z.array(z.object({
     clubId: z.string(),
     teamId: z.string().optional(),
+    subclubId: z.string().optional(), // Support both teamId and subclubId for backwards compatibility
     eventIds: z.array(z.string()).min(1, 'At least one event must be selected'),
   })).min(1, 'At least one team must be registered'),
 })
@@ -39,6 +40,9 @@ export async function POST(
 
     // Validate all registrations
     for (const reg of validated.registrations) {
+      // Map subclubId to teamId if provided (for backwards compatibility)
+      const teamId = reg.teamId || reg.subclubId
+      
       // Verify user is an admin of the club
       const membership = await getUserMembership(session.user.id, reg.clubId)
       if (!membership) {
@@ -53,10 +57,10 @@ export async function POST(
       }
 
       // If teamId is provided, verify it belongs to the club
-      if (reg.teamId) {
+      if (teamId) {
         const team = await prisma.team.findFirst({
           where: {
-            id: reg.teamId,
+            id: teamId,
             clubId: reg.clubId,
           },
         })
@@ -71,12 +75,28 @@ export async function POST(
         where: {
           tournamentId: params.tournamentId,
           clubId: reg.clubId,
-          teamId: reg.teamId ?? null,
+          teamId: teamId ?? null,
         },
       })
 
       if (existingRegistration) {
-        return NextResponse.json({ error: 'This team/team is already registered for this tournament' }, { status: 400 })
+        // Get club and team names for better error message
+        const club = await prisma.club.findUnique({
+          where: { id: reg.clubId },
+          select: { name: true },
+        })
+        const team = teamId ? await prisma.team.findUnique({
+          where: { id: teamId },
+          select: { name: true },
+        }) : null
+        
+        const registrationName = team 
+          ? `${club?.name || 'Club'} - ${team.name}`
+          : club?.name || 'This club'
+        
+        return NextResponse.json({ 
+          error: `${registrationName} is already registered for this tournament` 
+        }, { status: 400 })
       }
 
       // Verify all events exist and match tournament division
@@ -94,12 +114,15 @@ export async function POST(
 
     // Create all registrations
     const registrations = await Promise.all(
-      validated.registrations.map(reg =>
-        prisma.tournamentRegistration.create({
+      validated.registrations.map(reg => {
+        // Map subclubId to teamId if provided
+        const teamId = reg.teamId || reg.subclubId
+        
+        return prisma.tournamentRegistration.create({
           data: {
             tournamentId: params.tournamentId,
             clubId: reg.clubId,
-            teamId: reg.teamId ?? null, // Use ?? to properly handle undefined
+            teamId: teamId ?? null, // Use ?? to properly handle undefined
             registeredById: session.user.id,
             status: 'CONFIRMED',
             eventSelections: {
@@ -135,7 +158,7 @@ export async function POST(
             },
           },
         })
-      )
+      })
     )
 
     return NextResponse.json({ registrations })

@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, MapPin, Users, DollarSign, ArrowLeft, Settings, Trophy, CheckCircle2, Plus, X, AlertCircle } from 'lucide-react'
+import { Calendar, MapPin, Users, DollarSign, ArrowLeft, Settings, Trophy, CheckCircle2, Plus, X, AlertCircle, CreditCard, Monitor, UserCheck, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { groupEventsByCategory, categoryOrder, type EventCategory } from '@/lib/event-categories'
 
@@ -28,6 +28,8 @@ interface Tournament {
   division: 'B' | 'C'
   description: string | null
   price: number
+  paymentInstructions: string | null
+  isOnline: boolean
   startDate: string
   endDate: string
   startTime: string
@@ -40,10 +42,23 @@ interface Tournament {
   }
   registrations?: Array<{
     id: string
+    paid: boolean
     team: {
       id: string
       name: string
     } | null
+    club?: {
+      id: string
+      name: string
+      memberships?: Array<{
+        user: {
+          id: string
+          name: string | null
+          email: string
+          image: string | null
+        }
+      }>
+    }
   }>
   _count: {
     registrations: number
@@ -87,11 +102,11 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
   const [signupDialogOpen, setSignupDialogOpen] = useState(false)
   const [selectedTeams, setSelectedTeams] = useState<Array<{ clubId: string; subclubId?: string; subclubIds?: string[]; eventIds: string[] }>>([])
   const [submitting, setSubmitting] = useState(false)
-  const [registeredTeams, setRegisteredTeams] = useState<Array<{ id: string; clubId: string; subclubId?: string | null; teamName: string | null }>>([])
+  const [registeredTeams, setRegisteredTeams] = useState<Array<{ id: string; clubId: string; subclubId?: string | null; teamName: string | null; clubName: string | null; paid: boolean }>>([])
   const [totalRegisteredSubteams, setTotalRegisteredSubteams] = useState(0)
   const [totalCost, setTotalCost] = useState(0)
   const [deregisterDialogOpen, setDeregisterDialogOpen] = useState(false)
-  const [registrationToDeregister, setRegistrationToDeregister] = useState<{ id: string; teamName: string | null } | null>(null)
+  const [registrationToDeregister, setRegistrationToDeregister] = useState<{ id: string; teamName: string | null; clubName: string | null } | null>(null)
   const [deregistering, setDeregistering] = useState(false)
 
   useEffect(() => {
@@ -118,8 +133,10 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
         .map((r: any) => ({
           id: r.id,
           clubId: r.clubId,
-          subclubId: r.subclubId || null,
+          subclubId: r.teamId || null,
           teamName: r.team?.name || null,
+          clubName: r.club?.name || null,
+          paid: r.paid || false,
         }))
       setRegisteredTeams(userRegisteredTeams)
       
@@ -176,7 +193,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
     if (selectedTeams.length === 0) {
       toast({
         title: 'Error',
-        description: 'Please add at least one team to register',
+        description: 'Please add at least one club to register',
         variant: 'destructive',
       })
       return
@@ -187,7 +204,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
       if (!team.clubId) {
         toast({
           title: 'Error',
-          description: 'Please select a team for all entries',
+          description: 'Please select a club for all entries',
           variant: 'destructive',
         })
         return
@@ -198,7 +215,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
       if (!teamData?.teams || teamData.teams.length === 0) {
         toast({
           title: 'Error',
-          description: `${teamData?.name || 'This team'} must have at least one team to register for tournaments. Please create a team first.`,
+          description: `${teamData?.name || 'This club'} must have at least one team to register for tournaments. Please create a team first.`,
           variant: 'destructive',
         })
         return
@@ -373,10 +390,10 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-3xl mb-2">{tournament.name}</CardTitle>
-                    <div className="flex items-center gap-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-3xl mb-2 break-words">{tournament.name}</CardTitle>
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant={tournament.division === 'B' ? 'default' : 'secondary'}>
                         Division {tournament.division}
                       </Badge>
@@ -394,7 +411,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
               </CardHeader>
               <CardContent className="space-y-4">
                 {tournament.description && (
-                  <p className="text-muted-foreground whitespace-pre-wrap">{tournament.description}</p>
+                  <p className="text-muted-foreground whitespace-pre-wrap break-words">{tournament.description}</p>
                 )}
                 
                 <div className="grid gap-4 pt-4 border-t">
@@ -412,26 +429,36 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                         <div className="space-y-1">
                           {formatted.isMultiDay ? (
                             <div className="space-y-0.5">
-                              <p className="font-medium leading-tight">{formatted.startDateTime}</p>
-                              <p className="font-medium leading-tight">{formatted.endDateTime}</p>
+                              <p className="font-medium leading-tight">
+                                <span className="text-muted-foreground">From: </span>
+                                {formatted.startDateTime}
+                              </p>
+                              <p className="font-medium leading-tight">
+                                <span className="text-muted-foreground">To: </span>
+                                {formatted.endDateTime}
+                              </p>
                             </div>
                           ) : (
-                            <>
-                              <p className="font-medium leading-tight">{formatted.dateStr}</p>
-                              <p className="text-sm text-muted-foreground">{formatted.timeStr}</p>
-                            </>
+                            <p className="font-medium leading-tight">
+                              {formatted.dateStr}, {formatted.timeStr}
+                            </p>
                           )}
                         </div>
                       </div>
                     )
                   })()}
                   
-                  {tournament.location && (
+                  {tournament.isOnline ? (
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-5 w-5 text-muted-foreground" />
+                      <p className="font-medium">Online Tournament</p>
+                    </div>
+                  ) : tournament.location ? (
                     <div className="flex items-center gap-2">
                       <MapPin className="h-5 w-5 text-muted-foreground" />
                       <p className="font-medium">{tournament.location}</p>
                     </div>
-                  )}
+                  ) : null}
                   
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-5 w-5 text-muted-foreground" />
@@ -439,6 +466,18 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                       {tournament.price === 0 ? 'Free' : `$${tournament.price.toFixed(2)}`}
                     </p>
                   </div>
+                  
+                  {tournament.paymentInstructions && (
+                    <div className="flex items-start gap-2 pt-2 border-t">
+                      <CreditCard className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium mb-1">Payment Instructions:</p>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+                          {tournament.paymentInstructions}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="flex items-start gap-2">
                     <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -450,7 +489,9 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                         <div className="flex flex-wrap gap-2">
                           {tournament.registrations.map((reg) => (
                             <Badge key={reg.id} variant="secondary" className="text-xs">
-                              {reg.team?.name || 'Unknown Team'}
+                              {reg.club?.name 
+                                ? (reg.team?.name ? `${reg.club.name} - ${reg.team.name}` : reg.club.name)
+                                : (reg.team?.name || 'Unknown Team')}
                             </Badge>
                           ))}
                         </div>
@@ -479,46 +520,103 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {registeredTeams.length > 0 && (
+                    {(registeredTeams.length > 0 || (tournament.registrations && tournament.registrations.length > 0)) && (
                       <>
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Registered Teams:</p>
-                          {registeredTeams.map((reg, idx) => (
-                            <div key={reg.id} className="flex items-center justify-between group">
-                              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                                <CheckCircle2 className="h-4 w-4" />
-                                <span>
-                                  {reg.teamName}
-                                  {reg.teamName && ` - ${reg.teamName}`}
-                                </span>
+                          {(tournament.registrations || []).map((reg: any) => {
+                            const teamDisplayName = reg.club?.name 
+                              ? (reg.team?.name ? `${reg.club.name} - ${reg.team.name}` : reg.club.name)
+                              : (reg.team?.name || 'Unknown Team')
+                            const admins = reg.club?.memberships || []
+                            const isUserTeam = registeredTeams.some((rt: any) => rt.id === reg.id)
+                            
+                            return (
+                              <div key={reg.id} className="flex items-start justify-between group p-2 rounded-md border bg-card">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                                    <span className="font-medium truncate">
+                                      {teamDisplayName}
+                                    </span>
+                                  </div>
+                                  {admins.length > 0 && (
+                                    <div className="flex items-start gap-1.5 mt-1.5 text-xs text-muted-foreground">
+                                      <Shield className="h-3 w-3 mt-0.5 shrink-0" />
+                                      <span className="font-medium">Admins: </span>
+                                      <span>
+                                        {admins.map((m: any, idx: number) => (
+                                          <span key={m.user.id}>
+                                            {m.user.name || m.user.email}
+                                            {idx < admins.length - 1 ? ', ' : ''}
+                                          </span>
+                                        ))}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="mt-1.5">
+                                    {reg.paid ? (
+                                      <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-xs">
+                                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                                        Paid
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-xs">
+                                        <AlertCircle className="h-3 w-3 mr-1" />
+                                        Unpaid
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                {isUserTeam && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setRegistrationToDeregister({
+                                        id: reg.id,
+                                        teamName: reg.team?.name || null,
+                                        clubName: reg.club?.name || null,
+                                      })
+                                      setDeregisterDialogOpen(true)
+                                    }}
+                                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive shrink-0 ml-2"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setRegistrationToDeregister({
-                                    id: reg.id,
-                                    teamName: reg.teamName || null,
-                                  })
-                                  setDeregisterDialogOpen(true)
-                                }}
-                                className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                         <div className="pt-2 border-t space-y-1">
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Total Subteams:</span>
-                            <span className="font-medium">{totalRegisteredSubteams}</span>
+                            <span className="text-muted-foreground">Total Teams:</span>
+                            <span className="font-medium">{tournament._count.registrations}</span>
                           </div>
                           {tournament.price > 0 && (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">Total Cost:</span>
-                              <span className="font-medium">${totalCost.toFixed(2)}</span>
-                            </div>
+                            <>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">Total Cost:</span>
+                                <span className="font-medium">${(tournament._count.registrations * tournament.price).toFixed(2)}</span>
+                              </div>
+                              {tournament.registrations && tournament.registrations.length > 0 && (() => {
+                                const paidCount = tournament.registrations.filter((r: any) => r.paid).length
+                                const unpaidCount = tournament.registrations.length - paidCount
+                                return (
+                                  <>
+                                    <div className="flex items-center justify-between text-sm">
+                                      <span className="text-muted-foreground">Paid:</span>
+                                      <span className="font-medium text-green-600 dark:text-green-400">{paidCount}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                      <span className="text-muted-foreground">Unpaid:</span>
+                                      <span className="font-medium">{unpaidCount}</span>
+                                    </div>
+                                  </>
+                                )
+                              })()}
+                            </>
                           )}
                         </div>
                       </>
@@ -540,7 +638,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                       variant={registeredTeams.length > 0 ? 'outline' : 'default'}
                     >
                       <Trophy className="h-4 w-4 mr-2" />
-                      {registeredTeams.length > 0 ? 'Register More Teams' : `Sign Up Your Team${filteredTeams.length > 1 ? 's' : ''}`}
+                      {registeredTeams.length > 0 ? 'Register More Clubs' : `Sign Up Your Club${filteredTeams.length > 1 ? 's' : ''}`}
                     </Button>
                   </div>
                 )}
@@ -555,17 +653,17 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
             <DialogHeader>
               <DialogTitle>Register for {tournament.name}</DialogTitle>
               <DialogDescription>
-                Register one or more teams and select the events for each team.
+                Register one or more clubs and select teams and events for each club.
               </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-6 py-4">
               {selectedTeams.length === 0 && (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">No teams added yet</p>
+                  <p className="text-muted-foreground mb-4">No clubs added yet</p>
                   <Button onClick={addTeam} variant="outline">
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Team
+                    Add Club
                   </Button>
                 </div>
               )}
@@ -584,7 +682,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                 return (
                   <Card key={index} className="p-4">
                     <div className="flex items-start justify-between mb-4">
-                      <h3 className="font-semibold">Team {index + 1}</h3>
+                      <h3 className="font-semibold">Club {index + 1}</h3>
                       {selectedTeams.length > 1 && (
                         <Button
                           variant="ghost"
@@ -599,7 +697,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
 
                     <div className="space-y-4">
                       <div>
-                        <label className="text-sm font-medium mb-2 block">Select Team</label>
+                        <label className="text-sm font-medium mb-2 block">Select Club</label>
                         <Select
                           value={teamReg.clubId}
                           onValueChange={(value) => {
@@ -607,7 +705,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Choose a team" />
+                            <SelectValue placeholder="Choose a club" />
                           </SelectTrigger>
                           <SelectContent>
                             {filteredTeams.map(team => (
@@ -625,7 +723,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                             <>
                               <div className="flex items-center justify-between mb-2">
                                 <label className="text-sm font-medium block">
-                                  Select Subteam{selectedTeam?.teams && selectedTeam.teams.length > 1 ? 's' : ''} <span className="text-destructive">*</span>
+                                  Select Team{selectedTeam?.teams && selectedTeam.teams.length > 1 ? 's' : ''} <span className="text-destructive">*</span>
                                 </label>
                                 {selectedTeam?.teams && selectedTeam.teams.length > 1 && (() => {
                                   // Only get teams that aren't already registered
@@ -656,7 +754,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                                   <div className="flex items-start gap-2">
                                     <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
                                     <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                                      {alreadyRegisteredSubclubIds.size} team{alreadyRegisteredSubclubIds.size !== 1 ? 's' : ''} already registered for this tournament
+                                      {alreadyRegisteredSubclubIds.size} team{alreadyRegisteredSubclubIds.size !== 1 ? 's' : ''} from this club already registered for this tournament
                                     </p>
                                   </div>
                                 </div>
@@ -707,9 +805,9 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                             <div className="border rounded-lg p-4 bg-destructive/10 border-destructive/20">
                               <div className="flex items-start gap-3">
                                 <div className="flex-1">
-                                  <p className="text-sm font-medium mb-1 text-destructive">Subteams Required</p>
+                                  <p className="text-sm font-medium mb-1 text-destructive">Teams Required</p>
                                   <p className="text-sm text-muted-foreground mb-3">
-                                    This team must have at least one team to register for tournaments. Please create a team first.
+                                    This club must have at least one team to register for tournaments. Please create a team first.
                                   </p>
                                   <Button
                                     type="button"
@@ -720,7 +818,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                                       setSignupDialogOpen(false)
                                     }}
                                   >
-                                    Create Subteam
+                                    Create Team
                                   </Button>
                                 </div>
                               </div>
@@ -732,7 +830,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                       {teamReg.clubId && (
                         <div>
                           <div className="flex items-center justify-between mb-3">
-                            <label className="text-sm font-medium block">Select Events for This Team</label>
+                            <label className="text-sm font-medium block">Select Events for Selected Teams</label>
                             <Button
                               type="button"
                               variant="ghost"
@@ -792,7 +890,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
 
               <Button onClick={addTeam} variant="outline" className="w-full">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Another Team
+                Add Another Club
               </Button>
             </div>
 
@@ -820,7 +918,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                   })
                 }
               >
-                {submitting ? 'Registering...' : `Register ${selectedTeams.length} Team${selectedTeams.length !== 1 ? 's' : ''}`}
+                {submitting ? 'Registering...' : `Register ${selectedTeams.length} Club${selectedTeams.length !== 1 ? 's' : ''}`}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -834,8 +932,11 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
               <DialogDescription>
                 Are you sure you want to deregister{' '}
                 <span className="font-medium">
-                  {registrationToDeregister?.teamName}
-                  {registrationToDeregister?.teamName && ` - ${registrationToDeregister.teamName}`}
+                  {registrationToDeregister?.clubName 
+                    ? (registrationToDeregister?.teamName 
+                        ? `${registrationToDeregister.clubName} - ${registrationToDeregister.teamName}`
+                        : registrationToDeregister.clubName)
+                    : (registrationToDeregister?.teamName || 'this registration')}
                 </span>{' '}
                 from this tournament? This action cannot be undone.
               </DialogDescription>

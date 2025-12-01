@@ -1,10 +1,10 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { LogOut, Pencil, ArrowLeft } from 'lucide-react'
+import { LogOut, Pencil, ArrowLeft, Users, Trophy } from 'lucide-react'
 import { Logo } from '@/components/logo'
 import { signOut } from 'next-auth/react'
 import { EditUsernameDialog } from '@/components/edit-username-dialog'
@@ -24,8 +24,15 @@ interface AppHeaderProps {
 
 export function AppHeader({ user, showBackButton = false, backHref, title }: AppHeaderProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const [editUsernameOpen, setEditUsernameOpen] = useState(false)
   const [currentUserName, setCurrentUserName] = useState(user.name ?? null)
+  
+  // Determine if we're on tournaments page or dashboard
+  const isOnTournamentsPage = pathname?.startsWith('/tournaments')
+  const buttonText = isOnTournamentsPage ? 'Clubs' : 'Tournaments'
+  const buttonHref = isOnTournamentsPage ? '/dashboard' : '/tournaments'
+  const ButtonIcon = isOnTournamentsPage ? Users : Trophy
 
   const handleSignOut = async () => {
     try {
@@ -56,9 +63,25 @@ export function AppHeader({ user, showBackButton = false, backHref, title }: App
                 {title}
               </h1>
             )}
+            <div className="hidden md:block h-6 w-px bg-gray-300 dark:bg-gray-700 mx-1" />
+            <Button
+              onClick={() => router.push(buttonHref)}
+              size="sm"
+              className="hidden md:flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg transition-all duration-300"
+            >
+              <ButtonIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-xs sm:text-sm font-medium">{buttonText}</span>
+            </Button>
           </div>
           
           <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
+            <Button
+              onClick={() => router.push(buttonHref)}
+              size="sm"
+              className="md:hidden flex items-center gap-1.5 px-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg transition-all duration-300"
+            >
+              <ButtonIcon className="h-3.5 w-3.5" />
+            </Button>
             <div className="flex items-center gap-2 sm:gap-3">
               <Avatar 
                 className="h-8 w-8 sm:h-9 sm:w-9 cursor-pointer hover:ring-2 hover:ring-blue-500/20 transition-all"

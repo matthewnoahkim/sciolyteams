@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { CreateClubDialog } from '@/components/create-club-dialog'
 import { JoinClubDialog } from '@/components/join-club-dialog'
 import { AppHeader } from '@/components/app-header'
-import { Users, Plus, Trophy } from 'lucide-react'
+import { Users, Plus } from 'lucide-react'
 import { useFaviconBadge } from '@/hooks/use-favicon-badge'
 import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
@@ -211,32 +211,14 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
 
       <main className="relative z-10 container mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12">
         <div className="mb-8 sm:mb-10 md:mb-12">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white leading-tight">
-                Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Clubs</span>
-              </h1>
-              <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 leading-relaxed mt-2">
-                Manage your teams, events, and schedules
-              </p>
-            </div>
-            <Button
-              onClick={() => router.push('/tournaments')}
-              variant="outline"
-              className="hidden sm:flex items-center gap-2"
-            >
-              <Trophy className="h-4 w-4" />
-              Tournaments
-            </Button>
+          <div>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white leading-tight">
+              Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Clubs</span>
+            </h1>
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 leading-relaxed mt-2">
+              Manage your teams, events, and schedules
+            </p>
           </div>
-          <Button
-            onClick={() => router.push('/tournaments')}
-            variant="outline"
-            className="sm:hidden w-full mb-4"
-          >
-            <Trophy className="h-4 w-4 mr-2" />
-            View Tournaments
-          </Button>
         </div>
 
         {memberships.length === 0 ? (

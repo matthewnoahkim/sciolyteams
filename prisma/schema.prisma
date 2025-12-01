@@ -1243,11 +1243,14 @@ model Tournament {
   division          Division
   description       String?                   @db.Text
   price             Float                     @default(0)
+  paymentInstructions String?                 @db.Text
+  isOnline          Boolean                   @default(false)
   startDate         DateTime
   endDate           DateTime
   startTime         DateTime
   endTime           DateTime
   location          String?
+  approved          Boolean                   @default(false)
   createdById       String
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt
@@ -1260,6 +1263,7 @@ model Tournament {
   @@index([startDate])
   @@index([endDate])
   @@index([division])
+  @@index([approved])
 }
 
 model TournamentAdmin {
@@ -1282,6 +1286,7 @@ model TournamentRegistration {
   teamId         String?
   registeredById String
   status         TournamentRegistrationStatus @default(PENDING)
+  paid           Boolean                      @default(false)
   createdAt      DateTime                     @default(now())
   updatedAt      DateTime                     @updatedAt
   tournament     Tournament                   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)

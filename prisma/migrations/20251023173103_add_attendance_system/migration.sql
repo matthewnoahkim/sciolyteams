@@ -1,3 +1,7 @@
+-- Note: Division, Role, AnnouncementScope, CalendarScope, and RSVPStatus enums
+-- were already created in the init migration, but are included here for completeness
+-- when this migration runs on a fresh database. In practice, these will already exist.
+
 -- CreateEnum
 CREATE TYPE "Division" AS ENUM ('B', 'C');
 
@@ -13,10 +17,10 @@ CREATE TYPE "CalendarScope" AS ENUM ('PERSONAL', 'SUBTEAM', 'TEAM');
 -- CreateEnum
 CREATE TYPE "RSVPStatus" AS ENUM ('YES', 'NO');
 
--- CreateEnum
+-- CreateEnum (new for attendance system)
 CREATE TYPE "AttendanceStatus" AS ENUM ('UPCOMING', 'ACTIVE', 'ENDED', 'CANCELLED');
 
--- CreateEnum
+-- CreateEnum (new for attendance system)
 CREATE TYPE "CheckInSource" AS ENUM ('CODE', 'MANUAL');
 
 -- CreateTable
