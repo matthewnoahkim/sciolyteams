@@ -16,24 +16,22 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/50 dark:from-[#0a0a0f] dark:via-[#0a0a0f] dark:to-[#0a0a0f] text-gray-900 dark:text-white overflow-hidden">
-      {/* Animated gradient orbs */}
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0f] text-gray-900 dark:text-white overflow-hidden transition-colors">
+      {/* Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-gradient-to-r from-violet-600/30 to-fuchsia-600/30 dark:from-violet-600/30 dark:to-fuchsia-600/30 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[120px] animate-blob" />
-        <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-gradient-to-r from-cyan-500/25 to-blue-600/25 dark:from-cyan-500/25 dark:to-blue-600/25 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] animate-blob animation-delay-2000" />
-        <div className="absolute bottom-1/4 left-1/3 w-[550px] h-[550px] bg-gradient-to-r from-emerald-500/20 to-teal-600/20 dark:from-emerald-500/20 dark:to-teal-600/20 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[110px] animate-blob animation-delay-4000" />
+        {/* Gradient orbs */}
+        <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-gradient-to-r from-violet-500/10 dark:from-violet-600/30 to-fuchsia-500/10 dark:to-fuchsia-600/30 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[120px] animate-blob opacity-70 dark:opacity-100" />
+        <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-gradient-to-r from-cyan-500/10 dark:from-cyan-500/25 to-blue-500/10 dark:to-blue-600/25 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[100px] animate-blob animation-delay-2000 opacity-70 dark:opacity-100" />
+        <div className="absolute bottom-1/4 left-1/3 w-[550px] h-[550px] bg-gradient-to-r from-emerald-500/10 dark:from-emerald-500/20 to-teal-500/10 dark:to-teal-600/20 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[110px] animate-blob animation-delay-4000 opacity-70 dark:opacity-100" />
         
         {/* Grid overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px]" />
-        
-        {/* Noise texture */}
-        <div className="absolute inset-0 opacity-[0.015] dark:opacity-[0.015]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%" height="100%" filter="url(%23noise)"/%3E%3C/svg%3E")' }} />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px]" />
       </div>
 
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-200/50 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-xl">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-200 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-xl">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <Logo size="md" />
+          <Logo size="md" href="/" />
           <div className="flex items-center gap-6">
             <HomeNav />
             <SignInThemeToggle />
@@ -51,7 +49,7 @@ export default async function HomePage() {
         <div className="max-w-5xl mx-auto text-center space-y-8 pt-20">
           {/* Badge */}
           <ScrollAnimate animation="elegant" delay={0} duration={800}>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100/80 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 backdrop-blur-sm shadow-sm">
               <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
               <span className="text-sm font-medium text-gray-700 dark:text-white/80">Built for Science Olympiad</span>
             </div>
@@ -60,7 +58,7 @@ export default async function HomePage() {
           {/* Main heading */}
           <ScrollAnimate animation="elegant" delay={100} duration={900}>
             <h1 className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tight leading-none">
-              <span className="block bg-gradient-to-b from-gray-900 to-gray-700 dark:from-white dark:to-white/60 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-b from-gray-900 to-gray-600 dark:from-white dark:to-white/60 bg-clip-text text-transparent">
                 Teamy
               </span>
             </h1>
@@ -68,7 +66,7 @@ export default async function HomePage() {
 
           {/* Tagline */}
           <ScrollAnimate animation="elegant" delay={200} duration={900}>
-            <p className="text-xl md:text-2xl lg:text-3xl text-gray-600 dark:text-white/50 font-light max-w-2xl mx-auto leading-relaxed">
+            <p className="text-xl md:text-2xl lg:text-3xl text-gray-500 dark:text-white/50 font-light max-w-2xl mx-auto leading-relaxed">
               The complete platform for managing your Science Olympiad team
             </p>
           </ScrollAnimate>
@@ -83,7 +81,7 @@ export default async function HomePage() {
                 </button>
               </Link>
               <Link href="/features">
-                <button className="px-8 py-4 text-lg font-semibold text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-white/10 hover:border-gray-400 dark:hover:border-white/20 rounded-full transition-all duration-300 hover:bg-gray-100/50 dark:hover:bg-white/5">
+                <button className="px-8 py-4 text-lg font-semibold text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-white/10 hover:border-gray-400 dark:hover:border-white/20 rounded-full transition-all duration-300 hover:bg-white dark:hover:bg-white/5">
                   View Features
                 </button>
               </Link>
@@ -113,14 +111,14 @@ export default async function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-gray-200/50 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-sm">
+      <footer className="relative z-10 border-t border-gray-200 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-sm">
         <div className="container mx-auto px-6 py-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-white/40">
+            <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-white/40">
               <Link href="/terms" className="hover:text-gray-900 dark:hover:text-white transition-colors">Terms</Link>
               <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-white transition-colors">Privacy</Link>
             </div>
-            <p className="text-sm text-gray-500 dark:text-white/30">© {new Date().getFullYear()} Teamy. All rights reserved.</p>
+            <p className="text-sm text-gray-400 dark:text-white/30">© {new Date().getFullYear()} Teamy. All rights reserved.</p>
           </div>
         </div>
       </footer>

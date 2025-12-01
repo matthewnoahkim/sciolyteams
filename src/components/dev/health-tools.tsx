@@ -594,7 +594,7 @@ export function HealthTools() {
       ['Created At', new Date(user.createdAt).toLocaleString()],
       [''],
       ['Memberships'],
-      ['Club Name', 'Club ID', 'Team Name', 'Team ID', 'Role', 'Joined At']
+      ['Club Name', 'Club ID', 'Team Name', 'Team ID', 'Role', 'Division', 'Joined At']
     ]
 
     // Add team memberships
@@ -604,11 +604,12 @@ export function HealthTools() {
       escapeCSV(m.team?.name || 'N/A'),
       escapeCSV(m.team?.id || 'N/A'),
       escapeCSV(m.role || 'N/A'),
+      escapeCSV(m.club?.division || 'None'),
       escapeCSV(new Date(m.createdAt).toLocaleString()),
     ])
 
     if (membershipRows.length === 0) {
-      membershipRows.push(['No teams', '', '', '', ''])
+      membershipRows.push(['No teams', '', '', '', '', '', ''])
     }
 
     // Combine all sections
