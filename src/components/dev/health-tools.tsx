@@ -1268,7 +1268,14 @@ export function HealthTools() {
                         <div className="flex items-start justify-between gap-4 min-w-0 w-full">
                           <div className="flex-1 min-w-0 overflow-hidden" style={{ maxWidth: '100%' }}>
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <Badge variant={tournament.approved === true ? 'default' : 'destructive'}>
+                              <Badge 
+                                variant={tournament.approved === true ? 'default' : 'outline'}
+                                className={tournament.approved === false && tournament.rejectionReason 
+                                  ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" 
+                                  : tournament.approved === false && !tournament.rejectionReason
+                                    ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20"
+                                    : undefined}
+                              >
                                 {tournament.approved === true 
                                   ? 'Approved' 
                                   : tournament.approved === false && tournament.rejectionReason

@@ -450,7 +450,7 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                       </Badge>
                       {!tournament.approved && (
                         <Badge 
-                          variant={tournament.rejectionReason ? "destructive" : "outline"} 
+                          variant="outline" 
                           className={tournament.rejectionReason 
                             ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" 
                             : "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20"}

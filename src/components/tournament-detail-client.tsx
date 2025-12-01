@@ -405,7 +405,10 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                         </Badge>
                       )}
                       {tournament.approved === false && tournament.rejectionReason && tournament.createdBy.id === user.id && (
-                        <Badge variant="destructive">
+                        <Badge 
+                          variant="outline"
+                          className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+                        >
                           Rejected
                         </Badge>
                       )}
