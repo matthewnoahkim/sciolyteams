@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -154,8 +155,12 @@ export function HealthTools() {
   const [tournaments, setTournaments] = useState<any[]>([])
   const [tournamentLoading, setTournamentLoading] = useState(false)
   const [tournamentSearch, setTournamentSearch] = useState('')
-  const [showApprovedOnly, setShowApprovedOnly] = useState(false)
+  const [tournamentFilter, setTournamentFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
   const [approvingTournamentId, setApprovingTournamentId] = useState<string | null>(null)
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [tournamentToReject, setTournamentToReject] = useState<any>(null)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [rejectingTournamentId, setRejectingTournamentId] = useState<string | null>(null)
 
   // Scroll detection for pausing auto-refresh
   const [isScrolling, setIsScrolling] = useState(false)
@@ -300,13 +305,16 @@ export function HealthTools() {
         approved: t.approved ?? false
       }))
       
-      // Filter by approved status (treat null/undefined as false/unapproved)
-      if (showApprovedOnly) {
+      // Filter by status
+      if (tournamentFilter === 'approved') {
         tournamentsList = tournamentsList.filter((t: any) => t.approved === true)
-      } else {
-        // Show unapproved by default (including null/undefined)
-        tournamentsList = tournamentsList.filter((t: any) => !t.approved)
+      } else if (tournamentFilter === 'rejected') {
+        tournamentsList = tournamentsList.filter((t: any) => t.approved === false && t.rejectionReason)
+      } else if (tournamentFilter === 'pending') {
+        // Show unapproved and not rejected (pending approval)
+        tournamentsList = tournamentsList.filter((t: any) => !t.approved && !t.rejectionReason)
       }
+      // 'all' shows everything, so no filter needed
       
       // Filter by search
       if (tournamentSearch) {
@@ -325,7 +333,7 @@ export function HealthTools() {
     } finally {
       setTournamentLoading(false)
     }
-  }, [activeTab, showApprovedOnly, tournamentSearch])
+  }, [activeTab, tournamentFilter, tournamentSearch])
 
   // Approve tournament
   const handleApproveTournament = async (tournamentId: string) => {
@@ -341,7 +349,7 @@ export function HealthTools() {
         // Update the tournament in the local state immediately for better UX
         setTournaments(prevTournaments => 
           prevTournaments.map(t => 
-            t.id === tournamentId ? { ...t, approved: true } : t
+            t.id === tournamentId ? { ...t, approved: true, rejectionReason: null } : t
           )
         )
         // Refresh tournaments list to ensure consistency
@@ -359,6 +367,55 @@ export function HealthTools() {
       alert('Error approving tournament')
     } finally {
       setApprovingTournamentId(null)
+    }
+  }
+
+  // Reject tournament
+  const handleRejectTournament = async () => {
+    if (!tournamentToReject) return
+
+    setRejectingTournamentId(tournamentToReject.id)
+    try {
+      const response = await fetch(`/api/dev/tournaments/${tournamentToReject.id}/approve`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          approved: false,
+          rejectionReason: rejectionReason.trim() || null,
+        }),
+      })
+
+      if (response.ok) {
+        const responseData = await response.json()
+        const updatedTournament = responseData.tournament
+        
+        // Update the tournament in the local state immediately for better UX
+        setTournaments(prevTournaments => 
+          prevTournaments.map(t => 
+            t.id === tournamentToReject.id 
+              ? { ...t, approved: updatedTournament.approved, rejectionReason: updatedTournament.rejectionReason } 
+              : t
+          )
+        )
+        // Refresh tournaments list to ensure consistency
+        await fetchTournaments()
+        // Optionally refresh logs to show the rejection activity
+        if (activeTab !== 'tournaments') {
+          fetchLogs()
+        }
+        // Close dialog and reset state
+        setRejectDialogOpen(false)
+        setTournamentToReject(null)
+        setRejectionReason('')
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        alert(errorData.error || 'Failed to reject tournament')
+      }
+    } catch (error) {
+      console.error('Error rejecting tournament:', error)
+      alert('Error rejecting tournament')
+    } finally {
+      setRejectingTournamentId(null)
     }
   }
 
@@ -393,7 +450,7 @@ export function HealthTools() {
       }, 300)
       return () => clearTimeout(timer)
     }
-  }, [userSearch, tournamentSearch, showApprovedOnly, activeTab, fetchUsers, fetchTournaments])
+  }, [userSearch, tournamentSearch, tournamentFilter, activeTab, fetchUsers, fetchTournaments])
 
   // Fetch logs when filters change
   useEffect(() => {
@@ -1171,14 +1228,17 @@ export function HealthTools() {
                     className="pl-9"
                   />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="approved-only"
-                    checked={showApprovedOnly}
-                    onCheckedChange={(checked) => setShowApprovedOnly(checked as boolean)}
-                  />
-                  <Label htmlFor="approved-only" className="cursor-pointer text-sm font-normal">Show Approved</Label>
-                </div>
+                <Select value={tournamentFilter} onValueChange={(v: any) => setTournamentFilter(v)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter tournaments" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending Approval</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="all">All Tournaments</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <ScrollArea className="h-[600px] overflow-x-hidden">
@@ -1188,7 +1248,15 @@ export function HealthTools() {
                   </div>
                 ) : tournaments.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    {tournamentSearch ? 'No tournaments found' : showApprovedOnly ? 'No approved tournaments' : 'No pending tournaments'}
+                    {tournamentSearch 
+                      ? 'No tournaments found' 
+                      : tournamentFilter === 'approved' 
+                        ? 'No approved tournaments'
+                        : tournamentFilter === 'rejected'
+                          ? 'No rejected tournaments'
+                          : tournamentFilter === 'pending'
+                            ? 'No pending tournaments'
+                            : 'No tournaments'}
                   </div>
                 ) : (
                   <div className="space-y-2 min-w-0 max-w-full overflow-hidden">
@@ -1201,7 +1269,11 @@ export function HealthTools() {
                           <div className="flex-1 min-w-0 overflow-hidden" style={{ maxWidth: '100%' }}>
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
                               <Badge variant={tournament.approved === true ? 'default' : 'destructive'}>
-                                {tournament.approved === true ? 'Approved' : 'Pending Approval'}
+                                {tournament.approved === true 
+                                  ? 'Approved' 
+                                  : tournament.approved === false && tournament.rejectionReason
+                                    ? 'Rejected'
+                                    : 'Pending Approval'}
                               </Badge>
                               <Badge variant="outline">Division {tournament.division}</Badge>
                               {tournament.isOnline && (
@@ -1211,6 +1283,12 @@ export function HealthTools() {
                             <p className="font-medium text-sm mb-1 truncate max-w-full">
                               {highlightText(tournament.name, tournamentSearch)}
                             </p>
+                            {tournament.approved === false && tournament.rejectionReason && (
+                              <div className="p-2 mt-2 mb-2 border border-destructive/50 bg-destructive/10 rounded text-xs text-destructive">
+                                <span className="font-semibold">Rejection reason: </span>
+                                {highlightText(tournament.rejectionReason, tournamentSearch)}
+                              </div>
+                            )}
                             {tournament.description && (
                               <div 
                                 className="w-full overflow-hidden mb-2" 
@@ -1248,26 +1326,54 @@ export function HealthTools() {
                               <span className="flex-shrink-0">${tournament.price.toFixed(2)}</span>
                             </div>
                           </div>
-                          <div className="flex-shrink-0">
-                            {tournament.approved !== true && (
+                          <div className="flex-shrink-0 flex gap-2">
+                            {tournament.approved === true ? (
                               <Button
-                                variant="default"
+                                variant="destructive"
                                 size="sm"
-                                onClick={() => handleApproveTournament(tournament.id)}
-                                disabled={approvingTournamentId === tournament.id}
+                                onClick={() => {
+                                  setTournamentToReject(tournament)
+                                  setRejectDialogOpen(true)
+                                }}
+                                disabled={approvingTournamentId === tournament.id || rejectingTournamentId === tournament.id}
                               >
-                                {approvingTournamentId === tournament.id ? (
-                                  <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Approving...
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                                    Approve
-                                  </>
-                                )}
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Reject
                               </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => handleApproveTournament(tournament.id)}
+                                  disabled={approvingTournamentId === tournament.id || rejectingTournamentId === tournament.id}
+                                >
+                                  {approvingTournamentId === tournament.id ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Approving...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                                      Approve
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => {
+                                    setTournamentToReject(tournament)
+                                    setRejectionReason(tournament.rejectionReason || '')
+                                    setRejectDialogOpen(true)
+                                  }}
+                                  disabled={approvingTournamentId === tournament.id || rejectingTournamentId === tournament.id}
+                                >
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  {tournament.approved === false && tournament.rejectionReason ? 'Update Rejection' : 'Reject'}
+                                </Button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -1407,6 +1513,66 @@ export function HealthTools() {
             </Button>
             <Button variant="destructive" onClick={handleDeleteUser}>
               Delete User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Tournament Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={(open) => {
+        setRejectDialogOpen(open)
+        if (!open) {
+          setTournamentToReject(null)
+          setRejectionReason('')
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Tournament</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to reject "{tournamentToReject?.name}"? 
+              You can optionally provide a reason for the rejection that will be shown to the tournament creator.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rejection-reason">Rejection Reason (Optional)</Label>
+              <Textarea
+                id="rejection-reason"
+                placeholder="Enter a reason for rejection (optional)..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setRejectDialogOpen(false)
+                setTournamentToReject(null)
+                setRejectionReason('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleRejectTournament}
+              disabled={rejectingTournamentId === tournamentToReject?.id}
+            >
+              {rejectingTournamentId === tournamentToReject?.id ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Reject Tournament
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

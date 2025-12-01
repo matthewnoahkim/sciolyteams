@@ -35,6 +35,8 @@ interface Tournament {
   startTime: string
   endTime: string
   location: string | null
+  approved: boolean
+  rejectionReason: string | null
   createdBy: {
     id: string
     name: string | null
@@ -397,6 +399,16 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                       <Badge variant={tournament.division === 'B' ? 'default' : 'secondary'}>
                         Division {tournament.division}
                       </Badge>
+                      {!tournament.approved && tournament.createdBy.id === user.id && (
+                        <Badge variant="destructive">
+                          Pending Approval
+                        </Badge>
+                      )}
+                      {tournament.approved === false && tournament.rejectionReason && tournament.createdBy.id === user.id && (
+                        <Badge variant="destructive">
+                          Rejected
+                        </Badge>
+                      )}
                       {tournament.isAdmin && (
                         <Link href={`/tournaments/${tournamentId}/manage`}>
                           <Button variant="outline" size="sm">
@@ -410,6 +422,19 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {tournament.approved === false && tournament.rejectionReason && tournament.createdBy.id === user.id && (
+                  <div className="p-4 border border-destructive/50 bg-destructive/10 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+                      <div className="flex-1 space-y-1">
+                        <p className="font-semibold text-destructive">Tournament Rejected</p>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+                          {tournament.rejectionReason}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {tournament.description && (
                   <p className="text-muted-foreground whitespace-pre-wrap break-words">{tournament.description}</p>
                 )}

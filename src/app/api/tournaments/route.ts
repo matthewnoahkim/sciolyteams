@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
     const createdByParam = searchParams.get('createdBy')
     const managedByParam = searchParams.get('managedBy')
     const teamRegisteredParam = searchParams.get('teamRegistered')
+    const pendingApprovalParam = searchParams.get('pendingApproval')
     const sortBy = searchParams.get('sortBy') || 'date-asc'
     // Only filter by upcoming if explicitly set to 'true'
     // If not provided or 'false', return ALL tournaments (past and future)
@@ -57,17 +58,26 @@ export async function GET(req: NextRequest) {
     const managedBy = managedByParam === 'me' ? session.user.id : managedByParam
     // Filter by tournaments where user's team is registered
     const teamRegistered = teamRegisteredParam === 'me'
+    // Filter by tournaments pending approval (created by user but not approved)
+    const pendingApproval = pendingApprovalParam === 'me'
 
     const where: any = {}
     
     // Check if we should include unapproved tournaments (for dev panel)
     const includeUnapproved = searchParams.get('includeUnapproved') === 'true'
     
-    // Only show approved tournaments on the tournaments wall (unless filtering by createdBy/managedBy or includeUnapproved is true)
+    // Only show approved tournaments on the tournaments wall (unless filtering by createdBy/managedBy, pendingApproval, or includeUnapproved is true)
     // This allows creators/admins to see their own tournaments even if not approved
     // Dev panel can set includeUnapproved=true to see all tournaments
-    if (!createdBy && !managedBy && !teamRegistered && !includeUnapproved) {
+    // pendingApproval filter shows only unapproved tournaments created by the user
+    if (!createdBy && !managedBy && !teamRegistered && !pendingApproval && !includeUnapproved) {
       where.approved = true
+    }
+    
+    // Filter by pending approval tournaments (created by user but not approved)
+    if (pendingApproval) {
+      where.createdById = session.user.id
+      where.approved = false
     }
     
     if (division) {
@@ -82,7 +92,8 @@ export async function GET(req: NextRequest) {
     }
     
     // Filter by tournaments where user is creator or admin (takes precedence over createdBy)
-    if (managedBy) {
+    // Skip this if pendingApproval is set, as it already sets createdById
+    if (managedBy && !pendingApproval) {
       const adminTournaments = await prisma.tournamentAdmin.findMany({
         where: { userId: managedBy },
         select: { tournamentId: true },
@@ -99,8 +110,8 @@ export async function GET(req: NextRequest) {
         // User is only a creator, not an admin
         where.createdById = managedBy
       }
-    } else if (createdBy) {
-      // Only use createdBy if managedBy is not set
+    } else if (createdBy && !pendingApproval) {
+      // Only use createdBy if managedBy and pendingApproval are not set
       where.createdById = createdBy
     }
 

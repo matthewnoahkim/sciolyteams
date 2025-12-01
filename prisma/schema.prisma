@@ -1251,6 +1251,7 @@ model Tournament {
   endTime           DateTime
   location          String?
   approved          Boolean                   @default(false)
+  rejectionReason   String?                   @db.Text
   createdById       String
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt

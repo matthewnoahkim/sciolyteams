@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { AppHeader } from '@/components/app-header'
 import { useToast } from '@/components/ui/use-toast'
 import { PageLoading } from '@/components/ui/loading-spinner'
-import { Plus, Search, Calendar, MapPin, Users, DollarSign, Trophy, Settings, Monitor } from 'lucide-react'
+import { Plus, Search, Calendar, MapPin, Users, DollarSign, Trophy, Settings, Monitor, UserPlus, Clock } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 
@@ -27,6 +27,8 @@ interface Tournament {
   startTime: string
   endTime: string
   location: string | null
+  approved: boolean
+  rejectionReason: string | null
   createdBy: {
     id: string
     name: string | null
@@ -71,16 +73,16 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
   
   // Initialize viewFilter from URL param, default to 'all'
   const tabParam = searchParams.get('tab')
-  const validTabs = ['all', 'my', 'managed', 'team'] as const
+  const validTabs = ['all', 'my', 'managed', 'team', 'pending'] as const
   const initialTab = (tabParam && validTabs.includes(tabParam as any)) ? tabParam as typeof validTabs[number] : 'all'
-  const [viewFilter, setViewFilter] = useState<'all' | 'my' | 'managed' | 'team'>(initialTab)
+  const [viewFilter, setViewFilter] = useState<'all' | 'my' | 'managed' | 'team' | 'pending'>(initialTab)
   const [sortField, setSortField] = useState<'date' | 'price' | 'popularity'>('date')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   
   // Sync viewFilter with URL param when it changes (e.g., browser back/forward)
   useEffect(() => {
     const tabParam = searchParams.get('tab')
-    const validTabs = ['all', 'my', 'managed', 'team'] as const
+    const validTabs = ['all', 'my', 'managed', 'team', 'pending'] as const
     const newTab = (tabParam && validTabs.includes(tabParam as any)) ? tabParam as typeof validTabs[number] : 'all'
     if (newTab !== viewFilter) {
       setViewFilter(newTab)
@@ -108,9 +110,12 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
   useEffect(() => {
     setSearch('')
     setDivisionFilter('all')
-    setUpcomingOnly(true)
+    // For pending tab, show all tournaments (not just upcoming)
+    setUpcomingOnly(viewFilter !== 'pending')
     setSortField('date')
     setSortDirection('asc')
+    // Clear tournaments to prevent showing old data from previous tab
+    setTournaments([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewFilter])
 
@@ -127,7 +132,8 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
         params.append('division', divisionFilter)
       }
       // Only add upcoming filter when it's true, otherwise fetch all tournaments
-      if (upcomingOnly) {
+      // Don't apply upcoming filter for pending tab (show all pending tournaments)
+      if (upcomingOnly && viewFilter !== 'pending') {
         params.append('upcoming', 'true')
       }
       // Filter by creator if viewing "My Tournaments" (created by me)
@@ -141,6 +147,10 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
       // Filter by tournaments where user's team is registered
       if (viewFilter === 'team') {
         params.append('teamRegistered', 'me')
+      }
+      // Filter by pending approval tournaments (created by user but not approved)
+      if (viewFilter === 'pending') {
+        params.append('pendingApproval', 'me')
       }
       // Add sort parameter
       params.append('sortBy', `${sortField}-${sortDirection}`)
@@ -166,6 +176,26 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
   }
 
   const filteredTournaments = tournaments.filter(t => {
+    // For pending tab, only show tournaments that are not approved
+    if (viewFilter === 'pending') {
+      if (t.approved) {
+        return false
+      }
+    }
+    // For managed tab, only show approved tournaments
+    if (viewFilter === 'managed') {
+      if (!t.approved) {
+        return false
+      }
+    }
+    // Apply upcoming filter client-side as well (for managed, my, team, and all tabs)
+    if (upcomingOnly && viewFilter !== 'pending') {
+      const now = new Date()
+      const startTime = new Date(t.startTime)
+      if (startTime <= now) {
+        return false
+      }
+    }
     if (search) {
       const searchLower = search.toLowerCase()
       const nameMatch = t.name.toLowerCase().includes(searchLower)
@@ -265,6 +295,8 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                 ? 'Tournaments you manage (created or admin)'
                 : viewFilter === 'team'
                 ? 'Tournaments your team is registered for'
+                : viewFilter === 'pending'
+                ? 'Tournaments pending approval'
                 : 'Discover and register for upcoming Science Olympiad tournaments'}
             </p>
           </div>
@@ -282,10 +314,11 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
         </div>
 
         {/* Tab Bar */}
-        <Tabs value={viewFilter} onValueChange={(value) => setViewFilter(value as 'all' | 'my' | 'managed' | 'team')} className="mb-6">
+        <Tabs value={viewFilter} onValueChange={(value) => setViewFilter(value as 'all' | 'my' | 'managed' | 'team' | 'pending')} className="mb-6">
           <TabsList className="w-full justify-start">
             <TabsTrigger value="all">All Tournaments</TabsTrigger>
             <TabsTrigger value="managed">My Managed</TabsTrigger>
+            <TabsTrigger value="pending">Pending Approval</TabsTrigger>
             <TabsTrigger value="team">Team Registrations</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -381,6 +414,8 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                   ? 'You don\'t manage any tournaments'
                   : viewFilter === 'team'
                   ? 'Your team isn\'t registered for any tournaments'
+                  : viewFilter === 'pending'
+                  ? 'You don\'t have any tournaments pending approval'
                   : search || divisionFilter !== 'all' 
                     ? 'Try adjusting your filters'
                     : 'Be the first to create a tournament!'}
@@ -413,7 +448,18 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                       <Badge variant={tournament.division === 'B' ? 'default' : 'secondary'}>
                         Division {tournament.division}
                       </Badge>
-                      {(tournament.isCreator || tournament.isAdmin) && (
+                      {!tournament.approved && (
+                        <Badge 
+                          variant={tournament.rejectionReason ? "destructive" : "outline"} 
+                          className={tournament.rejectionReason 
+                            ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" 
+                            : "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20"}
+                        >
+                          <Clock className="h-3 w-3 mr-1" />
+                          {tournament.rejectionReason ? 'Rejected' : 'Pending'}
+                        </Badge>
+                      )}
+                      {(tournament.isCreator || tournament.isAdmin) ? (
                         <Link href={`/tournaments/${tournament.id}/manage`} onClick={(e) => e.stopPropagation()}>
                           <Button 
                             variant="outline" 
@@ -424,9 +470,32 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                             Manage
                           </Button>
                         </Link>
+                      ) : (
+                        <Link href={`/tournaments/${tournament.id}`} onClick={(e) => e.stopPropagation()}>
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            className="h-7"
+                          >
+                            <UserPlus className="h-3 w-3 mr-1" />
+                            Sign Up
+                          </Button>
+                        </Link>
                       )}
                     </div>
                   </div>
+                  {tournament.rejectionReason && (
+                    <div className="p-3 mb-2 border border-red-500/50 bg-red-500/10 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-1">Rejection Reason:</p>
+                          <p className="text-xs text-red-700 dark:text-red-300 whitespace-pre-wrap break-words">
+                            {search ? highlightText(tournament.rejectionReason, search) : tournament.rejectionReason}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {tournament.description && (
                     <Link href={`/tournaments/${tournament.id}`}>
                       <CardDescription className="line-clamp-2 overflow-hidden text-ellipsis">

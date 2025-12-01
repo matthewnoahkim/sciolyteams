@@ -21,11 +21,16 @@ export async function PATCH(
     
     const body = await req.json()
     const approved = body.approved !== undefined ? body.approved : true
+    const rejectionReason = body.rejectionReason || null
 
     // Update tournament approval status
+    // If approving, clear rejection reason; if rejecting, set it
     const tournament = await prisma.tournament.update({
       where: { id: tournamentId },
-      data: { approved },
+      data: { 
+        approved,
+        rejectionReason: approved ? null : rejectionReason,
+      },
     })
 
     return NextResponse.json({ tournament })
