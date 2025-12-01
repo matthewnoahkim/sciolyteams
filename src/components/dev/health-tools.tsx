@@ -1138,7 +1138,7 @@ export function HealthTools() {
 
         {/* Tournaments Tab */}
         <TabsContent value="tournaments" className="space-y-4">
-          <Card>
+          <Card className="overflow-x-hidden max-w-full">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -1153,7 +1153,7 @@ export function HealthTools() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 overflow-hidden max-w-full">
               <div className="flex gap-4">
                 <div className="relative flex-1">
                   <Search 
@@ -1181,7 +1181,7 @@ export function HealthTools() {
                 </div>
               </div>
 
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="h-[600px] overflow-x-hidden">
                 {tournamentLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin" />
@@ -1191,14 +1191,14 @@ export function HealthTools() {
                     {tournamentSearch ? 'No tournaments found' : showApprovedOnly ? 'No approved tournaments' : 'No pending tournaments'}
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0 max-w-full overflow-hidden">
                     {tournaments.map((tournament) => (
                       <div
                         key={tournament.id}
-                        className="p-4 border rounded-xl hover:bg-muted/50 transition-all duration-200 hover:shadow-md apple-hover"
+                        className="p-4 border rounded-xl hover:bg-muted/50 transition-all duration-200 hover:shadow-md apple-hover overflow-hidden max-w-full"
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-4 min-w-0 w-full">
+                          <div className="flex-1 min-w-0 overflow-hidden" style={{ maxWidth: '100%' }}>
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
                               <Badge variant={tournament.approved === true ? 'default' : 'destructive'}>
                                 {tournament.approved === true ? 'Approved' : 'Pending Approval'}
@@ -1208,32 +1208,44 @@ export function HealthTools() {
                                 <Badge variant="outline">Online</Badge>
                               )}
                             </div>
-                            <p className="font-medium text-sm mb-1">
+                            <p className="font-medium text-sm mb-1 truncate max-w-full">
                               {highlightText(tournament.name, tournamentSearch)}
                             </p>
                             {tournament.description && (
-                              <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                                {highlightText(tournament.description, tournamentSearch)}
-                              </p>
+                              <div 
+                                className="w-full overflow-hidden mb-2" 
+                                style={{ 
+                                  maxWidth: '100%',
+                                  wordBreak: 'break-all',
+                                  overflowWrap: 'anywhere'
+                                }}
+                              >
+                                <p 
+                                  className="text-sm text-muted-foreground line-clamp-2 break-all overflow-hidden [&_*]:break-all"
+                                  style={{ wordBreak: 'break-all', overflowWrap: 'anywhere', maxWidth: '100%' }}
+                                >
+                                  {highlightText(tournament.description, tournamentSearch)}
+                                </p>
+                              </div>
                             )}
                             <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 min-w-0 max-w-full">
                                 <span>Created by:</span>
-                                <span className="font-medium">
+                                <span className="font-medium truncate">
                                   {highlightText(
                                     tournament.createdBy?.name || tournament.createdBy?.email || 'Unknown',
                                     tournamentSearch
                                   )}
                                 </span>
                               </div>
-                              <span className="flex items-center gap-1">
+                              <span className="flex items-center gap-1 flex-shrink-0">
                                 <Clock className="h-3 w-3" />
                                 {format(new Date(tournament.createdAt), 'MMM d, yyyy HH:mm:ss')}
                               </span>
                               {tournament.location && (
-                                <span>{highlightText(tournament.location, tournamentSearch)}</span>
+                                <span className="truncate max-w-xs">{highlightText(tournament.location, tournamentSearch)}</span>
                               )}
-                              <span>${tournament.price.toFixed(2)}</span>
+                              <span className="flex-shrink-0">${tournament.price.toFixed(2)}</span>
                             </div>
                           </div>
                           <div className="flex-shrink-0">

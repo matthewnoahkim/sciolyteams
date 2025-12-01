@@ -28,7 +28,15 @@ const navItems: { id: Section; label: string; icon: React.ElementType }[] = [
 ]
 
 export default function DevPage() {
-  const [activeSection, setActiveSection] = useState<Section>('blog')
+  const [activeSection, setActiveSection] = useState<Section>(() => {
+    if (typeof window !== 'undefined') {
+      const savedSection = localStorage.getItem('dev-panel-active-section') as Section
+      if (savedSection && ['blog', 'security', 'payments'].includes(savedSection)) {
+        return savedSection
+      }
+    }
+    return 'blog'
+  })
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('dev_auth') === 'true'
@@ -82,6 +90,13 @@ export default function DevPage() {
     }
     setIsCheckingAuth(false)
   }, [])
+
+  // Save active section to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dev-panel-active-section', activeSection)
+    }
+  }, [activeSection])
 
   // Loading state
   if (isCheckingAuth) {

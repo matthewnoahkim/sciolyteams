@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ArrowLeft, Users, Settings, FileText, Search, Calendar, Plus, X, Trash2, Edit, Save, Mail, Download, DollarSign } from 'lucide-react'
+import { ArrowLeft, Users, Settings, FileText, Search, Calendar, Plus, X, Trash2, Edit, Save, Mail, Download, DollarSign, UserCheck } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -60,6 +60,11 @@ interface Tournament {
         }
       }>
     } | null
+    registeredBy: {
+      id: string
+      name: string | null
+      email: string
+    }
     eventSelections: Array<{
       event: {
         id: string
@@ -240,12 +245,18 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
       return name.includes(searchLower) || email.includes(searchLower)
     }) || false
     
+    // Check registeredBy name/email
+    const registeredByMatches = reg.registeredBy ? (
+      (reg.registeredBy.name || '').toLowerCase().includes(searchLower) ||
+      reg.registeredBy.email.toLowerCase().includes(searchLower)
+    ) : false
+    
     // Check event names
     const eventMatches = reg.eventSelections.some(selection => 
       selection.event.name.toLowerCase().includes(searchLower)
     )
     
-    return clubName.includes(searchLower) || teamName.includes(searchLower) || memberMatches || eventMatches
+    return clubName.includes(searchLower) || teamName.includes(searchLower) || memberMatches || eventMatches || registeredByMatches
   })
 
   const sortedRegistrations = [...filteredRegistrations].sort((a, b) => {
@@ -750,6 +761,26 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                                             {memberCount} / {maxMembers} members
                                           </span>
                                         </div>
+                                        {registration.registeredBy && (
+                                          <div className="flex items-center gap-1.5">
+                                            <UserCheck className="h-4 w-4" />
+                                            <span>
+                                              Registered by:{' '}
+                                              {registration.registeredBy.name ? (
+                                                <>
+                                                  {searchQuery ? highlightText(registration.registeredBy.name, searchQuery) : registration.registeredBy.name}
+                                                  {registration.registeredBy.email && (
+                                                    <span className="ml-1">
+                                                      ({searchQuery ? highlightText(registration.registeredBy.email, searchQuery) : registration.registeredBy.email})
+                                                    </span>
+                                                  )}
+                                                </>
+                                              ) : (
+                                                searchQuery ? highlightText(registration.registeredBy.email, searchQuery) : registration.registeredBy.email
+                                              )}
+                                            </span>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-2">
