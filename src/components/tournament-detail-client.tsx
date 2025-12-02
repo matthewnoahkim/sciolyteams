@@ -368,7 +368,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
           <Card>
             <CardContent className="py-12 text-center">
               <h3 className="text-lg font-semibold mb-2">Tournament not found</h3>
-              <Button onClick={() => router.push('/tournaments')} variant="outline">
+              <Button onClick={() => router.push('/dashboard/tournaments')} variant="outline">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Tournaments
               </Button>
@@ -383,7 +383,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
       <AppHeader user={user} />
       <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <Button onClick={() => router.push('/tournaments')} variant="ghost" className="mb-6">
+        <Button onClick={() => router.push('/dashboard/tournaments')} variant="ghost" className="mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Tournaments
         </Button>

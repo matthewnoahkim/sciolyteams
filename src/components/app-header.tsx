@@ -28,10 +28,10 @@ export function AppHeader({ user, showBackButton = false, backHref, title }: App
   const [editUsernameOpen, setEditUsernameOpen] = useState(false)
   const [currentUserName, setCurrentUserName] = useState(user.name ?? null)
   
-  // Determine if we're on tournaments page or dashboard
-  const isOnTournamentsPage = pathname?.startsWith('/tournaments')
+  // Determine if we're on tournaments page or clubs page
+  const isOnTournamentsPage = pathname?.startsWith('/dashboard/tournaments') || pathname?.startsWith('/tournaments')
   const buttonText = isOnTournamentsPage ? 'Clubs' : 'Tournaments'
-  const buttonHref = isOnTournamentsPage ? '/dashboard' : '/tournaments'
+  const buttonHref = isOnTournamentsPage ? '/dashboard/club' : '/dashboard/tournaments'
   const ButtonIcon = isOnTournamentsPage ? Users : Trophy
 
   const handleSignOut = async () => {

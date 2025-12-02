@@ -160,7 +160,7 @@ export function CreateTournamentClient({ user }: CreateTournamentClientProps) {
       })
 
       // Redirect to the tournament detail page
-      router.push(`/tournaments/${data.tournament.id}`)
+      router.push(`/dashboard/tournaments`)
     } catch (error: any) {
       console.error('Error creating tournament:', error)
       toast({
@@ -176,7 +176,7 @@ export function CreateTournamentClient({ user }: CreateTournamentClientProps) {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
       <AppHeader user={user} />
       <div className="container mx-auto px-4 py-8 max-w-3xl">
-        <Link href="/tournaments">
+        <Link href="/dashboard/tournaments">
           <Button variant="ghost" className="mb-6">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Tournaments
@@ -351,7 +351,7 @@ export function CreateTournamentClient({ user }: CreateTournamentClientProps) {
                     'Create Tournament'
                   )}
                 </Button>
-                <Link href="/tournaments">
+                <Link href="/dashboard/tournaments">
                   <Button type="button" variant="outline">
                     Cancel
                   </Button>

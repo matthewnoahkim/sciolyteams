@@ -174,7 +174,7 @@ export default async function TeamTestDetailPage({
     })
 
     if (!club) {
-      redirect('/clubs')
+      redirect('/dashboard/club')
     }
 
     // Transform the test data to match NewTestBuilder's expected format

@@ -58,7 +58,7 @@ export default async function NewTournamentTestPage({
   })
 
   if (!tournament) {
-    redirect('/tournaments')
+    redirect('/dashboard/tournaments')
   }
 
   return (
