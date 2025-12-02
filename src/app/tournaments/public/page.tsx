@@ -13,7 +13,7 @@ export default async function PublicTournamentsPage() {
   }
 
   // Fetch approved upcoming tournaments
-  const tournaments = await prisma.tournament.findMany({
+  const tournamentsData = await prisma.tournament.findMany({
     where: {
       approved: true,
       startTime: {
@@ -32,6 +32,22 @@ export default async function PublicTournamentsPage() {
     },
     take: 50, // Limit to 50 tournaments
   })
+
+  // Serialize dates to strings for client component
+  const tournaments = tournamentsData.map((t) => ({
+    id: t.id,
+    name: t.name,
+    division: t.division,
+    description: t.description,
+    price: t.price,
+    isOnline: t.isOnline,
+    startDate: t.startDate.toISOString(),
+    endDate: t.endDate.toISOString(),
+    startTime: t.startTime.toISOString(),
+    endTime: t.endTime.toISOString(),
+    location: t.location,
+    _count: t._count,
+  }))
 
   return <PublicTournamentsClient tournaments={tournaments} />
 }
