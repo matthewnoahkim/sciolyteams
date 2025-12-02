@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { AppHeader } from '@/components/app-header'
 import { useToast } from '@/components/ui/use-toast'
 import { PageLoading } from '@/components/ui/loading-spinner'
@@ -375,14 +374,38 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
         </div>
 
         {/* Tab Bar */}
-        <Tabs value={viewFilter} onValueChange={(value) => setViewFilter(value as 'all' | 'my' | 'managed' | 'team' | 'pending')} className="mb-6">
-          <TabsList className="w-full justify-start">
-            <TabsTrigger value="all">All Tournaments</TabsTrigger>
-            <TabsTrigger value="managed">My Managed</TabsTrigger>
-            <TabsTrigger value="pending">Pending Approval</TabsTrigger>
-            <TabsTrigger value="team">Team Registrations</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="mb-6">
+          <div className="inline-flex items-center justify-start rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 p-1.5 shadow-lg">
+            <Button
+              variant={viewFilter === 'all' ? 'default' : 'ghost'}
+              className="text-sm font-semibold h-10 rounded-xl px-6"
+              onClick={() => setViewFilter('all')}
+            >
+              All Tournaments
+            </Button>
+            <Button
+              variant={viewFilter === 'managed' ? 'default' : 'ghost'}
+              className="text-sm font-semibold h-10 rounded-xl px-6"
+              onClick={() => setViewFilter('managed')}
+            >
+              My Managed
+            </Button>
+            <Button
+              variant={viewFilter === 'pending' ? 'default' : 'ghost'}
+              className="text-sm font-semibold h-10 rounded-xl px-6"
+              onClick={() => setViewFilter('pending')}
+            >
+              Pending Approval
+            </Button>
+            <Button
+              variant={viewFilter === 'team' ? 'default' : 'ghost'}
+              className="text-sm font-semibold h-10 rounded-xl px-6"
+              onClick={() => setViewFilter('team')}
+            >
+              Team Registrations
+            </Button>
+          </div>
+        </div>
 
         {/* Filters */}
         <div className="space-y-4 mb-6">
@@ -501,7 +524,7 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                 <CardHeader>
                   <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant={tournament.division === 'B' ? 'default' : 'secondary'}>
+                      <Badge variant="outline">
                         Division {tournament.division}
                       </Badge>
                       {!tournament.approved && (
