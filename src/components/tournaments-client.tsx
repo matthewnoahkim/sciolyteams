@@ -67,17 +67,73 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
   const { toast } = useToast()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [divisionFilter, setDivisionFilter] = useState<string>('all')
-  const [upcomingOnly, setUpcomingOnly] = useState(true)
   
   // Initialize viewFilter from URL param, default to 'all'
   const tabParam = searchParams.get('tab')
   const validTabs = ['all', 'my', 'managed', 'team', 'pending'] as const
   const initialTab = (tabParam && validTabs.includes(tabParam as any)) ? tabParam as typeof validTabs[number] : 'all'
   const [viewFilter, setViewFilter] = useState<'all' | 'my' | 'managed' | 'team' | 'pending'>(initialTab)
+  
+  // Initialize with default values (same on server and client to avoid hydration errors)
+  const [search, setSearch] = useState('')
+  const [divisionFilter, setDivisionFilter] = useState<string>('all')
+  const [upcomingOnly, setUpcomingOnly] = useState(true)
   const [sortField, setSortField] = useState<'date' | 'price' | 'popularity'>('date')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [filtersLoaded, setFiltersLoaded] = useState(false)
+  
+  // Helper to get localStorage key for current tab
+  const getStorageKey = (tab: string) => `tournaments-filters-${tab}`
+  
+  // Load filters from localStorage for the current tab (client-side only)
+  const loadFiltersFromStorage = (tab: string) => {
+    if (typeof window === 'undefined') return null
+    try {
+      const stored = localStorage.getItem(getStorageKey(tab))
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        return {
+          search: parsed.search || '',
+          divisionFilter: parsed.divisionFilter || 'all',
+          upcomingOnly: parsed.upcomingOnly !== undefined ? parsed.upcomingOnly : true,
+          sortField: parsed.sortField || 'date',
+          sortDirection: parsed.sortDirection || 'asc',
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+    return null
+  }
+  
+  // Load filters from localStorage on mount (client-side only)
+  useEffect(() => {
+    if (!filtersLoaded) {
+      const storedFilters = loadFiltersFromStorage(viewFilter)
+      if (storedFilters) {
+        setSearch(storedFilters.search)
+        setDivisionFilter(storedFilters.divisionFilter)
+        setUpcomingOnly(storedFilters.upcomingOnly)
+        setSortField(storedFilters.sortField)
+        setSortDirection(storedFilters.sortDirection)
+      }
+      setFiltersLoaded(true)
+    }
+  }, [viewFilter, filtersLoaded])
+  
+  // Save filters to localStorage whenever they change (client-side only)
+  useEffect(() => {
+    if (filtersLoaded && typeof window !== 'undefined') {
+      const filters = {
+        search,
+        divisionFilter,
+        upcomingOnly,
+        sortField,
+        sortDirection,
+      }
+      localStorage.setItem(getStorageKey(viewFilter), JSON.stringify(filters))
+    }
+  }, [viewFilter, search, divisionFilter, upcomingOnly, sortField, sortDirection, filtersLoaded])
   
   // Sync viewFilter with URL param when it changes (e.g., browser back/forward)
   useEffect(() => {
@@ -106,18 +162,29 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewFilter])
 
-  // Reset filters when switching tabs
+  // Load filters from localStorage when switching tabs (client-side only)
   useEffect(() => {
-    setSearch('')
-    setDivisionFilter('all')
-    // For pending tab, show all tournaments (not just upcoming)
-    setUpcomingOnly(viewFilter !== 'pending')
-    setSortField('date')
-    setSortDirection('asc')
-    // Clear tournaments to prevent showing old data from previous tab
-    setTournaments([])
+    if (filtersLoaded && typeof window !== 'undefined') {
+      const storedFilters = loadFiltersFromStorage(viewFilter)
+      if (storedFilters) {
+        setSearch(storedFilters.search)
+        setDivisionFilter(storedFilters.divisionFilter)
+        setUpcomingOnly(storedFilters.upcomingOnly)
+        setSortField(storedFilters.sortField)
+        setSortDirection(storedFilters.sortDirection)
+      } else {
+        // Reset to defaults if no stored filters
+        setSearch('')
+        setDivisionFilter('all')
+        setUpcomingOnly(true)
+        setSortField('date')
+        setSortDirection('asc')
+      }
+      // Clear tournaments to prevent showing old data from previous tab
+      setTournaments([])
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewFilter])
+  }, [viewFilter, filtersLoaded])
 
   useEffect(() => {
     loadTournaments()
@@ -131,9 +198,8 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
       if (divisionFilter !== 'all') {
         params.append('division', divisionFilter)
       }
-      // Only add upcoming filter when it's true, otherwise fetch all tournaments
-      // Don't apply upcoming filter for pending tab (show all pending tournaments)
-      if (upcomingOnly && viewFilter !== 'pending') {
+      // Only add upcoming filter when it's true
+      if (upcomingOnly) {
         params.append('upcoming', 'true')
       }
       // Filter by creator if viewing "My Tournaments" (created by me)
@@ -188,8 +254,8 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
         return false
       }
     }
-    // Apply upcoming filter client-side as well (for managed, my, team, and all tabs)
-    if (upcomingOnly && viewFilter !== 'pending') {
+    // Apply upcoming filter client-side as well
+    if (upcomingOnly) {
       const now = new Date()
       const startTime = new Date(t.startTime)
       if (startTime <= now) {
@@ -443,13 +509,8 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
             {filteredTournaments.map((tournament) => (
               <Card key={tournament.id} className="hover:shadow-lg transition-shadow cursor-pointer">
                 <CardHeader>
-                  <div className="flex items-start justify-between mb-2 gap-2">
-                    <Link href={`/tournaments/${tournament.id}`} className="flex-1 min-w-0">
-                      <CardTitle className="text-xl hover:underline whitespace-normal [hyphens:auto] leading-snug">
-                        {search ? highlightText(cleanText(tournament.name), search) : cleanText(tournament.name)}
-                      </CardTitle>
-                    </Link>
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant={tournament.division === 'B' ? 'default' : 'secondary'}>
                         Division {tournament.division}
                       </Badge>
@@ -464,31 +525,36 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                           {tournament.rejectionReason ? 'Rejected' : 'Pending'}
                         </Badge>
                       )}
-                      {(tournament.isCreator || tournament.isAdmin) ? (
-                        <Link href={`/tournaments/${tournament.id}/manage`} onClick={(e) => e.stopPropagation()}>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="h-7"
-                          >
-                            <Settings className="h-3 w-3 mr-1" />
-                            Manage
-                          </Button>
-                        </Link>
-                      ) : (
-                        <Link href={`/tournaments/${tournament.id}`} onClick={(e) => e.stopPropagation()}>
-                          <Button 
-                            variant="default" 
-                            size="sm"
-                            className="h-7"
-                          >
-                            <UserPlus className="h-3 w-3 mr-1" />
-                            Sign Up
-                          </Button>
-                        </Link>
-                      )}
                     </div>
+                    {(tournament.isCreator || tournament.isAdmin) ? (
+                      <Link href={`/tournaments/${tournament.id}/manage`} onClick={(e) => e.stopPropagation()}>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="h-7"
+                        >
+                          <Settings className="h-3 w-3 mr-1" />
+                          Manage
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Link href={`/tournaments/${tournament.id}`} onClick={(e) => e.stopPropagation()}>
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          className="h-7"
+                        >
+                          <UserPlus className="h-3 w-3 mr-1" />
+                          Sign Up
+                        </Button>
+                      </Link>
+                    )}
                   </div>
+                  <Link href={`/tournaments/${tournament.id}`} className="block">
+                    <CardTitle className="text-xl hover:underline break-words leading-snug">
+                      {search ? highlightText(cleanText(tournament.name), search) : cleanText(tournament.name)}
+                    </CardTitle>
+                  </Link>
                   {tournament.rejectionReason && (
                     <div className="p-3 mb-2 border border-red-500/50 bg-red-500/10 rounded-lg">
                       <div className="flex items-start gap-2">
