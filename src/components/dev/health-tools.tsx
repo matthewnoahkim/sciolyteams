@@ -1537,7 +1537,7 @@ export function HealthTools() {
           <DialogHeader>
             <DialogTitle>Reject Tournament</DialogTitle>
             <DialogDescription>
-              Are you sure you want to reject "{tournamentToReject?.name}"? 
+              Are you sure you want to reject &quot;{tournamentToReject?.name}&quot;? 
               You can optionally provide a reason for the rejection that will be shown to the tournament creator.
             </DialogDescription>
           </DialogHeader>

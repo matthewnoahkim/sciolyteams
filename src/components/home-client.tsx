@@ -196,47 +196,35 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
   }, [memberships, user.id])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
-      {/* Animated background elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-40 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-40 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-indigo-400/20 to-blue-400/20 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-3xl opacity-40 animate-blob animation-delay-4000"></div>
-        
-        {/* Grid pattern overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)]"></div>
-      </div>
-
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
       <AppHeader user={user} />
 
-      <main className="relative z-10 container mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12">
-        <div className="mb-8 sm:mb-10 md:mb-12">
-          <div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white leading-tight">
-              Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-600">Clubs</span>
-            </h1>
-            <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 leading-relaxed mt-2">
-              Manage your teams, events, and schedules
-            </p>
-          </div>
+      <main className="container mx-auto px-4 py-8 md:py-12">
+        <div className="mb-8 md:mb-12">
+          <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-bold text-foreground leading-tight">
+            Your <span className="text-teamy-primary dark:text-teamy-accent">Clubs</span>
+          </h1>
+          <p className="text-base sm:text-lg text-muted-foreground mt-2">
+            Manage your teams, events, and schedules
+          </p>
         </div>
 
         {memberships.length === 0 ? (
-          <Card className="border-dashed border-2 border-gray-200/50 dark:border-gray-800/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-            <CardHeader className="text-center py-8 sm:py-10 md:py-12 px-4">
-              <div className="inline-flex p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 mx-auto mb-3 sm:mb-4 shadow-lg">
-                <Users className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 text-white" />
+          <Card className="border-dashed border-2">
+            <CardHeader className="text-center py-10 md:py-12 px-4">
+              <div className="inline-flex p-4 rounded-2xl bg-teamy-primary/10 dark:bg-teamy-accent/10 mx-auto mb-4">
+                <Users className="h-10 w-10 md:h-12 md:w-12 text-teamy-primary dark:text-teamy-accent" />
               </div>
-              <CardTitle className="text-2xl sm:text-3xl md:text-4xl mb-2 sm:mb-3 text-gray-900 dark:text-white">No Clubs Yet</CardTitle>
-              <CardDescription className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-300 px-2">
+              <CardTitle className="text-2xl sm:text-3xl mb-3">No Clubs Yet</CardTitle>
+              <CardDescription className="text-base md:text-lg">
                 Create your first club or join an existing one to get started
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 pb-8 sm:pb-10 md:pb-12 px-4">
+            <CardContent className="flex flex-col sm:flex-row justify-center gap-4 pb-10 md:pb-12 px-4">
               <Button 
                 onClick={() => setJoinOpen(true)} 
                 size="lg" 
-                className="text-sm sm:text-base px-6 sm:px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto"
+                className="w-full sm:w-auto"
               >
                 Join Club
               </Button>
@@ -244,9 +232,9 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
                 variant="outline" 
                 onClick={() => setCreateOpen(true)} 
                 size="lg" 
-                className="text-sm sm:text-base px-6 sm:px-8 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 w-full sm:w-auto"
+                className="w-full sm:w-auto"
               >
-                <Plus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                <Plus className="mr-2 h-5 w-5" />
                 Create Club
               </Button>
             </CardContent>
@@ -257,7 +245,7 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
               <Button 
                 onClick={() => setJoinOpen(true)} 
                 size="lg" 
-                className="text-sm sm:text-base px-6 sm:px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 w-full sm:w-auto"
+                className="w-full sm:w-auto"
               >
                 Join Club
               </Button>
@@ -265,65 +253,62 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
                 variant="outline" 
                 onClick={() => setCreateOpen(true)} 
                 size="lg" 
-                className="text-sm sm:text-base px-6 sm:px-8 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 w-full sm:w-auto"
+                className="w-full sm:w-auto"
               >
-                <Plus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                <Plus className="mr-2 h-5 w-5" />
                 Create Club
               </Button>
             </div>
 
-            <div className="grid gap-4 sm:gap-5 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {memberships.map((membership) => (
                 <Card
                   key={membership.id}
-                  className="cursor-pointer group relative overflow-hidden bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-800/50 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
+                  className="cursor-pointer group relative overflow-hidden hover:shadow-card-hover hover:border-teamy-primary/30 dark:hover:border-teamy-accent/30 transition-all duration-300 hover:-translate-y-1"
                   onClick={() => {
                     clearClubNotification(membership.club.id)
                     router.push(`/club/${membership.club.id}`)
                   }}
                 >
-                  {/* Gradient overlay on hover */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  
                   {clubNotifications[membership.club.id] && (
                     <div className="absolute right-4 top-4 z-10">
                       <span className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teamy-accent opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-teamy-accent"></span>
                       </span>
                     </div>
                   )}
                   
-                  <CardHeader className="relative pb-3 sm:pb-4">
+                  <CardHeader className="pb-3 sm:pb-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg sm:text-xl md:text-2xl mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-gray-900 dark:text-white break-words">
+                        <CardTitle className="text-lg sm:text-xl mb-2 group-hover:text-teamy-primary dark:group-hover:text-teamy-accent transition-colors break-words">
                           {membership.club.name}
                         </CardTitle>
-                        <CardDescription className="text-sm sm:text-base flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-semibold">
+                        <CardDescription className="flex items-center gap-2">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-teamy-primary/10 dark:bg-teamy-accent/10 text-teamy-primary dark:text-teamy-accent text-xs sm:text-sm font-semibold">
                             Division {membership.club.division}
                           </span>
                         </CardDescription>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="relative space-y-2.5 sm:space-y-3 pt-0">
+                  <CardContent className="space-y-3 pt-0">
                     {membership.team && (
-                      <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
-                        <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                        <span className="break-words">Team: <span className="font-semibold text-gray-900 dark:text-white">{membership.team.name}</span></span>
+                      <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2">
+                        <Users className="h-4 w-4 flex-shrink-0" />
+                        <span>Team: <span className="font-semibold text-foreground">{membership.team.name}</span></span>
                       </div>
                     )}
                     {membership.rosterAssignments && membership.rosterAssignments.length > 0 && (
-                      <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                        <p className="font-medium mb-1.5 sm:mb-2 text-gray-900 dark:text-white">{membership.rosterAssignments.length} Event{membership.rosterAssignments.length !== 1 ? 's' : ''}:</p>
-                        <div className="flex flex-wrap gap-1 sm:gap-1.5">
+                      <div className="text-xs sm:text-sm text-muted-foreground">
+                        <p className="font-medium mb-2 text-foreground">{membership.rosterAssignments.length} Event{membership.rosterAssignments.length !== 1 ? 's' : ''}:</p>
+                        <div className="flex flex-wrap gap-1.5">
                           {membership.rosterAssignments.map((assignment: any) => (
                             <Badge 
                               key={assignment.id} 
                               variant="secondary" 
-                              className="text-[9px] sm:text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-1.5 py-0.5"
+                              className="text-[10px] sm:text-xs"
                             >
                               {assignment.event.name}
                             </Badge>
@@ -333,17 +318,17 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
                     )}
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
                       {membership.role === 'ADMIN' && (
-                        <Badge variant="outline" className="text-[10px] sm:text-xs uppercase font-semibold border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300 px-2 py-0.5">
+                        <Badge variant="outline" className="text-[10px] sm:text-xs uppercase font-semibold border-teamy-primary/30 bg-teamy-primary/10 text-teamy-primary dark:text-teamy-accent">
                           Admin
                         </Badge>
                       )}
                       {Array.isArray(membership.roles) && membership.roles.includes('COACH') && (
-                        <Badge variant="outline" className="text-[10px] sm:text-xs uppercase font-semibold border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 px-2 py-0.5">
+                        <Badge variant="outline" className="text-[10px] sm:text-xs uppercase font-semibold">
                           Coach
                         </Badge>
                       )}
                       {Array.isArray(membership.roles) && membership.roles.includes('CAPTAIN') && (
-                        <Badge variant="outline" className="text-[10px] sm:text-xs uppercase font-semibold border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 px-2 py-0.5">
+                        <Badge variant="outline" className="text-[10px] sm:text-xs uppercase font-semibold">
                           Captain
                         </Badge>
                       )}

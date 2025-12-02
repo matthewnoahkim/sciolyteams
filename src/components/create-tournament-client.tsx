@@ -173,7 +173,7 @@ export function CreateTournamentClient({ user }: CreateTournamentClientProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
       <AppHeader user={user} />
       <div className="container mx-auto px-4 py-8 max-w-3xl">
         <Link href="/tournaments">

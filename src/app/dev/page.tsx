@@ -101,7 +101,7 @@ export default function DevPage() {
   // Loading state
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-background grid-pattern">
         <div className="space-y-4 w-full max-w-md">
           <Skeleton className="h-8 w-32 mx-auto" />
           <Skeleton className="h-4 w-48 mx-auto" />
@@ -113,12 +113,12 @@ export default function DevPage() {
   // Login screen
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
-        {/* Header */}
-        <header className="fixed top-0 left-0 right-0 z-50 border-b bg-background/80 backdrop-blur-xl">
+      <div className="min-h-screen bg-background text-foreground grid-pattern">
+        {/* Header - Blue */}
+        <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-teamy-primary shadow-nav">
           <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-            <Logo size="md" href="/" />
-            <ThemeToggle />
+            <Logo size="md" href="/" variant="light" />
+            <ThemeToggle variant="header" />
           </div>
         </header>
 
@@ -181,22 +181,22 @@ export default function DevPage() {
 
   // Main dev panel with sidebar (club page style)
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b bg-background/80 backdrop-blur-xl">
+    <div className="min-h-screen bg-background text-foreground grid-pattern">
+      {/* Header - Blue */}
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-teamy-primary shadow-nav">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <Logo size="md" href="/" />
-            <span className="text-lg font-semibold">Dev Panel</span>
+            <Logo size="md" href="/" variant="light" />
+            <span className="text-lg font-semibold text-white">Dev Panel</span>
           </div>
           <div className="flex items-center gap-4">
-            <ThemeToggle />
+            <ThemeToggle variant="header" />
             <button
               onClick={() => {
                 setIsAuthenticated(false)
                 sessionStorage.removeItem('dev_auth')
               }}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-2 text-sm text-white/80 hover:text-white transition-colors"
             >
               <LogOut className="h-4 w-4" />
               Sign Out
@@ -207,7 +207,7 @@ export default function DevPage() {
 
       <div className="flex pt-[65px]">
         {/* Sidebar */}
-        <aside className="fixed left-0 top-[65px] bottom-0 w-52 border-r bg-background p-4">
+        <aside className="fixed left-0 top-[65px] bottom-0 w-52 border-r bg-card p-4">
           <nav className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon

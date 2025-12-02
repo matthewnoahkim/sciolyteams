@@ -18,7 +18,24 @@ const config = {
       },
     },
     extend: {
+      // Teamy Brand Colors - Balanced Palette
       colors: {
+        // Brand colors
+        teamy: {
+          primary: '#0056C7',
+          'primary-dark': '#003A8C',
+          'primary-soft': '#1A6FEA',
+          'primary-light': '#3B82F6',
+          accent: '#6FD6FF',
+          'accent-dark': '#0EA5E9',
+        },
+        // Sidebar
+        sidebar: {
+          DEFAULT: '#0C1222',
+          hover: '#1A2440',
+          active: '#1E2A4A',
+        },
+        // Semantic colors via CSS variables
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -52,25 +69,32 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Modern blue-gray palette
-        slate: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
-          500: '#64748b',
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a',
-        },
       },
+      // Font families
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        heading: ['Nunito', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        logo: ['Quicksand', 'Nunito', 'system-ui', '-apple-system', 'sans-serif'],
+      },
+      // Border radius
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        'xl': '1rem',
+        '2xl': '1.25rem',
+        '3xl': '1.5rem',
       },
+      // Box shadows
+      boxShadow: {
+        'teamy-glow': '0 0 20px rgba(111, 214, 255, 0.4)',
+        'teamy-glow-sm': '0 0 12px rgba(111, 214, 255, 0.3)',
+        'teamy-glow-lg': '0 0 30px rgba(111, 214, 255, 0.5)',
+        'card': '0 10px 30px rgba(0, 0, 0, 0.08)',
+        'card-hover': '0 20px 40px rgba(0, 0, 0, 0.12)',
+        'nav': '0 4px 20px rgba(0, 0, 0, 0.1)',
+      },
+      // Keyframes
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -91,4 +115,3 @@ const config = {
 } satisfies Config
 
 export default config
-

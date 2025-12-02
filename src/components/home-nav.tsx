@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
 
 interface NavItem {
   label: string
@@ -16,18 +17,29 @@ const navItems: NavItem[] = [
   { label: 'Contact', href: '/contact' }
 ]
 
-export function HomeNav() {
+interface HomeNavProps {
+  variant?: 'default' | 'hero'
+}
+
+export function HomeNav({ variant = 'default' }: HomeNavProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const isHero = variant === 'hero'
 
   return (
     <>
       {/* Desktop Navigation */}
-      <nav className="hidden md:flex items-center gap-6">
+      <nav className="hidden md:flex items-center gap-8">
         {navItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="text-sm font-medium text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white transition-colors"
+            className={cn(
+              "text-sm font-semibold transition-colors",
+              isHero 
+                ? "text-white/80 hover:text-white" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
             {item.label}
           </Link>
@@ -38,7 +50,12 @@ export function HomeNav() {
       <div className="md:hidden">
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white transition-colors"
+          className={cn(
+            "p-2 transition-colors",
+            isHero 
+              ? "text-white/80 hover:text-white" 
+              : "text-muted-foreground hover:text-foreground"
+          )}
           aria-label="Toggle menu"
         >
           {mobileMenuOpen ? (
@@ -49,14 +66,24 @@ export function HomeNav() {
         </button>
         
         {mobileMenuOpen && (
-          <div className="absolute top-full left-0 right-0 bg-white/95 dark:bg-[#0a0a0f]/95 border-b border-gray-200/50 dark:border-white/5 backdrop-blur-xl">
+          <div className={cn(
+            "absolute top-full left-0 right-0 border-b backdrop-blur-xl",
+            isHero 
+              ? "bg-[#003A8C]/95 border-white/10" 
+              : "bg-background/95 border-border"
+          )}>
             <nav className="container mx-auto px-6 py-4 flex flex-col gap-4">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-sm font-medium text-gray-600 dark:text-white/60 hover:text-gray-900 dark:hover:text-white transition-colors py-2"
+                  className={cn(
+                    "text-sm font-semibold py-2 transition-colors",
+                    isHero 
+                      ? "text-white/80 hover:text-white" 
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
                 >
                   {item.label}
                 </Link>

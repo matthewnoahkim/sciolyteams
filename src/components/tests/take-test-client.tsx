@@ -651,7 +651,7 @@ export function TakeTestClient({
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900 grid-pattern">
       {/* Sticky header with test info and timer */}
       <div className="sticky top-0 z-40 bg-background border-b backdrop-blur-sm bg-background/95">
         <div className="container mx-auto max-w-6xl px-4 py-3">

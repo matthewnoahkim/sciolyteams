@@ -188,6 +188,7 @@ export function ViewResultsClient({
   const scoreBreakdown = calculateScoreBreakdown()
 
   return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
     <div className="container mx-auto max-w-4xl py-8 px-4">
       <div className="mb-6">
         <Button
@@ -503,6 +504,7 @@ export function ViewResultsClient({
           </CardContent>
         </Card>
       )}
+    </div>
     </div>
   )
 }

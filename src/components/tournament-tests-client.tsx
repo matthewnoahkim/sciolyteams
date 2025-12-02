@@ -440,7 +440,7 @@ export function TournamentTestsClient({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
         <AppHeader user={user} />
         <PageLoading title="Loading tournament tests" description="Fetching test information..." />
       </div>
@@ -450,7 +450,7 @@ export function TournamentTestsClient({
   const allTests = [...drafts, ...scheduled, ...opened, ...completed]
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
       <AppHeader user={user} />
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex items-center justify-between mb-6">

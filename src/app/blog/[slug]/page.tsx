@@ -30,26 +30,16 @@ export default async function BlogPostPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-[#0a0a0f] text-gray-900 dark:text-white transition-colors">
-      {/* Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        {/* Gradient orbs - subtle in light mode */}
-        <div className="absolute top-1/4 left-1/3 w-[600px] h-[600px] bg-gradient-to-r from-amber-500/10 dark:from-amber-600/20 to-orange-500/10 dark:to-orange-600/20 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[120px] animate-blob opacity-60 dark:opacity-100" />
-        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-gradient-to-r from-violet-500/10 dark:from-violet-500/15 to-fuchsia-500/10 dark:to-fuchsia-600/15 rounded-full mix-blend-normal dark:mix-blend-screen filter blur-[100px] animate-blob animation-delay-2000 opacity-60 dark:opacity-100" />
-        
-        {/* Grid overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px]" />
-      </div>
-
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-gray-200 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-xl">
+    <div className="min-h-screen flex flex-col bg-background text-foreground grid-pattern">
+      {/* Header - Blue */}
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary shadow-nav">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <Logo size="md" href="/" />
+          <Logo size="md" href="/" variant="light" />
           <div className="flex items-center gap-6">
-            <HomeNav />
-            <SignInThemeToggle />
+            <HomeNav variant="hero" />
+            <SignInThemeToggle variant="header" />
             <Link href="/login">
-              <button className="px-5 py-2.5 text-sm font-semibold bg-gray-900 dark:bg-white text-white dark:text-black rounded-full hover:bg-gray-800 dark:hover:bg-white/90 transition-all duration-300 hover:scale-105">
+              <button className="px-5 py-2.5 text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors">
                 Sign In
               </button>
             </Link>
@@ -58,17 +48,17 @@ export default async function BlogPostPage({ params }: Props) {
       </header>
 
       {/* Content */}
-      <main className="relative z-10 flex-1 pt-32 pb-20 px-6">
+      <main className="flex-1 py-16 px-6">
         <div className="max-w-3xl mx-auto">
           {/* Back link */}
-          <Link href="/blog" className="inline-flex items-center gap-2 text-gray-500 dark:text-white/50 hover:text-gray-900 dark:hover:text-white transition-colors mb-8">
+          <Link href="/blog" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8">
             <ArrowLeft className="h-4 w-4" />
-            <span className="text-sm">Back to blog</span>
+            <span className="text-sm font-medium">Back to blog</span>
           </Link>
 
           {/* Cover Image */}
           {post.coverImage && (
-            <div className="mb-8 rounded-2xl overflow-hidden shadow-lg dark:shadow-none">
+            <div className="mb-8 rounded-2xl overflow-hidden shadow-card">
               <img
                 src={post.coverImage}
                 alt={post.title}
@@ -79,12 +69,10 @@ export default async function BlogPostPage({ params }: Props) {
 
           {/* Header */}
           <header className="mb-12">
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-6">
-              <span className="bg-gradient-to-b from-gray-900 to-gray-600 dark:from-white dark:to-white/60 bg-clip-text text-transparent">
-                {post.title}
-              </span>
+            <h1 className="font-heading text-3xl md:text-4xl font-bold text-foreground mb-6">
+              {post.title}
             </h1>
-            <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-white/50">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <User className="h-4 w-4" />
                 {post.authorName}
@@ -97,21 +85,21 @@ export default async function BlogPostPage({ params }: Props) {
           </header>
 
           {/* Content */}
-          <article className="prose prose-gray dark:prose-invert prose-lg max-w-none">
+          <article className="prose prose-slate dark:prose-invert prose-lg max-w-none prose-headings:font-heading prose-a:text-teamy-primary">
             <MarkdownRenderer content={post.content} />
           </article>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-gray-200 dark:border-white/5 bg-white/80 dark:bg-[#0a0a0f]/80 backdrop-blur-sm">
+      <footer className="border-t border-border bg-card">
         <div className="container mx-auto px-6 py-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-white/40">
-              <Link href="/terms" className="hover:text-gray-900 dark:hover:text-white transition-colors">Terms</Link>
-              <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-white transition-colors">Privacy</Link>
+            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+              <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             </div>
-            <p className="text-sm text-gray-400 dark:text-white/30">© {new Date().getFullYear()} Teamy. All rights reserved.</p>
+            <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Teamy. All rights reserved.</p>
           </div>
         </div>
       </footer>

@@ -12,6 +12,7 @@ interface LogoProps {
   showText?: boolean
   size?: 'sm' | 'md' | 'lg'
   href?: string
+  variant?: 'default' | 'light'
 }
 
 const sizeMap = {
@@ -35,15 +36,31 @@ export function Logo({
   textClassName,
   showText = true,
   size = 'md',
-  href
+  href,
+  variant = 'default'
 }: LogoProps) {
   const sizes = sizeMap[size]
   const [imageError, setImageError] = useState(false)
   
+  // Light variant = white text with cyan glow (for blue headers)
+  // Default variant = teamy-primary blue text
+  const textStyle = variant === 'light' 
+    ? {
+        color: 'white',
+        textShadow: '0 0 10px rgba(111, 214, 255, 0.8), 0 0 20px rgba(111, 214, 255, 0.5), 2px 2px 0 rgba(0, 86, 199, 0.3)'
+      }
+    : {
+        color: '#0056C7'
+      }
+  
   const content = (
-    <div className={cn('flex items-center gap-3 flex-shrink-0', href && 'cursor-pointer hover:opacity-80 transition-opacity', className)}>
+    <div className={cn(
+      'flex items-center gap-3 flex-shrink-0', 
+      href && 'cursor-pointer hover:opacity-90 transition-opacity', 
+      className
+    )}>
       <div className={cn(
-        'flex items-center justify-center rounded-xl overflow-hidden shadow-lg',
+        'flex items-center justify-center rounded-xl overflow-hidden',
         sizes.container,
         iconClassName
       )}>
@@ -59,13 +76,20 @@ export function Logo({
             onError={() => setImageError(true)}
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
+          <div className="w-full h-full bg-teamy-primary flex items-center justify-center text-white font-bold text-xs rounded-xl">
             T
           </div>
         )}
       </div>
       {showText && (
-        <span className={cn('font-bold text-gray-900 dark:text-white whitespace-nowrap overflow-visible', sizes.text, textClassName)}>
+        <span 
+          className={cn(
+            'font-logo font-bold whitespace-nowrap overflow-visible', 
+            sizes.text, 
+            textClassName
+          )}
+          style={textStyle}
+        >
           Teamy
         </span>
       )}
@@ -78,4 +102,3 @@ export function Logo({
 
   return content
 }
-

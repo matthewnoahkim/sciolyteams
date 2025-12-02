@@ -59,13 +59,13 @@ export function ContactForm() {
         <div>
           <label
             htmlFor="name"
-            className="block text-sm font-medium text-gray-700 dark:text-white/70 mb-2"
+            className="block text-sm font-medium text-foreground mb-2"
           >
             Name
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <User className="h-5 w-5 text-gray-400 dark:text-white/30" />
+              <User className="h-5 w-5 text-muted-foreground" />
             </div>
             <input
               type="text"
@@ -74,7 +74,7 @@ export function ContactForm() {
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="block w-full pl-12 pr-4 py-3 bg-white dark:bg-white/[0.05] border border-gray-300 dark:border-white/[0.1] rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-transparent transition-colors"
+              className="block w-full pl-12 pr-4 py-3 bg-background border border-input rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
               placeholder="Your name"
             />
           </div>
@@ -84,13 +84,13 @@ export function ContactForm() {
         <div>
           <label
             htmlFor="email"
-            className="block text-sm font-medium text-gray-700 dark:text-white/70 mb-2"
+            className="block text-sm font-medium text-foreground mb-2"
           >
             Email
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Mail className="h-5 w-5 text-gray-400 dark:text-white/30" />
+              <Mail className="h-5 w-5 text-muted-foreground" />
             </div>
             <input
               type="email"
@@ -99,7 +99,7 @@ export function ContactForm() {
               required
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="block w-full pl-12 pr-4 py-3 bg-white dark:bg-white/[0.05] border border-gray-300 dark:border-white/[0.1] rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-transparent transition-colors"
+              className="block w-full pl-12 pr-4 py-3 bg-background border border-input rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
               placeholder="your.email@example.com"
             />
           </div>
@@ -110,13 +110,13 @@ export function ContactForm() {
       <div>
         <label
           htmlFor="subject"
-          className="block text-sm font-medium text-gray-700 dark:text-white/70 mb-2"
+          className="block text-sm font-medium text-foreground mb-2"
         >
           Subject
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <FileText className="h-5 w-5 text-gray-400 dark:text-white/30" />
+            <FileText className="h-5 w-5 text-muted-foreground" />
           </div>
           <input
             type="text"
@@ -125,7 +125,7 @@ export function ContactForm() {
             required
             value={formData.subject}
             onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-            className="block w-full pl-12 pr-4 py-3 bg-white dark:bg-white/[0.05] border border-gray-300 dark:border-white/[0.1] rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-transparent transition-colors"
+            className="block w-full pl-12 pr-4 py-3 bg-background border border-input rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors"
             placeholder="What is this about?"
           />
         </div>
@@ -135,13 +135,13 @@ export function ContactForm() {
       <div>
         <label
           htmlFor="message"
-          className="block text-sm font-medium text-gray-700 dark:text-white/70 mb-2"
+          className="block text-sm font-medium text-foreground mb-2"
         >
           Message
         </label>
         <div className="relative">
           <div className="absolute top-3 left-0 pl-4 flex items-start pointer-events-none">
-            <MessageSquare className="h-5 w-5 text-gray-400 dark:text-white/30" />
+            <MessageSquare className="h-5 w-5 text-muted-foreground" />
           </div>
           <textarea
             id="message"
@@ -150,7 +150,7 @@ export function ContactForm() {
             rows={6}
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-            className="block w-full pl-12 pr-4 py-3 bg-white dark:bg-white/[0.05] border border-gray-300 dark:border-white/[0.1] rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-transparent transition-colors resize-none"
+            className="block w-full pl-12 pr-4 py-3 bg-background border border-input rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-colors resize-none"
             placeholder="Tell us more about your inquiry..."
           />
         </div>
@@ -160,7 +160,7 @@ export function ContactForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-semibold hover:shadow-lg hover:shadow-violet-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2"
+        className="w-full px-6 py-3 rounded-xl bg-teamy-primary text-white font-semibold hover:bg-teamy-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2"
       >
         {isSubmitting ? (
           <>
@@ -177,11 +177,11 @@ export function ContactForm() {
         <div
           className={`p-4 rounded-xl ${
             submitStatus.type === 'success'
-              ? 'bg-emerald-500/20 dark:bg-emerald-500/20 border border-emerald-500/30 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
-              : 'bg-rose-500/20 dark:bg-rose-500/20 border border-rose-500/30 dark:border-rose-500/30 text-rose-700 dark:text-rose-300'
+              ? 'bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-300'
+              : 'bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-300'
           }`}
         >
-          <p className="text-sm">{submitStatus.message}</p>
+          <p className="text-sm font-medium">{submitStatus.message}</p>
         </div>
       )}
     </form>
