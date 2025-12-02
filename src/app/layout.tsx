@@ -13,8 +13,8 @@ export const metadata: Metadata = {
   title: 'Teamy',
   description: 'Team management platform',
   icons: {
-    icon: '/favicon.svg',
-    apple: '/favicon.svg',
+    icon: '/logo.png',
+    apple: '/logo.png',
   },
 }
 

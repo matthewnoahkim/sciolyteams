@@ -7,7 +7,7 @@ import { updateFaviconBadgeWithImage, updateFaviconBadge } from '@/lib/favicon-b
  * Hook to update the favicon badge based on unread count
  * 
  * @param count - Number of unread items (0 to hide badge)
- * @param faviconUrl - Optional custom favicon URL (defaults to /favicon.svg)
+ * @param faviconUrl - Optional custom favicon URL (defaults to /logo.png)
  */
 export function useFaviconBadge(count: number, faviconUrl?: string) {
   useEffect(() => {

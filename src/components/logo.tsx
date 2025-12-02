@@ -1,8 +1,9 @@
 'use client'
 
-import { Users } from 'lucide-react'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import { useState } from 'react'
 
 interface LogoProps {
   className?: string
@@ -15,17 +16,14 @@ interface LogoProps {
 
 const sizeMap = {
   sm: {
-    icon: 'h-5 w-5',
     container: 'h-8 w-8',
     text: 'text-lg',
   },
   md: {
-    icon: 'h-6 w-6',
     container: 'h-10 w-10',
     text: 'text-xl',
   },
   lg: {
-    icon: 'h-8 w-8',
     container: 'h-14 w-14',
     text: 'text-3xl',
   },
@@ -40,18 +38,34 @@ export function Logo({
   href
 }: LogoProps) {
   const sizes = sizeMap[size]
+  const [imageError, setImageError] = useState(false)
   
   const content = (
-    <div className={cn('flex items-center gap-3', href && 'cursor-pointer hover:opacity-80 transition-opacity', className)}>
+    <div className={cn('flex items-center gap-3 flex-shrink-0', href && 'cursor-pointer hover:opacity-80 transition-opacity', className)}>
       <div className={cn(
-        'flex items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg',
+        'flex items-center justify-center rounded-xl overflow-hidden shadow-lg',
         sizes.container,
         iconClassName
       )}>
-        <Users className={cn(sizes.icon)} />
+        {!imageError ? (
+          <Image
+            src="/logo.png"
+            alt="Teamy Logo"
+            width={64}
+            height={64}
+            className="w-full h-full object-contain"
+            priority
+            unoptimized
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
+            T
+          </div>
+        )}
       </div>
       {showText && (
-        <span className={cn('font-bold text-gray-900 dark:text-white', sizes.text, textClassName)}>
+        <span className={cn('font-bold text-gray-900 dark:text-white whitespace-nowrap overflow-visible', sizes.text, textClassName)}>
           Teamy
         </span>
       )}

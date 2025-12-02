@@ -207,6 +207,11 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
     return true
   })
 
+  // Helper to clean text by removing newlines and extra whitespace
+  const cleanText = (s: string | null | undefined): string => {
+    return (s ?? "").replace(/\s*\n\s*/g, " ").trim()
+  }
+
   // Helper function to highlight search terms in text (exact copy from dev panel)
   const highlightText = (text: string | null | undefined, searchQuery: string): string | (string | JSX.Element)[] => {
     if (!text || !searchQuery) return text || ''
@@ -440,8 +445,8 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                 <CardHeader>
                   <div className="flex items-start justify-between mb-2 gap-2">
                     <Link href={`/tournaments/${tournament.id}`} className="flex-1 min-w-0">
-                      <CardTitle className="text-xl hover:underline break-words">
-                        {search ? highlightText(tournament.name, search) : tournament.name}
+                      <CardTitle className="text-xl hover:underline whitespace-normal [hyphens:auto] leading-snug">
+                        {search ? highlightText(cleanText(tournament.name), search) : cleanText(tournament.name)}
                       </CardTitle>
                     </Link>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -489,8 +494,8 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                       <div className="flex items-start gap-2">
                         <div className="flex-1">
                           <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-1">Rejection Reason:</p>
-                          <p className="text-xs text-red-700 dark:text-red-300 whitespace-pre-wrap break-words">
-                            {search ? highlightText(tournament.rejectionReason, search) : tournament.rejectionReason}
+                          <p className="text-xs text-red-700 dark:text-red-300 whitespace-normal [hyphens:auto] leading-snug">
+                            {search ? highlightText(cleanText(tournament.rejectionReason), search) : cleanText(tournament.rejectionReason)}
                           </p>
                         </div>
                       </div>
@@ -498,8 +503,8 @@ export function TournamentsClient({ user }: TournamentsClientProps) {
                   )}
                   {tournament.description && (
                     <Link href={`/tournaments/${tournament.id}`}>
-                      <CardDescription className="line-clamp-2 overflow-hidden text-ellipsis">
-                        {search ? highlightText(tournament.description, search) : tournament.description}
+                      <CardDescription className="line-clamp-2 overflow-hidden text-ellipsis whitespace-normal [hyphens:auto] leading-snug">
+                        {search ? highlightText(cleanText(tournament.description), search) : cleanText(tournament.description)}
                       </CardDescription>
                     </Link>
                   )}

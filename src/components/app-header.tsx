@@ -46,18 +46,18 @@ export function AppHeader({ user, showBackButton = false, backHref, title }: App
     <>
       <header className="sticky top-0 z-50 border-b border-gray-200/50 dark:border-gray-800/50 bg-white/70 dark:bg-gray-950/70 backdrop-blur-xl shadow-sm">
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0">
             {showBackButton && backHref && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => router.push(backHref)}
-                className="hover:bg-gray-100 dark:hover:bg-gray-800 h-8 w-8 sm:h-9 sm:w-9"
+                className="hover:bg-gray-100 dark:hover:bg-gray-800 h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0"
               >
                 <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             )}
-            <Logo size="md" />
+            <Logo size="md" className="flex-shrink-0" />
             {title && (
               <h1 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 dark:text-white hidden md:block truncate">
                 {title}
@@ -88,7 +88,7 @@ export function AppHeader({ user, showBackButton = false, backHref, title }: App
                 onClick={() => setEditUsernameOpen(true)}
               >
                 <AvatarImage src={user.image || ''} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-purple-600 text-white text-sm">
+                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-cyan-600 text-white text-sm">
                   {currentUserName?.charAt(0) || user.email.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>

@@ -61,7 +61,7 @@ export function RecentAnnouncementsWidget({
                 <div className="flex items-start gap-3">
                   <Avatar className="h-9 w-9 ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-blue-300 dark:group-hover:ring-blue-700 transition-all">
                     <AvatarImage src={announcement.author?.user?.image || ''} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs font-semibold">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-600 to-cyan-600 text-white text-xs font-semibold">
                       {announcement.author?.user?.name?.[0]?.toUpperCase() || '?'}
                     </AvatarFallback>
                   </Avatar>

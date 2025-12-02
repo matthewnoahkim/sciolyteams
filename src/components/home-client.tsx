@@ -213,7 +213,7 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
         <div className="mb-8 sm:mb-10 md:mb-12">
           <div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white leading-tight">
-              Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Clubs</span>
+              Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-600">Clubs</span>
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 leading-relaxed mt-2">
               Manage your teams, events, and schedules
