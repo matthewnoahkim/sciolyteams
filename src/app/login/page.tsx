@@ -2,7 +2,6 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { SignInButton } from '@/components/signin-button'
-import { SignInThemeToggle } from '@/components/signin-theme-toggle'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
@@ -50,7 +49,6 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo size="md" href="/" variant="auto" />
-          <SignInThemeToggle variant="header" />
         </div>
       </header>
 

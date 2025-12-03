@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Logo } from '@/components/logo'
 import { HomeNav } from '@/components/home-nav'
-import { SignInThemeToggle } from '@/components/signin-theme-toggle'
 import { useToast } from '@/components/ui/use-toast'
 import Link from 'next/link'
 import {
@@ -119,9 +118,6 @@ export function PublicTournamentsPage() {
           <Logo size="md" href="/" variant="auto" />
           <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
             <HomeNav variant="default" />
-            <div className="hidden sm:block">
-              <SignInThemeToggle variant="header" />
-            </div>
             <Link href="/login">
               <button className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold bg-teamy-primary text-white rounded-full hover:bg-teamy-primary-dark transition-colors whitespace-nowrap shadow-sm">
                 Sign In

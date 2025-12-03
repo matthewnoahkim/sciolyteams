@@ -2,16 +2,14 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/logo'
-import { SignInThemeToggle } from '@/components/signin-theme-toggle'
 
 export default function TermsOfServicePage() {
   return (
     <div className="min-h-screen bg-background grid-pattern">
       {/* Header - Theme Aware */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4">
           <Logo size="md" href="/" variant="auto" />
-          <SignInThemeToggle variant="header" />
         </div>
       </header>
 

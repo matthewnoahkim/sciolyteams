@@ -4,7 +4,6 @@ import { signIn, signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Logo } from '@/components/logo'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { Trophy, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
@@ -26,13 +25,12 @@ export function TDLoginClient({ unauthorized, email }: TDLoginClientProps) {
     <div className="min-h-screen bg-background text-foreground grid-pattern">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-3">
             <Logo size="md" href="/" variant="auto" />
             <div className="h-6 w-px bg-border" />
             <span className="text-foreground font-semibold">Tournament Director Portal</span>
           </div>
-          <ThemeToggle variant="header" />
         </div>
       </header>
 

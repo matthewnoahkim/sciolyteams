@@ -2,7 +2,6 @@ import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { SignInThemeToggle } from '@/components/signin-theme-toggle'
 import { ArrowLeft, Calendar, User, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
@@ -29,7 +28,6 @@ export default async function BlogPage() {
           <Logo size="md" href="/" variant="auto" />
           <div className="flex items-center gap-6">
             <HomeNav variant="default" />
-            <SignInThemeToggle variant="header" />
             <Link href="/login">
               <button className="px-5 py-2.5 text-sm font-semibold bg-teamy-primary text-white rounded-full hover:bg-teamy-primary-dark transition-colors shadow-sm">
                 Sign In
