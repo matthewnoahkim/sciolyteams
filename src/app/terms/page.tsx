@@ -57,32 +57,63 @@ export default function TermsOfServicePage() {
           </section>
 
           <section className="mb-8">
-            <h2 className="font-heading text-xl font-semibold mb-4">4. Acceptable Use</h2>
-            <p>You agree not to:</p>
+            <h2 className="font-heading text-xl font-semibold mb-4">4. User Content</h2>
+            <p>
+              Users may upload and share content through the Service, including text, images, documents, and other materials (&quot;User Content&quot;). You are solely responsible for all User Content you upload, post, or share.
+            </p>
+
+            <h3 className="text-lg font-semibold mb-3 mt-6">Prohibited Content</h3>
+            <p>You agree not to upload, post, or share any content that:</p>
+            <ul>
+              <li>Is sexually explicit, suggestive, or pornographic</li>
+              <li>Depicts or targets minors in an inappropriate manner</li>
+              <li>Contains hate speech, harassment, or threats</li>
+              <li>Includes violence, gore, or self-harm content</li>
+              <li>Is illegal, infringing, or violates any applicable law or regulation</li>
+              <li>Contains malware, phishing attempts, stolen data, or harmful code</li>
+              <li>Violates privacy rights or shares personal information without consent</li>
+              <li>Is abusive, discriminatory, or otherwise objectionable</li>
+              <li>Violates competition rules (e.g., copyrighted tests, exams)</li>
+            </ul>
+            <p className="mt-4">
+              Uploading prohibited content may result in content removal, account suspension, or permanent ban, at our sole discretion.
+            </p>
+
+            <h3 className="text-lg font-semibold mb-3 mt-6">Monitoring and Enforcement</h3>
+            <p>
+              We do not pre-screen or approve User Content and are not liable for any User Content posted on the Service. However, we reserve the right (but are not obligated) to:
+            </p>
+            <ul>
+              <li>Review, monitor, or remove content that violates these Terms</li>
+              <li>Suspend or terminate accounts that violate these Terms</li>
+              <li>Report illegal content to the proper authorities</li>
+            </ul>
+            <p className="mt-4">
+              If you encounter inappropriate or illegal content, please report it immediately at{' '}
+              <a href="mailto:legal@teamy.io" className="text-teamy-primary dark:text-teamy-accent hover:underline font-medium">
+                legal@teamy.io
+              </a>.
+            </p>
+
+            <h3 className="text-lg font-semibold mb-3 mt-6">Liability</h3>
+            <p>
+              By using the Service, you acknowledge that we are not responsible for User Content created by others and you agree not to hold us liable for any damages arising from such content.
+            </p>
+            <p className="mt-4">
+              You understand that all User Content is the responsibility of the user who posted it.
+            </p>
+          </section>
+
+          <section className="mb-8">
+            <h2 className="font-heading text-xl font-semibold mb-4">5. Acceptable Use</h2>
+            <p>In addition to the content restrictions above, you agree not to:</p>
             <ul>
               <li>Use the Service for any illegal purpose or in violation of any laws</li>
               <li>Transmit any harmful code, viruses, or malicious software</li>
               <li>Attempt to gain unauthorized access to the Service or related systems</li>
               <li>Interfere with or disrupt the Service or servers connected to the Service</li>
               <li>Harass, abuse, or harm other users</li>
-              <li>Upload, post, or transmit any content that is unlawful, harmful, threatening, abusive, harassing, defamatory, vulgar, obscene, or otherwise objectionable</li>
             </ul>
-          </section>
-
-          <section className="mb-8">
-            <h2 className="font-heading text-xl font-semibold mb-4">5. User-Generated Content and Liability</h2>
-            <p>
-              Users may upload and share content through the Service, including but not limited to text, images, documents, and other materials. You are solely responsible for all content you upload, post, or share through the Service.
-            </p>
-            <p className="mt-4">
-              <strong>We are not liable for any user-generated content.</strong> We do not pre-screen, monitor, or approve user content, and we make no representations or warranties regarding the accuracy, completeness, or legality of any user-generated content. We expressly disclaim all liability for any inappropriate, offensive, illegal, or objectionable content uploaded by users.
-            </p>
-            <p className="mt-4">
-              However, we reserve the right to review, monitor, and remove any content that violates these Terms of Service or is otherwise inappropriate. Upon becoming aware of any inappropriate or illegal content, we will take prompt action to remove such content from our Service. If you encounter inappropriate content, please report it to us immediately at legal@teamy.io.
-            </p>
-            <p className="mt-4">
-              By using the Service, you acknowledge and agree that we cannot be held responsible for content uploaded by other users, and you agree not to hold us liable for any damages arising from user-generated content.
-            </p>
           </section>
 
           <section className="mb-8">
