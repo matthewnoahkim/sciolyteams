@@ -49,9 +49,63 @@ export default function DevPage() {
   const [password, setPassword] = useState('')
   const [errorDialogOpen, setErrorDialogOpen] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
+  const [failedAttempts, setFailedAttempts] = useState(0)
+  const [lockoutEndTime, setLockoutEndTime] = useState<number | null>(null)
+  const [remainingTime, setRemainingTime] = useState(0)
+
+  // Check for existing lockout on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedLockout = localStorage.getItem('dev_lockout_end')
+      const storedAttempts = localStorage.getItem('dev_failed_attempts')
+      
+      if (storedLockout) {
+        const lockoutEnd = parseInt(storedLockout)
+        if (lockoutEnd > Date.now()) {
+          setLockoutEndTime(lockoutEnd)
+          setFailedAttempts(parseInt(storedAttempts || '3'))
+        } else {
+          // Lockout expired, clear it
+          localStorage.removeItem('dev_lockout_end')
+          localStorage.removeItem('dev_failed_attempts')
+        }
+      } else if (storedAttempts) {
+        setFailedAttempts(parseInt(storedAttempts))
+      }
+    }
+  }, [])
+
+  // Update remaining time every second when locked out
+  useEffect(() => {
+    if (lockoutEndTime) {
+      const interval = setInterval(() => {
+        const remaining = Math.max(0, Math.ceil((lockoutEndTime - Date.now()) / 1000))
+        setRemainingTime(remaining)
+        
+        if (remaining === 0) {
+          setLockoutEndTime(null)
+          setFailedAttempts(0)
+          localStorage.removeItem('dev_lockout_end')
+          localStorage.removeItem('dev_failed_attempts')
+        }
+      }, 1000)
+      
+      // Initial update
+      const remaining = Math.max(0, Math.ceil((lockoutEndTime - Date.now()) / 1000))
+      setRemainingTime(remaining)
+      
+      return () => clearInterval(interval)
+    }
+  }, [lockoutEndTime])
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Check if locked out
+    if (lockoutEndTime && lockoutEndTime > Date.now()) {
+      return
+    }
+    
     setIsVerifying(true)
     
     try {
@@ -69,15 +123,42 @@ export default function DevPage() {
         setIsAuthenticated(true)
         sessionStorage.setItem('dev_auth', 'true')
         setPassword('')
+        // Reset failed attempts on success
+        setFailedAttempts(0)
+        localStorage.removeItem('dev_failed_attempts')
+        localStorage.removeItem('dev_lockout_end')
       } else {
         if (data.debug) {
           console.error('Password verification failed:', data.debug)
         }
+        
+        const newAttempts = failedAttempts + 1
+        setFailedAttempts(newAttempts)
+        localStorage.setItem('dev_failed_attempts', newAttempts.toString())
+        
+        // Lock out after 3 failed attempts
+        if (newAttempts >= 3) {
+          const lockoutEnd = Date.now() + 60000 // 1 minute from now
+          setLockoutEndTime(lockoutEnd)
+          localStorage.setItem('dev_lockout_end', lockoutEnd.toString())
+        }
+        
         setErrorDialogOpen(true)
         setPassword('')
       }
     } catch (error) {
       console.error('Error verifying password:', error)
+      
+      const newAttempts = failedAttempts + 1
+      setFailedAttempts(newAttempts)
+      localStorage.setItem('dev_failed_attempts', newAttempts.toString())
+      
+      if (newAttempts >= 3) {
+        const lockoutEnd = Date.now() + 60000
+        setLockoutEndTime(lockoutEnd)
+        localStorage.setItem('dev_lockout_end', lockoutEnd.toString())
+      }
+      
       setErrorDialogOpen(true)
       setPassword('')
     } finally {
@@ -135,23 +216,55 @@ export default function DevPage() {
             </div>
 
             <div className="p-8 rounded-2xl bg-card border">
-              <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                <Input
-                  type="password"
-                  placeholder="Enter password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="h-12"
-                />
-                <Button 
-                  type="submit" 
-                  className="w-full h-12"
-                  disabled={isVerifying}
-                >
-                  {isVerifying ? 'Verifying...' : 'Access Dev Panel'}
-                </Button>
-              </form>
+              {lockoutEndTime && lockoutEndTime > Date.now() ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-destructive">
+                          Too many failed attempts
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Please wait {remainingTime} second{remainingTime !== 1 ? 's' : ''} before trying again.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    type="button" 
+                    className="w-full h-12"
+                    disabled
+                  >
+                    Locked Out ({remainingTime}s)
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                  {failedAttempts > 0 && failedAttempts < 3 && (
+                    <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                      <p className="text-sm text-yellow-600 dark:text-yellow-400 text-center">
+                        {3 - failedAttempts} attempt{3 - failedAttempts !== 1 ? 's' : ''} remaining before lockout
+                      </p>
+                    </div>
+                  )}
+                  <Input
+                    type="password"
+                    placeholder="Enter password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="h-12"
+                  />
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12"
+                    disabled={isVerifying}
+                  >
+                    {isVerifying ? 'Verifying...' : 'Access Dev Panel'}
+                  </Button>
+                </form>
+              )}
             </div>
           </div>
         </div>
@@ -164,15 +277,25 @@ export default function DevPage() {
                 <div className="rounded-full bg-red-100 dark:bg-red-500/20 p-2">
                   <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
                 </div>
-                <DialogTitle>Incorrect Password</DialogTitle>
+                <DialogTitle>
+                  {failedAttempts >= 3 ? 'Account Locked' : 'Incorrect Password'}
+                </DialogTitle>
               </div>
               <DialogDescription className="pt-2">
-                The password you entered is incorrect. Please try again.
+                {failedAttempts >= 3 ? (
+                  <>
+                    Too many failed attempts. You have been locked out for 1 minute.
+                  </>
+                ) : (
+                  <>
+                    The password you entered is incorrect. You have {3 - failedAttempts} attempt{3 - failedAttempts !== 1 ? 's' : ''} remaining.
+                  </>
+                )}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button onClick={() => setErrorDialogOpen(false)}>
-                Try Again
+                {failedAttempts >= 3 ? 'Close' : 'Try Again'}
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -434,7 +434,8 @@ export function SettingsTab({
 
       setRemoveMemberDialogOpen(false)
       setMemberToRemove(null)
-      // Data will update on next navigation - no refresh needed
+      // Refresh to update the members list
+      router.refresh()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -618,8 +619,9 @@ export function SettingsTab({
         description: 'The team and all its data have been permanently removed',
       })
 
-      // Redirect to home page after successful deletion
-      router.push('/')
+      // Redirect to dashboard and refresh after successful deletion
+      router.push('/dashboard')
+      router.refresh()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -648,8 +650,9 @@ export function SettingsTab({
         description: 'You have successfully left the club',
       })
 
-      // Navigate to home - no refresh needed as we're going to a different page
-      router.push('/')
+      // Navigate to dashboard and refresh to update the memberships list
+      router.push('/dashboard')
+      router.refresh()
     } catch (error: any) {
       toast({
         title: 'Error',

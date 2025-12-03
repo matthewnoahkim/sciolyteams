@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/rbac'
 import { z } from 'zod'
+import { revalidatePath } from 'next/cache'
 
 const updateMembershipSchema = z.object({
   teamId: z.string().nullable().optional(),
@@ -187,6 +188,10 @@ export async function DELETE(
     await prisma.membership.delete({
       where: { id: params.membershipId },
     })
+
+    // Revalidate dashboard to refresh the memberships list
+    revalidatePath('/dashboard/club')
+    revalidatePath('/dashboard')
 
     return NextResponse.json({ success: true })
   } catch (error) {
