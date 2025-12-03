@@ -105,7 +105,14 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section className="mb-8">
-            <h2 className="font-heading text-xl font-semibold mb-4">7. Contact Us</h2>
+            <h2 className="font-heading text-xl font-semibold mb-4">7. International Users</h2>
+            <p>
+              We do not target, market to, or knowingly collect personal information from individuals outside the United States. If we become aware that we have collected information from a non-U.S. resident, we will delete it promptly.
+            </p>
+          </section>
+
+          <section className="mb-8">
+            <h2 className="font-heading text-xl font-semibold mb-4">8. Contact Us</h2>
             <p>
               If you have any questions about this Privacy Policy, please contact us at:
             </p>

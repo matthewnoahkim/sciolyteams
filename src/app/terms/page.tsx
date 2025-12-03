@@ -65,11 +65,28 @@ export default function TermsOfServicePage() {
               <li>Attempt to gain unauthorized access to the Service or related systems</li>
               <li>Interfere with or disrupt the Service or servers connected to the Service</li>
               <li>Harass, abuse, or harm other users</li>
+              <li>Upload, post, or transmit any content that is unlawful, harmful, threatening, abusive, harassing, defamatory, vulgar, obscene, or otherwise objectionable</li>
             </ul>
           </section>
 
           <section className="mb-8">
-            <h2 className="font-heading text-xl font-semibold mb-4">5. Privacy</h2>
+            <h2 className="font-heading text-xl font-semibold mb-4">5. User-Generated Content and Liability</h2>
+            <p>
+              Users may upload and share content through the Service, including but not limited to text, images, documents, and other materials. You are solely responsible for all content you upload, post, or share through the Service.
+            </p>
+            <p className="mt-4">
+              <strong>We are not liable for any user-generated content.</strong> We do not pre-screen, monitor, or approve user content, and we make no representations or warranties regarding the accuracy, completeness, or legality of any user-generated content. We expressly disclaim all liability for any inappropriate, offensive, illegal, or objectionable content uploaded by users.
+            </p>
+            <p className="mt-4">
+              However, we reserve the right to review, monitor, and remove any content that violates these Terms of Service or is otherwise inappropriate. Upon becoming aware of any inappropriate or illegal content, we will take prompt action to remove such content from our Service. If you encounter inappropriate content, please report it to us immediately at legal@teamy.io.
+            </p>
+            <p className="mt-4">
+              By using the Service, you acknowledge and agree that we cannot be held responsible for content uploaded by other users, and you agree not to hold us liable for any damages arising from user-generated content.
+            </p>
+          </section>
+
+          <section className="mb-8">
+            <h2 className="font-heading text-xl font-semibold mb-4">6. Privacy</h2>
             <p>
               Your use of the Service is also governed by our{' '}
               <Link href="/privacy" className="text-teamy-primary dark:text-teamy-accent hover:underline font-medium">
@@ -80,14 +97,21 @@ export default function TermsOfServicePage() {
           </section>
 
           <section className="mb-8">
-            <h2 className="font-heading text-xl font-semibold mb-4">6. Disclaimer of Warranties</h2>
+            <h2 className="font-heading text-xl font-semibold mb-4">7. Geographic Restrictions</h2>
+            <p>
+              This service is intended for use only by individuals located in the United States. By accessing or using the service, you represent and warrant that you are a U.S. resident. We do not permit access to users outside the United States.
+            </p>
+          </section>
+
+          <section className="mb-8">
+            <h2 className="font-heading text-xl font-semibold mb-4">8. Disclaimer of Warranties</h2>
             <p>
               THE SERVICE IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED.
             </p>
           </section>
 
           <section className="mb-8">
-            <h2 className="font-heading text-xl font-semibold mb-4">7. Contact Information</h2>
+            <h2 className="font-heading text-xl font-semibold mb-4">9. Contact Information</h2>
             <p>
               If you have any questions about these Terms of Service, please contact us at:
             </p>
