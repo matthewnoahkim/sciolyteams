@@ -1,6 +1,5 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { redirect } from 'next/navigation'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
@@ -9,22 +8,19 @@ import { ScrollAnimate } from '@/components/scroll-animate'
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions)
-
-  if (session?.user) {
-    redirect('/dashboard')
-  }
+  const isLoggedIn = !!session?.user
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
-      {/* Header - Theme Aware */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-800 shadow-nav">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
-          <Logo size="md" href="/" variant="auto" />
+          <Logo size="md" href="/" variant="light" />
           <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
-            <HomeNav variant="default" />
-            <Link href="/login">
-              <button className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold bg-teamy-primary text-white rounded-full hover:bg-teamy-primary-dark transition-colors whitespace-nowrap shadow-sm">
-                Sign In
+            <HomeNav variant="light" />
+            <Link href={isLoggedIn ? "/dashboard" : "/login"}>
+              <button className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors whitespace-nowrap shadow-sm">
+                {isLoggedIn ? "Dashboard" : "Sign In"}
               </button>
             </Link>
           </div>
@@ -59,9 +55,9 @@ export default async function HomePage() {
           {/* CTA Buttons */}
           <ScrollAnimate animation="bounce-in" delay={300} duration={800}>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 pt-4 px-4">
-              <Link href="/login" className="w-full sm:w-auto">
+              <Link href={isLoggedIn ? "/dashboard" : "/login"} className="w-full sm:w-auto">
                 <button className="group w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold bg-teamy-primary text-white rounded-full shadow-lg hover:bg-teamy-primary-dark hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2">
-                  Get Started Free
+                  {isLoggedIn ? "Go to Dashboard" : "Get Started Free"}
                   <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
                 </button>
               </Link>

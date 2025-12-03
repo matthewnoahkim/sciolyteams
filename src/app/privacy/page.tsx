@@ -6,10 +6,10 @@ import { Logo } from '@/components/logo'
 export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen bg-background grid-pattern">
-      {/* Header - Theme Aware */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-800 shadow-nav">
         <div className="container mx-auto px-4 py-4">
-          <Logo size="md" href="/" variant="auto" />
+          <Logo size="md" href="/" variant="light" />
         </div>
       </header>
 

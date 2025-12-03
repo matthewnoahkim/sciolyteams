@@ -19,13 +19,14 @@ const navItems: NavItem[] = [
 ]
 
 interface HomeNavProps {
-  variant?: 'default' | 'hero'
+  variant?: 'default' | 'hero' | 'light'
 }
 
 export function HomeNav({ variant = 'default' }: HomeNavProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const isHero = variant === 'hero'
+  // 'light' and 'hero' both use white text for blue backgrounds
+  const isLight = variant === 'hero' || variant === 'light'
 
   return (
     <>
@@ -37,7 +38,7 @@ export function HomeNav({ variant = 'default' }: HomeNavProps) {
             href={item.href}
             className={cn(
               "text-sm font-semibold transition-colors",
-              isHero 
+              isLight 
                 ? "text-white/80 hover:text-white" 
                 : "text-muted-foreground hover:text-foreground"
             )}
@@ -53,7 +54,7 @@ export function HomeNav({ variant = 'default' }: HomeNavProps) {
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           className={cn(
             "p-2 transition-colors",
-            isHero 
+            isLight 
               ? "text-white/80 hover:text-white" 
               : "text-muted-foreground hover:text-foreground"
           )}
@@ -69,8 +70,8 @@ export function HomeNav({ variant = 'default' }: HomeNavProps) {
         {mobileMenuOpen && (
           <div className={cn(
             "absolute top-full left-0 right-0 border-b backdrop-blur-xl",
-            isHero 
-              ? "bg-[#003A8C]/95 border-white/10" 
+            isLight 
+              ? "bg-teamy-primary/95 dark:bg-slate-800/95 border-white/10" 
               : "bg-background/95 border-border"
           )}>
             <nav className="container mx-auto px-6 py-4 flex flex-col gap-4">
@@ -81,7 +82,7 @@ export function HomeNav({ variant = 'default' }: HomeNavProps) {
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
                     "text-sm font-semibold py-2 transition-colors",
-                    isHero 
+                    isLight 
                       ? "text-white/80 hover:text-white" 
                       : "text-muted-foreground hover:text-foreground"
                   )}

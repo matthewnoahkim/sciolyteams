@@ -116,10 +116,10 @@ export default function DevPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background text-foreground grid-pattern">
-        {/* Header - Theme Aware */}
-        <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
+        {/* Header */}
+        <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-800 shadow-nav">
           <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-            <Logo size="md" href="/" variant="auto" />
+            <Logo size="md" href="/" variant="light" />
             <ThemeToggle variant="header" />
           </div>
         </header>
@@ -184,12 +184,12 @@ export default function DevPage() {
   // Main dev panel with sidebar (club page style)
   return (
     <div className="min-h-screen bg-background text-foreground grid-pattern">
-      {/* Header - Theme Aware */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-800 shadow-nav">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <Logo size="md" href="/" variant="auto" />
-            <span className="text-lg font-semibold text-foreground">Dev Panel</span>
+            <Logo size="md" href="/" variant="light" />
+            <span className="text-lg font-semibold text-white">Dev Panel</span>
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle variant="header" />
@@ -198,7 +198,7 @@ export default function DevPage() {
                 setIsAuthenticated(false)
                 sessionStorage.removeItem('dev_auth')
               }}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors"
             >
               <LogOut className="h-4 w-4" />
               Sign Out

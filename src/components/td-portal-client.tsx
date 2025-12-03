@@ -111,24 +111,25 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-800 shadow-nav">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Logo size="md" href="/" variant="auto" />
-            <div className="h-6 w-px bg-border" />
-            <span className="text-foreground font-semibold">TD Portal</span>
+            <Logo size="md" href="/" variant="light" />
+            <div className="h-6 w-px bg-white/20" />
+            <span className="text-white font-semibold">TD Portal</span>
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle variant="header" />
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-foreground">{user.name || user.email}</p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
+                <p className="text-sm font-medium text-white">{user.name || user.email}</p>
+                <p className="text-xs text-white/60">{user.email}</p>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleSignOut}
+                className="text-white hover:bg-white/10"
               >
                 <LogOut className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Sign Out</span>

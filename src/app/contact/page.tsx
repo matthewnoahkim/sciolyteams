@@ -16,14 +16,14 @@ export default async function ContactPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground grid-pattern">
-      {/* Header - Theme Aware */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-800 shadow-nav">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <Logo size="md" href="/" variant="auto" />
+          <Logo size="md" href="/" variant="light" />
           <div className="flex items-center gap-6">
-            <HomeNav variant="default" />
+            <HomeNav variant="light" />
             <Link href="/login">
-              <button className="px-5 py-2.5 text-sm font-semibold bg-teamy-primary text-white rounded-full hover:bg-teamy-primary-dark transition-colors shadow-sm">
+              <button className="px-5 py-2.5 text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors shadow-sm">
                 Sign In
               </button>
             </Link>
