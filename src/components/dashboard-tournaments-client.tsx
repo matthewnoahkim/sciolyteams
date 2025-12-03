@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AppHeader } from '@/components/app-header'
 import { useToast } from '@/components/ui/use-toast'
 import { PageLoading } from '@/components/ui/loading-spinner'
-import { Search, Calendar, MapPin, Users, DollarSign, Trophy, Settings, Monitor, Info } from 'lucide-react'
+import { Search, Calendar, MapPin, Users, DollarSign, Trophy, Settings, Monitor } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 
@@ -367,7 +367,7 @@ export function DashboardTournamentsClient({ user }: DashboardTournamentsClientP
                         Division {tournament.division}
                       </Badge>
                     </div>
-                    {(tournament.isCreator || tournament.isAdmin) ? (
+                    {(tournament.isCreator || tournament.isAdmin) && (
                       <Link href={`/tournaments/${tournament.id}/manage`} onClick={(e) => e.stopPropagation()}>
                         <Button 
                           variant="outline" 
@@ -376,17 +376,6 @@ export function DashboardTournamentsClient({ user }: DashboardTournamentsClientP
                         >
                           <Settings className="h-3 w-3 mr-1" />
                           Manage
-                        </Button>
-                      </Link>
-                    ) : (
-                      <Link href={`/tournaments/${tournament.id}`} onClick={(e) => e.stopPropagation()}>
-                        <Button 
-                          variant="default" 
-                          size="sm"
-                          className="h-7"
-                        >
-                          <Info className="h-3 w-3 mr-1" />
-                          More Info
                         </Button>
                       </Link>
                     )}

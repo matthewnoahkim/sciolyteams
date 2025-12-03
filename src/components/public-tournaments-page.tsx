@@ -1,11 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Trophy, Calendar, MapPin, Users, DollarSign, Monitor, Plus, Loader2, CheckCircle2, Info } from 'lucide-react'
+import { Trophy, Plus, Loader2, CheckCircle2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -24,29 +22,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 
-interface Tournament {
-  id: string
-  name: string
-  division: 'B' | 'C'
-  description: string | null
-  price: number
-  isOnline: boolean
-  startDate: string
-  endDate: string
-  startTime: string
-  endTime: string
-  location: string | null
-  _count: {
-    registrations: number
-  }
-}
-
-interface PublicTournamentsPageProps {
-  tournaments: Tournament[]
-}
-
-export function PublicTournamentsPage({ tournaments }: PublicTournamentsPageProps) {
-  const router = useRouter()
+export function PublicTournamentsPage() {
   const { toast } = useToast()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -63,46 +39,6 @@ export function PublicTournamentsPage({ tournaments }: PublicTournamentsPageProp
     directorPhone: '',
     otherNotes: '',
   })
-
-  const handleSignUp = (tournamentId: string) => {
-    // Redirect to login with callback to tournament sign up page
-    const callbackUrl = `/tournaments/${tournamentId}`
-    router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`)
-  }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    })
-  }
-
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    })
-  }
-
-  const formatDateTime = (startDate: string, endDate: string, startTime: string, endTime: string) => {
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    const sameDay = start.toDateString() === end.toDateString()
-    
-    if (sameDay) {
-      const dateStr = formatDate(startDate)
-      const timeStr = `${formatTime(startTime)} - ${formatTime(endTime)}`
-      return { dateStr, timeStr, isMultiDay: false }
-    } else {
-      const startDateTime = `${formatDate(startDate)}, ${formatTime(startTime)}`
-      const endDateTime = `${formatDate(endDate)}, ${formatTime(endTime)}`
-      return { startDateTime, endDateTime, isMultiDay: true }
-    }
-  }
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -130,19 +66,12 @@ export function PublicTournamentsPage({ tournaments }: PublicTournamentsPageProp
     setSubmitting(true)
 
     try {
-      // Send to webhook (you can replace this URL with your actual webhook)
-      const webhookUrl = process.env.NEXT_PUBLIC_TOURNAMENT_WEBHOOK_URL || '/api/contact'
-      
-      const response = await fetch(webhookUrl, {
+      const response = await fetch('/api/tournament-requests', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          type: 'tournament_hosting_request',
-          ...formData,
-          submittedAt: new Date().toISOString(),
-        }),
+        body: JSON.stringify(formData),
       })
 
       if (!response.ok) {
@@ -266,7 +195,7 @@ export function PublicTournamentsPage({ tournaments }: PublicTournamentsPageProp
                   <DialogTrigger asChild>
                     <Button size="lg" className="gap-2">
                       <Plus className="h-5 w-5" />
-                      Create Tournament
+                      Request Form
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -298,7 +227,7 @@ export function PublicTournamentsPage({ tournaments }: PublicTournamentsPageProp
                               id="tournamentName"
                               value={formData.tournamentName}
                               onChange={(e) => setFormData({ ...formData, tournamentName: e.target.value })}
-                              placeholder="e.g., MIT Science Olympiad Invitational"
+                              placeholder="e.g., Hylas SO"
                               required
                             />
                           </div>
@@ -335,6 +264,7 @@ export function PublicTournamentsPage({ tournaments }: PublicTournamentsPageProp
                               <SelectContent>
                                 <SelectItem value="B">Division B</SelectItem>
                                 <SelectItem value="C">Division C</SelectItem>
+                                <SelectItem value="B&C">Division B & C</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -375,12 +305,12 @@ export function PublicTournamentsPage({ tournaments }: PublicTournamentsPageProp
                           <div className="space-y-2">
                             <Label htmlFor="preferredSlug">Preferred Website Slug</Label>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground">teamy.app/tournaments/</span>
+                              <span className="text-sm text-muted-foreground">teamy.io/tournaments/</span>
                               <Input
                                 id="preferredSlug"
                                 value={formData.preferredSlug}
                                 onChange={(e) => setFormData({ ...formData, preferredSlug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
-                                placeholder="mit-invitational-2025"
+                                placeholder="hylas"
                                 className="flex-1"
                               />
                             </div>
@@ -474,111 +404,6 @@ export function PublicTournamentsPage({ tournaments }: PublicTournamentsPageProp
             </CardContent>
           </Card>
 
-          {/* Upcoming Tournaments Section */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-center">Upcoming Tournaments</h2>
-            
-            {/* Tournament List */}
-            {tournaments.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Trophy className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">No upcoming tournaments</h3>
-                  <p className="text-muted-foreground">
-                    Check back soon for new tournament announcements!
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {tournaments.map((tournament) => {
-                  const formatted = formatDateTime(
-                    tournament.startDate,
-                    tournament.endDate,
-                    tournament.startTime,
-                    tournament.endTime
-                  )
-
-                  return (
-                    <Card key={tournament.id} className="hover:shadow-lg transition-shadow">
-                      <CardHeader>
-                        <div className="flex items-center justify-between mb-3 gap-2">
-                          <Badge variant="outline">
-                            Division {tournament.division}
-                          </Badge>
-                          <Button 
-                            variant="default" 
-                            size="sm"
-                            className="h-7"
-                            onClick={() => handleSignUp(tournament.id)}
-                          >
-                            <Info className="h-3 w-3 mr-1" />
-                            More Info
-                          </Button>
-                        </div>
-                        <CardTitle className="text-xl break-words leading-snug">
-                          {tournament.name}
-                        </CardTitle>
-                        {tournament.description && (
-                          <CardDescription className="line-clamp-2">
-                            {tournament.description}
-                          </CardDescription>
-                        )}
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="space-y-1.5">
-                          <div className="flex items-start gap-2 text-sm">
-                            <Calendar className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                              {formatted.isMultiDay ? (
-                                <div className="space-y-0.5">
-                                  <div className="font-medium">
-                                    <span className="text-muted-foreground">From: </span>
-                                    {formatted.startDateTime}
-                                  </div>
-                                  <div className="font-medium">
-                                    <span className="text-muted-foreground">To: </span>
-                                    {formatted.endDateTime}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="font-medium">
-                                  {formatted.dateStr}, {formatted.timeStr}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        {tournament.isOnline ? (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Monitor className="h-4 w-4" />
-                            <span>Online Tournament</span>
-                          </div>
-                        ) : tournament.location ? (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            <span className="line-clamp-1">{tournament.location}</span>
-                          </div>
-                        ) : null}
-                        <div className="flex items-center justify-between pt-2 border-t">
-                          <div className="flex items-center gap-2 text-sm">
-                            <DollarSign className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-semibold">
-                              {tournament.price === 0 ? 'Free' : `$${tournament.price.toFixed(2)}`}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Users className="h-4 w-4" />
-                            <span>{tournament._count.registrations} team{tournament._count.registrations !== 1 ? 's' : ''}</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            )}
-          </div>
         </div>
       </section>
 

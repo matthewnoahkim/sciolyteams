@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { AlertTriangle, FileText, Shield, CreditCard, LogOut } from 'lucide-react'
+import { AlertTriangle, FileText, Shield, CreditCard, LogOut, Trophy } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -14,16 +14,18 @@ import {
 } from '@/components/ui/dialog'
 import { HealthTools } from '@/components/dev/health-tools'
 import { BlogManager } from '@/components/dev/blog-manager'
+import { TournamentRequests } from '@/components/dev/tournament-requests'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 
-type Section = 'blog' | 'security' | 'payments'
+type Section = 'blog' | 'security' | 'tournaments' | 'payments'
 
 const navItems: { id: Section; label: string; icon: React.ElementType }[] = [
   { id: 'blog', label: 'Blog', icon: FileText },
   { id: 'security', label: 'Security', icon: Shield },
+  { id: 'tournaments', label: 'Tournaments', icon: Trophy },
   { id: 'payments', label: 'Payments', icon: CreditCard },
 ]
 
@@ -31,7 +33,7 @@ export default function DevPage() {
   const [activeSection, setActiveSection] = useState<Section>(() => {
     if (typeof window !== 'undefined') {
       const savedSection = localStorage.getItem('dev-panel-active-section') as Section
-      if (savedSection && ['blog', 'security', 'payments'].includes(savedSection)) {
+      if (savedSection && ['blog', 'security', 'tournaments', 'payments'].includes(savedSection)) {
         return savedSection
       }
     }
@@ -242,6 +244,8 @@ export default function DevPage() {
           {activeSection === 'blog' && <BlogManager />}
           
           {activeSection === 'security' && <HealthTools />}
+          
+          {activeSection === 'tournaments' && <TournamentRequests />}
           
           {activeSection === 'payments' && (
             <div className="p-8 rounded-xl bg-card border">

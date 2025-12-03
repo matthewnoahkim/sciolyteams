@@ -1339,6 +1339,33 @@ enum TournamentRegistrationStatus {
   CANCELLED
 }
 
+model TournamentHostingRequest {
+  id               String                           @id @default(cuid())
+  tournamentName   String
+  tournamentLevel  String                           // invitational, regional, state, national
+  division         String                           // B, C, or B&C
+  tournamentFormat String                           // in-person, satellite, mini-so
+  location         String?
+  preferredSlug    String?
+  directorName     String
+  directorEmail    String
+  directorPhone    String?
+  otherNotes       String?                          @db.Text
+  status           TournamentHostingRequestStatus   @default(PENDING)
+  reviewNotes      String?                          @db.Text
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum TournamentHostingRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model BlogPost {
   id          String   @id @default(cuid())
   slug        String   @unique
