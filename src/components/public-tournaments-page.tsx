@@ -115,13 +115,15 @@ export function PublicTournamentsPage() {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       {/* Header - Blue */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary shadow-nav">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <Logo size="md" href="/" variant="light" />
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
             <HomeNav variant="hero" />
-            <SignInThemeToggle variant="header" />
+            <div className="hidden sm:block">
+              <SignInThemeToggle variant="header" />
+            </div>
             <Link href="/login">
-              <button className="px-6 py-2.5 text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors">
+              <button className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors whitespace-nowrap">
                 Sign In
               </button>
             </Link>
@@ -130,71 +132,71 @@ export function PublicTournamentsPage() {
       </header>
 
       {/* Main Content */}
-      <section className="flex-1 px-6 py-12 bg-slate-50 dark:bg-slate-900 grid-pattern">
-        <div className="max-w-6xl mx-auto space-y-12">
+      <section className="flex-1 px-4 sm:px-6 py-8 sm:py-12 bg-slate-50 dark:bg-slate-900 grid-pattern">
+        <div className="max-w-6xl mx-auto space-y-8 sm:space-y-12">
           {/* Header */}
-          <div className="text-center space-y-4">
-            <h1 className="font-heading text-4xl md:text-5xl font-extrabold text-foreground">
+          <div className="text-center space-y-3 sm:space-y-4">
+            <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-extrabold text-foreground px-4">
               Science Olympiad Tournaments
             </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
               Discover upcoming tournaments or host your own. Compete with teams from across the region and test your skills.
             </p>
           </div>
 
           {/* Host a Tournament Section */}
           <Card className="border-2 border-teamy-primary/20 bg-gradient-to-br from-teamy-primary/5 to-transparent">
-            <CardHeader className="text-center pb-4">
-              <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2">
-                <Trophy className="h-6 w-6 text-teamy-primary" />
+            <CardHeader className="text-center pb-4 px-4 sm:px-6">
+              <CardTitle className="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2 flex-wrap">
+                <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-teamy-primary" />
                 Host a Tournament
               </CardTitle>
-              <CardDescription className="text-base max-w-xl mx-auto">
+              <CardDescription className="text-sm sm:text-base max-w-xl mx-auto">
                 Want to host your own Science Olympiad tournament? We make it easy to manage registrations, 
                 scheduling, and results all in one place.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 px-4 sm:px-6">
               {/* How it works */}
-              <div className="grid md:grid-cols-3 gap-4 text-center">
-                <div className="p-4 rounded-lg bg-background/50">
-                  <div className="w-10 h-10 rounded-full bg-teamy-primary/10 flex items-center justify-center mx-auto mb-3">
-                    <span className="text-teamy-primary font-bold">1</span>
+              <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 text-center">
+                <div className="p-3 sm:p-4 rounded-lg bg-background/50">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-teamy-primary/10 flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                    <span className="text-teamy-primary font-bold text-sm sm:text-base">1</span>
                   </div>
-                  <h4 className="font-semibold mb-1">Submit Request</h4>
-                  <p className="text-sm text-muted-foreground">
+                  <h4 className="font-semibold mb-1 text-sm sm:text-base">Submit Request</h4>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Fill out the form with your tournament details and contact information.
                   </p>
                 </div>
-                <div className="p-4 rounded-lg bg-background/50">
-                  <div className="w-10 h-10 rounded-full bg-teamy-primary/10 flex items-center justify-center mx-auto mb-3">
-                    <span className="text-teamy-primary font-bold">2</span>
+                <div className="p-3 sm:p-4 rounded-lg bg-background/50">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-teamy-primary/10 flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                    <span className="text-teamy-primary font-bold text-sm sm:text-base">2</span>
                   </div>
-                  <h4 className="font-semibold mb-1">Get Approved</h4>
-                  <p className="text-sm text-muted-foreground">
+                  <h4 className="font-semibold mb-1 text-sm sm:text-base">Get Approved</h4>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Our team will review your request and set up your tournament page.
                   </p>
                 </div>
-                <div className="p-4 rounded-lg bg-background/50">
-                  <div className="w-10 h-10 rounded-full bg-teamy-primary/10 flex items-center justify-center mx-auto mb-3">
-                    <span className="text-teamy-primary font-bold">3</span>
+                <div className="p-3 sm:p-4 rounded-lg bg-background/50 sm:col-span-2 md:col-span-1">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-teamy-primary/10 flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                    <span className="text-teamy-primary font-bold text-sm sm:text-base">3</span>
                   </div>
-                  <h4 className="font-semibold mb-1">Start Hosting</h4>
-                  <p className="text-sm text-muted-foreground">
+                  <h4 className="font-semibold mb-1 text-sm sm:text-base">Start Hosting</h4>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Manage registrations, create tests, and run your tournament seamlessly.
                   </p>
                 </div>
               </div>
 
               {/* Create Tournament Button */}
-              <div className="text-center pt-4">
+              <div className="text-center pt-2 sm:pt-4">
                 <Dialog open={dialogOpen} onOpenChange={(open) => {
                   setDialogOpen(open)
                   if (!open) resetForm()
                 }}>
                   <DialogTrigger asChild>
-                    <Button size="lg" className="gap-2">
-                      <Plus className="h-5 w-5" />
+                    <Button size="lg" className="gap-2 w-full sm:w-auto">
+                      <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
                       Request Form
                     </Button>
                   </DialogTrigger>
@@ -409,13 +411,13 @@ export function PublicTournamentsPage() {
 
       {/* Footer */}
       <footer className="border-t border-border bg-card py-4">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-2">
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-2 text-center md:text-left">
+            <div className="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm text-muted-foreground">
               <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
               <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             </div>
-            <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Teamy. All rights reserved.</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">© {new Date().getFullYear()} Teamy. All rights reserved.</p>
           </div>
         </div>
       </footer>
