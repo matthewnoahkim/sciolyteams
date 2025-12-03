@@ -28,7 +28,7 @@ export function SignInThemeToggle({ variant = 'default' }: SignInThemeToggleProp
         size="icon" 
         className={cn(
           "h-10 w-10",
-          isHeader && "text-white hover:bg-white/10 border-0"
+          isHeader && "border-0"
         )}
       >
         <Sun className="h-5 w-5" />
@@ -44,7 +44,7 @@ export function SignInThemeToggle({ variant = 'default' }: SignInThemeToggleProp
       onClick={() => setTheme(theme === "light" ? "dark" : "light")}
       className={cn(
         "h-10 w-10 transition-all hover:scale-105",
-        isHeader && "text-white hover:bg-white/10 border-0"
+        isHeader && "border-0"
       )}
     >
       {theme === "light" ? (

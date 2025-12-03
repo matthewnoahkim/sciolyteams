@@ -44,7 +44,7 @@ export function AppHeader({ user, showBackButton = false, backHref, title }: App
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary shadow-nav">
+      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
         <div className="container mx-auto px-4 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 md:gap-4 min-w-0">
             {showBackButton && backHref && (
@@ -52,18 +52,18 @@ export function AppHeader({ user, showBackButton = false, backHref, title }: App
                 variant="ghost"
                 size="icon"
                 onClick={() => router.push(backHref)}
-                className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 text-white hover:bg-white/10"
+                className="h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0"
               >
                 <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             )}
-            <Logo size="md" className="flex-shrink-0" href="/dashboard" variant="light" />
+            <Logo size="md" className="flex-shrink-0" href="/dashboard" variant="auto" />
             {title && (
-              <h1 className="text-base sm:text-lg md:text-xl font-semibold text-white hidden md:block truncate">
+              <h1 className="text-base sm:text-lg md:text-xl font-semibold text-foreground hidden md:block truncate">
                 {title}
               </h1>
             )}
-            <div className="hidden md:block h-6 w-px bg-white/20 mx-1" />
+            <div className="hidden md:block h-6 w-px bg-border mx-1" />
             <Button
               onClick={() => router.push(buttonHref)}
               size="sm"
@@ -84,23 +84,23 @@ export function AppHeader({ user, showBackButton = false, backHref, title }: App
             </Button>
             <div className="flex items-center gap-2 sm:gap-3">
               <Avatar 
-                className="h-8 w-8 sm:h-9 sm:w-9 cursor-pointer ring-2 ring-white/20 hover:ring-white/40 transition-all"
+                className="h-8 w-8 sm:h-9 sm:w-9 cursor-pointer ring-2 ring-border hover:ring-primary/50 transition-all"
                 onClick={() => setEditUsernameOpen(true)}
               >
                 <AvatarImage src={user.image || ''} />
-                <AvatarFallback className="bg-white text-teamy-primary font-semibold text-sm">
+                <AvatarFallback className="bg-primary text-primary-foreground font-semibold text-sm">
                   {currentUserName?.charAt(0) || user.email.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden sm:block text-right max-w-[120px] md:max-w-none">
                 <div className="flex items-center gap-1">
-                  <p className="text-xs sm:text-sm font-medium text-white truncate">
+                  <p className="text-xs sm:text-sm font-medium text-foreground truncate">
                     {currentUserName || user.email}
                   </p>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-5 w-5 flex-shrink-0 text-white/70 hover:text-white hover:bg-white/10"
+                    className="h-5 w-5 flex-shrink-0"
                     onClick={(e) => {
                       e.stopPropagation()
                       setEditUsernameOpen(true)
@@ -109,7 +109,7 @@ export function AppHeader({ user, showBackButton = false, backHref, title }: App
                     <Pencil className="h-3 w-3" />
                   </Button>
                 </div>
-                <p className="text-[10px] sm:text-xs text-white/60 truncate">{user.email}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{user.email}</p>
               </div>
             </div>
             <ThemeToggle variant="header" />
@@ -117,7 +117,7 @@ export function AppHeader({ user, showBackButton = false, backHref, title }: App
               variant="ghost"
               size="sm"
               onClick={handleSignOut}
-              className="px-2 sm:px-3 text-white hover:bg-white/10"
+              className="px-2 sm:px-3"
             >
               <LogOut className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline text-sm">Sign Out</span>

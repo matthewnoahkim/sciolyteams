@@ -113,17 +113,17 @@ export function PublicTournamentsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {/* Header - Blue */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary shadow-nav">
+      {/* Header - Theme Aware */}
+      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
-          <Logo size="md" href="/" variant="light" />
+          <Logo size="md" href="/" variant="auto" />
           <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
-            <HomeNav variant="hero" />
+            <HomeNav variant="default" />
             <div className="hidden sm:block">
               <SignInThemeToggle variant="header" />
             </div>
             <Link href="/login">
-              <button className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors whitespace-nowrap">
+              <button className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold bg-teamy-primary text-white rounded-full hover:bg-teamy-primary-dark transition-colors whitespace-nowrap shadow-sm">
                 Sign In
               </button>
             </Link>

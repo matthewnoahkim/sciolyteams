@@ -12,7 +12,7 @@ interface LogoProps {
   showText?: boolean
   size?: 'sm' | 'md' | 'lg'
   href?: string
-  variant?: 'default' | 'light'
+  variant?: 'default' | 'light' | 'auto'
 }
 
 const sizeMap = {
@@ -44,14 +44,22 @@ export function Logo({
   
   // Light variant = white text with cyan glow (for blue headers)
   // Default variant = teamy-primary blue text
-  const textStyle = variant === 'light' 
-    ? {
+  // Auto variant = adapts to theme using CSS classes
+  const getTextStyle = () => {
+    if (variant === 'light') {
+      return {
         color: 'white',
         textShadow: '0 0 10px rgba(111, 214, 255, 0.8), 0 0 20px rgba(111, 214, 255, 0.5), 2px 2px 0 rgba(0, 86, 199, 0.3)'
       }
-    : {
+    } else if (variant === 'default') {
+      return {
         color: '#0056C7'
       }
+    }
+    return undefined // For 'auto', we'll use classes
+  }
+
+  const textStyle = getTextStyle()
   
   const content = (
     <div className={cn(
@@ -85,7 +93,8 @@ export function Logo({
         <span 
           className={cn(
             'font-logo font-bold whitespace-nowrap overflow-visible', 
-            sizes.text, 
+            sizes.text,
+            variant === 'auto' && 'text-foreground',
             textClassName
           )}
           style={textStyle}

@@ -25,12 +25,12 @@ export function TDLoginClient({ unauthorized, email }: TDLoginClientProps) {
   return (
     <div className="min-h-screen bg-background text-foreground grid-pattern">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-teamy-primary shadow-nav">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Logo size="md" href="/" variant="light" />
-            <div className="h-6 w-px bg-white/20" />
-            <span className="text-white font-semibold">Tournament Director Portal</span>
+            <Logo size="md" href="/" variant="auto" />
+            <div className="h-6 w-px bg-border" />
+            <span className="text-foreground font-semibold">Tournament Director Portal</span>
           </div>
           <ThemeToggle variant="header" />
         </div>

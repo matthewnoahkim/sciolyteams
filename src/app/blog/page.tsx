@@ -23,15 +23,15 @@ export default async function BlogPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground grid-pattern">
-      {/* Header - Blue */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary shadow-nav">
+      {/* Header - Theme Aware */}
+      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <Logo size="md" href="/" variant="light" />
+          <Logo size="md" href="/" variant="auto" />
           <div className="flex items-center gap-6">
-            <HomeNav variant="hero" />
+            <HomeNav variant="default" />
             <SignInThemeToggle variant="header" />
             <Link href="/login">
-              <button className="px-5 py-2.5 text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors">
+              <button className="px-5 py-2.5 text-sm font-semibold bg-teamy-primary text-white rounded-full hover:bg-teamy-primary-dark transition-colors shadow-sm">
                 Sign In
               </button>
             </Link>
