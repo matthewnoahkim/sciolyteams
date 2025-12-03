@@ -32,7 +32,6 @@ import {
   Loader2,
   Download,
   Trash2,
-  Trophy,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -117,12 +116,12 @@ export function HealthTools() {
 
   // Loading states
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'all' | 'api' | 'errors' | 'users' | 'tournaments'>(() => {
+  const [activeTab, setActiveTab] = useState<'all' | 'api' | 'errors' | 'users'>(() => {
     // Load saved tab from localStorage, default to 'all'
     if (typeof window !== 'undefined') {
       const savedTab = localStorage.getItem('dev-tools-active-tab')
-      if (savedTab && ['all', 'api', 'errors', 'users', 'tournaments'].includes(savedTab)) {
-        return savedTab as 'all' | 'api' | 'errors' | 'users' | 'tournaments'
+      if (savedTab && ['all', 'api', 'errors', 'users'].includes(savedTab)) {
+        return savedTab as 'all' | 'api' | 'errors' | 'users'
       }
     }
     return 'all'
@@ -151,16 +150,6 @@ export function HealthTools() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<any>(null)
 
-  // Tournaments
-  const [tournaments, setTournaments] = useState<any[]>([])
-  const [tournamentLoading, setTournamentLoading] = useState(false)
-  const [tournamentSearch, setTournamentSearch] = useState('')
-  const [tournamentFilter, setTournamentFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
-  const [approvingTournamentId, setApprovingTournamentId] = useState<string | null>(null)
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
-  const [tournamentToReject, setTournamentToReject] = useState<any>(null)
-  const [rejectionReason, setRejectionReason] = useState('')
-  const [rejectingTournamentId, setRejectingTournamentId] = useState<string | null>(null)
 
   // Scroll detection for pausing auto-refresh
   const [isScrolling, setIsScrolling] = useState(false)
@@ -288,136 +277,6 @@ export function HealthTools() {
     }
   }, [userSearch, activeTab])
 
-  // Fetch tournaments
-  const fetchTournaments = useCallback(async () => {
-    if (activeTab !== 'tournaments') return
-    
-    setTournamentLoading(true)
-    try {
-      // Include unapproved tournaments for dev panel
-      const response = await fetch('/api/tournaments?upcoming=false&includeUnapproved=true')
-      const data = await response.json()
-      let tournamentsList = data.tournaments || []
-      
-      // Ensure all tournaments have the approved field (default to false if missing)
-      tournamentsList = tournamentsList.map((t: any) => ({
-        ...t,
-        approved: t.approved ?? false
-      }))
-      
-      // Filter by status
-      if (tournamentFilter === 'approved') {
-        tournamentsList = tournamentsList.filter((t: any) => t.approved === true)
-      } else if (tournamentFilter === 'rejected') {
-        tournamentsList = tournamentsList.filter((t: any) => t.approved === false && t.rejectionReason)
-      } else if (tournamentFilter === 'pending') {
-        // Show unapproved and not rejected (pending approval)
-        tournamentsList = tournamentsList.filter((t: any) => !t.approved && !t.rejectionReason)
-      }
-      // 'all' shows everything, so no filter needed
-      
-      // Filter by search
-      if (tournamentSearch) {
-        const searchLower = tournamentSearch.toLowerCase()
-        tournamentsList = tournamentsList.filter((t: any) =>
-          t.name.toLowerCase().includes(searchLower) ||
-          t.createdBy?.email?.toLowerCase().includes(searchLower) ||
-          t.createdBy?.name?.toLowerCase().includes(searchLower) ||
-          t.description?.toLowerCase().includes(searchLower)
-        )
-      }
-      
-      setTournaments(tournamentsList)
-    } catch (error) {
-      console.error('Failed to fetch tournaments:', error)
-    } finally {
-      setTournamentLoading(false)
-    }
-  }, [activeTab, tournamentFilter, tournamentSearch])
-
-  // Approve tournament
-  const handleApproveTournament = async (tournamentId: string) => {
-    setApprovingTournamentId(tournamentId)
-    try {
-      const response = await fetch(`/api/dev/tournaments/${tournamentId}/approve`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approved: true }),
-      })
-
-      if (response.ok) {
-        // Update the tournament in the local state immediately for better UX
-        setTournaments(prevTournaments => 
-          prevTournaments.map(t => 
-            t.id === tournamentId ? { ...t, approved: true, rejectionReason: null } : t
-          )
-        )
-        // Refresh tournaments list to ensure consistency
-        await fetchTournaments()
-        // Optionally refresh logs to show the approval activity
-        if (activeTab !== 'tournaments') {
-          fetchLogs()
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        alert(errorData.error || 'Failed to approve tournament')
-      }
-    } catch (error) {
-      console.error('Error approving tournament:', error)
-      alert('Error approving tournament')
-    } finally {
-      setApprovingTournamentId(null)
-    }
-  }
-
-  // Reject tournament
-  const handleRejectTournament = async () => {
-    if (!tournamentToReject) return
-
-    setRejectingTournamentId(tournamentToReject.id)
-    try {
-      const response = await fetch(`/api/dev/tournaments/${tournamentToReject.id}/approve`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          approved: false,
-          rejectionReason: rejectionReason.trim() || null,
-        }),
-      })
-
-      if (response.ok) {
-        const responseData = await response.json()
-        const updatedTournament = responseData.tournament
-        
-        // Update the tournament in the local state immediately for better UX
-        setTournaments(prevTournaments => 
-          prevTournaments.map(t => 
-            t.id === tournamentToReject.id 
-              ? { ...t, approved: updatedTournament.approved, rejectionReason: updatedTournament.rejectionReason } 
-              : t
-          )
-        )
-        // Refresh tournaments list to ensure consistency
-        await fetchTournaments()
-        // Optionally refresh logs to show the rejection activity
-        if (activeTab !== 'tournaments') {
-          fetchLogs()
-        }
-        // Close dialog and reset state
-        setRejectDialogOpen(false)
-        setTournamentToReject(null)
-        setRejectionReason('')
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        alert(errorData.error || 'Failed to reject tournament')
-      }
-    } catch (error) {
-      console.error('Error rejecting tournament:', error)
-      alert('Error rejecting tournament')
-    } finally {
-      setRejectingTournamentId(null)
-    }
-  }
 
   // Save active tab to localStorage whenever it changes
   useEffect(() => {
@@ -430,8 +289,6 @@ export function HealthTools() {
   useEffect(() => {
     if (activeTab === 'users') {
       fetchUsers()
-    } else if (activeTab === 'tournaments') {
-      fetchTournaments()
     } else {
       fetchLogs()
     }
@@ -444,13 +301,8 @@ export function HealthTools() {
         fetchUsers()
       }, 300)
       return () => clearTimeout(timer)
-    } else if (activeTab === 'tournaments') {
-      const timer = setTimeout(() => {
-        fetchTournaments()
-      }, 300)
-      return () => clearTimeout(timer)
     }
-  }, [userSearch, tournamentSearch, tournamentFilter, activeTab, fetchUsers, fetchTournaments])
+  }, [userSearch, activeTab, fetchUsers])
 
   // Fetch logs when filters change
   useEffect(() => {
@@ -532,7 +384,7 @@ export function HealthTools() {
   // Auto-refresh logs every 1 second when on logs tabs (silent, no loading indicator)
   // Pauses when user is scrolling
   useEffect(() => {
-    if (activeTab === 'users' || activeTab === 'tournaments' || isScrolling) return
+    if (activeTab === 'users' || isScrolling) return
 
     // Set up interval to refresh every 1 second (silent refresh)
     const interval = setInterval(() => {
@@ -692,7 +544,7 @@ export function HealthTools() {
   return (
     <div className="space-y-6 animate-fade-in">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="all" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
             All Logs
@@ -708,10 +560,6 @@ export function HealthTools() {
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Users
-          </TabsTrigger>
-          <TabsTrigger value="tournaments" className="flex items-center gap-2">
-            <Trophy className="h-4 w-4" />
-            Tournaments
           </TabsTrigger>
         </TabsList>
 
@@ -1193,206 +1041,6 @@ export function HealthTools() {
           </Card>
         </TabsContent>
 
-        {/* Tournaments Tab */}
-        <TabsContent value="tournaments" className="space-y-4">
-          <Card className="overflow-x-hidden max-w-full">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Tournament Approvals</CardTitle>
-                  <CardDescription>
-                    Review and approve pending tournament submissions
-                  </CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={fetchTournaments} disabled={tournamentLoading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${tournamentLoading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4 overflow-hidden max-w-full">
-              <div className="flex gap-4">
-                <div className="relative flex-1">
-                  <Search 
-                    className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none z-10" 
-                    style={{ 
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      willChange: 'transform'
-                    }} 
-                  />
-                  <Input
-                    placeholder="Search tournaments..."
-                    value={tournamentSearch}
-                    onChange={(e) => setTournamentSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Select value={tournamentFilter} onValueChange={(v: any) => setTournamentFilter(v)}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Filter tournaments" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending Approval</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                    <SelectItem value="all">All Tournaments</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <ScrollArea className="h-[600px] overflow-x-hidden">
-                {tournamentLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : tournaments.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {tournamentSearch 
-                      ? 'No tournaments found' 
-                      : tournamentFilter === 'approved' 
-                        ? 'No approved tournaments'
-                        : tournamentFilter === 'rejected'
-                          ? 'No rejected tournaments'
-                          : tournamentFilter === 'pending'
-                            ? 'No pending tournaments'
-                            : 'No tournaments'}
-                  </div>
-                ) : (
-                  <div className="space-y-2 min-w-0 max-w-full overflow-hidden">
-                    {tournaments.map((tournament) => (
-                      <div
-                        key={tournament.id}
-                        className="p-4 border rounded-xl hover:bg-muted/50 transition-all duration-200 hover:shadow-md apple-hover overflow-hidden max-w-full"
-                      >
-                        <div className="flex items-start justify-between gap-4 min-w-0 w-full">
-                          <div className="flex-1 min-w-0 overflow-hidden" style={{ maxWidth: '100%' }}>
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <Badge 
-                                variant={tournament.approved === true ? 'default' : 'outline'}
-                                className={tournament.approved === false && tournament.rejectionReason 
-                                  ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" 
-                                  : tournament.approved === false && !tournament.rejectionReason
-                                    ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20"
-                                    : undefined}
-                              >
-                                {tournament.approved === true 
-                                  ? 'Approved' 
-                                  : tournament.approved === false && tournament.rejectionReason
-                                    ? 'Rejected'
-                                    : 'Pending Approval'}
-                              </Badge>
-                              <Badge variant="outline">Division {tournament.division}</Badge>
-                              {tournament.isOnline && (
-                                <Badge variant="outline">Online</Badge>
-                              )}
-                            </div>
-                            <p className="font-medium text-sm mb-1 truncate max-w-full">
-                              {highlightText(tournament.name, tournamentSearch)}
-                            </p>
-                            {tournament.approved === false && tournament.rejectionReason && (
-                              <div className="p-2 mt-2 mb-2 border border-destructive/50 bg-destructive/10 rounded text-xs text-destructive">
-                                <span className="font-semibold">Rejection reason: </span>
-                                {highlightText(tournament.rejectionReason, tournamentSearch)}
-                              </div>
-                            )}
-                            {tournament.description && (
-                              <div 
-                                className="w-full overflow-hidden mb-2" 
-                                style={{ 
-                                  maxWidth: '100%',
-                                  wordBreak: 'break-all',
-                                  overflowWrap: 'anywhere'
-                                }}
-                              >
-                                <p 
-                                  className="text-sm text-muted-foreground line-clamp-2 break-all overflow-hidden [&_*]:break-all"
-                                  style={{ wordBreak: 'break-all', overflowWrap: 'anywhere', maxWidth: '100%' }}
-                                >
-                                  {highlightText(tournament.description, tournamentSearch)}
-                                </p>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                              <div className="flex items-center gap-1 min-w-0 max-w-full">
-                                <span>Created by:</span>
-                                <span className="font-medium truncate">
-                                  {highlightText(
-                                    tournament.createdBy?.name || tournament.createdBy?.email || 'Unknown',
-                                    tournamentSearch
-                                  )}
-                                </span>
-                              </div>
-                              <span className="flex items-center gap-1 flex-shrink-0">
-                                <Clock className="h-3 w-3" />
-                                {format(new Date(tournament.createdAt), 'MMM d, yyyy HH:mm:ss')}
-                              </span>
-                              {tournament.location && (
-                                <span className="truncate max-w-xs">{highlightText(tournament.location, tournamentSearch)}</span>
-                              )}
-                              <span className="flex-shrink-0">${tournament.price.toFixed(2)}</span>
-                            </div>
-                          </div>
-                          <div className="flex-shrink-0 flex gap-2">
-                            {tournament.approved === true ? (
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => {
-                                  setTournamentToReject(tournament)
-                                  setRejectDialogOpen(true)
-                                }}
-                                disabled={approvingTournamentId === tournament.id || rejectingTournamentId === tournament.id}
-                              >
-                                <XCircle className="h-4 w-4 mr-2" />
-                                Reject
-                              </Button>
-                            ) : (
-                              <>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => handleApproveTournament(tournament.id)}
-                                  disabled={approvingTournamentId === tournament.id || rejectingTournamentId === tournament.id}
-                                >
-                                  {approvingTournamentId === tournament.id ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      Approving...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                                      Approve
-                                    </>
-                                  )}
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => {
-                                    setTournamentToReject(tournament)
-                                    setRejectionReason(tournament.rejectionReason || '')
-                                    setRejectDialogOpen(true)
-                                  }}
-                                  disabled={approvingTournamentId === tournament.id || rejectingTournamentId === tournament.id}
-                                >
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  {tournament.approved === false && tournament.rejectionReason ? 'Update Rejection' : 'Reject'}
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         {/* Users Tab */}
         <TabsContent value="users" className="space-y-4">
           <Card>
@@ -1525,65 +1173,6 @@ export function HealthTools() {
         </DialogContent>
       </Dialog>
 
-      {/* Reject Tournament Dialog */}
-      <Dialog open={rejectDialogOpen} onOpenChange={(open) => {
-        setRejectDialogOpen(open)
-        if (!open) {
-          setTournamentToReject(null)
-          setRejectionReason('')
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Tournament</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to reject &quot;{tournamentToReject?.name}&quot;? 
-              You can optionally provide a reason for the rejection that will be shown to the tournament creator.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="rejection-reason">Rejection Reason (Optional)</Label>
-              <Textarea
-                id="rejection-reason"
-                placeholder="Enter a reason for rejection (optional)..."
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                rows={4}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setRejectDialogOpen(false)
-                setTournamentToReject(null)
-                setRejectionReason('')
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleRejectTournament}
-              disabled={rejectingTournamentId === tournamentToReject?.id}
-            >
-              {rejectingTournamentId === tournamentToReject?.id ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Rejecting...
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Reject Tournament
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
