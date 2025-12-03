@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
+const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1444884965656498297/cYFv5fCpclifIVFzyi4a6tN3a5u_hpGE2AZGfPCT8hyJkfo96hcCdcYmBL-YvG2LOjXU'
 
 // POST - Submit a new tournament hosting request
 export async function POST(request: NextRequest) {
@@ -54,6 +55,89 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Send to Discord webhook
+    try {
+      const formatLabel = tournamentFormat === 'in-person' ? 'In-Person' : tournamentFormat === 'satellite' ? 'Satellite' : 'Mini SO'
+      const levelLabel = tournamentLevel.charAt(0).toUpperCase() + tournamentLevel.slice(1)
+      
+      const discordPayload = {
+        embeds: [
+          {
+            title: '🏆 New Tournament Hosting Request',
+            color: 0x1e40af, // Blue color
+            fields: [
+              {
+                name: '📋 Tournament Name',
+                value: tournamentName,
+                inline: false,
+              },
+              {
+                name: '🎯 Level',
+                value: levelLabel,
+                inline: true,
+              },
+              {
+                name: '🔤 Division',
+                value: `Division ${division}`,
+                inline: true,
+              },
+              {
+                name: '📍 Format',
+                value: formatLabel,
+                inline: true,
+              },
+              ...(location ? [{
+                name: '🗺️ Location',
+                value: location,
+                inline: false,
+              }] : []),
+              ...(preferredSlug ? [{
+                name: '🔗 Preferred Slug',
+                value: `teamy.io/tournaments/${preferredSlug}`,
+                inline: false,
+              }] : []),
+              {
+                name: '👤 Director Name',
+                value: directorName,
+                inline: true,
+              },
+              {
+                name: '📧 Director Email',
+                value: directorEmail,
+                inline: true,
+              },
+              ...(directorPhone ? [{
+                name: '📞 Phone',
+                value: directorPhone,
+                inline: true,
+              }] : []),
+              ...(otherNotes ? [{
+                name: '📝 Notes',
+                value: otherNotes.length > 1024 ? otherNotes.substring(0, 1021) + '...' : otherNotes,
+                inline: false,
+              }] : []),
+            ],
+            timestamp: new Date().toISOString(),
+            footer: {
+              text: 'Teamy Tournament Request',
+            },
+          },
+        ],
+      }
+
+      await fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(discordPayload),
+      })
+      console.log('Discord webhook sent for tournament request:', tournamentName)
+    } catch (webhookError) {
+      // Log webhook error but don't fail the request
+      console.error('Failed to send Discord webhook:', webhookError)
+    }
+
     // Send confirmation email to the tournament director
     try {
       if (process.env.RESEND_API_KEY) {
@@ -87,6 +171,18 @@ export async function POST(request: NextRequest) {
                 </p>
                 <p style="color: #92400e; margin: 8px 0 0 0; font-size: 14px;">
                   Our team will review your submission and get back to you within 2-3 business days.
+                </p>
+              </div>
+
+              <div style="text-align: center; padding: 24px; background-color: #eff6ff; border-radius: 8px; margin: 24px 0;">
+                <p style="color: #1e40af; font-weight: 500; margin: 0 0 12px 0;">
+                  Track your request status anytime
+                </p>
+                <a href="${baseUrl}/td" style="display: inline-block; background-color: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">
+                  Visit TD Portal
+                </a>
+                <p style="color: #6b7280; font-size: 12px; margin: 12px 0 0 0;">
+                  Sign in with this email (${directorEmail}) to view your request status.
                 </p>
               </div>
               
