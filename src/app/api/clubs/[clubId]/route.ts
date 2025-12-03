@@ -183,6 +183,10 @@ export async function DELETE(
       where: { id: params.clubId },
     })
 
+    // Revalidate dashboard to refresh the memberships list
+    revalidatePath('/dashboard/club')
+    revalidatePath('/dashboard')
+
     return NextResponse.json({ success: true })
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {

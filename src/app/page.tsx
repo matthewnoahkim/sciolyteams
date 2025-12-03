@@ -15,7 +15,7 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       {/* Header - Theme Aware */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
@@ -32,7 +32,7 @@ export default async function HomePage() {
       </header>
 
       {/* Hero Section - Takes remaining height */}
-      <section className="flex-1 flex items-center justify-center px-4 sm:px-6 py-8 bg-slate-50 dark:bg-slate-900 grid-pattern">
+      <section className="flex-1 flex items-center justify-center px-4 sm:px-6 py-12 sm:py-16 bg-slate-50 dark:bg-slate-900 grid-pattern">
         <div className="max-w-5xl mx-auto text-center space-y-6 sm:space-y-8">
           {/* Badge */}
           <ScrollAnimate animation="elegant" delay={0} duration={800}>
