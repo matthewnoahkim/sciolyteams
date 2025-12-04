@@ -71,7 +71,7 @@ export function HomeNav({ variant = 'default' }: HomeNavProps) {
           <div className={cn(
             "absolute top-full left-0 right-0 border-b backdrop-blur-xl",
             isLight 
-              ? "bg-teamy-primary/95 dark:bg-slate-800/95 border-white/10" 
+              ? "bg-teamy-primary/95 dark:bg-slate-900/95 border-white/10" 
               : "bg-background/95 border-border"
           )}>
             <nav className="container mx-auto px-6 py-4 flex flex-col gap-4">

@@ -5,6 +5,7 @@ import { SignInButton } from '@/components/signin-button'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 type SignInPageProps = {
   searchParams?: {
@@ -46,9 +47,10 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   return (
     <div className="min-h-screen bg-background grid-pattern">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-800 shadow-nav">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo size="md" href="/" variant="light" />
+          <ThemeToggle variant="header" />
         </div>
       </header>
 

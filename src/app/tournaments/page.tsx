@@ -1,15 +1,10 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { redirect } from 'next/navigation'
-import { PublicTournamentsPage } from '@/components/public-tournaments-page'
+import { HostingTournamentsPage } from '@/components/hosting-tournaments-page'
 
 export default async function TournamentsPage() {
   const session = await getServerSession(authOptions)
 
-  // If user is logged in, redirect them to the dashboard tournaments page
-  if (session?.user) {
-    redirect('/dashboard/tournaments')
-  }
-
-  return <PublicTournamentsPage />
+  // Allow both logged-in and logged-out users to view public tournaments
+  return <HostingTournamentsPage />
 }

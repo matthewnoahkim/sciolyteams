@@ -24,7 +24,7 @@ export function TDLoginClient({ unauthorized, email }: TDLoginClientProps) {
   return (
     <div className="min-h-screen bg-background text-foreground grid-pattern">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-800 shadow-nav">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-3">
             <Logo size="md" href="/" variant="light" />

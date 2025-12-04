@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Logo } from '@/components/logo'
 import { HomeNav } from '@/components/home-nav'
 import { ScrollAnimate } from '@/components/scroll-animate'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions)
@@ -13,11 +14,12 @@ export default async function HomePage() {
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-800 shadow-nav">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <Logo size="md" href="/" variant="light" />
           <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
             <HomeNav variant="light" />
+            <ThemeToggle variant="header" />
             <Link href={isLoggedIn ? "/dashboard" : "/login"}>
               <button className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors whitespace-nowrap shadow-sm">
                 {isLoggedIn ? "Dashboard" : "Sign In"}

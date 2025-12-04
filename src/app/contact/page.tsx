@@ -1,30 +1,28 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { redirect } from 'next/navigation'
 import { ArrowLeft, Mail, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
 import { HomeNav } from '@/components/home-nav'
 import { ContactForm } from '@/components/contact-form'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export default async function ContactPage() {
   const session = await getServerSession(authOptions)
-
-  if (session?.user) {
-    redirect('/dashboard')
-  }
+  const isLoggedIn = !!session?.user
 
   return (
     <div className="min-h-screen bg-background text-foreground grid-pattern">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-800 shadow-nav">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <Logo size="md" href="/" variant="light" />
           <div className="flex items-center gap-6">
             <HomeNav variant="light" />
-            <Link href="/login">
+            <ThemeToggle variant="header" />
+            <Link href={isLoggedIn ? "/dashboard" : "/login"}>
               <button className="px-5 py-2.5 text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors shadow-sm">
-                Sign In
+                {isLoggedIn ? "Dashboard" : "Sign In"}
               </button>
             </Link>
           </div>
