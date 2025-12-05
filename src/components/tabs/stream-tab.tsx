@@ -927,10 +927,17 @@ export function StreamTab({ clubId, currentMembership, teams, isAdmin, user }: S
             {/* Audience Section */}
             <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
               <h4 className="text-sm font-semibold">Audience</h4>
-              <RadioGroup value={scope} onValueChange={(value) => setScope(value as 'CLUB' | 'TEAM')} className="flex gap-4">
+              <RadioGroup value={scope} onValueChange={(value) => {
+                const newScope = value as 'CLUB' | 'TEAM'
+                setScope(newScope)
+                // Clear selected teams when switching to Entire Club
+                if (newScope === 'CLUB') {
+                  setSelectedTeams([])
+                }
+              }} className="flex gap-4">
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="TEAM" id="scope-team" />
-                  <Label htmlFor="scope-team" className="cursor-pointer font-normal text-sm">
+                  <RadioGroupItem value="CLUB" id="scope-club" />
+                  <Label htmlFor="scope-club" className="cursor-pointer font-normal text-sm">
                     Entire Club
                   </Label>
                 </div>
@@ -951,11 +958,13 @@ export function StreamTab({ clubId, currentMembership, teams, isAdmin, user }: S
                           id={`team-${team.id}`}
                           checked={selectedTeams.includes(team.id)}
                           onCheckedChange={(checked) => {
-                            setSelectedTeams((prev) =>
-                              checked
-                                ? [...prev, team.id]
-                                : prev.filter((id) => id !== team.id)
-                            )
+                            if (checked) {
+                              // When a team is checked, switch to TEAM scope automatically
+                              setScope('TEAM')
+                              setSelectedTeams((prev) => [...prev, team.id])
+                            } else {
+                              setSelectedTeams((prev) => prev.filter((id) => id !== team.id))
+                            }
                           }}
                         />
                         <span className="text-sm">{team.name}</span>

@@ -33,6 +33,7 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  Eye,
   Image as ImageIcon,
   Lock,
   Play,
@@ -1054,7 +1055,7 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6 pt-6 pb-6">
               {questions.length === 0 && (
                 <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/10 p-8 text-center text-sm text-muted-foreground">
                   Start by adding a question type. You can include context blocks, embed images, and
@@ -1455,6 +1456,7 @@ function QuestionCard({
     context: 'stacked',
     prompt: 'stacked',
   })
+  const [showPreview, setShowPreview] = useState(false)
 
   const handleOptionUpdate = (optionId: string, updater: (option: OptionDraft) => OptionDraft) => {
     onChange((prev) => ({
@@ -1601,6 +1603,15 @@ function QuestionCard({
           <Button
             type="button"
             size="sm"
+            variant="outline"
+            onClick={() => setShowPreview(true)}
+          >
+            <Eye className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Preview Question</span>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
             variant="ghost"
             onClick={onMoveUp}
             disabled={index === 0}
@@ -1715,30 +1726,18 @@ function QuestionCard({
               </DndContext>
             </div>
           )}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">Editor</Label>
-              <textarea
-                ref={contextTextareaRef}
-                className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={contextText}
-                onChange={(event) => handleContextTextChange(event.target.value)}
-                onClick={() => handleTextareaClick('context')}
-                onKeyUp={() => handleTextareaKeyUp('context')}
-                onSelect={() => handleTextareaKeyUp('context')}
-                placeholder="Type your text here. Click where you want to insert an image, then click 'Add Image'."
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">Preview (how students will see it)</Label>
-              <div className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm overflow-y-auto">
-                {question.context ? (
-                  <QuestionPrompt promptMd={question.context} className="text-sm" imageLayout={imageLayout.context} />
-                ) : (
-                  <p className="text-muted-foreground text-sm">Preview will appear here...</p>
-                )}
-              </div>
-            </div>
+          <div className="mt-2">
+            <Label className="text-xs text-muted-foreground mb-1 block">Editor</Label>
+            <textarea
+              ref={contextTextareaRef}
+              className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={contextText}
+              onChange={(event) => handleContextTextChange(event.target.value)}
+              onClick={() => handleTextareaClick('context')}
+              onKeyUp={() => handleTextareaKeyUp('context')}
+              onSelect={() => handleTextareaKeyUp('context')}
+              placeholder="Type your text here. Click where you want to insert an image, then click 'Add Image'."
+            />
           </div>
         </div>
 
@@ -1829,31 +1828,19 @@ function QuestionCard({
               </DndContext>
             </div>
           )}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">Editor</Label>
-              <textarea
-                ref={promptTextareaRef}
-                className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={promptText}
-                onChange={(event) => handlePromptTextChange(event.target.value)}
-                onClick={() => handleTextareaClick('prompt')}
-                onKeyUp={() => handleTextareaKeyUp('prompt')}
-                onSelect={() => handleTextareaKeyUp('prompt')}
-                placeholder="Type your question here. Click where you want to insert an image, then click 'Add Image'."
-                required
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1 block">Preview (how students will see it)</Label>
-              <div className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm overflow-y-auto">
-                {question.prompt ? (
-                  <QuestionPrompt promptMd={question.prompt} className="text-sm" imageLayout={imageLayout.prompt} />
-                ) : (
-                  <p className="text-muted-foreground text-sm">Preview will appear here...</p>
-                )}
-              </div>
-            </div>
+          <div className="mt-2">
+            <Label className="text-xs text-muted-foreground mb-1 block">Editor</Label>
+            <textarea
+              ref={promptTextareaRef}
+              className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={promptText}
+              onChange={(event) => handlePromptTextChange(event.target.value)}
+              onClick={() => handleTextareaClick('prompt')}
+              onKeyUp={() => handleTextareaKeyUp('prompt')}
+              onSelect={() => handleTextareaKeyUp('prompt')}
+              placeholder="Type your question here. Click where you want to insert an image, then click 'Add Image'."
+              required
+            />
           </div>
         </div>
 
@@ -2036,6 +2023,68 @@ function QuestionCard({
           </div>
         </div>
       </div>
+
+      {/* Preview Dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Question Preview (Student View)</DialogTitle>
+            <DialogDescription>
+              This is how Question {index + 1} will appear to students taking the test.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border-2 border-primary/20 bg-muted/30 p-6 space-y-4">
+            {question.context && (
+              <div className="pb-4 border-b border-border">
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Context/Stimulus</p>
+                <QuestionPrompt promptMd={question.context} imageLayout={imageLayout.context} />
+              </div>
+            )}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2">Question {index + 1}</p>
+              <QuestionPrompt promptMd={question.prompt} imageLayout={imageLayout.prompt} />
+            </div>
+            {question.type !== 'LONG_TEXT' && question.options.length > 0 && (
+              <div className="space-y-2 pt-2">
+                {question.type === 'MCQ_SINGLE' ? (
+                  <RadioGroup className="space-y-2">
+                    {question.options.filter(opt => opt.label.trim()).map((option, idx) => (
+                      <div key={option.id} className="flex items-center gap-2">
+                        <RadioGroupItem value={option.id} id={`preview-${question.id}-${option.id}`} disabled />
+                        <Label htmlFor={`preview-${question.id}-${option.id}`} className="cursor-default font-normal">
+                          {option.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                ) : (
+                  <div className="space-y-2">
+                    {question.options.filter(opt => opt.label.trim()).map((option, idx) => (
+                      <div key={option.id} className="flex items-center gap-2">
+                        <Checkbox id={`preview-${question.id}-${option.id}`} disabled />
+                        <Label htmlFor={`preview-${question.id}-${option.id}`} className="cursor-default font-normal">
+                          {option.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {question.type === 'LONG_TEXT' && (
+              <div className="pt-2">
+                <div className="w-full min-h-[120px] rounded-md border border-input bg-background/50 px-3 py-2 text-sm text-muted-foreground">
+                  Student will type their answer here...
+                </div>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground border-t border-border/50">
+              <span>Points: {question.points}</span>
+              {question.shuffleOptions && <span>Choices will be shuffled</span>}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
