@@ -1,28 +1,58 @@
-// Component to render markdown prompt with images
+// Helper to parse markdown table
+function parseMarkdownTable(markdown: string): { headers: string[]; rows: string[][] } {
+  const lines = markdown.trim().split('\n').filter(line => line.trim())
+  if (lines.length < 3) return { headers: [], rows: [] }
+  
+  const parseRow = (line: string) => 
+    line.split('|').slice(1, -1).map(cell => cell.trim())
+  
+  const headers = parseRow(lines[0])
+  // Skip separator line (lines[1]) and parse remaining rows
+  const rows = lines.slice(2).map(parseRow)
+  
+  return { headers, rows }
+}
+
+// Component to render markdown prompt with images and tables
 export function QuestionPrompt({ promptMd, className = '', imageLayout = 'stacked' }: { promptMd: string; className?: string; imageLayout?: 'stacked' | 'side-by-side' }) {
-  // Split content into text and image parts
+  // Split content into text, image, and table parts
   const parseContent = (content: string) => {
     const imageRegex = /!\[([^\]]*)\]\((data:image\/[^)]+)\)/g
-    const parts: Array<{ type: 'text' | 'image'; content: string; src?: string; alt?: string }> = []
+    const tableRegex = /(\|.+\|[\r\n]+\|[-:\s|]+\|[\r\n]+(?:\|.+\|(?:\r?\n(?!\r?\n))?)+)/g
+    const parts: Array<{ type: 'text' | 'image' | 'table'; content: string; src?: string; alt?: string; tableMarkdown?: string }> = []
+    
+    // Create a combined regex to find both images and tables in order
+    const combinedRegex = /(?:(!\[([^\]]*)\]\((data:image\/[^)]+)\)))|(?:(\|.+\|[\r\n]+\|[-:\s|]+\|[\r\n]+(?:\|.+\|(?:\r?\n(?!\r?\n))?)+))/g
     let lastIndex = 0
     let match
 
-    while ((match = imageRegex.exec(content)) !== null) {
-      // Add text before image
+    while ((match = combinedRegex.exec(content)) !== null) {
+      // Add text before match
       if (match.index > lastIndex) {
         const text = content.substring(lastIndex, match.index).trim()
         if (text) {
           parts.push({ type: 'text', content: text })
         }
       }
-      // Add image
-      parts.push({
-        type: 'image',
-        content: '',
-        src: match[2],
-        alt: match[1] || 'Image'
-      })
-      lastIndex = imageRegex.lastIndex
+      
+      if (match[1]) {
+        // It's an image
+        parts.push({
+          type: 'image',
+          content: '',
+          src: match[3],
+          alt: match[2] || 'Image'
+        })
+      } else if (match[4]) {
+        // It's a table
+        parts.push({
+          type: 'table',
+          content: '',
+          tableMarkdown: match[4]
+        })
+      }
+      
+      lastIndex = combinedRegex.lastIndex
     }
 
     // Add remaining text
@@ -33,7 +63,7 @@ export function QuestionPrompt({ promptMd, className = '', imageLayout = 'stacke
       }
     }
 
-    // If no images found, return the whole content as text
+    // If no images or tables found, return the whole content as text
     if (parts.length === 0) {
       return [{ type: 'text' as const, content: content.trim() }]
     }
@@ -52,7 +82,14 @@ export function QuestionPrompt({ promptMd, className = '', imageLayout = 'stacke
 
   const renderParts = (partsToRender: typeof promptParts, className = '') => {
     // Group consecutive images for side-by-side layout
-    const groupedParts: Array<{ type: 'text' | 'image' | 'image-group'; content?: string; images?: Array<{ src: string; alt: string }>; src?: string; alt?: string }> = []
+    const groupedParts: Array<{ 
+      type: 'text' | 'image' | 'image-group' | 'table'; 
+      content?: string; 
+      images?: Array<{ src: string; alt: string }>; 
+      src?: string; 
+      alt?: string;
+      tableMarkdown?: string;
+    }> = []
     
     if (imageLayout === 'side-by-side') {
       let i = 0
@@ -81,6 +118,66 @@ export function QuestionPrompt({ promptMd, className = '', imageLayout = 'stacke
     return (
       <div className={className}>
         {groupedParts.map((part, index) => {
+          if (part.type === 'table' && part.tableMarkdown) {
+            const { headers, rows } = parseMarkdownTable(part.tableMarkdown)
+            
+            // Filter out separator rows at the beginning or end of the table
+            const filteredRows = rows.filter((row, rowIdx) => {
+              const isSeparator = row.every(cell => /^[-–—]+$/.test(cell.trim()))
+              if (!isSeparator) return true
+              
+              // Skip separators at the very beginning or very end
+              if (rowIdx === 0 || rowIdx === rows.length - 1) return false
+              
+              return true
+            })
+            
+            return (
+              <div key={index} className="my-6 overflow-x-auto">
+                <table className="min-w-full border-collapse border border-input bg-background text-sm">
+                  <thead>
+                    <tr className="bg-muted/30">
+                      {headers.map((header, i) => (
+                        <td key={i} className="border border-input px-3 py-2 max-w-[200px] break-words whitespace-pre-wrap">
+                          {header}
+                        </td>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      let visualRowIdx = 0
+                      return filteredRows.map((row, rowIdx) => {
+                        // Check if this is a separator row (all cells are "---" or similar)
+                        const isSeparator = row.every(cell => /^[-–—]+$/.test(cell.trim()))
+                        
+                        if (isSeparator) {
+                          return (
+                            <tr key={rowIdx} className="bg-background">
+                              <td colSpan={row.length} className="border-0 py-4"></td>
+                            </tr>
+                          )
+                        }
+                        
+                        const currentVisualIdx = visualRowIdx
+                        visualRowIdx++
+                        
+                        return (
+                          <tr key={rowIdx} className={currentVisualIdx % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                            {row.map((cell, cellIdx) => (
+                              <td key={cellIdx} className="border border-input px-3 py-2 max-w-[200px] break-words whitespace-pre-wrap">
+                                {cell}
+                              </td>
+                            ))}
+                          </tr>
+                        )
+                      })
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )
+          }
           if (part.type === 'image-group' && part.images) {
             return (
               <div key={index} className="my-3 flex flex-wrap gap-2">

@@ -47,10 +47,14 @@ import {
   GripVertical,
   LayoutGrid,
   LayoutList,
+  Upload,
+  Sparkles,
+  Table as TableIcon,
 } from 'lucide-react'
 import { DuplicateTestButton } from '@/components/tests/duplicate-test-button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { QuestionPrompt } from '@/components/tests/question-prompt'
+import { ImportedQuestion, ImportedQuestionType } from '@/lib/import-types'
 
 type QuestionType = 'MCQ_SINGLE' | 'MCQ_MULTI' | 'LONG_TEXT'
 
@@ -65,6 +69,18 @@ interface OptionDraft {
   isCorrect: boolean
 }
 
+interface FRQPart {
+  id: string
+  label: string // e.g., 'a', 'b', 'c', 'd'
+  prompt: string
+  points: number
+}
+
+interface TableData {
+  id: string
+  markdown: string
+}
+
 interface QuestionDraft {
   id: string
   type: QuestionType
@@ -74,6 +90,9 @@ interface QuestionDraft {
   points: number
   options: OptionDraft[]
   shuffleOptions: boolean
+  frqParts?: FRQPart[] // For multi-part FRQ questions
+  contextTables?: TableData[] // Tables for context field
+  promptTables?: TableData[] // Tables for prompt field
 }
 
 interface NewTestBuilderProps {
@@ -124,13 +143,79 @@ interface NewTestBuilderProps {
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024 // 2MB
 
-// Parse promptMd to extract context and prompt
-function parsePromptMd(promptMd: string): { context: string; prompt: string } {
-  const parts = promptMd.split('---')
-  if (parts.length === 2) {
-    return { context: parts[0].trim(), prompt: parts[1].trim() }
+// Parse promptMd to extract context, prompt, tables, and FRQ parts
+function parsePromptMd(promptMd: string): { 
+  context: string; 
+  prompt: string; 
+  frqParts?: FRQPart[];
+  contextTables?: TableData[];
+  promptTables?: TableData[];
+} {
+  // Check for FRQ parts
+  const frqPartsMatch = promptMd.match(/---FRQ_PARTS---\n\n([\s\S]+)$/)
+  let mainContent = promptMd
+  let frqParts: FRQPart[] | undefined = undefined
+  
+  if (frqPartsMatch) {
+    mainContent = promptMd.substring(0, frqPartsMatch.index).trim()
+    const partsText = frqPartsMatch[1]
+    
+    // Parse individual parts
+    const partRegex = /\[PART:([a-z]):(\d+(?:\.\d+)?)\]\n([\s\S]*?)(?=\n\n\[PART:|$)/g
+    const parsedParts: FRQPart[] = []
+    let match
+    
+    while ((match = partRegex.exec(partsText)) !== null) {
+      parsedParts.push({
+        id: nanoid(),
+        label: match[1], // This is preserved from saved data but will be overridden by dynamic label in UI
+        points: parseFloat(match[2]),
+        prompt: match[3].trim(),
+      })
+    }
+    
+    if (parsedParts.length > 0) {
+      frqParts = parsedParts
+    }
   }
-  return { context: '', prompt: promptMd.trim() }
+  
+  // Helper to extract tables from a section
+  const extractTablesFromSection = (section: string): { text: string; tables: TableData[] } => {
+    const tablesMatch = section.match(/---TABLES---\n\n([\s\S]+)$/)
+    if (tablesMatch) {
+      const textContent = section.substring(0, tablesMatch.index).trim()
+      const tablesContent = tablesMatch[1]
+      const tables = extractTables(tablesContent)
+      return { text: textContent, tables }
+    }
+    return { text: section.trim(), tables: [] }
+  }
+  
+  // Parse context and prompt
+  const parts = mainContent.split('---').map(p => p.trim()).filter(p => p)
+  
+  if (parts.length === 2) {
+    const contextData = extractTablesFromSection(parts[0])
+    const promptData = extractTablesFromSection(parts[1])
+    
+    return { 
+      context: contextData.text, 
+      prompt: promptData.text, 
+      frqParts,
+      contextTables: contextData.tables.length > 0 ? contextData.tables : undefined,
+      promptTables: promptData.tables.length > 0 ? promptData.tables : undefined,
+    }
+  } else if (parts.length === 1) {
+    const promptData = extractTablesFromSection(parts[0])
+    return { 
+      context: '', 
+      prompt: promptData.text, 
+      frqParts,
+      promptTables: promptData.tables.length > 0 ? promptData.tables : undefined,
+    }
+  }
+  
+  return { context: '', prompt: mainContent.trim(), frqParts }
 }
 
 // Extract images from markdown content
@@ -144,19 +229,71 @@ function extractImages(content: string): Array<{ alt: string; src: string }> {
   return images
 }
 
+// Extract tables from markdown content
+function extractTables(content: string): Array<{ id: string; markdown: string }> {
+  const tableRegex = /(\|.+\|[\r\n]+\|[-:\s|]+\|[\r\n]+(?:\|.+\|[\r\n]*)+)/g
+  const tables: Array<{ id: string; markdown: string }> = []
+  let match
+  while ((match = tableRegex.exec(content)) !== null) {
+    tables.push({ id: nanoid(), markdown: match[1].trim() })
+  }
+  return tables
+}
+
+// Convert markdown table to structured data for editing
+function markdownTableToData(markdown: string): { headers: string[]; rows: string[][] } {
+  const lines = markdown.trim().split('\n').filter(line => line.trim())
+  if (lines.length < 2) return { headers: [], rows: [] }
+  
+  const parseRow = (line: string) => 
+    line.split('|').slice(1, -1).map(cell => cell.trim())
+  
+  const headers = parseRow(lines[0])
+  const rows = lines.slice(2).map(parseRow) // Skip separator line
+  
+  return { headers, rows }
+}
+
+// Convert structured data back to markdown table
+function dataToMarkdownTable(headers: string[], rows: string[][]): string {
+  const headerLine = '| ' + headers.join(' | ') + ' |'
+  const separatorLine = '| ' + headers.map(() => '---').join(' | ') + ' |'
+  const bodyLines = rows.map(row => '| ' + row.join(' | ') + ' |').join('\n')
+  return `${headerLine}\n${separatorLine}\n${bodyLines}`
+}
+
 // Remove image markdown from content for textarea display
 function removeImageMarkdown(content: string): string {
   return content.replace(/!\[([^\]]*)\]\((data:image\/[^)]+)\)/g, '').trim()
 }
 
-// Reconstruct markdown with images
-function reconstructMarkdown(text: string, images: Array<{ alt: string; src: string }>): string {
+// Remove table markdown from content for textarea display
+function removeTableMarkdown(content: string): string {
+  return content.replace(/(\|.+\|[\r\n]+\|[-:\s|]+\|[\r\n]+(?:\|.+\|[\r\n]*)+)/g, '').trim()
+}
+
+// Reconstruct markdown with images (tables are stored separately now)
+function reconstructMarkdown(
+  text: string, 
+  images: Array<{ alt: string; src: string }>
+): string {
   const textPart = text.trim()
   const imageParts = images.map(img => `![${img.alt}](${img.src})`).join('\n\n')
+  
   if (textPart && imageParts) {
     return `${textPart}\n\n${imageParts}`
   }
   return textPart || imageParts
+}
+
+// Generate a markdown table with all cells labeled "Cell"
+function generateMarkdownTable(rows: number, cols: number): string {
+  const header = '| ' + Array(cols).fill('Cell').join(' | ') + ' |'
+  const separator = '| ' + Array(cols).fill('---').join(' | ') + ' |'
+  const body = Array(rows - 1).fill(0).map((_, rowIdx) => 
+    '| ' + Array(cols).fill('Cell').join(' | ') + ' |'
+  ).join('\n')
+  return `${header}\n${separator}\n${body}`
 }
 
 export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tournamentId, tournamentName, tournamentDivision, test }: NewTestBuilderProps) {
@@ -170,6 +307,10 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
   const [addToCalendar, setAddToCalendar] = useState(false)
   const [events, setEvents] = useState<Array<{ id: string; name: string }>>([])
   const [loadingEvents, setLoadingEvents] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importStartTime, setImportStartTime] = useState<number | null>(null)
+  const [estimatedTimeSeconds, setEstimatedTimeSeconds] = useState<number>(30)
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0)
   const [publishFormData, setPublishFormData] = useState({
     startAt: '',
     endAt: '',
@@ -218,7 +359,7 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
   const [questions, setQuestions] = useState<QuestionDraft[]>(() => {
     if (test?.questions) {
       return test.questions.map((q) => {
-        const { context, prompt } = parsePromptMd(q.promptMd)
+        const { context, prompt, frqParts, contextTables, promptTables } = parsePromptMd(q.promptMd)
         const type = (q.type === 'MCQ_SINGLE' || q.type === 'MCQ_MULTI' || q.type === 'LONG_TEXT') 
           ? q.type as QuestionType
           : 'MCQ_SINGLE'
@@ -236,6 +377,9 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
             isCorrect: opt.isCorrect,
           })),
           shuffleOptions: q.shuffleOptions,
+          frqParts,
+          contextTables,
+          promptTables,
         }
       })
     }
@@ -306,6 +450,119 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
     })
   }
 
+  const handleImportFromDocx = async () => {
+    // Create a file input element
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+
+      setImporting(true)
+      setImportStartTime(Date.now())
+      
+      // Estimate time based on file size and AI processing
+      // AI processing is slower: roughly 30-60 seconds base + 2KB per second for content
+      const fileSizeKB = file.size / 1024
+      const baseTime = 45 // Base AI processing time
+      const processingTime = Math.ceil(fileSizeKB / 2) // 2KB per second
+      const estimatedSeconds = Math.max(30, Math.min(180, baseTime + processingTime))
+      setEstimatedTimeSeconds(estimatedSeconds)
+      
+      try {
+        // Upload file to API
+        const formData = new FormData()
+        formData.append('file', file)
+        
+        const response = await fetch('/api/tests/import-docx', {
+          method: 'POST',
+          body: formData,
+        })
+        
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to import questions')
+        }
+        
+        const { questions: importedQuestions } = await response.json() as { questions: ImportedQuestion[] }
+        
+        // Map ImportedQuestion to QuestionDraft
+        const mappedQuestions: QuestionDraft[] = importedQuestions.map((iq) => {
+          let type: QuestionType
+          let options: OptionDraft[]
+          let frqParts: FRQPart[] | undefined
+          
+          if (iq.type === 'free_response') {
+            type = 'LONG_TEXT'
+            options = []
+            
+            // Map FRQ parts if they exist
+            if (iq.frqParts && iq.frqParts.length > 0) {
+              frqParts = iq.frqParts.map((part) => ({
+                id: nanoid(),
+                label: part.label,
+                prompt: part.prompt,
+                points: part.points || 1,
+              }))
+            }
+          } else if (iq.type === 'multiple_choice') {
+            type = 'MCQ_SINGLE'
+            options = iq.choices.map((choice) => ({
+              id: nanoid(),
+              label: choice.text,
+              isCorrect: choice.correct,
+            }))
+          } else if (iq.type === 'select_all') {
+            type = 'MCQ_MULTI'
+            options = iq.choices.map((choice) => ({
+              id: nanoid(),
+              label: choice.text,
+              isCorrect: choice.correct,
+            }))
+          } else {
+            // Default to free response for unknown types
+            type = 'LONG_TEXT'
+            options = []
+          }
+          
+          return {
+            id: nanoid(),
+            type,
+            prompt: iq.prompt || '',
+            context: iq.context || '',
+            explanation: '',
+            points: iq.points || 1,
+            options,
+            shuffleOptions: true,
+            frqParts,
+          }
+        })
+        
+        // Add imported questions to the end of the question list
+        setQuestions((prev) => [...prev, ...mappedQuestions])
+        
+        toast({
+          title: 'Questions imported successfully!',
+          description: `Imported ${mappedQuestions.length} question${mappedQuestions.length === 1 ? '' : 's'} from ${file.name}. Please review and check for any mistakes or formatting issues before publishing.`,
+        })
+      } catch (error: any) {
+        console.error('Error importing docx:', error)
+        toast({
+          title: 'Import failed',
+          description: error.message || 'Failed to import questions from docx',
+          variant: 'destructive',
+        })
+      } finally {
+        setImporting(false)
+        setImportStartTime(null)
+      }
+    }
+    
+    input.click()
+  }
+
   const handleImageEmbed = (questionId: string, field: 'context' | 'prompt', file: File, cursorPosition: number | null = null) => {
     if (file.size > MAX_IMAGE_SIZE) {
       toast({
@@ -373,6 +630,21 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
         .finally(() => setLoadingEvents(false))
     }
   }, [publishDialogOpen, clubDivision, events.length, loadingEvents, toast])
+
+  // Track elapsed time during import
+  useEffect(() => {
+    if (!importing || !importStartTime) {
+      setElapsedSeconds(0)
+      return
+    }
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - importStartTime) / 1000)
+      setElapsedSeconds(elapsed)
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [importing, importStartTime])
 
   // Draft validation - basic requirements for saving (no assignment validation)
   const draftValidation = useMemo(() => {
@@ -449,11 +721,38 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
   const composePrompt = (question: QuestionDraft) => {
     const context = question.context.trim()
     const prompt = question.prompt.trim()
-    if (context && prompt) {
-      return `${context}\n\n---\n\n${prompt}`
+    
+    // Add tables to context and prompt
+    const contextWithTables = question.contextTables && question.contextTables.length > 0
+      ? `${context}\n\n---TABLES---\n\n${question.contextTables.map(t => t.markdown).join('\n\n')}`
+      : context
+    
+    const promptWithTables = question.promptTables && question.promptTables.length > 0
+      ? `${prompt}\n\n---TABLES---\n\n${question.promptTables.map(t => t.markdown).join('\n\n')}`
+      : prompt
+    
+    // Compose main prompt
+    let mainPrompt = ''
+    if (contextWithTables && promptWithTables) {
+      mainPrompt = `${contextWithTables}\n\n---\n\n${promptWithTables}`
+    } else if (contextWithTables) {
+      mainPrompt = contextWithTables
+    } else {
+      mainPrompt = promptWithTables
     }
-    if (context) return context
-    return prompt
+    
+    // Add FRQ parts if they exist (using dynamic labels based on index)
+    if (question.type === 'LONG_TEXT' && question.frqParts && question.frqParts.length > 0) {
+      const partsSection = question.frqParts
+        .map((part, index) => {
+          const dynamicLabel = String.fromCharCode(97 + index) // a, b, c, d, etc.
+          return `[PART:${dynamicLabel}:${part.points}]\n${part.prompt}`
+        })
+        .join('\n\n')
+      mainPrompt = `${mainPrompt}\n\n---FRQ_PARTS---\n\n${partsSection}`
+    }
+    
+    return mainPrompt
   }
 
   const handleSave = async (andPublish: boolean = false) => {
@@ -1053,7 +1352,40 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
                   <Plus className="mr-2 h-4 w-4" />
                   Select All That Apply
                 </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={handleImportFromDocx}
+                  disabled={importing}
+                  className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 border-purple-500/30 hover:border-purple-500/50 transition-all duration-200"
+                >
+                  <Sparkles className="mr-2 h-4 w-4 text-purple-500" />
+                  {importing 
+                    ? `Importing with AI... ${elapsedSeconds}s / ~${estimatedTimeSeconds}s` 
+                    : 'Automatically Import Test from .docx with AI'}
+                </Button>
               </div>
+              {importing && (
+                <div className="mt-3 px-4 py-3 bg-purple-500/10 border border-purple-500/30 rounded-md">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 bg-purple-500 rounded-full animate-pulse"></div>
+                      <span className="font-medium text-purple-700 dark:text-purple-300">
+                        Processing with AI...
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {elapsedSeconds}s elapsed • Est. {estimatedTimeSeconds}s total
+                    </span>
+                  </div>
+                  <div className="mt-2 w-full bg-purple-500/20 rounded-full h-1.5 overflow-hidden">
+                    <div 
+                      className="bg-purple-500 h-full transition-all duration-1000 ease-linear"
+                      style={{ width: `${Math.min(100, (elapsedSeconds / estimatedTimeSeconds) * 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-6 pt-6 pb-6">
               {questions.length === 0 && (
@@ -1457,6 +1789,12 @@ function QuestionCard({
     prompt: 'stacked',
   })
   const [showPreview, setShowPreview] = useState(false)
+  const [showTableDialog, setShowTableDialog] = useState(false)
+  const [tableConfig, setTableConfig] = useState<{ field: 'context' | 'prompt' | null; rows: number; cols: number }>({
+    field: null,
+    rows: 3,
+    cols: 3,
+  })
 
   const handleOptionUpdate = (optionId: string, updater: (option: OptionDraft) => OptionDraft) => {
     onChange((prev) => ({
@@ -1518,11 +1856,84 @@ function QuestionCard({
     }
   }
 
+  const handleAddTable = (field: 'context' | 'prompt') => {
+    setTableConfig({ field, rows: 3, cols: 3 })
+    setShowTableDialog(true)
+  }
+
+  const insertTable = () => {
+    if (!tableConfig.field) return
+    
+    const table = generateMarkdownTable(tableConfig.rows, tableConfig.cols)
+    const field = tableConfig.field
+    
+    // Add new table to the appropriate tables array
+    const newTable = { id: nanoid(), markdown: table }
+    
+    if (field === 'context') {
+      onChange((prev) => ({
+        ...prev,
+        contextTables: [...(prev.contextTables || []), newTable]
+      }))
+    } else {
+      onChange((prev) => ({
+        ...prev,
+        promptTables: [...(prev.promptTables || []), newTable]
+      }))
+    }
+    
+    setShowTableDialog(false)
+    toast({
+      title: 'Table added',
+      description: `A ${tableConfig.rows}x${tableConfig.cols} table was inserted.`,
+    })
+  }
+
+  // FRQ Parts handlers
+  const addFRQPart = () => {
+    const existingParts = question.frqParts || []
+    const newPart: FRQPart = {
+      id: nanoid(),
+      label: '', // Will be set dynamically based on index
+      prompt: '',
+      points: 1,
+    }
+    onChange((prev) => ({
+      ...prev,
+      frqParts: [...(prev.frqParts || []), newPart],
+    }))
+  }
+
+  const updateFRQPart = (partId: string, updater: (part: FRQPart) => FRQPart) => {
+    onChange((prev) => ({
+      ...prev,
+      frqParts: (prev.frqParts || []).map((part) =>
+        part.id === partId ? updater(part) : part
+      ),
+    }))
+  }
+
+  const removeFRQPart = (partId: string) => {
+    onChange((prev) => ({
+      ...prev,
+      frqParts: (prev.frqParts || []).filter((part) => part.id !== partId),
+    }))
+  }
+
+  // Get dynamic label for FRQ part based on index
+  const getFRQPartLabel = (index: number): string => {
+    return String.fromCharCode(97 + index) // a, b, c, d, etc.
+  }
+
 
   const contextImages = extractImages(question.context)
   const promptImages = extractImages(question.prompt)
-  const contextText = removeImageMarkdown(question.context)
-  const promptText = removeImageMarkdown(question.prompt)
+  const contextTables = question.contextTables || []
+  const promptTables = question.promptTables || []
+  
+  // Remove only images from text (tables are stored separately now)
+  let contextText = removeImageMarkdown(question.context)
+  let promptText = removeImageMarkdown(question.prompt)
 
   const handleContextTextChange = (newText: string) => {
     const newImages = extractImages(question.context)
@@ -1545,22 +1956,59 @@ function QuestionCard({
     onChange((prev) => ({ ...prev, [field]: reconstructed }))
   }
 
-  const handleDragEnd = (field: 'context' | 'prompt', event: DragEndEvent) => {
+  const removeTable = (field: 'context' | 'prompt', tableId: string) => {
+    if (field === 'context') {
+      onChange((prev) => ({
+        ...prev,
+        contextTables: (prev.contextTables || []).filter(t => t.id !== tableId)
+      }))
+    } else {
+      onChange((prev) => ({
+        ...prev,
+        promptTables: (prev.promptTables || []).filter(t => t.id !== tableId)
+      }))
+    }
+    
+    toast({
+      title: 'Table removed',
+      description: 'The table has been deleted.',
+    })
+  }
+
+  const handleDragEnd = (field: 'context' | 'prompt', event: DragEndEvent, type: 'image' | 'table') => {
     const { active, over } = event
     
     if (!over || active.id === over.id) return
     
-    const currentContent = question[field]
-    const images = extractImages(currentContent)
-    const oldIndex = images.findIndex(img => img.src === active.id)
-    const newIndex = images.findIndex(img => img.src === over.id)
-    
-    if (oldIndex === -1 || newIndex === -1) return
-    
-    const newImages = arrayMove(images, oldIndex, newIndex)
-    const text = removeImageMarkdown(currentContent)
-    const reconstructed = reconstructMarkdown(text, newImages)
-    onChange((prev) => ({ ...prev, [field]: reconstructed }))
+    if (type === 'image') {
+      const currentContent = question[field]
+      const images = extractImages(currentContent)
+      
+      const oldIndex = images.findIndex(img => img.src === active.id)
+      const newIndex = images.findIndex(img => img.src === over.id)
+      
+      if (oldIndex === -1 || newIndex === -1) return
+      
+      const newImages = arrayMove(images, oldIndex, newIndex)
+      const text = removeImageMarkdown(currentContent)
+      const reconstructed = reconstructMarkdown(text, newImages)
+      onChange((prev) => ({ ...prev, [field]: reconstructed }))
+    } else {
+      const tables = field === 'context' ? question.contextTables || [] : question.promptTables || []
+      
+      const oldIndex = tables.findIndex(t => t.id === active.id)
+      const newIndex = tables.findIndex(t => t.id === over.id)
+      
+      if (oldIndex === -1 || newIndex === -1) return
+      
+      const newTables = arrayMove(tables, oldIndex, newIndex)
+      
+      if (field === 'context') {
+        onChange((prev) => ({ ...prev, contextTables: newTables }))
+      } else {
+        onChange((prev) => ({ ...prev, promptTables: newTables }))
+      }
+    }
   }
 
   const moveImage = (field: 'context' | 'prompt', imageSrc: string, direction: 'up' | 'down') => {
@@ -1579,6 +2027,39 @@ function QuestionCard({
     const text = removeImageMarkdown(currentContent)
     const reconstructed = reconstructMarkdown(text, newImages)
     onChange((prev) => ({ ...prev, [field]: reconstructed }))
+  }
+
+  const moveTable = (field: 'context' | 'prompt', tableId: string, direction: 'up' | 'down') => {
+    const tables = field === 'context' ? question.contextTables || [] : question.promptTables || []
+    const tableIndex = tables.findIndex(t => t.id === tableId)
+    
+    if (tableIndex === -1) return
+    if (direction === 'up' && tableIndex === 0) return
+    if (direction === 'down' && tableIndex === tables.length - 1) return
+    
+    const newTables = [...tables]
+    const targetIndex = direction === 'up' ? tableIndex - 1 : tableIndex + 1
+    ;[newTables[tableIndex], newTables[targetIndex]] = [newTables[targetIndex], newTables[tableIndex]]
+    
+    if (field === 'context') {
+      onChange((prev) => ({ ...prev, contextTables: newTables }))
+    } else {
+      onChange((prev) => ({ ...prev, promptTables: newTables }))
+    }
+  }
+
+  const editTable = (field: 'context' | 'prompt', tableId: string, newMarkdown: string) => {
+    const tables = field === 'context' ? question.contextTables || [] : question.promptTables || []
+    
+    const updatedTables = tables.map(t => 
+      t.id === tableId ? { ...t, markdown: newMarkdown } : t
+    )
+    
+    if (field === 'context') {
+      onChange((prev) => ({ ...prev, contextTables: updatedTables }))
+    } else {
+      onChange((prev) => ({ ...prev, promptTables: updatedTables }))
+    }
   }
 
   const sensors = useSensors(
@@ -1642,19 +2123,34 @@ function QuestionCard({
         <div>
           <div className="flex items-center justify-between text-sm font-medium mb-2">
             <Label htmlFor={`context-label-${index}`}>Context / stimulus (optional)</Label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                contextInputRef.current?.click()
-              }}
-            >
-              <ImageIcon className="mr-2 h-4 w-4" />
-              Add Image
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleAddTable('context')
+                }}
+              >
+                <TableIcon className="mr-2 h-4 w-4" />
+                Add Table
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  contextInputRef.current?.click()
+                }}
+              >
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Add Image
+              </Button>
+            </div>
             <input
               ref={contextInputRef}
               id={`context-input-${index}`}
@@ -1705,7 +2201,7 @@ function QuestionCard({
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragEnd={(e) => handleDragEnd('context', e)}
+                onDragEnd={(e) => handleDragEnd('context', e, 'image')}
               >
                 <SortableContext items={contextImages.map(img => img.src)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-2">
@@ -1719,6 +2215,36 @@ function QuestionCard({
                         onRemove={() => removeImage('context', img.src)}
                         onMoveUp={() => moveImage('context', img.src, 'up')}
                         onMoveDown={() => moveImage('context', img.src, 'down')}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          )}
+          {contextTables.length > 0 && (
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Tables ({contextTables.length}) - Drag to reorder</Label>
+              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(e) => handleDragEnd('context', e, 'table')}
+              >
+                <SortableContext items={contextTables.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-4">
+                    {contextTables.map((table, tableIndex) => (
+                      <SortableTableItem
+                        key={table.id}
+                        id={table.id}
+                        table={table}
+                        index={tableIndex}
+                        total={contextTables.length}
+                        onRemove={() => removeTable('context', table.id)}
+                        onMoveUp={() => moveTable('context', table.id, 'up')}
+                        onMoveDown={() => moveTable('context', table.id, 'down')}
+                        onEdit={(newMarkdown) => editTable('context', table.id, newMarkdown)}
                       />
                     ))}
                   </div>
@@ -1744,19 +2270,34 @@ function QuestionCard({
         <div>
           <div className="flex items-center justify-between text-sm font-medium mb-2">
             <Label htmlFor={`prompt-label-${index}`}>Prompt *</Label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                promptInputRef.current?.click()
-              }}
-            >
-              <ImageIcon className="mr-2 h-4 w-4" />
-              Add Image
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleAddTable('prompt')
+                }}
+              >
+                <TableIcon className="mr-2 h-4 w-4" />
+                Add Table
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  promptInputRef.current?.click()
+                }}
+              >
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Add Image
+              </Button>
+            </div>
             <input
               ref={promptInputRef}
               id={`prompt-input-${index}`}
@@ -1807,7 +2348,7 @@ function QuestionCard({
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragEnd={(e) => handleDragEnd('prompt', e)}
+                onDragEnd={(e) => handleDragEnd('prompt', e, 'image')}
               >
                 <SortableContext items={promptImages.map(img => img.src)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-2">
@@ -1821,6 +2362,36 @@ function QuestionCard({
                         onRemove={() => removeImage('prompt', img.src)}
                         onMoveUp={() => moveImage('prompt', img.src, 'up')}
                         onMoveDown={() => moveImage('prompt', img.src, 'down')}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          )}
+          {promptTables.length > 0 && (
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Tables ({promptTables.length}) - Drag to reorder</Label>
+              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(e) => handleDragEnd('prompt', e, 'table')}
+              >
+                <SortableContext items={promptTables.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-4">
+                    {promptTables.map((table, tableIndex) => (
+                      <SortableTableItem
+                        key={table.id}
+                        id={table.id}
+                        table={table}
+                        index={tableIndex}
+                        total={promptTables.length}
+                        onRemove={() => removeTable('prompt', table.id)}
+                        onMoveUp={() => moveTable('prompt', table.id, 'up')}
+                        onMoveDown={() => moveTable('prompt', table.id, 'down')}
+                        onEdit={(newMarkdown) => editTable('prompt', table.id, newMarkdown)}
                       />
                     ))}
                   </div>
@@ -1843,6 +2414,93 @@ function QuestionCard({
             />
           </div>
         </div>
+
+        {question.type === 'LONG_TEXT' && (
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-medium">FRQ Parts</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Break down this question into multiple parts (a, b, c, d, etc.)
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={addFRQPart}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Part
+              </Button>
+            </div>
+            
+            {question.frqParts && question.frqParts.length > 0 && (
+              <div className="space-y-3">
+                {question.frqParts.map((part, partIndex) => {
+                  const dynamicLabel = getFRQPartLabel(partIndex)
+                  return (
+                    <div
+                      key={part.id}
+                      className="rounded-md border border-input bg-muted/30 p-4 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-semibold">Part {dynamicLabel}</Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFRQPart(part.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div>
+                        <Label htmlFor={`part-prompt-${part.id}`}>Part {dynamicLabel} Prompt *</Label>
+                        <textarea
+                          id={`part-prompt-${part.id}`}
+                          className="mt-2 w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={part.prompt}
+                          onChange={(e) =>
+                            updateFRQPart(part.id, (prev) => ({
+                              ...prev,
+                              prompt: e.target.value,
+                            }))
+                          }
+                          placeholder={`Enter the question for part ${dynamicLabel}...`}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`part-points-${part.id}`}>Points for Part {dynamicLabel} *</Label>
+                        <Input
+                          id={`part-points-${part.id}`}
+                          type="number"
+                          min="0.5"
+                          step="0.5"
+                          value={part.points}
+                          onChange={(e) =>
+                            updateFRQPart(part.id, (prev) => ({
+                              ...prev,
+                              points: Number(e.target.value) || 0.5,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            
+            {(!question.frqParts || question.frqParts.length === 0) && (
+              <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/10 p-6 text-center text-sm text-muted-foreground">
+                This is a single-part FRQ. Click "Add Part" to break it into multiple parts (a, b, c, d, etc.)
+              </div>
+            )}
+          </div>
+        )}
 
         {question.type !== 'LONG_TEXT' && (
           <div className="space-y-3">
@@ -2024,6 +2682,56 @@ function QuestionCard({
         </div>
       </div>
 
+      {/* Table Configuration Dialog */}
+      <Dialog open={showTableDialog} onOpenChange={setShowTableDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Insert Table</DialogTitle>
+            <DialogDescription>
+              Configure the number of rows and columns for your table.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="table-rows">Number of Rows</Label>
+              <Input
+                id="table-rows"
+                type="number"
+                min="2"
+                max="20"
+                value={tableConfig.rows}
+                onChange={(e) => setTableConfig(prev => ({ ...prev, rows: parseInt(e.target.value) || 2 }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Minimum 2 rows (including header)
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="table-cols">Number of Columns</Label>
+              <Input
+                id="table-cols"
+                type="number"
+                min="1"
+                max="10"
+                value={tableConfig.cols}
+                onChange={(e) => setTableConfig(prev => ({ ...prev, cols: parseInt(e.target.value) || 1 }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Maximum 10 columns
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTableDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={insertTable}>
+              Insert Table
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Preview Dialog */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -2034,15 +2742,29 @@ function QuestionCard({
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border-2 border-primary/20 bg-muted/30 p-6 space-y-4">
-            {question.context && (
+            {(question.context || (question.contextTables && question.contextTables.length > 0)) && (
               <div className="pb-4 border-b border-border">
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Context/Stimulus</p>
-                <QuestionPrompt promptMd={question.context} imageLayout={imageLayout.context} />
+                <QuestionPrompt 
+                  promptMd={
+                    question.contextTables && question.contextTables.length > 0
+                      ? `${question.context}\n\n${question.contextTables.map(t => t.markdown).join('\n\n')}`
+                      : question.context
+                  } 
+                  imageLayout={imageLayout.context} 
+                />
               </div>
             )}
             <div>
               <p className="text-xs font-semibold text-muted-foreground mb-2">Question {index + 1}</p>
-              <QuestionPrompt promptMd={question.prompt} imageLayout={imageLayout.prompt} />
+              <QuestionPrompt 
+                promptMd={
+                  question.promptTables && question.promptTables.length > 0
+                    ? `${question.prompt}\n\n${question.promptTables.map(t => t.markdown).join('\n\n')}`
+                    : question.prompt
+                } 
+                imageLayout={imageLayout.prompt} 
+              />
             </div>
             {question.type !== 'LONG_TEXT' && question.options.length > 0 && (
               <div className="space-y-2 pt-2">
@@ -2072,10 +2794,27 @@ function QuestionCard({
               </div>
             )}
             {question.type === 'LONG_TEXT' && (
-              <div className="pt-2">
-                <div className="w-full min-h-[120px] rounded-md border border-input bg-background/50 px-3 py-2 text-sm text-muted-foreground">
-                  Student will type their answer here...
-                </div>
+              <div className="pt-2 space-y-4">
+                {question.frqParts && question.frqParts.length > 0 ? (
+                  <div className="space-y-4">
+                    {question.frqParts.map((part, partIdx) => {
+                      const dynamicLabel = getFRQPartLabel(partIdx)
+                      return (
+                        <div key={part.id} className="border-l-2 border-primary pl-4">
+                          <p className="text-sm font-semibold mb-2">Part {dynamicLabel}) ({part.points} points)</p>
+                          <p className="text-sm mb-2">{part.prompt}</p>
+                          <div className="w-full min-h-[80px] rounded-md border border-input bg-background/50 px-3 py-2 text-sm text-muted-foreground">
+                            Student will type their answer here...
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="w-full min-h-[120px] rounded-md border border-input bg-background/50 px-3 py-2 text-sm text-muted-foreground">
+                    Student will type their answer here...
+                  </div>
+                )}
               </div>
             )}
             <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground border-t border-border/50">
@@ -2100,6 +2839,221 @@ function renderTypeLabel(type: QuestionType) {
     default:
       return type
   }
+}
+
+// Sortable table item component with inline editing
+function SortableTableItem({ 
+  id, 
+  table, 
+  index, 
+  total, 
+  onRemove, 
+  onMoveUp, 
+  onMoveDown,
+  onEdit
+}: { 
+  id: string
+  table: { id: string; markdown: string }
+  index: number
+  total: number
+  onRemove: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onEdit: (newMarkdown: string) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  const { headers, rows } = markdownTableToData(table.markdown)
+  const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null)
+  const [editValue, setEditValue] = useState('')
+
+  const startEditing = (row: number, col: number, currentValue: string) => {
+    setEditingCell({ row, col })
+    setEditValue(currentValue)
+  }
+
+  const saveEdit = () => {
+    if (!editingCell) return
+    
+    const { row, col } = editingCell
+    let newHeaders = [...headers]
+    let newRows = rows.map(r => [...r])
+    
+    if (row === -1) {
+      // Editing header
+      newHeaders[col] = editValue
+    } else {
+      // Editing body cell
+      newRows[row][col] = editValue
+    }
+    
+    const newMarkdown = dataToMarkdownTable(newHeaders, newRows)
+    onEdit(newMarkdown)
+    setEditingCell(null)
+  }
+
+  const cancelEdit = () => {
+    setEditingCell(null)
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-start gap-2 p-2 rounded-md border border-input bg-muted/30"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="flex items-center justify-center h-7 w-7 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical className="h-4 w-4" />
+      </div>
+      <div className="flex-1 overflow-x-auto">
+        <table className="min-w-full border-collapse border border-input bg-background text-sm">
+          <thead>
+            <tr className="bg-muted/30">
+              {headers.map((header, i) => (
+                <td key={i} className="border border-input px-3 py-2 max-w-[200px]">
+                  {editingCell?.row === -1 && editingCell?.col === i ? (
+                    <textarea
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={saveEdit}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          saveEdit()
+                        }
+                        if (e.key === 'Escape') cancelEdit()
+                      }}
+                      autoFocus
+                      rows={1}
+                      className="w-full bg-background border border-input rounded px-2 py-1 resize-none overflow-hidden"
+                      style={{ minHeight: '32px' }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement
+                        target.style.height = 'auto'
+                        target.style.height = target.scrollHeight + 'px'
+                      }}
+                    />
+                  ) : (
+                    <div
+                      onClick={() => startEditing(-1, i, header)}
+                      className="cursor-text hover:bg-muted/50 rounded px-1 py-0.5 min-w-[40px] break-words whitespace-pre-wrap"
+                    >
+                      {header || '\u00A0'}
+                    </div>
+                  )}
+                </td>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIdx) => (
+              <tr key={rowIdx} className={rowIdx % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                {row.map((cell, cellIdx) => (
+                  <td key={cellIdx} className="border border-input px-3 py-2 max-w-[200px]">
+                    {editingCell?.row === rowIdx && editingCell?.col === cellIdx ? (
+                      <textarea
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={saveEdit}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            saveEdit()
+                          }
+                          if (e.key === 'Escape') cancelEdit()
+                        }}
+                        autoFocus
+                        rows={1}
+                        className="w-full bg-background border border-input rounded px-2 py-1 resize-none overflow-hidden"
+                        style={{ minHeight: '32px' }}
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement
+                          target.style.height = 'auto'
+                          target.style.height = target.scrollHeight + 'px'
+                        }}
+                      />
+                    ) : (
+                      <div
+                        onClick={() => startEditing(rowIdx, cellIdx, cell)}
+                        className="cursor-text hover:bg-muted/50 rounded px-1 py-0.5 min-w-[40px] break-words whitespace-pre-wrap"
+                      >
+                        {cell || '\u00A0'}
+                      </div>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-col gap-1">
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={(e) => {
+              e.stopPropagation()
+              onMoveUp()
+            }}
+            disabled={index === 0}
+            title="Move up"
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={(e) => {
+              e.stopPropagation()
+              onMoveDown()
+            }}
+            disabled={index === total - 1}
+            title="Move down"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-7 w-7 text-destructive hover:text-destructive"
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove()
+          }}
+          title="Remove table"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <div className="text-xs text-muted-foreground pt-1">
+        #{index + 1}
+      </div>
+    </div>
+  )
 }
 
 // Sortable image item component
