@@ -341,7 +341,7 @@ export function HostingTournamentsPage() {
                           <div className="space-y-2">
                             <Label htmlFor="preferredSlug">Preferred Website Slug</Label>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground">teamy.io/tournaments/</span>
+                              <span className="text-sm text-muted-foreground">teamy.io/tournaments/hosting/</span>
                               <Input
                                 id="preferredSlug"
                                 value={formData.preferredSlug}

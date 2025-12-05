@@ -257,7 +257,7 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
                       {request.preferredSlug && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <LinkIcon className="h-4 w-4" />
-                          <span>teamy.io/tournaments/{request.preferredSlug}</span>
+                          <span>teamy.io/tournaments/hosting/{request.preferredSlug}</span>
                         </div>
                       )}
                     </div>
@@ -300,7 +300,7 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
                 {/* Action Button for Approved Tournaments */}
                 {request.status === 'APPROVED' && (
                   <div className="pt-4">
-                    <Link href={`/tournaments/${getTournamentSlug(request)}`}>
+                    <Link href={`/tournaments/hosting/${getTournamentSlug(request)}`}>
                       <Button className="w-full gap-2">
                         <LinkIcon className="h-4 w-4" />
                         View & Customize Tournament Page
