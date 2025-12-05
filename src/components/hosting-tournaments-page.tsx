@@ -208,7 +208,7 @@ export function HostingTournamentsPage() {
                   </div>
                   <h4 className="font-semibold mb-2 text-sm sm:text-base">Submit Request</h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    Provide your tournament details and contact information. Our team will verify that your tournament meets official requirements and Teamys platform policies.
+                    Provide your tournament details and contact information. Our team will verify that your tournament meets official requirements and Teamy&apos;s platform policies.
                   </p>
                 </div>
                 <div className="p-3 sm:p-4 rounded-lg bg-background/50 sm:col-span-1 md:col-span-1">
