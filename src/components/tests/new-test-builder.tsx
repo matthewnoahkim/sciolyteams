@@ -464,11 +464,22 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
       setImportStartTime(Date.now())
       
       // Estimate time based on file size and AI processing
-      // AI processing is slower: roughly 30-60 seconds base + 2KB per second for content
-      const fileSizeKB = file.size / 1024
-      const baseTime = 45 // Base AI processing time
-      const processingTime = Math.ceil(fileSizeKB / 2) // 2KB per second
-      const estimatedSeconds = Math.max(30, Math.min(180, baseTime + processingTime))
+      // Use tiered estimation for better accuracy with larger files (up to 50MB)
+      const fileSizeMB = file.size / (1024 * 1024)
+      const baseTime = 60 // Base upload and parsing time
+      
+      let additionalTime = 0
+      if (fileSizeMB < 1) {
+        additionalTime = 30 // Small files: ~1.5 min total
+      } else if (fileSizeMB < 5) {
+        additionalTime = 90 // Medium files (1-5MB): ~2.5 min total
+      } else if (fileSizeMB < 20) {
+        additionalTime = 180 // Large files (5-20MB): ~4 min total
+      } else {
+        additionalTime = 300 // Very large files (20-50MB): ~6 min total
+      }
+      
+      const estimatedSeconds = baseTime + additionalTime
       setEstimatedTimeSeconds(estimatedSeconds)
       
       try {
