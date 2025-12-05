@@ -2496,7 +2496,7 @@ function QuestionCard({
             
             {(!question.frqParts || question.frqParts.length === 0) && (
               <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-muted/10 p-6 text-center text-sm text-muted-foreground">
-                This is a single-part FRQ. Click "Add Part" to break it into multiple parts (a, b, c, d, etc.)
+                This is a single-part FRQ. Click &quot;Add Part&quot; to break it into multiple parts (a, b, c, d, etc.)
               </div>
             )}
           </div>
