@@ -186,7 +186,7 @@ export function HostingTournamentsPage() {
                       rel="noopener noreferrer"
                       className="text-teamy-primary hover:underline"
                     >
-                      Official Tournament Director's Form
+                      Official Tournament Director&apos;s Form
                     </a>
                   </h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">
