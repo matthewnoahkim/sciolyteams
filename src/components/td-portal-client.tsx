@@ -55,6 +55,18 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
     signOut({ callbackUrl: '/td' })
   }
 
+  // Generate slug from tournament name or use preferred slug
+  const getTournamentSlug = (request: TournamentRequest) => {
+    if (request.preferredSlug) {
+      return request.preferredSlug
+    }
+    // Generate from tournament name
+    return request.tournamentName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'APPROVED':
@@ -282,6 +294,18 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
                     <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
                       {request.otherNotes}
                     </p>
+                  </div>
+                )}
+
+                {/* Action Button for Approved Tournaments */}
+                {request.status === 'APPROVED' && (
+                  <div className="pt-4">
+                    <Link href={`/tournaments/${getTournamentSlug(request)}`}>
+                      <Button className="w-full gap-2">
+                        <LinkIcon className="h-4 w-4" />
+                        View & Customize Tournament Page
+                      </Button>
+                    </Link>
                   </div>
                 )}
               </CardContent>

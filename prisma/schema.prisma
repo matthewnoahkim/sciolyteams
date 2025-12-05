@@ -1240,6 +1240,7 @@ model AIRosterGeneration {
 model Tournament {
   id                String                    @id @default(cuid())
   name              String
+  slug              String?                   @unique
   division          Division
   description       String?                   @db.Text
   price             Float                     @default(0)
@@ -1253,18 +1254,23 @@ model Tournament {
   approved          Boolean                   @default(false)
   rejectionReason   String?                   @db.Text
   createdById       String
+  hostingRequestId  String?                   @unique
+  pageContent       String?                   @db.Text // JSON for custom page builder
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt
   admins            TournamentAdmin[]
   registrations     TournamentRegistration[]
   tests             TournamentTest[]
   createdBy         User                      @relation("TournamentCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  hostingRequest    TournamentHostingRequest? @relation("TournamentFromRequest", fields: [hostingRequestId], references: [id], onDelete: SetNull)
 
   @@index([createdById])
   @@index([startDate])
   @@index([endDate])
   @@index([division])
   @@index([approved])
+  @@index([slug])
+  @@index([hostingRequestId])
 }
 
 model TournamentAdmin {
@@ -1353,8 +1359,10 @@ model TournamentHostingRequest {
   otherNotes       String?                          @db.Text
   status           TournamentHostingRequestStatus   @default(PENDING)
   reviewNotes      String?                          @db.Text
+  pageContent      String?                          @db.Text // JSON for custom page sections
   createdAt        DateTime                         @default(now())
   updatedAt        DateTime                         @updatedAt
+  tournament       Tournament?                      @relation("TournamentFromRequest")
 
   @@index([status])
   @@index([createdAt])
