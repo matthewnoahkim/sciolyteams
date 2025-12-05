@@ -36,6 +36,7 @@ export function HostingTournamentsPage() {
     preferredSlug: '',
     directorName: '',
     directorEmail: '',
+    confirmEmail: '',
     directorPhone: '',
     otherNotes: '',
   })
@@ -45,10 +46,20 @@ export function HostingTournamentsPage() {
     
     // Validate required fields
     if (!formData.tournamentName || !formData.tournamentLevel || !formData.division || 
-        !formData.tournamentFormat || !formData.directorName || !formData.directorEmail) {
+        !formData.tournamentFormat || !formData.directorName || !formData.directorEmail || !formData.confirmEmail) {
       toast({
         title: 'Missing Required Fields',
         description: 'Please fill in all required fields.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Validate emails match
+    if (formData.directorEmail !== formData.confirmEmail) {
+      toast({
+        title: 'Email Mismatch',
+        description: 'Email addresses do not match. Please check and try again.',
         variant: 'destructive',
       })
       return
@@ -105,6 +116,7 @@ export function HostingTournamentsPage() {
       preferredSlug: '',
       directorName: '',
       directorEmail: '',
+      confirmEmail: '',
       directorPhone: '',
       otherNotes: '',
     })
@@ -138,50 +150,74 @@ export function HostingTournamentsPage() {
               Hosting Tournaments
             </h1>
             <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
-              Discover upcoming tournaments or host your own. Compete with teams from across the region and test your skills.
+              Host your Science Olympiad tournament on teamy.io. Our platform streamlines every aspect of tournament management all in one place.
             </p>
           </div>
+
+          {/* Demo Video Coming Soon */}
+          <Card className="border-2 border-teamy-primary/20">
+            <CardContent className="p-8 text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teamy-primary/10 text-teamy-primary font-semibold">
+                DEMO VIDEO COMING SOON
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Host a Tournament Section */}
           <Card className="border-2 border-teamy-primary/20 bg-gradient-to-br from-teamy-primary/5 to-transparent">
             <CardHeader className="text-center pb-4 px-4 sm:px-6">
               <CardTitle className="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2 flex-wrap">
                 <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-teamy-primary" />
-                Host a Tournament
+                Process
               </CardTitle>
-              <CardDescription className="text-sm sm:text-base max-w-xl mx-auto">
-                Want to host your own Science Olympiad tournament? We make it easy to manage registrations, 
-                scheduling, and results all in one place.
-              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 px-4 sm:px-6">
               {/* How it works */}
-              <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 text-center">
+              <div className="grid sm:grid-cols-1 md:grid-cols-3 gap-4 text-center">
                 <div className="p-3 sm:p-4 rounded-lg bg-background/50">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-teamy-primary/10 flex items-center justify-center mx-auto mb-2 sm:mb-3">
                     <span className="text-teamy-primary font-bold text-sm sm:text-base">1</span>
                   </div>
-                  <h4 className="font-semibold mb-1 text-sm sm:text-base">Submit Request</h4>
+                  <h4 className="font-semibold mb-2 text-sm sm:text-base">
+                    Complete the{' '}
+                    <a 
+                      href="https://soinc.org/state-invitationalregional-directors-form" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-teamy-primary hover:underline"
+                    >
+                      Official Tournament Director's Form
+                    </a>
+                  </h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    Fill out the form with your tournament details and contact information.
+                    Review and follow the guidelines on the{' '}
+                    <a 
+                      href="https://soinc.org/play/invitationals" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-teamy-primary hover:underline"
+                    >
+                      official Science Olympiad website
+                    </a>
+                    . Please note that Teamy does not manage these requirements. For invitational tournaments, contact your State Director.
                   </p>
                 </div>
                 <div className="p-3 sm:p-4 rounded-lg bg-background/50">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-teamy-primary/10 flex items-center justify-center mx-auto mb-2 sm:mb-3">
                     <span className="text-teamy-primary font-bold text-sm sm:text-base">2</span>
                   </div>
-                  <h4 className="font-semibold mb-1 text-sm sm:text-base">Get Approved</h4>
+                  <h4 className="font-semibold mb-2 text-sm sm:text-base">Submit Request</h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    Our team will review your request and set up your tournament page.
+                    Provide your tournament details and contact information. Our team will verify that your tournament meets official requirements and Teamys platform policies.
                   </p>
                 </div>
-                <div className="p-3 sm:p-4 rounded-lg bg-background/50 sm:col-span-2 md:col-span-1">
+                <div className="p-3 sm:p-4 rounded-lg bg-background/50 sm:col-span-1 md:col-span-1">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-teamy-primary/10 flex items-center justify-center mx-auto mb-2 sm:mb-3">
                     <span className="text-teamy-primary font-bold text-sm sm:text-base">3</span>
                   </div>
-                  <h4 className="font-semibold mb-1 text-sm sm:text-base">Start Hosting</h4>
+                  <h4 className="font-semibold mb-2 text-sm sm:text-base">Wait for Approval</h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    Manage registrations, create tests, and run your tournament seamlessly.
+                    Watch for an email with access to the Teamy tournament director portal. Our support team will manually review your request and provide updates.
                   </p>
                 </div>
               </div>
@@ -333,7 +369,7 @@ export function HostingTournamentsPage() {
                                   required
                                 />
                               </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-4">
                                 <div className="space-y-2">
                                   <Label htmlFor="directorEmail">Email *</Label>
                                   <Input
@@ -341,6 +377,17 @@ export function HostingTournamentsPage() {
                                     type="email"
                                     value={formData.directorEmail}
                                     onChange={(e) => setFormData({ ...formData, directorEmail: e.target.value })}
+                                    placeholder="director@school.edu"
+                                    required
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="confirmEmail">Confirm Email *</Label>
+                                  <Input
+                                    id="confirmEmail"
+                                    type="email"
+                                    value={formData.confirmEmail}
+                                    onChange={(e) => setFormData({ ...formData, confirmEmail: e.target.value })}
                                     placeholder="director@school.edu"
                                     required
                                   />
