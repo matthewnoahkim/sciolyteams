@@ -112,6 +112,75 @@ export function DashboardTournamentsClient({ user }: DashboardTournamentsClientP
     }
   }
 
+  // Helper function to highlight search keywords in text
+  const highlightText = (text: string, searchQuery: string) => {
+    if (!searchQuery?.trim() || !text) {
+      return text
+    }
+
+    const query = searchQuery.trim()
+    const queryLower = query.toLowerCase()
+    const textLower = text.toLowerCase()
+    
+    // Find all occurrences of the query in the text
+    const indices: number[] = []
+    let index = textLower.indexOf(queryLower)
+    while (index !== -1) {
+      indices.push(index)
+      index = textLower.indexOf(queryLower, index + 1)
+    }
+
+    if (indices.length === 0) {
+      return text
+    }
+
+    // Build array of parts (text segments and highlighted segments)
+    const parts: Array<{ text: string; highlight: boolean }> = []
+    let lastIndex = 0
+
+    indices.forEach((startIndex) => {
+      // Add text before the match
+      if (startIndex > lastIndex) {
+        parts.push({
+          text: text.substring(lastIndex, startIndex),
+          highlight: false
+        })
+      }
+      // Add the highlighted match
+      parts.push({
+        text: text.substring(startIndex, startIndex + query.length),
+        highlight: true
+      })
+      lastIndex = startIndex + query.length
+    })
+
+    // Add remaining text after last match
+    if (lastIndex < text.length) {
+      parts.push({
+        text: text.substring(lastIndex),
+        highlight: false
+      })
+    }
+
+    return (
+      <>
+        {parts.map((part, index) => {
+          if (part.highlight) {
+            return (
+              <mark
+                key={index}
+                className="bg-yellow-200 dark:bg-yellow-900/50 text-foreground px-0.5 rounded font-medium"
+              >
+                {part.text}
+              </mark>
+            )
+          }
+          return <span key={index}>{part.text}</span>
+        })}
+      </>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
       <AppHeader user={user} />
@@ -188,7 +257,7 @@ export function DashboardTournamentsClient({ user }: DashboardTournamentsClientP
                     <Badge variant="outline">{getFormatLabel(tournament.tournamentFormat)}</Badge>
                   </div>
                   <CardTitle className="text-xl break-words leading-snug">
-                    {tournament.tournamentName}
+                    {highlightText(tournament.tournamentName, search)}
                   </CardTitle>
                   {tournament.otherNotes && (
                     <CardDescription className="line-clamp-2">
@@ -200,7 +269,7 @@ export function DashboardTournamentsClient({ user }: DashboardTournamentsClientP
                   {tournament.tournamentFormat === 'in-person' && tournament.location ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4" />
-                      <span className="line-clamp-1">{tournament.location}</span>
+                      <span className="line-clamp-1">{highlightText(tournament.location, search)}</span>
                     </div>
                   ) : tournament.tournamentFormat !== 'in-person' ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -212,7 +281,7 @@ export function DashboardTournamentsClient({ user }: DashboardTournamentsClientP
                   <div className="pt-3 border-t space-y-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <User className="h-4 w-4" />
-                      <span>Director: {tournament.directorName}</span>
+                      <span>Director: {highlightText(tournament.directorName, search)}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Mail className="h-4 w-4" />
