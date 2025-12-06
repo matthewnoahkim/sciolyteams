@@ -296,8 +296,8 @@ export async function docxToMarkedText(buffer: Buffer): Promise<string> {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
-    // Detect sub-questions (e.g., "1a.", "2b)", "1a:", "(a)", "a.")
-    if (/^(\d+[a-z][.):)]|[(\[]?[a-z][.)\]:)])/i.test(line) && !/^[(\[]?[A-Z][.)\]]/.test(line)) {
+    // SUBQ — strict digit+letter only
+    if (/^\d+[a-z][.)]/.test(line)) {
       markedLines.push(`[SUBQ] ${line}`);
       continue;
     }
@@ -308,8 +308,8 @@ export async function docxToMarkedText(buffer: Buffer): Promise<string> {
       continue;
     }
     
-    // Detect multiple choice options (e.g., "A)", "A.", "a)", "(A)", etc.) - must be uppercase
-    if (/^[(\[]?[A-Z][.)\]]/i.test(line)) {
+    // CHOICE — uppercase only (no /i)
+    if (/^[(\[]?[A-Z][.)\]]/.test(line)) {
       markedLines.push(`[CHOICE] ${line}`);
       continue;
     }
