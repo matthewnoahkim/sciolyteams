@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +32,7 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
   const [clubNotifications, setClubNotifications] = useState<Record<string, boolean>>({})
   const [totalUnreadCount, setTotalUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null)
 
   // Update favicon badge with total unread count
   useFaviconBadge(totalUnreadCount)
@@ -262,13 +264,21 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
 
             <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {memberships.map((membership) => (
-                <Card
+                <Link
                   key={membership.id}
-                  className="cursor-pointer group relative overflow-hidden hover:shadow-card-hover hover:border-teamy-primary/30 dark:hover:border-teamy-accent/30 transition-all duration-300 hover:-translate-y-1"
-                  onClick={() => {
+                  href={`/club/${membership.club.id}`}
+                  onClick={(e) => {
+                    if (navigatingTo) {
+                      e.preventDefault()
+                      return
+                    }
+                    setNavigatingTo(membership.club.id)
                     clearClubNotification(membership.club.id)
-                    router.push(`/club/${membership.club.id}`)
                   }}
+                  className="block"
+                >
+                <Card
+                  className="cursor-pointer group relative overflow-hidden hover:shadow-card-hover hover:border-teamy-primary/30 dark:hover:border-teamy-accent/30 transition-all duration-300 hover:-translate-y-1 h-full"
                 >
                   {clubNotifications[membership.club.id] && (
                     <div className="absolute right-4 top-4 z-10">
@@ -335,6 +345,7 @@ export function HomeClient({ memberships: initialMemberships, user }: HomeClient
                     </div>
                   </CardContent>
                 </Card>
+                </Link>
               ))}
             </div>
           </>
