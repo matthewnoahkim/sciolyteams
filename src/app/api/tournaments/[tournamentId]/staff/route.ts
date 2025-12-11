@@ -1,0 +1,249 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { nanoid } from 'nanoid'
+import { sendStaffInviteEmail } from '@/lib/email'
+
+// GET /api/tournaments/[tournamentId]/staff - List all staff
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ tournamentId: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { tournamentId } = await params
+
+    // Check if user is a TD or creator of the tournament
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      include: {
+        admins: true,
+        hostingRequest: true,
+      },
+    })
+
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
+    }
+
+    const isCreator = tournament.createdById === session.user.id
+    const isAdmin = tournament.admins.some(a => a.userId === session.user.id)
+    const isDirector = tournament.hostingRequest?.directorEmail.toLowerCase() === session.user.email?.toLowerCase()
+
+    if (!isCreator && !isAdmin && !isDirector) {
+      return NextResponse.json({ error: 'Not authorized to view staff' }, { status: 403 })
+    }
+
+    const staff = await prisma.tournamentStaff.findMany({
+      where: { tournamentId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+        events: {
+          include: {
+            event: {
+              select: {
+                id: true,
+                name: true,
+                division: true,
+              },
+            },
+          },
+        },
+        tests: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            eventId: true,
+          },
+        },
+      },
+      orderBy: [
+        { role: 'asc' },
+        { createdAt: 'desc' },
+      ],
+    })
+
+    return NextResponse.json({ staff })
+  } catch (error) {
+    console.error('Error fetching staff:', error)
+    return NextResponse.json({ error: 'Failed to fetch staff' }, { status: 500 })
+  }
+}
+
+// POST /api/tournaments/[tournamentId]/staff - Invite new staff
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ tournamentId: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { tournamentId } = await params
+    const body = await request.json()
+    const { email, name, role, eventIds = [] } = body as {
+      email: string
+      name?: string
+      role: 'EVENT_SUPERVISOR' | 'TOURNAMENT_DIRECTOR'
+      eventIds?: string[]
+    }
+
+    if (!email || !role) {
+      return NextResponse.json({ error: 'Email and role are required' }, { status: 400 })
+    }
+
+    // Check if user is authorized
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      include: {
+        admins: true,
+        hostingRequest: true,
+      },
+    })
+
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
+    }
+
+    const isCreator = tournament.createdById === session.user.id
+    const isAdmin = tournament.admins.some(a => a.userId === session.user.id)
+    const isDirector = tournament.hostingRequest?.directorEmail.toLowerCase() === session.user.email?.toLowerCase()
+
+    if (!isCreator && !isAdmin && !isDirector) {
+      return NextResponse.json({ error: 'Not authorized to invite staff' }, { status: 403 })
+    }
+
+    // Check if this email is already invited
+    const existingStaff = await prisma.tournamentStaff.findUnique({
+      where: {
+        tournamentId_email: {
+          tournamentId,
+          email: email.toLowerCase(),
+        },
+      },
+    })
+
+    if (existingStaff) {
+      return NextResponse.json({ error: 'This email has already been invited' }, { status: 400 })
+    }
+
+    // Generate invite token
+    const inviteToken = nanoid(32)
+
+    // Create the staff invitation
+    const staff = await prisma.tournamentStaff.create({
+      data: {
+        tournamentId,
+        email: email.toLowerCase(),
+        name,
+        role,
+        inviteToken,
+        events: role === 'EVENT_SUPERVISOR' && eventIds.length > 0
+          ? {
+              create: eventIds.map((eventId: string) => ({
+                eventId,
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        events: {
+          include: {
+            event: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    // Get event names for email
+    const eventNames = staff.events.map(e => e.event.name)
+
+    // Send invitation email
+    await sendStaffInviteEmail({
+      to: email.toLowerCase(),
+      staffName: name,
+      tournamentName: tournament.name,
+      role,
+      inviteToken,
+      inviterName: session.user.name || 'Tournament Director',
+      events: eventNames,
+    })
+
+    return NextResponse.json({ staff })
+  } catch (error) {
+    console.error('Error inviting staff:', error)
+    return NextResponse.json({ error: 'Failed to invite staff' }, { status: 500 })
+  }
+}
+
+// DELETE /api/tournaments/[tournamentId]/staff - Remove staff
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ tournamentId: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { tournamentId } = await params
+    const { searchParams } = new URL(request.url)
+    const staffId = searchParams.get('staffId')
+
+    if (!staffId) {
+      return NextResponse.json({ error: 'Staff ID is required' }, { status: 400 })
+    }
+
+    // Check if user is authorized
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      include: {
+        admins: true,
+        hostingRequest: true,
+      },
+    })
+
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
+    }
+
+    const isCreator = tournament.createdById === session.user.id
+    const isAdmin = tournament.admins.some(a => a.userId === session.user.id)
+    const isDirector = tournament.hostingRequest?.directorEmail.toLowerCase() === session.user.email?.toLowerCase()
+
+    if (!isCreator && !isAdmin && !isDirector) {
+      return NextResponse.json({ error: 'Not authorized to remove staff' }, { status: 403 })
+    }
+
+    await prisma.tournamentStaff.delete({
+      where: { id: staffId },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error removing staff:', error)
+    return NextResponse.json({ error: 'Failed to remove staff' }, { status: 500 })
+  }
+}
+

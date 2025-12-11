@@ -33,6 +33,7 @@ model User {
   tournamentsCreated Tournament[]        @relation("TournamentCreator")
   tournamentAdmins   TournamentAdmin[]   @relation("TournamentAdmins")
   tournamentRegistrations TournamentRegistration[] @relation("TournamentRegistrationsBy")
+  tournamentStaff    TournamentStaff[]   @relation("TournamentStaffUser")
 }
 
 model Account {
@@ -157,13 +158,13 @@ model Team {
 }
 
 model Event {
-  id                       String                   @id @default(cuid())
+  id                       String                      @id @default(cuid())
   division                 Division
   name                     String
   slug                     String
-  maxCompetitors           Int                      @default(2)
-  selfScheduled            Boolean                  @default(false)
-  createdAt                DateTime                 @default(now())
+  maxCompetitors           Int                         @default(2)
+  selfScheduled            Boolean                     @default(false)
+  createdAt                DateTime                    @default(now())
   conflictGroupEvents      ConflictGroupEvent[]
   eventBudgets             EventBudget[]
   expenses                 Expense[]
@@ -173,7 +174,9 @@ model Event {
   calendarEventTargets     CalendarEventTarget[]
   testAssignments          TestAssignment[]
   tournamentEventSelections TournamentEventSelection[]
-  tournamentTestEvents      TournamentTest[] @relation("TournamentTestEvents")
+  tournamentTestEvents      TournamentTest[]           @relation("TournamentTestEvents")
+  esAssignments            EventSupervisorAssignment[]
+  esTests                  ESTest[]
 
   @@unique([division, slug])
   @@index([division])
@@ -1261,6 +1264,9 @@ model Tournament {
   admins            TournamentAdmin[]
   registrations     TournamentRegistration[]
   tests             TournamentTest[]
+  staff             TournamentStaff[]
+  timeline          TournamentTimeline[]
+  esTests           ESTest[]
   createdBy         User                      @relation("TournamentCreator", fields: [createdById], references: [id], onDelete: Cascade)
   hostingRequest    TournamentHostingRequest? @relation("TournamentFromRequest", fields: [hostingRequestId], references: [id], onDelete: SetNull)
 
@@ -1388,4 +1394,123 @@ model BlogPost {
 
   @@index([published])
   @@index([createdAt])
+}
+
+// Event Supervisor / Tournament Staff System
+enum StaffRole {
+  EVENT_SUPERVISOR
+  TOURNAMENT_DIRECTOR
+}
+
+enum StaffInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model TournamentStaff {
+  id           String                      @id @default(cuid())
+  tournamentId String
+  email        String
+  name         String?
+  role         StaffRole
+  status       StaffInviteStatus           @default(PENDING)
+  inviteToken  String                      @unique
+  invitedAt    DateTime                    @default(now())
+  acceptedAt   DateTime?
+  userId       String?
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+  tournament   Tournament                  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user         User?                       @relation("TournamentStaffUser", fields: [userId], references: [id], onDelete: SetNull)
+  events       EventSupervisorAssignment[]
+  tests        ESTest[]
+
+  @@unique([tournamentId, email])
+  @@index([tournamentId])
+  @@index([email])
+  @@index([userId])
+  @@index([status])
+}
+
+model EventSupervisorAssignment {
+  id        String          @id @default(cuid())
+  staffId   String
+  eventId   String
+  createdAt DateTime        @default(now())
+  staff     TournamentStaff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  event     Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, eventId])
+  @@index([staffId])
+  @@index([eventId])
+}
+
+model TournamentTimeline {
+  id           String     @id @default(cuid())
+  tournamentId String
+  name         String
+  description  String?
+  dueDate      DateTime
+  type         String // draft_due, final_due, review_due, etc.
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@index([tournamentId])
+  @@index([dueDate])
+}
+
+model ESTest {
+  id              String               @id @default(cuid())
+  staffId         String
+  tournamentId    String
+  eventId         String?
+  name            String
+  description     String?
+  instructions    String?
+  content         String?              @db.Text
+  status          TestStatus           @default(DRAFT)
+  durationMinutes Int                  @default(60)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  staff           TournamentStaff      @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  tournament      Tournament           @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  event           Event?               @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  questions       ESTestQuestion[]
+
+  @@index([staffId])
+  @@index([tournamentId])
+  @@index([eventId])
+  @@index([status])
+}
+
+model ESTestQuestion {
+  id               String                 @id @default(cuid())
+  testId           String
+  type             QuestionType
+  promptMd         String
+  explanation      String?
+  points           Decimal                @db.Decimal(5, 2)
+  order            Int                    @default(0)
+  shuffleOptions   Boolean                @default(false)
+  numericTolerance Decimal?               @db.Decimal(8, 3)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  test             ESTest                 @relation(fields: [testId], references: [id], onDelete: Cascade)
+  options          ESTestQuestionOption[]
+
+  @@index([testId])
+}
+
+model ESTestQuestionOption {
+  id         String         @id @default(cuid())
+  questionId String
+  label      String
+  isCorrect  Boolean        @default(false)
+  order      Int            @default(0)
+  createdAt  DateTime       @default(now())
+  question   ESTestQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
 }

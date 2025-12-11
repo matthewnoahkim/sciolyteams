@@ -20,6 +20,17 @@ export default async function TDPortalPage() {
         mode: 'insensitive',
       },
     },
+    include: {
+      tournament: {
+        select: {
+          id: true,
+          name: true,
+          division: true,
+          startDate: true,
+          endDate: true,
+        },
+      },
+    },
     orderBy: {
       createdAt: 'desc',
     },

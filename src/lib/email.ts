@@ -2,6 +2,116 @@ import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+export interface StaffInviteEmailParams {
+  to: string
+  staffName?: string
+  tournamentName: string
+  role: 'EVENT_SUPERVISOR' | 'TOURNAMENT_DIRECTOR'
+  inviteToken: string
+  inviterName: string
+  events?: string[] // Event names for ES
+}
+
+/**
+ * Send staff invitation email (ES or TD)
+ */
+export async function sendStaffInviteEmail({
+  to,
+  staffName,
+  tournamentName,
+  role,
+  inviteToken,
+  inviterName,
+  events = [],
+}: StaffInviteEmailParams): Promise<{ messageId: string | null }> {
+  try {
+    if (!process.env.RESEND_API_KEY) {
+      console.error('RESEND_API_KEY is not configured')
+      return { messageId: null }
+    }
+
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    const portalUrl = role === 'EVENT_SUPERVISOR' 
+      ? `${baseUrl}/es?token=${inviteToken}`
+      : `${baseUrl}/td?token=${inviteToken}`
+
+    const roleLabel = role === 'EVENT_SUPERVISOR' ? 'Event Supervisor' : 'Tournament Director'
+    const greeting = staffName ? `Hi ${staffName},` : 'Hello,'
+
+    const eventsSection = events.length > 0 ? `
+      <div style="background-color: #f3f4f6; border-left: 4px solid #10b981; padding: 16px; margin: 20px 0; border-radius: 4px;">
+        <h3 style="color: #1f2937; font-size: 14px; margin-top: 0; margin-bottom: 8px;">Assigned Events:</h3>
+        <ul style="color: #374151; font-size: 14px; margin: 0; padding-left: 20px;">
+          ${events.map(e => `<li style="margin: 4px 0;">${e}</li>`).join('')}
+        </ul>
+      </div>
+    ` : ''
+
+    console.log('Sending staff invite email via Resend:', {
+      to,
+      role,
+      tournamentName,
+    })
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'Teamy <noreply@teamy.app>',
+      to,
+      subject: `You've been invited as ${roleLabel} for ${tournamentName}`,
+      html: `
+        <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; margin-top: 0;">
+            ${roleLabel} Invitation
+          </h1>
+          
+          <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+            ${greeting}
+          </p>
+          
+          <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+            <strong>${inviterName}</strong> has invited you to join <strong>${tournamentName}</strong> as a ${roleLabel}.
+          </p>
+          
+          ${eventsSection}
+          
+          <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+            ${role === 'EVENT_SUPERVISOR' 
+              ? 'As an Event Supervisor, you\'ll be able to create and manage tests for your assigned events using our built-in test editor.' 
+              : 'As a Tournament Director, you\'ll have full access to manage the tournament, invite staff, and oversee all operations.'}
+          </p>
+          
+          <div style="text-align: center; padding: 24px 0;">
+            <a href="${portalUrl}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+              Accept Invitation & Sign In
+            </a>
+          </div>
+          
+          <p style="color: #6b7280; font-size: 14px; text-align: center;">
+            Or copy and paste this link into your browser:<br/>
+            <a href="${portalUrl}" style="color: #3b82f6; word-break: break-all;">${portalUrl}</a>
+          </p>
+          
+          <hr style="margin: 32px 0; border: none; border-top: 1px solid #e5e7eb;" />
+          
+          <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+            Teamy • Science Olympiad Tournament Management
+          </p>
+        </div>
+      `,
+    })
+
+    if (error) {
+      console.error('Resend API error:', error)
+      return { messageId: null }
+    }
+
+    console.log('Staff invite email sent successfully, message ID:', data?.id)
+    return { messageId: data?.id || null }
+  } catch (error) {
+    console.error('Email service error:', error)
+    return { messageId: null }
+  }
+}
+
 export interface CalendarEventDetails {
   startUTC: Date
   endUTC: Date
