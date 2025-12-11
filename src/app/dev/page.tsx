@@ -208,14 +208,14 @@ export default function DevPage() {
         {/* Login Form */}
         <div className="min-h-screen flex items-center justify-center p-8">
           <div className="w-full max-w-md">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold mb-2">Dev Access</h1>
-              <p className="text-muted-foreground">
-                Enter your development password to continue
-              </p>
-            </div>
+            <div className="p-8 rounded-2xl bg-card border shadow-nav space-y-6">
+              <div className="text-center space-y-2">
+                <h1 className="text-3xl font-bold">Dev Access</h1>
+                <p className="text-muted-foreground">
+                  Enter your development password to continue
+                </p>
+              </div>
 
-            <div className="p-8 rounded-2xl bg-card border">
               {lockoutEndTime && lockoutEndTime > Date.now() ? (
                 <div className="space-y-4">
                   <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">

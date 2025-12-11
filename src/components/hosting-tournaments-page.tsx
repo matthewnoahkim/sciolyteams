@@ -224,10 +224,16 @@ export function HostingTournamentsPage() {
 
               {/* Create Tournament Button */}
               <div className="text-center pt-2 sm:pt-4">
-                <Dialog open={dialogOpen} onOpenChange={(open) => {
-                  setDialogOpen(open)
-                  if (!open) resetForm()
-                }}>
+                <Dialog
+                  open={dialogOpen}
+                  onOpenChange={(open) => {
+                    setDialogOpen(open)
+                    if (open) {
+                      // Reset when re-opening to avoid success flash while closing
+                      resetForm()
+                    }
+                  }}
+                >
                   <DialogTrigger asChild>
                     <Button size="lg" className="gap-2 w-full sm:w-auto">
                       <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -243,7 +249,13 @@ export function HostingTournamentsPage() {
                           Thank you for your interest in hosting a tournament on Teamy. 
                           We&apos;ll review your request and get back to you within 2-3 business days.
                         </DialogDescription>
-                        <Button onClick={() => setDialogOpen(false)} className="mt-4">
+                        <Button
+                          onClick={() => {
+                            resetForm()
+                            setDialogOpen(false)
+                          }}
+                          className="mt-4"
+                        >
                           Close
                         </Button>
                       </div>
@@ -437,7 +449,10 @@ export function HostingTournamentsPage() {
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => setDialogOpen(false)}
+                            onClick={() => {
+                              resetForm()
+                              setDialogOpen(false)
+                            }}
                             >
                               Cancel
                             </Button>

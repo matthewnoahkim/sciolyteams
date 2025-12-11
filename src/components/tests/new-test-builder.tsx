@@ -1376,27 +1376,6 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
                     : 'Automatically Import Test from .docx with AI'}
                 </Button>
               </div>
-              {importing && (
-                <div className="mt-3 px-4 py-3 bg-purple-500/10 border border-purple-500/30 rounded-md">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 bg-purple-500 rounded-full animate-pulse"></div>
-                      <span className="font-medium text-purple-700 dark:text-purple-300">
-                        Processing with AI...
-                      </span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {elapsedSeconds}s elapsed • Est. {estimatedTimeSeconds}s total
-                    </span>
-                  </div>
-                  <div className="mt-2 w-full bg-purple-500/20 rounded-full h-1.5 overflow-hidden">
-                    <div 
-                      className="bg-purple-500 h-full transition-all duration-1000 ease-linear"
-                      style={{ width: `${Math.min(100, (elapsedSeconds / estimatedTimeSeconds) * 100)}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
             </CardHeader>
             <CardContent className="space-y-6 pt-6 pb-6">
               {questions.length === 0 && (
