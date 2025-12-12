@@ -12,7 +12,6 @@ import { Logo } from '@/components/logo'
 import { HomeNav } from '@/components/home-nav'
 import { useToast } from '@/components/ui/use-toast'
 import Link from 'next/link'
-import { ThemeToggle } from '@/components/theme-toggle'
 import {
   Dialog,
   DialogContent,
@@ -127,13 +126,21 @@ export function HostingTournamentsPage() {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
-        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2 overflow-x-auto">
           <Logo size="md" href="/" variant="light" />
-          <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
-            <HomeNav variant="light" />
-            <ThemeToggle variant="header" />
-            <Link href="/login">
-              <button className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors whitespace-nowrap shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-4 md:gap-6 flex-shrink-0">
+            <HomeNav 
+              variant="light" 
+              mobileButton={
+                <Link href="/login">
+                  <button className="w-full px-4 py-2.5 text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors shadow-sm">
+                    Sign In
+                  </button>
+                </Link>
+              }
+            />
+            <Link href="/login" className="hidden md:block">
+              <button className="px-5 md:px-6 py-2 md:py-2.5 text-xs md:text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors whitespace-nowrap shadow-sm">
                 Sign In
               </button>
             </Link>
@@ -142,7 +149,7 @@ export function HostingTournamentsPage() {
       </header>
 
       {/* Main Content */}
-      <section className="flex-1 px-4 sm:px-6 py-8 sm:py-12 bg-slate-50 dark:bg-slate-900 grid-pattern">
+      <section className="flex-1 px-4 sm:px-6 py-8 sm:py-12 bg-slate-50 dark:bg-slate-900 grid-pattern overflow-x-hidden">
         <div className="max-w-6xl mx-auto space-y-8 sm:space-y-12">
           {/* Header */}
           <div className="text-center space-y-3 sm:space-y-4">

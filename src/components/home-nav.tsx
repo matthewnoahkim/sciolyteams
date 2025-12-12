@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import type React from 'react'
 import { Menu, X } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -20,9 +21,10 @@ const navItems: NavItem[] = [
 
 interface HomeNavProps {
   variant?: 'default' | 'hero' | 'light'
+  mobileButton?: React.ReactNode
 }
 
-export function HomeNav({ variant = 'default' }: HomeNavProps) {
+export function HomeNav({ variant = 'default', mobileButton }: HomeNavProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // 'light' and 'hero' both use white text for blue backgrounds
@@ -90,6 +92,11 @@ export function HomeNav({ variant = 'default' }: HomeNavProps) {
                   {item.label}
                 </Link>
               ))}
+              {mobileButton && (
+                <div className="pt-2" onClick={() => setMobileMenuOpen(false)}>
+                  {mobileButton}
+                </div>
+              )}
             </nav>
           </div>
         )}

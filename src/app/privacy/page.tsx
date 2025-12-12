@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/logo'
-import { ThemeToggle } from '@/components/theme-toggle'
 
 export default function PrivacyPolicyPage() {
   return (
@@ -11,7 +10,6 @@ export default function PrivacyPolicyPage() {
       <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Logo size="md" href="/" variant="light" />
-          <ThemeToggle variant="header" />
         </div>
       </header>
 
@@ -125,7 +123,7 @@ export default function PrivacyPolicyPage() {
 
       {/* Footer */}
       <footer className="border-t border-border bg-card">
-        <div className="container mx-auto px-6 py-8">
+        <div className="container mx-auto px-4 sm:px-6 py-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>

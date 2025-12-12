@@ -6,7 +6,6 @@ import {
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
 import { HomeNav } from '@/components/home-nav'
-import { ThemeToggle } from '@/components/theme-toggle'
 
 const costs = [
   { icon: Calculator, name: 'Desmos', amount: '$1,200', period: '/yr', description: 'Built-in calculator' },
@@ -82,13 +81,21 @@ export default async function PricingPage() {
     <div className="min-h-screen bg-background text-foreground grid-pattern">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-2 overflow-x-auto">
           <Logo size="md" href="/" variant="light" />
-          <div className="flex items-center gap-6">
-            <HomeNav variant="light" />
-            <ThemeToggle variant="header" />
-            <Link href={isLoggedIn ? "/dashboard" : "/login"}>
-              <button className="px-5 py-2.5 text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-4 md:gap-6 flex-shrink-0">
+            <HomeNav 
+              variant="light" 
+              mobileButton={
+                <Link href={isLoggedIn ? "/dashboard" : "/login"}>
+                  <button className="w-full px-4 py-2.5 text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors shadow-sm">
+                    {isLoggedIn ? "Dashboard" : "Sign In"}
+                  </button>
+                </Link>
+              }
+            />
+            <Link href={isLoggedIn ? "/dashboard" : "/login"} className="hidden md:block">
+              <button className="px-5 md:px-6 py-2 md:py-2.5 text-xs md:text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors shadow-sm whitespace-nowrap">
                 {isLoggedIn ? "Dashboard" : "Sign In"}
               </button>
             </Link>
@@ -97,7 +104,7 @@ export default async function PricingPage() {
       </header>
 
       {/* Content */}
-      <main className="py-16 px-6">
+      <main className="py-16 px-4 sm:px-6 overflow-x-hidden">
         <div className="max-w-6xl mx-auto">
           {/* Back link */}
           <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8">
@@ -122,7 +129,7 @@ export default async function PricingPage() {
               <p className="text-muted-foreground">What it costs to maintain teamy.site</p>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 mb-8">
               {costs.map((cost) => (
                 <div
                   key={cost.name}
@@ -251,7 +258,7 @@ export default async function PricingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border bg-card">
-        <div className="container mx-auto px-6 py-8">
+        <div className="container mx-auto px-4 sm:px-6 py-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
