@@ -406,7 +406,27 @@ export function TournamentPageClient({ hostingRequest, tournament, isDirector, u
 
                     {selectedClub && eligibleTeams.length > 0 && (
                       <div className="space-y-2">
-                        <Label>Select Teams</Label>
+                        <div className="flex items-center justify-between">
+                          <Label>Select Teams</Label>
+                          {eligibleTeams.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const allSelected = eligibleTeams.every(team => selectedTeams.includes(team.id))
+                                if (allSelected) {
+                                  setSelectedTeams([])
+                                } else {
+                                  setSelectedTeams(eligibleTeams.map(team => team.id))
+                                }
+                              }}
+                              className="h-7 text-xs"
+                            >
+                              {eligibleTeams.every(team => selectedTeams.includes(team.id)) ? 'Deselect All' : 'Select All'}
+                            </Button>
+                          )}
+                        </div>
                         <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
                           {eligibleTeams.map(team => (
                             <label key={team.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded">

@@ -251,8 +251,9 @@ export function HostingTournamentsPage() {
                         </DialogDescription>
                         <Button
                           onClick={() => {
-                            resetForm()
                             setDialogOpen(false)
+                            // Don't reset form here - it will be reset when dialog opens again
+                            // This prevents the form from flashing before the dialog closes
                           }}
                           className="mt-4"
                         >

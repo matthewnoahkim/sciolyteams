@@ -61,6 +61,24 @@ interface TDPortalClientProps {
 export function TDPortalClient({ user, requests }: TDPortalClientProps) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
 
+  // Helper functions for formatting
+  const getLevelLabel = (level: string) => {
+    return level.charAt(0).toUpperCase() + level.slice(1)
+  }
+
+  const getFormatLabel = (format: string) => {
+    switch (format) {
+      case 'in-person':
+        return 'In-Person'
+      case 'satellite':
+        return 'Satellite'
+      case 'mini-so':
+        return 'Mini SO'
+      default:
+        return format.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('-')
+    }
+  }
+
   // Filter requests by status
   const approvedRequests = requests.filter(r => r.status === 'APPROVED')
   const pendingRequests = requests.filter(r => r.status === 'PENDING')
@@ -251,9 +269,9 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
                     </CardHeader>
                     <CardContent className="pt-0">
                       <div className="flex flex-wrap gap-2 mb-4">
-                        <Badge variant="outline">{request.tournamentLevel}</Badge>
+                        <Badge variant="outline">{getLevelLabel(request.tournamentLevel)}</Badge>
                         <Badge variant="outline">Division {request.division}</Badge>
-                        <Badge variant="outline">{request.tournamentFormat}</Badge>
+                        <Badge variant="outline">{getFormatLabel(request.tournamentFormat)}</Badge>
                       </div>
                       {request.location && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">

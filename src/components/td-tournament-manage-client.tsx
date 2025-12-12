@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -30,6 +31,9 @@ import {
   ArrowLeft,
   Settings,
   ExternalLink,
+  Edit,
+  Trophy,
+  Mail,
 } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -132,7 +136,41 @@ export function TDTournamentManageClient({
 }: TDTournamentManageClientProps) {
   const router = useRouter()
   const { toast } = useToast()
+  
+  // Persist active tab in localStorage
+  const storageKey = `td-tournament-tab-${tournament.id}`
   const [activeTab, setActiveTab] = useState<'staff' | 'timeline' | 'settings'>('staff')
+  const [isHydrated, setIsHydrated] = useState(false)
+  
+  // Load saved tab from localStorage on mount and mark as hydrated
+  useEffect(() => {
+    try {
+      const savedTab = localStorage.getItem(storageKey) as 'staff' | 'timeline' | 'settings' | null
+      if (savedTab && ['staff', 'timeline', 'settings'].includes(savedTab)) {
+        setActiveTab(savedTab)
+      }
+    } catch (e) {
+      // localStorage not available
+    }
+    setIsHydrated(true)
+  }, [storageKey])
+  
+  // Save tab to localStorage when it changes (only after hydration)
+  useEffect(() => {
+    if (isHydrated) {
+      try {
+        localStorage.setItem(storageKey, activeTab)
+      } catch (e) {
+        // localStorage not available
+      }
+    }
+  }, [activeTab, storageKey, isHydrated])
+  
+  // Handle tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as 'staff' | 'timeline' | 'settings')
+  }
+  
   const [staff, setStaff] = useState<StaffMember[]>(initialStaff)
   const [timeline, setTimeline] = useState<TimelineItem[]>(initialTimeline)
   const [loadingStaff, setLoadingStaff] = useState(false)
@@ -278,6 +316,35 @@ export function TDTournamentManageClient({
         variant: 'destructive',
       })
     }
+  }
+
+  const handleEmailAllStaff = () => {
+    if (staff.length === 0) {
+      toast({
+        title: 'No staff members',
+        description: 'There are no staff members to email.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Separate Tournament Directors and Event Supervisors
+    const tournamentDirectors = staff.filter((m: StaffMember) => m.role === 'TOURNAMENT_DIRECTOR')
+    const eventSupervisors = staff.filter((m: StaffMember) => m.role === 'EVENT_SUPERVISOR')
+    
+    // Get emails - use user email if available, otherwise use the invitation email
+    const tdEmails = tournamentDirectors
+      .map((m: StaffMember) => m.user?.email || m.email)
+      .filter(Boolean)
+      .join(',')
+    const esEmails = eventSupervisors
+      .map((m: StaffMember) => m.user?.email || m.email)
+      .filter(Boolean)
+      .join(',')
+    
+    // CC Tournament Directors, BCC Event Supervisors
+    const mailtoLink = `mailto:?cc=${encodeURIComponent(tdEmails)}&bcc=${encodeURIComponent(esEmails)}&subject=${encodeURIComponent(`${tournament.name} - Staff Communication`)}`
+    window.location.href = mailtoLink
   }
 
   const handleAddTimeline = async () => {
@@ -470,7 +537,7 @@ export function TDTournamentManageClient({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <CardTitle className="text-2xl">{tournament.name}</CardTitle>
-                  <CardDescription className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
                       {format(new Date(tournament.startDate), 'MMM d, yyyy')}
@@ -482,7 +549,7 @@ export function TDTournamentManageClient({
                       </span>
                     )}
                     <Badge variant="outline">Division {tournament.division}</Badge>
-                  </CardDescription>
+                  </div>
                 </div>
                 {tournament.slug && (
                   <Link href={`/tournaments/${tournament.slug}`} target="_blank">
@@ -498,7 +565,8 @@ export function TDTournamentManageClient({
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'staff' | 'timeline' | 'settings')} className="space-y-6">
+        {isHydrated && (
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="grid grid-cols-3 w-full max-w-lg">
             <TabsTrigger value="staff" className="gap-2">
               <Users className="h-4 w-4" />
@@ -528,13 +596,20 @@ export function TDTournamentManageClient({
                       Invite Event Supervisors and Tournament Directors
                     </CardDescription>
                   </div>
-                  <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Invite Staff
+                  <div className="flex items-center gap-2">
+                    {staff.length > 0 && (
+                      <Button variant="outline" onClick={handleEmailAllStaff}>
+                        <Mail className="h-4 w-4 mr-2" />
+                        Email All
                       </Button>
-                    </DialogTrigger>
+                    )}
+                    <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button>
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Invite Staff
+                        </Button>
+                      </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Invite Staff Member</DialogTitle>
@@ -581,18 +656,36 @@ export function TDTournamentManageClient({
                         </div>
                         {inviteForm.role === 'EVENT_SUPERVISOR' && events.length > 0 && (
                           <div className="space-y-2">
-                            <Label>Assign Events</Label>
+                            <div className="flex items-center justify-between">
+                              <Label>Assign Events</Label>
+                              {events.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const allSelected = events.every(e => inviteForm.eventIds.includes(e.id))
+                                    setInviteForm(prev => ({
+                                      ...prev,
+                                      eventIds: allSelected ? [] : events.map(e => e.id)
+                                    }))
+                                  }}
+                                  className="h-7 text-xs"
+                                >
+                                  {events.every(e => inviteForm.eventIds.includes(e.id)) ? 'Deselect All' : 'Select All'}
+                                </Button>
+                              )}
+                            </div>
                             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-lg p-3">
                               {events.map(event => (
                                 <label 
                                   key={event.id} 
-                                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded"
+                                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
                                 >
-                                  <input
-                                    type="checkbox"
+                                  <Checkbox
                                     checked={inviteForm.eventIds.includes(event.id)}
-                                    onChange={e => {
-                                      if (e.target.checked) {
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
                                         setInviteForm(prev => ({ 
                                           ...prev, 
                                           eventIds: [...prev.eventIds, event.id] 
@@ -604,9 +697,8 @@ export function TDTournamentManageClient({
                                         }))
                                       }
                                     }}
-                                    className="h-4 w-4"
                                   />
-                                  {event.name}
+                                  <span>{event.name}</span>
                                 </label>
                               ))}
                             </div>
@@ -621,12 +713,13 @@ export function TDTournamentManageClient({
                           onClick={handleInviteStaff} 
                           disabled={inviting || !inviteForm.email}
                         >
-                          <Send className="h-4 w-4 mr-2" />
-                          {inviting ? 'Sending...' : 'Send Invitation'}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                        <Send className="h-4 w-4 mr-2" />
+                        {inviting ? 'Sending...' : 'Send Invitation'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -852,7 +945,7 @@ export function TDTournamentManageClient({
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
+                  <Trophy className="h-5 w-5" />
                   Tournament Information
                 </CardTitle>
                 <CardDescription>
@@ -860,22 +953,22 @@ export function TDTournamentManageClient({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Tournament Name</Label>
-                    <p className="font-medium">{tournament.name}</p>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tournament Name</Label>
+                    <p className="text-base font-semibold">{tournament.name}</p>
                   </div>
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Tournament Level</Label>
-                    <p className="font-medium">{tournament.level || 'Not specified'}</p>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tournament Level</Label>
+                    <p className="text-base font-semibold">{tournament.level ? tournament.level.charAt(0).toUpperCase() + tournament.level.slice(1) : <span className="text-muted-foreground italic">Not specified</span>}</p>
                   </div>
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Division(s)</Label>
-                    <p className="font-medium">Division {tournament.division}</p>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Division(s)</Label>
+                    <p className="text-base font-semibold">Division {tournament.division}</p>
                   </div>
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Format / Location</Label>
-                    <p className="font-medium">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Format / Location</Label>
+                    <p className="text-base font-semibold">
                       {tournament.isOnline ? 'Online' : tournament.location || 'In-Person (location TBD)'}
                     </p>
                   </div>
@@ -888,13 +981,17 @@ export function TDTournamentManageClient({
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-lg">Editable Settings</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Settings className="h-5 w-5" />
+                      Editable Settings
+                    </CardTitle>
                     <CardDescription>
                       Configure tournament dates, fees, and registration details
                     </CardDescription>
                   </div>
                   {!isEditingSettings ? (
                     <Button onClick={() => setIsEditingSettings(true)}>
+                      <Edit className="h-4 w-4 mr-2" />
                       Edit Settings
                     </Button>
                   ) : (
@@ -911,11 +1008,11 @@ export function TDTournamentManageClient({
               </CardHeader>
               <CardContent className="space-y-8">
                 {/* Tournament Date/Time */}
-                <div>
-                  <h3 className="font-semibold mb-4">Tournament Date & Time</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
+                <div className="border-b pb-6">
+                  <h3 className="text-base font-semibold mb-5 text-foreground">Tournament Date & Time</h3>
+                  <div className="grid gap-5 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>Start Date</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Start Date</Label>
                       {isEditingSettings ? (
                         <Input
                           type="date"
@@ -923,11 +1020,11 @@ export function TDTournamentManageClient({
                           onChange={e => setSettingsForm(prev => ({ ...prev, startDate: e.target.value }))}
                         />
                       ) : (
-                        <p className="font-medium py-2">{tournament.startDate ? format(new Date(tournament.startDate), 'MMMM d, yyyy') : 'Not set'}</p>
+                        <p className="text-base font-semibold py-1.5">{tournament.startDate ? format(new Date(tournament.startDate), 'MMMM d, yyyy') : <span className="text-muted-foreground italic font-normal">Not set</span>}</p>
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label>Start Time</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Start Time</Label>
                       {isEditingSettings ? (
                         <Input
                           type="time"
@@ -935,11 +1032,11 @@ export function TDTournamentManageClient({
                           onChange={e => setSettingsForm(prev => ({ ...prev, startTime: e.target.value }))}
                         />
                       ) : (
-                        <p className="font-medium py-2">{tournament.startTime ? format(new Date(tournament.startTime), 'h:mm a') : 'Not set'}</p>
+                        <p className="text-base font-semibold py-1.5">{tournament.startTime ? format(new Date(tournament.startTime), 'h:mm a') : <span className="text-muted-foreground italic font-normal">Not set</span>}</p>
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label>End Date</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">End Date</Label>
                       {isEditingSettings ? (
                         <Input
                           type="date"
@@ -947,11 +1044,11 @@ export function TDTournamentManageClient({
                           onChange={e => setSettingsForm(prev => ({ ...prev, endDate: e.target.value }))}
                         />
                       ) : (
-                        <p className="font-medium py-2">{tournament.endDate ? format(new Date(tournament.endDate), 'MMMM d, yyyy') : 'Not set'}</p>
+                        <p className="text-base font-semibold py-1.5">{tournament.endDate ? format(new Date(tournament.endDate), 'MMMM d, yyyy') : <span className="text-muted-foreground italic font-normal">Not set</span>}</p>
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label>End Time</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">End Time</Label>
                       {isEditingSettings ? (
                         <Input
                           type="time"
@@ -959,15 +1056,15 @@ export function TDTournamentManageClient({
                           onChange={e => setSettingsForm(prev => ({ ...prev, endTime: e.target.value }))}
                         />
                       ) : (
-                        <p className="font-medium py-2">{tournament.endTime ? format(new Date(tournament.endTime), 'h:mm a') : 'Not set'}</p>
+                        <p className="text-base font-semibold py-1.5">{tournament.endTime ? format(new Date(tournament.endTime), 'h:mm a') : <span className="text-muted-foreground italic font-normal">Not set</span>}</p>
                       )}
                     </div>
                   </div>
                 </div>
 
                 {/* Events Run */}
-                <div>
-                  <h3 className="font-semibold mb-4">Events Run</h3>
+                <div className="border-b pb-6">
+                  <h3 className="text-base font-semibold mb-5 text-foreground">Events Run</h3>
                   {isEditingSettings ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto border rounded-lg p-3">
                       {events.map(event => (
@@ -1002,11 +1099,11 @@ export function TDTournamentManageClient({
                 </div>
 
                 {/* Registration Fee Structure */}
-                <div>
-                  <h3 className="font-semibold mb-4">Registration Fee Structure</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
+                <div className="border-b pb-6">
+                  <h3 className="text-base font-semibold mb-5 text-foreground">Registration Fee Structure</h3>
+                  <div className="grid gap-5 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>Fee Structure Type</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fee Structure Type</Label>
                       {isEditingSettings ? (
                         <Select
                           value={settingsForm.feeStructure}
@@ -1021,11 +1118,11 @@ export function TDTournamentManageClient({
                           </SelectContent>
                         </Select>
                       ) : (
-                        <p className="font-medium py-2">{tournament.feeStructure === 'tiered' ? 'Tiered' : 'Flat Fee'}</p>
+                        <p className="text-base font-semibold py-1.5">{tournament.feeStructure === 'tiered' ? 'Tiered' : 'Flat Fee'}</p>
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label>{settingsForm.feeStructure === 'tiered' ? 'First Team Fee ($)' : 'Registration Fee ($)'}</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{settingsForm.feeStructure === 'tiered' ? 'First Team Fee ($)' : 'Registration Fee ($)'}</Label>
                       {isEditingSettings ? (
                         <Input
                           type="number"
@@ -1036,12 +1133,12 @@ export function TDTournamentManageClient({
                           placeholder="0"
                         />
                       ) : (
-                        <p className="font-medium py-2">{tournament.price === 0 ? 'Free' : `$${tournament.price}`}</p>
+                        <p className="text-base font-semibold py-1.5">{tournament.price === 0 ? 'Free' : `$${tournament.price}`}</p>
                       )}
                     </div>
                     {(isEditingSettings ? settingsForm.feeStructure === 'tiered' : tournament.feeStructure === 'tiered') && (
                       <div className="space-y-2">
-                        <Label>Additional Team Fee ($)</Label>
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Additional Team Fee ($)</Label>
                         {isEditingSettings ? (
                           <Input
                             type="number"
@@ -1052,7 +1149,7 @@ export function TDTournamentManageClient({
                             placeholder="e.g., 50"
                           />
                         ) : (
-                          <p className="font-medium py-2">{tournament.additionalTeamPrice ? `$${tournament.additionalTeamPrice}` : 'Not set'}</p>
+                          <p className="text-base font-semibold py-1.5">{tournament.additionalTeamPrice ? `$${tournament.additionalTeamPrice}` : <span className="text-muted-foreground italic font-normal">Not set</span>}</p>
                         )}
                       </div>
                     )}
@@ -1060,11 +1157,11 @@ export function TDTournamentManageClient({
                 </div>
 
                 {/* Registration Window */}
-                <div>
-                  <h3 className="font-semibold mb-4">Registration Window</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
+                <div className="border-b pb-6">
+                  <h3 className="text-base font-semibold mb-5 text-foreground">Registration Window</h3>
+                  <div className="grid gap-5 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>Registration Opens</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Registration Opens</Label>
                       {isEditingSettings ? (
                         <Input
                           type="date"
@@ -1072,11 +1169,11 @@ export function TDTournamentManageClient({
                           onChange={e => setSettingsForm(prev => ({ ...prev, registrationStartDate: e.target.value }))}
                         />
                       ) : (
-                        <p className="font-medium py-2">{tournament.registrationStartDate ? format(new Date(tournament.registrationStartDate), 'MMMM d, yyyy') : 'Not set'}</p>
+                        <p className="text-base font-semibold py-1.5">{tournament.registrationStartDate ? format(new Date(tournament.registrationStartDate), 'MMMM d, yyyy') : <span className="text-muted-foreground italic font-normal">Not set</span>}</p>
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label>Registration Closes</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Registration Closes</Label>
                       {isEditingSettings ? (
                         <Input
                           type="date"
@@ -1084,20 +1181,20 @@ export function TDTournamentManageClient({
                           onChange={e => setSettingsForm(prev => ({ ...prev, registrationEndDate: e.target.value }))}
                         />
                       ) : (
-                        <p className="font-medium py-2">{tournament.registrationEndDate ? format(new Date(tournament.registrationEndDate), 'MMMM d, yyyy') : 'Not set'}</p>
+                        <p className="text-base font-semibold py-1.5">{tournament.registrationEndDate ? format(new Date(tournament.registrationEndDate), 'MMMM d, yyyy') : <span className="text-muted-foreground italic font-normal">Not set</span>}</p>
                       )}
                     </div>
                   </div>
                 </div>
 
                 {/* Discounts & Penalties */}
-                <div>
-                  <h3 className="font-semibold mb-4">Discounts & Penalties</h3>
+                <div className="border-b pb-6">
+                  <h3 className="text-base font-semibold mb-5 text-foreground">Discounts & Penalties</h3>
                   <div className="space-y-6">
                     {/* Early Bird Discount */}
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-5 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Early Bird Discount ($)</Label>
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Early Bird Discount ($)</Label>
                         {isEditingSettings ? (
                           <Input
                             type="number"
@@ -1108,11 +1205,11 @@ export function TDTournamentManageClient({
                             placeholder="e.g., 10"
                           />
                         ) : (
-                          <p className="font-medium py-2">{tournament.earlyBirdDiscount ? `$${tournament.earlyBirdDiscount} off` : 'None'}</p>
+                          <p className="text-base font-semibold py-1.5">{tournament.earlyBirdDiscount ? `$${tournament.earlyBirdDiscount} off` : <span className="text-muted-foreground italic font-normal">None</span>}</p>
                         )}
                       </div>
                       <div className="space-y-2">
-                        <Label>Early Bird Deadline</Label>
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Early Bird Deadline</Label>
                         {isEditingSettings ? (
                           <Input
                             type="date"
@@ -1120,15 +1217,15 @@ export function TDTournamentManageClient({
                             onChange={e => setSettingsForm(prev => ({ ...prev, earlyBirdDeadline: e.target.value }))}
                           />
                         ) : (
-                          <p className="font-medium py-2">{tournament.earlyBirdDeadline ? format(new Date(tournament.earlyBirdDeadline), 'MMMM d, yyyy') : 'Not set'}</p>
+                          <p className="text-base font-semibold py-1.5">{tournament.earlyBirdDeadline ? format(new Date(tournament.earlyBirdDeadline), 'MMMM d, yyyy') : <span className="text-muted-foreground italic font-normal">Not set</span>}</p>
                         )}
                       </div>
                     </div>
 
                     {/* Late Fee */}
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-5 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Late Registration Fee ($)</Label>
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Late Registration Fee ($)</Label>
                         {isEditingSettings ? (
                           <Input
                             type="number"
@@ -1139,11 +1236,11 @@ export function TDTournamentManageClient({
                             placeholder="e.g., 25"
                           />
                         ) : (
-                          <p className="font-medium py-2">{tournament.lateFee ? `+$${tournament.lateFee}` : 'None'}</p>
+                          <p className="text-base font-semibold py-1.5">{tournament.lateFee ? `+$${tournament.lateFee}` : <span className="text-muted-foreground italic font-normal">None</span>}</p>
                         )}
                       </div>
                       <div className="space-y-2">
-                        <Label>Late Fee Starts On</Label>
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Late Fee Starts On</Label>
                         {isEditingSettings ? (
                           <Input
                             type="date"
@@ -1151,14 +1248,14 @@ export function TDTournamentManageClient({
                             onChange={e => setSettingsForm(prev => ({ ...prev, lateFeeStartDate: e.target.value }))}
                           />
                         ) : (
-                          <p className="font-medium py-2">{tournament.lateFeeStartDate ? format(new Date(tournament.lateFeeStartDate), 'MMMM d, yyyy') : 'Not set'}</p>
+                          <p className="text-base font-semibold py-1.5">{tournament.lateFeeStartDate ? format(new Date(tournament.lateFeeStartDate), 'MMMM d, yyyy') : <span className="text-muted-foreground italic font-normal">Not set</span>}</p>
                         )}
                       </div>
                     </div>
 
                     {/* Other Conditional Discounts */}
                     <div className="space-y-3">
-                      <Label>Other Conditional Discounts</Label>
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Other Conditional Discounts</Label>
                       {settingsForm.otherDiscounts.length > 0 && (
                         <div className="space-y-2">
                           {settingsForm.otherDiscounts.map((discount, index) => (
@@ -1210,7 +1307,7 @@ export function TDTournamentManageClient({
 
                 {/* Eligibility Requirements */}
                 <div>
-                  <h3 className="font-semibold mb-4">Eligibility Requirements</h3>
+                  <h3 className="text-base font-semibold mb-5 text-foreground">Eligibility Requirements</h3>
                   <div className="space-y-2">
                     {isEditingSettings ? (
                       <Textarea
@@ -1220,8 +1317,8 @@ export function TDTournamentManageClient({
                         rows={4}
                       />
                     ) : (
-                      <p className="font-medium whitespace-pre-wrap py-2">
-                        {tournament.eligibilityRequirements || 'No specific requirements'}
+                      <p className="text-base font-semibold whitespace-pre-wrap py-1.5">
+                        {tournament.eligibilityRequirements || <span className="text-muted-foreground italic font-normal">No specific requirements</span>}
                       </p>
                     )}
                   </div>
@@ -1229,7 +1326,8 @@ export function TDTournamentManageClient({
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+          </Tabs>
+        )}
       </main>
 
       {/* Footer */}
