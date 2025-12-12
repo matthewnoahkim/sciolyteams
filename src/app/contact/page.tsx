@@ -60,11 +60,11 @@ export default async function ContactPage() {
           <div className="mt-12 text-center">
             <p className="text-muted-foreground text-sm mb-4">Or reach out directly</p>
             <a 
-              href="mailto:support@teamy.io" 
+              href="mailto:support@teamy.site" 
               className="inline-flex items-center gap-2 text-teamy-primary hover:underline font-semibold"
             >
               <Mail className="h-4 w-4" />
-              support@teamy.io
+              support@teamy.site
             </a>
           </div>
         </div>

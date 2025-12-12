@@ -137,6 +137,20 @@ export async function DELETE(
   try {
     const { requestId } = params
 
+    // First, find and delete any associated tournament
+    const hostingRequest = await prisma.tournamentHostingRequest.findUnique({
+      where: { id: requestId },
+      include: { tournament: true },
+    })
+
+    if (hostingRequest?.tournament) {
+      // Delete the tournament first (this will cascade delete related records)
+      await prisma.tournament.delete({
+        where: { id: hostingRequest.tournament.id },
+      })
+    }
+
+    // Then delete the hosting request
     await prisma.tournamentHostingRequest.delete({
       where: { id: requestId },
     })

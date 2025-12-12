@@ -77,6 +77,11 @@ interface EventInfo {
   division: string
 }
 
+interface OtherDiscount {
+  condition: string
+  amount: number
+}
+
 interface Tournament {
   id: string
   name: string
@@ -84,9 +89,25 @@ interface Tournament {
   division: string
   startDate: string
   endDate: string
+  startTime: string
+  endTime: string
   location: string | null
   description: string | null
+  isOnline: boolean
   price: number | null
+  additionalTeamPrice: number | null
+  feeStructure: string
+  registrationStartDate: string | null
+  registrationEndDate: string | null
+  earlyBirdDiscount: number | null
+  earlyBirdDeadline: string | null
+  lateFee: number | null
+  lateFeeStartDate: string | null
+  otherDiscounts: string | null
+  eligibilityRequirements: string | null
+  eventsRun: string | null
+  // From hosting request
+  level: string | null
 }
 
 interface TDTournamentManageClientProps {
@@ -136,6 +157,29 @@ export function TDTournamentManageClient({
     type: 'draft_due',
   })
   const [addingTimeline, setAddingTimeline] = useState(false)
+
+  // Settings edit state
+  const [isEditingSettings, setIsEditingSettings] = useState(false)
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [settingsForm, setSettingsForm] = useState({
+    startDate: tournament.startDate?.split('T')[0] || '',
+    endDate: tournament.endDate?.split('T')[0] || '',
+    startTime: tournament.startTime?.slice(11, 16) || '',
+    endTime: tournament.endTime?.slice(11, 16) || '',
+    price: tournament.price?.toString() || '0',
+    additionalTeamPrice: tournament.additionalTeamPrice?.toString() || '',
+    feeStructure: tournament.feeStructure || 'flat',
+    registrationStartDate: tournament.registrationStartDate?.split('T')[0] || '',
+    registrationEndDate: tournament.registrationEndDate?.split('T')[0] || '',
+    earlyBirdDiscount: tournament.earlyBirdDiscount?.toString() || '',
+    earlyBirdDeadline: tournament.earlyBirdDeadline?.split('T')[0] || '',
+    lateFee: tournament.lateFee?.toString() || '',
+    lateFeeStartDate: tournament.lateFeeStartDate?.split('T')[0] || '',
+    otherDiscounts: tournament.otherDiscounts ? JSON.parse(tournament.otherDiscounts) as OtherDiscount[] : [],
+    eligibilityRequirements: tournament.eligibilityRequirements || '',
+    eventsRun: tournament.eventsRun ? JSON.parse(tournament.eventsRun) as string[] : [],
+  })
+  const [newDiscount, setNewDiscount] = useState({ condition: '', amount: '' })
 
   const handleSignOut = () => {
     signOut({ callbackUrl: '/td' })
@@ -293,6 +337,84 @@ export function TDTournamentManageClient({
     }
   }
 
+  const handleSaveSettings = async () => {
+    setSavingSettings(true)
+    try {
+      const res = await fetch(`/api/tournaments/${tournament.id}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate: settingsForm.startDate ? new Date(settingsForm.startDate).toISOString() : null,
+          endDate: settingsForm.endDate ? new Date(settingsForm.endDate).toISOString() : null,
+          startTime: settingsForm.startDate && settingsForm.startTime 
+            ? new Date(`${settingsForm.startDate}T${settingsForm.startTime}`).toISOString() 
+            : null,
+          endTime: settingsForm.endDate && settingsForm.endTime 
+            ? new Date(`${settingsForm.endDate}T${settingsForm.endTime}`).toISOString() 
+            : null,
+          price: settingsForm.price ? parseFloat(settingsForm.price) : 0,
+          additionalTeamPrice: settingsForm.additionalTeamPrice ? parseFloat(settingsForm.additionalTeamPrice) : null,
+          feeStructure: settingsForm.feeStructure,
+          registrationStartDate: settingsForm.registrationStartDate ? new Date(settingsForm.registrationStartDate).toISOString() : null,
+          registrationEndDate: settingsForm.registrationEndDate ? new Date(settingsForm.registrationEndDate).toISOString() : null,
+          earlyBirdDiscount: settingsForm.earlyBirdDiscount ? parseFloat(settingsForm.earlyBirdDiscount) : null,
+          earlyBirdDeadline: settingsForm.earlyBirdDeadline ? new Date(settingsForm.earlyBirdDeadline).toISOString() : null,
+          lateFee: settingsForm.lateFee ? parseFloat(settingsForm.lateFee) : null,
+          lateFeeStartDate: settingsForm.lateFeeStartDate ? new Date(settingsForm.lateFeeStartDate).toISOString() : null,
+          otherDiscounts: settingsForm.otherDiscounts.length > 0 ? JSON.stringify(settingsForm.otherDiscounts) : null,
+          eligibilityRequirements: settingsForm.eligibilityRequirements || null,
+          eventsRun: settingsForm.eventsRun.length > 0 ? JSON.stringify(settingsForm.eventsRun) : null,
+        }),
+      })
+
+      if (res.ok) {
+        toast({
+          title: 'Settings saved',
+          description: 'Tournament settings have been updated.',
+        })
+        setIsEditingSettings(false)
+        router.refresh()
+      } else {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to save settings')
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to save settings',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  const handleAddOtherDiscount = () => {
+    if (newDiscount.condition && newDiscount.amount) {
+      setSettingsForm(prev => ({
+        ...prev,
+        otherDiscounts: [...prev.otherDiscounts, { condition: newDiscount.condition, amount: parseFloat(newDiscount.amount) }],
+      }))
+      setNewDiscount({ condition: '', amount: '' })
+    }
+  }
+
+  const handleRemoveOtherDiscount = (index: number) => {
+    setSettingsForm(prev => ({
+      ...prev,
+      otherDiscounts: prev.otherDiscounts.filter((_, i) => i !== index),
+    }))
+  }
+
+  const handleToggleEvent = (eventId: string) => {
+    setSettingsForm(prev => ({
+      ...prev,
+      eventsRun: prev.eventsRun.includes(eventId)
+        ? prev.eventsRun.filter(id => id !== eventId)
+        : [...prev.eventsRun, eventId],
+    }))
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
       {/* Header */}
@@ -363,7 +485,7 @@ export function TDTournamentManageClient({
                   </CardDescription>
                 </div>
                 {tournament.slug && (
-                  <Link href={`/tournaments/hosting/${tournament.slug}`} target="_blank">
+                  <Link href={`/tournaments/${tournament.slug}`} target="_blank">
                     <Button variant="outline" size="sm">
                       <ExternalLink className="h-4 w-4 mr-2" />
                       View Public Page
@@ -738,54 +860,383 @@ export function TDTournamentManageClient({
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="space-y-6">
+            {/* Read-Only Info Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Settings className="h-5 w-5" />
-                  Tournament Settings
+                  Tournament Information
                 </CardTitle>
                 <CardDescription>
-                  Configure your tournament settings
+                  Basic tournament information (read-only)
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Tournament Name</Label>
+                    <p className="font-medium">{tournament.name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Tournament Level</Label>
+                    <p className="font-medium">{tournament.level || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Division(s)</Label>
+                    <p className="font-medium">Division {tournament.division}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Format / Location</Label>
+                    <p className="font-medium">
+                      {tournament.isOnline ? 'Online' : tournament.location || 'In-Person (location TBD)'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Editable Settings Card */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">Editable Settings</CardTitle>
+                    <CardDescription>
+                      Configure tournament dates, fees, and registration details
+                    </CardDescription>
+                  </div>
+                  {!isEditingSettings ? (
+                    <Button onClick={() => setIsEditingSettings(true)}>
+                      Edit Settings
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setIsEditingSettings(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleSaveSettings} disabled={savingSettings}>
+                        {savingSettings ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-8">
+                {/* Tournament Date/Time */}
+                <div>
+                  <h3 className="font-semibold mb-4">Tournament Date & Time</h3>
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Tournament Name</Label>
-                      <p className="font-medium">{tournament.name}</p>
+                    <div className="space-y-2">
+                      <Label>Start Date</Label>
+                      {isEditingSettings ? (
+                        <Input
+                          type="date"
+                          value={settingsForm.startDate}
+                          onChange={e => setSettingsForm(prev => ({ ...prev, startDate: e.target.value }))}
+                        />
+                      ) : (
+                        <p className="font-medium py-2">{tournament.startDate ? format(new Date(tournament.startDate), 'MMMM d, yyyy') : 'Not set'}</p>
+                      )}
                     </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Division</Label>
-                      <p className="font-medium">Division {tournament.division}</p>
+                    <div className="space-y-2">
+                      <Label>Start Time</Label>
+                      {isEditingSettings ? (
+                        <Input
+                          type="time"
+                          value={settingsForm.startTime}
+                          onChange={e => setSettingsForm(prev => ({ ...prev, startTime: e.target.value }))}
+                        />
+                      ) : (
+                        <p className="font-medium py-2">{tournament.startTime ? format(new Date(tournament.startTime), 'h:mm a') : 'Not set'}</p>
+                      )}
                     </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Start Date</Label>
-                      <p className="font-medium">{format(new Date(tournament.startDate), 'MMMM d, yyyy')}</p>
+                    <div className="space-y-2">
+                      <Label>End Date</Label>
+                      {isEditingSettings ? (
+                        <Input
+                          type="date"
+                          value={settingsForm.endDate}
+                          onChange={e => setSettingsForm(prev => ({ ...prev, endDate: e.target.value }))}
+                        />
+                      ) : (
+                        <p className="font-medium py-2">{tournament.endDate ? format(new Date(tournament.endDate), 'MMMM d, yyyy') : 'Not set'}</p>
+                      )}
                     </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">End Date</Label>
-                      <p className="font-medium">{format(new Date(tournament.endDate), 'MMMM d, yyyy')}</p>
+                    <div className="space-y-2">
+                      <Label>End Time</Label>
+                      {isEditingSettings ? (
+                        <Input
+                          type="time"
+                          value={settingsForm.endTime}
+                          onChange={e => setSettingsForm(prev => ({ ...prev, endTime: e.target.value }))}
+                        />
+                      ) : (
+                        <p className="font-medium py-2">{tournament.endTime ? format(new Date(tournament.endTime), 'h:mm a') : 'Not set'}</p>
+                      )}
                     </div>
-                    {tournament.location && (
-                      <div>
-                        <Label className="text-sm text-muted-foreground">Location</Label>
-                        <p className="font-medium">{tournament.location}</p>
-                      </div>
-                    )}
-                    {tournament.price !== null && (
-                      <div>
-                        <Label className="text-sm text-muted-foreground">Registration Fee</Label>
-                        <p className="font-medium">{tournament.price === 0 ? 'Free' : `$${tournament.price}`}</p>
+                  </div>
+                </div>
+
+                {/* Events Run */}
+                <div>
+                  <h3 className="font-semibold mb-4">Events Run</h3>
+                  {isEditingSettings ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto border rounded-lg p-3">
+                      {events.map(event => (
+                        <label 
+                          key={event.id} 
+                          className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={settingsForm.eventsRun.includes(event.id)}
+                            onChange={() => handleToggleEvent(event.id)}
+                            className="h-4 w-4"
+                          />
+                          {event.name}
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {settingsForm.eventsRun.length > 0 ? (
+                        settingsForm.eventsRun.map(eventId => {
+                          const event = events.find(e => e.id === eventId)
+                          return event ? (
+                            <Badge key={eventId} variant="secondary">{event.name}</Badge>
+                          ) : null
+                        })
+                      ) : (
+                        <p className="text-muted-foreground">All events</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Registration Fee Structure */}
+                <div>
+                  <h3 className="font-semibold mb-4">Registration Fee Structure</h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Fee Structure Type</Label>
+                      {isEditingSettings ? (
+                        <Select
+                          value={settingsForm.feeStructure}
+                          onValueChange={value => setSettingsForm(prev => ({ ...prev, feeStructure: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="flat">Flat Fee (same for all teams)</SelectItem>
+                            <SelectItem value="tiered">Tiered (different for additional teams)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="font-medium py-2">{tournament.feeStructure === 'tiered' ? 'Tiered' : 'Flat Fee'}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{settingsForm.feeStructure === 'tiered' ? 'First Team Fee ($)' : 'Registration Fee ($)'}</Label>
+                      {isEditingSettings ? (
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={settingsForm.price}
+                          onChange={e => setSettingsForm(prev => ({ ...prev, price: e.target.value }))}
+                          placeholder="0"
+                        />
+                      ) : (
+                        <p className="font-medium py-2">{tournament.price === 0 ? 'Free' : `$${tournament.price}`}</p>
+                      )}
+                    </div>
+                    {(isEditingSettings ? settingsForm.feeStructure === 'tiered' : tournament.feeStructure === 'tiered') && (
+                      <div className="space-y-2">
+                        <Label>Additional Team Fee ($)</Label>
+                        {isEditingSettings ? (
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={settingsForm.additionalTeamPrice}
+                            onChange={e => setSettingsForm(prev => ({ ...prev, additionalTeamPrice: e.target.value }))}
+                            placeholder="e.g., 50"
+                          />
+                        ) : (
+                          <p className="font-medium py-2">{tournament.additionalTeamPrice ? `$${tournament.additionalTeamPrice}` : 'Not set'}</p>
+                        )}
                       </div>
                     )}
                   </div>
-                  {tournament.description && (
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Description</Label>
-                      <p className="font-medium whitespace-pre-wrap">{tournament.description}</p>
+                </div>
+
+                {/* Registration Window */}
+                <div>
+                  <h3 className="font-semibold mb-4">Registration Window</h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Registration Opens</Label>
+                      {isEditingSettings ? (
+                        <Input
+                          type="date"
+                          value={settingsForm.registrationStartDate}
+                          onChange={e => setSettingsForm(prev => ({ ...prev, registrationStartDate: e.target.value }))}
+                        />
+                      ) : (
+                        <p className="font-medium py-2">{tournament.registrationStartDate ? format(new Date(tournament.registrationStartDate), 'MMMM d, yyyy') : 'Not set'}</p>
+                      )}
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      <Label>Registration Closes</Label>
+                      {isEditingSettings ? (
+                        <Input
+                          type="date"
+                          value={settingsForm.registrationEndDate}
+                          onChange={e => setSettingsForm(prev => ({ ...prev, registrationEndDate: e.target.value }))}
+                        />
+                      ) : (
+                        <p className="font-medium py-2">{tournament.registrationEndDate ? format(new Date(tournament.registrationEndDate), 'MMMM d, yyyy') : 'Not set'}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Discounts & Penalties */}
+                <div>
+                  <h3 className="font-semibold mb-4">Discounts & Penalties</h3>
+                  <div className="space-y-6">
+                    {/* Early Bird Discount */}
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Early Bird Discount ($)</Label>
+                        {isEditingSettings ? (
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={settingsForm.earlyBirdDiscount}
+                            onChange={e => setSettingsForm(prev => ({ ...prev, earlyBirdDiscount: e.target.value }))}
+                            placeholder="e.g., 10"
+                          />
+                        ) : (
+                          <p className="font-medium py-2">{tournament.earlyBirdDiscount ? `$${tournament.earlyBirdDiscount} off` : 'None'}</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Early Bird Deadline</Label>
+                        {isEditingSettings ? (
+                          <Input
+                            type="date"
+                            value={settingsForm.earlyBirdDeadline}
+                            onChange={e => setSettingsForm(prev => ({ ...prev, earlyBirdDeadline: e.target.value }))}
+                          />
+                        ) : (
+                          <p className="font-medium py-2">{tournament.earlyBirdDeadline ? format(new Date(tournament.earlyBirdDeadline), 'MMMM d, yyyy') : 'Not set'}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Late Fee */}
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Late Registration Fee ($)</Label>
+                        {isEditingSettings ? (
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={settingsForm.lateFee}
+                            onChange={e => setSettingsForm(prev => ({ ...prev, lateFee: e.target.value }))}
+                            placeholder="e.g., 25"
+                          />
+                        ) : (
+                          <p className="font-medium py-2">{tournament.lateFee ? `+$${tournament.lateFee}` : 'None'}</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Late Fee Starts On</Label>
+                        {isEditingSettings ? (
+                          <Input
+                            type="date"
+                            value={settingsForm.lateFeeStartDate}
+                            onChange={e => setSettingsForm(prev => ({ ...prev, lateFeeStartDate: e.target.value }))}
+                          />
+                        ) : (
+                          <p className="font-medium py-2">{tournament.lateFeeStartDate ? format(new Date(tournament.lateFeeStartDate), 'MMMM d, yyyy') : 'Not set'}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Other Conditional Discounts */}
+                    <div className="space-y-3">
+                      <Label>Other Conditional Discounts</Label>
+                      {settingsForm.otherDiscounts.length > 0 && (
+                        <div className="space-y-2">
+                          {settingsForm.otherDiscounts.map((discount, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                              <span className="text-sm">
+                                <span className="font-medium">{discount.condition}</span>
+                                <span className="text-muted-foreground"> — </span>
+                                <span className="text-green-600 font-medium">${discount.amount} off</span>
+                              </span>
+                              {isEditingSettings && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveOtherDiscount(index)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {isEditingSettings && (
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Condition (e.g., Host school)"
+                            value={newDiscount.condition}
+                            onChange={e => setNewDiscount(prev => ({ ...prev, condition: e.target.value }))}
+                            className="flex-1"
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Amount"
+                            value={newDiscount.amount}
+                            onChange={e => setNewDiscount(prev => ({ ...prev, amount: e.target.value }))}
+                            className="w-24"
+                          />
+                          <Button variant="outline" onClick={handleAddOtherDiscount}>
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                      {!isEditingSettings && settingsForm.otherDiscounts.length === 0 && (
+                        <p className="text-muted-foreground text-sm">No additional discounts configured</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Eligibility Requirements */}
+                <div>
+                  <h3 className="font-semibold mb-4">Eligibility Requirements</h3>
+                  <div className="space-y-2">
+                    {isEditingSettings ? (
+                      <Textarea
+                        value={settingsForm.eligibilityRequirements}
+                        onChange={e => setSettingsForm(prev => ({ ...prev, eligibilityRequirements: e.target.value }))}
+                        placeholder="Enter eligibility requirements (e.g., Must be a registered Science Olympiad team, Division B/C only, etc.)"
+                        rows={4}
+                      />
+                    ) : (
+                      <p className="font-medium whitespace-pre-wrap py-2">
+                        {tournament.eligibilityRequirements || 'No specific requirements'}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

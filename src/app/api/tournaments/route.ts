@@ -312,31 +312,31 @@ export async function POST(req: NextRequest) {
       const discordPayload = {
         embeds: [
           {
-            title: '🏆 New Tournament Submission',
-            color: 0x3b82f6, // Blue color
+            title: 'New Tournament Submission',
+            color: 0x0056C7, // Teamy primary blue
             fields: [
               {
-                name: '📝 Tournament Name',
+                name: 'Tournament Name',
                 value: validated.name,
                 inline: false,
               },
               {
-                name: '🏅 Division',
+                name: 'Division',
                 value: `Division ${validated.division}`,
                 inline: true,
               },
               {
-                name: '💰 Registration Fee',
+                name: 'Registration Fee',
                 value: `$${validated.price.toFixed(2)}`,
                 inline: true,
               },
               {
-                name: '📍 Location',
+                name: 'Location',
                 value: validated.isOnline ? 'Online Tournament' : (validated.location || 'Not specified'),
                 inline: true,
               },
               {
-                name: '📅 Start Date',
+                name: 'Start Date',
                 value: new Date(validated.startDate).toLocaleDateString('en-US', { 
                   month: 'short', 
                   day: 'numeric', 
@@ -345,7 +345,7 @@ export async function POST(req: NextRequest) {
                 inline: true,
               },
               {
-                name: '📅 End Date',
+                name: 'End Date',
                 value: new Date(validated.endDate).toLocaleDateString('en-US', { 
                   month: 'short', 
                   day: 'numeric', 
@@ -354,7 +354,7 @@ export async function POST(req: NextRequest) {
                 inline: true,
               },
               {
-                name: '⏰ Start Time',
+                name: 'Start Time',
                 value: new Date(validated.startTime).toLocaleTimeString('en-US', { 
                   hour: 'numeric', 
                   minute: '2-digit',
@@ -363,7 +363,7 @@ export async function POST(req: NextRequest) {
                 inline: true,
               },
               {
-                name: '⏰ End Time',
+                name: 'End Time',
                 value: new Date(validated.endTime).toLocaleTimeString('en-US', { 
                   hour: 'numeric', 
                   minute: '2-digit',
@@ -372,7 +372,7 @@ export async function POST(req: NextRequest) {
                 inline: true,
               },
               {
-                name: '📝 Description',
+                name: 'Description',
                 value: validated.description 
                   ? (validated.description.length > 1024 
                       ? validated.description.substring(0, 1021) + '...' 
@@ -381,12 +381,12 @@ export async function POST(req: NextRequest) {
                 inline: false,
               },
               {
-                name: '👤 Created By',
+                name: 'Created By',
                 value: `${session.user.name || 'Unknown'} (${session.user.email})`,
                 inline: false,
               },
               {
-                name: '🆔 Tournament ID',
+                name: 'Tournament ID',
                 value: result.id,
                 inline: false,
               },

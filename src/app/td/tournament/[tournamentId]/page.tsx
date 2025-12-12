@@ -29,19 +29,7 @@ export default async function TournamentManagePage({ params }: Props) {
       },
     },
     include: {
-      tournament: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          division: true,
-          startDate: true,
-          endDate: true,
-          location: true,
-          description: true,
-          price: true,
-        },
-      },
+      tournament: true,
     },
   })
 
@@ -115,9 +103,30 @@ export default async function TournamentManagePage({ params }: Props) {
 
   // Serialize dates for client component
   const serializedTournament = {
-    ...request.tournament,
+    id: request.tournament.id,
+    name: request.tournament.name,
+    slug: request.tournament.slug,
+    division: request.tournament.division,
     startDate: request.tournament.startDate.toISOString(),
     endDate: request.tournament.endDate.toISOString(),
+    startTime: request.tournament.startTime.toISOString(),
+    endTime: request.tournament.endTime.toISOString(),
+    location: request.tournament.location,
+    description: request.tournament.description,
+    isOnline: request.tournament.isOnline,
+    price: request.tournament.price,
+    additionalTeamPrice: request.tournament.additionalTeamPrice,
+    feeStructure: request.tournament.feeStructure,
+    registrationStartDate: request.tournament.registrationStartDate?.toISOString() || null,
+    registrationEndDate: request.tournament.registrationEndDate?.toISOString() || null,
+    earlyBirdDiscount: request.tournament.earlyBirdDiscount,
+    earlyBirdDeadline: request.tournament.earlyBirdDeadline?.toISOString() || null,
+    lateFee: request.tournament.lateFee,
+    lateFeeStartDate: request.tournament.lateFeeStartDate?.toISOString() || null,
+    otherDiscounts: request.tournament.otherDiscounts,
+    eligibilityRequirements: request.tournament.eligibilityRequirements,
+    eventsRun: request.tournament.eventsRun,
+    level: request.tournamentLevel || null,
   }
 
   const serializedStaff = staff.map(s => ({

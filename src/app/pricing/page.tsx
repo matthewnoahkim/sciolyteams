@@ -14,7 +14,7 @@ const costs = [
   { icon: Server, name: 'Hosting', amount: '$240', period: '/yr', description: 'App servers' },
   { icon: Cloud, name: 'Cloud Storage', amount: '$100', period: '/yr', description: 'File uploads' },
   { icon: Database, name: 'Database', amount: '$60', period: '/yr', description: 'PostgreSQL' },
-  { icon: Globe, name: 'Domain', amount: '$50', period: '/yr', description: 'teamy.io' },
+  { icon: Globe, name: 'Domain', amount: '$50', period: '/yr', description: 'teamy.site' },
   { icon: Cpu, name: 'AI Tokens', amount: '$20', period: '/yr', description: 'OpenAI' },
 ]
 
@@ -119,7 +119,7 @@ export default async function PricingPage() {
           <div className="mb-20">
             <div className="text-center mb-8">
               <h2 className="font-heading text-2xl font-bold text-foreground mb-2">Running Costs</h2>
-              <p className="text-muted-foreground">What it costs to maintain teamy.io</p>
+              <p className="text-muted-foreground">What it costs to maintain teamy.site</p>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">

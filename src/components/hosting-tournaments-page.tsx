@@ -150,7 +150,7 @@ export function HostingTournamentsPage() {
               Hosting Tournaments
             </h1>
             <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
-              Host your Science Olympiad tournament on teamy.io. Our platform streamlines every aspect of tournament management all in one place.
+              Host your Science Olympiad tournament on teamy.site. Our platform streamlines every aspect of tournament management all in one place.
             </p>
           </div>
 
@@ -353,7 +353,7 @@ export function HostingTournamentsPage() {
                           <div className="space-y-2">
                             <Label htmlFor="preferredSlug">Preferred Website Slug</Label>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground">teamy.io/tournaments/hosting/</span>
+                              <span className="text-sm text-muted-foreground">teamy.site/tournaments/</span>
                               <Input
                                 id="preferredSlug"
                                 value={formData.preferredSlug}

@@ -1241,34 +1241,52 @@ model AIRosterGeneration {
 }
 
 model Tournament {
-  id                String                    @id @default(cuid())
-  name              String
-  slug              String?                   @unique
-  division          Division
-  description       String?                   @db.Text
-  price             Float                     @default(0)
-  paymentInstructions String?                 @db.Text
-  isOnline          Boolean                   @default(false)
-  startDate         DateTime
-  endDate           DateTime
-  startTime         DateTime
-  endTime           DateTime
-  location          String?
-  approved          Boolean                   @default(false)
-  rejectionReason   String?                   @db.Text
-  createdById       String
-  hostingRequestId  String?                   @unique
-  pageContent       String?                   @db.Text // JSON for custom page builder
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
-  admins            TournamentAdmin[]
-  registrations     TournamentRegistration[]
-  tests             TournamentTest[]
-  staff             TournamentStaff[]
-  timeline          TournamentTimeline[]
-  esTests           ESTest[]
-  createdBy         User                      @relation("TournamentCreator", fields: [createdById], references: [id], onDelete: Cascade)
-  hostingRequest    TournamentHostingRequest? @relation("TournamentFromRequest", fields: [hostingRequestId], references: [id], onDelete: SetNull)
+  id                    String                    @id @default(cuid())
+  name                  String
+  slug                  String?                   @unique
+  division              Division
+  description           String?                   @db.Text
+  price                 Float                     @default(0)
+  additionalTeamPrice   Float?                    // Price for additional teams (if different from first team)
+  feeStructure          String                    @default("flat") // "flat" or "tiered"
+  paymentInstructions   String?                   @db.Text
+  isOnline              Boolean                   @default(false)
+  startDate             DateTime
+  endDate               DateTime
+  startTime             DateTime
+  endTime               DateTime
+  location              String?
+  
+  // Registration window
+  registrationStartDate DateTime?
+  registrationEndDate   DateTime?
+  
+  // Discounts and penalties
+  earlyBirdDiscount     Float?                    // Amount to discount
+  earlyBirdDeadline     DateTime?                 // Deadline for early bird
+  lateFee               Float?                    // Late fee amount
+  lateFeeStartDate      DateTime?                 // When late fee kicks in
+  otherDiscounts        String?                   @db.Text // JSON for conditional discounts
+  
+  // Eligibility and events
+  eligibilityRequirements String?                 @db.Text
+  eventsRun             String?                   @db.Text // JSON array of event IDs or names
+  
+  approved              Boolean                   @default(false)
+  rejectionReason       String?                   @db.Text
+  createdById           String
+  hostingRequestId      String?                   @unique
+  pageContent           String?                   @db.Text // JSON for custom page builder
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  admins                TournamentAdmin[]
+  registrations         TournamentRegistration[]
+  tests                 TournamentTest[]
+  staff                 TournamentStaff[]
+  timeline              TournamentTimeline[]
+  esTests               ESTest[]
+  createdBy             User                      @relation("TournamentCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  hostingRequest        TournamentHostingRequest? @relation("TournamentFromRequest", fields: [hostingRequestId], references: [id], onDelete: SetNull)
 
   @@index([createdById])
   @@index([startDate])

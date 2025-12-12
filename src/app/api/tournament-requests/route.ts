@@ -63,56 +63,56 @@ export async function POST(request: NextRequest) {
       const discordPayload = {
         embeds: [
           {
-            title: '🏆 New Tournament Hosting Request',
-            color: 0x1e40af, // Blue color
+            title: 'New Tournament Hosting Request',
+            color: 0x0056C7, // Teamy primary blue
             fields: [
               {
-                name: '📋 Tournament Name',
+                name: 'Tournament Name',
                 value: tournamentName,
                 inline: false,
               },
               {
-                name: '🎯 Level',
+                name: 'Level',
                 value: levelLabel,
                 inline: true,
               },
               {
-                name: '🔤 Division',
+                name: 'Division',
                 value: `Division ${division}`,
                 inline: true,
               },
               {
-                name: '📍 Format',
+                name: 'Format',
                 value: formatLabel,
                 inline: true,
               },
               ...(location ? [{
-                name: '🗺️ Location',
+                name: 'Location',
                 value: location,
                 inline: false,
               }] : []),
               ...(preferredSlug ? [{
-                name: '🔗 Preferred Slug',
-                value: `teamy.io/tournaments/${preferredSlug}`,
+                name: 'Preferred Slug',
+                value: `teamy.site/tournaments/${preferredSlug}`,
                 inline: false,
               }] : []),
               {
-                name: '👤 Director Name',
+                name: 'Director Name',
                 value: directorName,
                 inline: true,
               },
               {
-                name: '📧 Director Email',
+                name: 'Director Email',
                 value: directorEmail,
                 inline: true,
               },
               ...(directorPhone ? [{
-                name: '📞 Phone',
+                name: 'Phone',
                 value: directorPhone,
                 inline: true,
               }] : []),
               ...(otherNotes ? [{
-                name: '📝 Notes',
+                name: 'Notes',
                 value: otherNotes.length > 1024 ? otherNotes.substring(0, 1021) + '...' : otherNotes,
                 inline: false,
               }] : []),
@@ -141,16 +141,16 @@ export async function POST(request: NextRequest) {
     // Send confirmation email to the tournament director
     try {
       if (process.env.RESEND_API_KEY) {
-        const baseUrl = process.env.NEXTAUTH_URL || 'https://teamy.io'
+        const baseUrl = process.env.NEXTAUTH_URL || 'https://teamy.site'
         
         await resend.emails.send({
-          from: process.env.EMAIL_FROM || 'Teamy <noreply@teamy.io>',
+          from: process.env.EMAIL_FROM || 'Teamy <noreply@teamy.site>',
           to: [directorEmail],
           subject: `Tournament Hosting Request Received - ${tournamentName}`,
           html: `
             <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <div style="text-align: center; margin-bottom: 32px;">
-                <h1 style="color: #1e40af; margin: 0;">Teamy</h1>
+                <h1 style="color: #0056C7; margin: 0;">Teamy</h1>
                 <p style="color: #6b7280; margin-top: 4px;">Tournament Management Platform</p>
               </div>
               
@@ -175,10 +175,10 @@ export async function POST(request: NextRequest) {
               </div>
 
               <div style="text-align: center; padding: 24px; background-color: #eff6ff; border-radius: 8px; margin: 24px 0;">
-                <p style="color: #1e40af; font-weight: 500; margin: 0 0 12px 0;">
+                <p style="color: #0056C7; font-weight: 500; margin: 0 0 12px 0;">
                   Track your request status anytime
                 </p>
-                <a href="${baseUrl}/td" style="display: inline-block; background-color: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">
+                <a href="${baseUrl}/td" style="display: inline-block; background-color: #0056C7; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">
                   Visit TD Portal
                 </a>
                 <p style="color: #6b7280; font-size: 12px; margin: 12px 0 0 0;">
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
                   ${preferredSlug ? `
                   <tr>
                     <td style="padding: 8px 0; color: #6b7280;">Preferred URL:</td>
-                    <td style="padding: 8px 0; color: #1f2937;">teamy.io/tournaments/${preferredSlug}</td>
+                    <td style="padding: 8px 0; color: #1f2937;">teamy.site/tournaments/${preferredSlug}</td>
                   </tr>
                   ` : ''}
                 </table>
@@ -222,14 +222,14 @@ export async function POST(request: NextRequest) {
               
               <p style="color: #374151; line-height: 1.6;">
                 If you have any questions in the meantime, feel free to reply to this email or contact us at 
-                <a href="mailto:support@teamy.io" style="color: #1e40af;">support@teamy.io</a>.
+                <a href="mailto:support@teamy.site" style="color: #0056C7;">support@teamy.site</a>.
               </p>
               
               <hr style="margin: 32px 0; border: none; border-top: 1px solid #e5e7eb;" />
               
               <p style="color: #9ca3af; font-size: 12px; text-align: center;">
                 Teamy • Science Olympiad Tournament Management Platform<br/>
-                <a href="${baseUrl}" style="color: #6b7280;">teamy.io</a>
+                <a href="${baseUrl}" style="color: #6b7280;">teamy.site</a>
               </p>
             </div>
           `,

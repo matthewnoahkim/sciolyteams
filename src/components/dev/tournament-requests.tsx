@@ -301,7 +301,7 @@ export function TournamentRequests() {
                           {req.preferredSlug && (
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <LinkIcon className="h-4 w-4" />
-                              <span>teamy.io/tournaments/{req.preferredSlug}</span>
+                              <span>teamy.site/tournaments/{req.preferredSlug}</span>
                             </div>
                           )}
                         </div>
