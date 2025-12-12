@@ -332,7 +332,7 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
     return 'CLUB'
   })
   
-  const [selectedTeams, setSelectedSubteams] = useState<string[]>(() => {
+  const [selectedTeams, setSelectedTeams] = useState<string[]>(() => {
     if (test) {
       return test.assignments
         .filter(a => a.assignedScope === 'TEAM' && a.teamId)
@@ -612,7 +612,7 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
   }
 
   const toggleTeam = (teamId: string) => {
-    setSelectedSubteams((prev) =>
+    setSelectedTeams((prev) =>
       prev.includes(teamId)
         ? prev.filter((id) => id !== teamId)
         : [...prev, teamId]

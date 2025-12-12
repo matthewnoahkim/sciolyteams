@@ -14,7 +14,7 @@ const updateEventSchema = z.object({
   color: z.string().optional(),
   rsvpEnabled: z.boolean().optional(),
   important: z.boolean().optional(),
-  scope: z.enum(['PERSONAL', 'SUBTEAM', 'TEAM']).optional(),
+  scope: z.enum(['PERSONAL', 'TEAM', 'CLUB']).optional(),
   teamId: z.string().nullable().optional(),
 })
 
@@ -89,7 +89,7 @@ export async function PATCH(
 
     const updatedEvent = await prisma.$transaction(async (tx) => {
       // Check if there's a linked announcement that needs to be deleted
-      // This happens when changing from TEAM/SUBTEAM to PERSONAL
+      // This happens when changing from CLUB/TEAM to PERSONAL
       const existingEvent = await tx.calendarEvent.findUnique({
         where: { id: params.eventId },
         include: { announcement: true },

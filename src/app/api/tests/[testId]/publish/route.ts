@@ -18,7 +18,7 @@ const publishSchema = z.object({
   scoreReleaseMode: z.enum(['NONE', 'SCORE_ONLY', 'SCORE_WITH_WRONG', 'FULL_TEST']).optional(),
   requireFullscreen: z.boolean().optional(),
   assignmentMode: z.enum(['CLUB', 'TEAM', 'EVENT']).optional(),
-  selectedSubteams: z.array(z.string()).optional(),
+  selectedTeams: z.array(z.string()).optional(),
   selectedEventId: z.string().optional(),
   addToCalendar: z.boolean().optional(),
 })
@@ -119,7 +119,7 @@ export async function POST(
     if (validatedData.assignmentMode) {
       // Validate that required data is provided for each mode
       if (validatedData.assignmentMode === 'TEAM') {
-        if (!validatedData.selectedSubteams || validatedData.selectedSubteams.length === 0) {
+        if (!validatedData.selectedTeams || validatedData.selectedTeams.length === 0) {
           return NextResponse.json(
             { error: 'At least one team must be selected when assigning to specific teams' },
             { status: 400 }
@@ -150,7 +150,7 @@ export async function POST(
       } else if (validatedData.assignmentMode === 'TEAM') {
         // Create TEAM assignments for each selected team
         await prisma.testAssignment.createMany({
-          data: validatedData.selectedSubteams!.map(teamId => ({
+          data: validatedData.selectedTeams!.map(teamId => ({
             testId,
             assignedScope: 'TEAM' as const,
             teamId,

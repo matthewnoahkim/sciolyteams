@@ -252,7 +252,7 @@ export default async function TeamTestDetailPage({
     }
 
     const parts: string[] = []
-    const seenSubteams = new Set<string>()
+    const seenTeams = new Set<string>()
     const seenEvents = new Set<string>()
     let hasClub = false
     let hasPersonal = false
@@ -265,9 +265,9 @@ export default async function TeamTestDetailPage({
         // 1. Specific team (has teamId)
         // 2. Event-based assignment (has eventId)
         if (assignment.teamId && assignment.team) {
-          if (!seenSubteams.has(assignment.teamId)) {
+          if (!seenTeams.has(assignment.teamId)) {
             parts.push(assignment.team.name)
-            seenSubteams.add(assignment.teamId)
+            seenTeams.add(assignment.teamId)
           }
         } else if (assignment.eventId && assignment.event) {
           if (!seenEvents.has(assignment.eventId)) {

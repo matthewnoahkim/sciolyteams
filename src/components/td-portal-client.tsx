@@ -718,7 +718,7 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
                     ) : staff.length === 0 ? (
                       <div className="text-center py-8">
                         <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">No staff members yet. Click "Invite Staff" to get started.</p>
+                        <p className="text-muted-foreground">No staff members yet. Click &ldquo;Invite Staff&rdquo; to get started.</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -877,7 +877,7 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
                     ) : timeline.length === 0 ? (
                       <div className="text-center py-8">
                         <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">No deadlines set yet. Click "Add Deadline" to create one.</p>
+                        <p className="text-muted-foreground">No deadlines set yet. Click &ldquo;Add Deadline&rdquo; to create one.</p>
                       </div>
                     ) : (
                       <div className="space-y-3">

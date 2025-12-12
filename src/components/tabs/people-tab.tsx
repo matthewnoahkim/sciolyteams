@@ -117,7 +117,7 @@ export function PeopleTab({ club: initialClub, currentMembership, isAdmin }: Peo
       if (!response.ok) throw new Error('Failed to create team')
 
       const data = await response.json()
-      const newSubteam = data.team
+      const newTeam = data.team
 
       // Update local state immediately
       setClub((prev: any) => ({
@@ -125,11 +125,11 @@ export function PeopleTab({ club: initialClub, currentMembership, isAdmin }: Peo
         teams: [
           ...prev.teams,
           {
-            id: newSubteam.id,
-            name: newSubteam.name,
-            teamId: newSubteam.teamId,
-            createdAt: newSubteam.createdAt,
-            updatedAt: newSubteam.updatedAt,
+            id: newTeam.id,
+            name: newTeam.name,
+            teamId: newTeam.teamId,
+            createdAt: newTeam.createdAt,
+            updatedAt: newTeam.updatedAt,
             members: [],
             _count: { rosterAssignments: 0 },
           },

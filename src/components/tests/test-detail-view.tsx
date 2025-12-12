@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 
 interface AssignmentView {
-  assignedScope: 'TEAM' | 'SUBTEAM' | 'PERSONAL'
+  assignedScope: 'CLUB' | 'TEAM' | 'PERSONAL'
   teamName?: string | null
 }
 
@@ -81,10 +81,10 @@ export function TestDetailView({ clubId, test }: TestDetailViewProps) {
     }
     const parts = test.assignments.map((assignment) => {
       switch (assignment.assignedScope) {
-        case 'TEAM':
+        case 'CLUB':
           return 'Everyone on the team'
-        case 'SUBTEAM':
-          return assignment.teamName ?? 'Subteam assignment'
+        case 'TEAM':
+          return assignment.teamName ?? 'Team assignment'
         case 'PERSONAL':
         default:
           return 'Specific member'

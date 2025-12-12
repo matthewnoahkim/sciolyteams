@@ -433,7 +433,7 @@ export function AttendanceTab({ clubId, isAdmin, user, initialAttendances }: Att
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold">{event.title}</h3>
                       {getStatusBadge(attendance.status)}
-                      {event.scope === 'SUBTEAM' && event.team && (
+                      {event.scope === 'TEAM' && event.team && (
                         <Badge variant="secondary" className="text-xs">
                           {event.team.name}
                         </Badge>

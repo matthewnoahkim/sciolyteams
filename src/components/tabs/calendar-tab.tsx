@@ -174,7 +174,7 @@ export function CalendarTab({ clubId, currentMembership, isAdmin, user, initialE
     }
   }, [clubId])
 
-  const fetchSubteams = useCallback(async () => {
+  const fetchTeams = useCallback(async () => {
     try {
       const response = await fetch(`/api/clubs/${clubId}/teams`)
       if (response.ok) {
@@ -212,9 +212,9 @@ export function CalendarTab({ clubId, currentMembership, isAdmin, user, initialE
     if (!initialEvents) {
       fetchEvents()
     }
-    fetchSubteams()
+    fetchTeams()
     fetchAvailableEvents()
-  }, [fetchEvents, fetchSubteams, fetchAvailableEvents, initialEvents])
+  }, [fetchEvents, fetchTeams, fetchAvailableEvents, initialEvents])
 
   useBackgroundRefresh(
     () => fetchEvents({ silent: true }),

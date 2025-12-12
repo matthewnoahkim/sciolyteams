@@ -105,7 +105,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
   const [selectedTeams, setSelectedTeams] = useState<Array<{ clubId: string; subclubId?: string; subclubIds?: string[]; eventIds: string[] }>>([])
   const [submitting, setSubmitting] = useState(false)
   const [registeredTeams, setRegisteredTeams] = useState<Array<{ id: string; clubId: string; subclubId?: string | null; teamName: string | null; clubName: string | null; paid: boolean }>>([])
-  const [totalRegisteredSubteams, setTotalRegisteredSubteams] = useState(0)
+  const [totalRegisteredTeams, setTotalRegisteredTeams] = useState(0)
   const [totalCost, setTotalCost] = useState(0)
   const [deregisterDialogOpen, setDeregisterDialogOpen] = useState(false)
   const [registrationToDeregister, setRegistrationToDeregister] = useState<{ id: string; teamName: string | null; clubName: string | null } | null>(null)
@@ -143,9 +143,9 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
       setRegisteredTeams(userRegisteredTeams)
       
       // Calculate total teams registered and total cost
-      const totalSubteams = userRegisteredTeams.length
-      const calculatedCost = totalSubteams * (data.tournament.price || 0)
-      setTotalRegisteredSubteams(totalSubteams)
+      const totalTeamsCount = userRegisteredTeams.length
+      const calculatedCost = totalTeamsCount * (data.tournament.price || 0)
+      setTotalRegisteredTeams(totalTeamsCount)
       setTotalCost(calculatedCost)
     } catch (error: any) {
       toast({
@@ -724,7 +724,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
 
               {selectedTeams.map((teamReg, index) => {
                 const selectedTeam = filteredTeams.find(t => t.id === teamReg.clubId)
-                const hasSubteams = selectedTeam?.teams && selectedTeam.teams.length > 0
+                const hasTeams = selectedTeam?.teams && selectedTeam.teams.length > 0
                 
                 // Get already registered team IDs for this team
                 const alreadyRegisteredSubclubIds = new Set(
@@ -773,7 +773,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
 
                       {teamReg.clubId && (
                         <div>
-                          {hasSubteams ? (
+                          {hasTeams ? (
                             <>
                               <div className="flex items-center justify-between mb-2">
                                 <label className="text-sm font-medium block">

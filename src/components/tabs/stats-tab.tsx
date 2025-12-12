@@ -132,10 +132,10 @@ export function StatsTab({ clubId, division }: StatsTabProps) {
   const [loading, setLoading] = useState(true)
   const [members, setMembers] = useState<MemberStats[]>([])
   const [events, setEvents] = useState<Event[]>([])
-  const [teams, setSubteams] = useState<{ id: string; name: string }[]>([])
+  const [teams, setTeams] = useState<{ id: string; name: string }[]>([])
   
   // Filter state
-  const [selectedSubteam, setSelectedSubteam] = useState<string>('all')
+  const [selectedTeam, setSelectedTeam] = useState<string>('all')
   const [sortBy, setSortBy] = useState<string>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   
@@ -166,7 +166,7 @@ export function StatsTab({ clubId, division }: StatsTabProps) {
       const data = await response.json()
       setMembers(data.members || [])
       setEvents(data.events || [])
-      setSubteams(data.teams || [])
+      setTeams(data.teams || [])
     } catch (error) {
       console.error('Failed to fetch stats:', error)
       toast({
@@ -236,7 +236,7 @@ export function StatsTab({ clubId, division }: StatsTabProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clubId,
-          subclubId: selectedSubteam !== 'all' ? selectedSubteam : undefined,
+          teamId: selectedTeam !== 'all' ? selectedTeam : undefined,
           additionalInstructions: aiInstructions || undefined,
         }),
       })
@@ -279,7 +279,7 @@ export function StatsTab({ clubId, division }: StatsTabProps) {
 
   // Filter and sort members
   const filteredMembers = members
-    .filter(m => selectedSubteam === 'all' || m.team?.id === selectedSubteam)
+    .filter(m => selectedTeam === 'all' || m.team?.id === selectedTeam)
     .sort((a, b) => {
       let comparison = 0
       switch (sortBy) {
@@ -393,8 +393,8 @@ export function StatsTab({ clubId, division }: StatsTabProps) {
         <CardContent className="pt-4 sm:pt-6">
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-4">
             <div className="flex items-center gap-2">
-              <Label className="text-xs sm:text-sm whitespace-nowrap">Subteam:</Label>
-              <Select value={selectedSubteam} onValueChange={setSelectedSubteam}>
+              <Label className="text-xs sm:text-sm whitespace-nowrap">Team:</Label>
+              <Select value={selectedTeam} onValueChange={setSelectedTeam}>
                 <SelectTrigger className="w-full sm:w-[180px] h-9 text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -447,7 +447,7 @@ export function StatsTab({ clubId, division }: StatsTabProps) {
                 <TableRow>
                   <TableHead className="w-[250px]">Member</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Subteam</TableHead>
+                  <TableHead>Team</TableHead>
                   <TableHead className="text-right">Avg Score</TableHead>
                   <TableHead className="text-right">Attendance</TableHead>
                   <TableHead className="text-right">Tasks</TableHead>
@@ -747,7 +747,7 @@ export function StatsTab({ clubId, division }: StatsTabProps) {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Generate roster for:</Label>
-                <Select value={selectedSubteam} onValueChange={setSelectedSubteam}>
+                <Select value={selectedTeam} onValueChange={setSelectedTeam}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

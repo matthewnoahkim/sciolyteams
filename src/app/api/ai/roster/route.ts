@@ -192,7 +192,7 @@ ${events.map(e => `- ${e.name} (${e.slug}): max ${e.maxCompetitors} competitors`
 ${memberProfiles.map(m => `
 ### ${m.name}
 - Role: ${m.role}
-- Subteam: ${m.team || 'None'}
+- Team: ${m.team || 'None'}
 - Experience Level: ${m.experienceLevel}
 - Preferred Events: ${m.preferredEvents.length > 0 ? m.preferredEvents.join(', ') : 'None specified'}
 - Events to Avoid: ${m.avoidEvents.length > 0 ? m.avoidEvents.join(', ') : 'None specified'}

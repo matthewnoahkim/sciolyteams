@@ -473,7 +473,7 @@ export function ESPortalClient({ user, staffMemberships }: ESPortalClientProps) 
               <ClipboardList className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">No Active Assignments</h3>
               <p className="text-muted-foreground">
-                You don't have any tournament assignments yet. Contact a Tournament Director to get invited.
+                You don&apos;t have any tournament assignments yet. Contact a Tournament Director to get invited.
               </p>
             </CardContent>
           </Card>
@@ -633,7 +633,7 @@ export function ESPortalClient({ user, staffMemberships }: ESPortalClientProps) 
                     {membership.tests.length === 0 ? (
                       <div className="text-center py-8">
                         <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">No tests created yet. Click "Create Test" to get started.</p>
+                        <p className="text-muted-foreground">No tests created yet. Click &ldquo;Create Test&rdquo; to get started.</p>
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -842,7 +842,7 @@ function TestEditor({
 
         {testDraft.questions.length === 0 ? (
           <div className="text-center py-8 bg-muted/30 rounded-lg border border-dashed">
-            <p className="text-muted-foreground">No questions yet. Click "Add Question" to start building your test.</p>
+            <p className="text-muted-foreground">No questions yet. Click &ldquo;Add Question&rdquo; to start building your test.</p>
           </div>
         ) : (
           <div className="space-y-3">

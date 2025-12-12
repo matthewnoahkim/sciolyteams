@@ -105,7 +105,7 @@ export async function GET(
         (a) =>
           // CLUB scope - everyone gets access
           a.assignedScope === 'CLUB' ||
-          // Subteam-based - user's team matches assignment's team
+          // Team-based - user's team matches assignment's team
           (a.teamId && membership.teamId && a.teamId === membership.teamId) ||
           // PERSONAL scope - directly assigned to this user
           a.targetMembershipId === membership.id ||
