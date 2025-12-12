@@ -572,11 +572,13 @@ export default async function ClubDetailPage({ params }: { params: { clubId: str
 
   return (
     <Suspense fallback={
-      <PageLoading 
-        title="Loading club" 
-        description="Fetching club data and member information..." 
-        variant="orbit" 
-      />
+      <div className="min-h-screen bg-background grid-pattern flex items-center justify-center px-4 py-12">
+        <PageLoading 
+          title="Loading club" 
+          description="Fetching club data and member information..." 
+          variant="orbit" 
+        />
+      </div>
     }>
       <ClubPage
         club={club}
