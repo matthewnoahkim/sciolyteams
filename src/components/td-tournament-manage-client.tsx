@@ -652,19 +652,7 @@ export function TDTournamentManageClient({
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium">{member.name || member.email}</p>
-                              <Badge 
-                                variant="outline"
-                                className={
-                                  member.status === 'ACCEPTED'
-                                    ? 'bg-green-500/10 text-green-600 border-green-500/20'
-                                    : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
-                                }
-                              >
-                                {member.status}
-                              </Badge>
-                            </div>
+                            <p className="font-medium">{member.name || member.email}</p>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Badge variant="secondary" className="text-xs">
                                 {member.role === 'EVENT_SUPERVISOR' ? 'ES' : 'TD'}

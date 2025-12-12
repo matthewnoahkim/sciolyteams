@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,6 +10,9 @@ import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useToast } from '@/components/ui/use-toast'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { 
   Edit, 
   Save, 
@@ -19,10 +22,19 @@ import {
   Calendar,
   Plus,
   Trash2,
-  GripVertical
+  GripVertical,
+  Clock,
+  DollarSign,
+  Users,
+  Globe,
+  Building,
+  CalendarCheck,
+  Tag,
+  FileText,
+  CheckCircle2,
 } from 'lucide-react'
 import Link from 'next/link'
-import { format } from 'date-fns'
+import { format, isBefore, isAfter } from 'date-fns'
 
 interface TournamentHostingRequest {
   id: string
@@ -41,6 +53,31 @@ interface TournamentHostingRequest {
   createdAt: string | Date
 }
 
+interface Tournament {
+  id: string
+  name: string
+  slug: string | null
+  division: string
+  description: string | null
+  isOnline: boolean
+  startDate: string
+  endDate: string
+  startTime: string
+  endTime: string
+  location: string | null
+  price: number
+  additionalTeamPrice: number | null
+  feeStructure: string
+  registrationStartDate: string | null
+  registrationEndDate: string | null
+  earlyBirdDiscount: number | null
+  earlyBirdDeadline: string | null
+  lateFee: number | null
+  lateFeeStartDate: string | null
+  eligibilityRequirements: string | null
+  eventsRun: string | null
+}
+
 interface Section {
   id: string
   type: 'header' | 'text' | 'image' | 'html'
@@ -48,13 +85,26 @@ interface Section {
   content: string
 }
 
-interface TournamentPageClientProps {
-  hostingRequest: TournamentHostingRequest
-  isDirector: boolean
-  user?: any
+interface UserClub {
+  id: string
+  name: string
+  division: string
+  teams: { id: string; name: string }[]
 }
 
-export function TournamentPageClient({ hostingRequest, isDirector, user }: TournamentPageClientProps) {
+interface TournamentPageClientProps {
+  hostingRequest: TournamentHostingRequest
+  tournament: Tournament | null
+  isDirector: boolean
+  user?: {
+    id: string
+    name?: string | null
+    email: string
+  }
+  userClubs?: UserClub[]
+}
+
+export function TournamentPageClient({ hostingRequest, tournament, isDirector, user, userClubs = [] }: TournamentPageClientProps) {
   const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
   const [sections, setSections] = useState<Section[]>([
@@ -66,6 +116,12 @@ export function TournamentPageClient({ hostingRequest, isDirector, user }: Tourn
     }
   ])
   const [saving, setSaving] = useState(false)
+  
+  // Registration state
+  const [registerDialogOpen, setRegisterDialogOpen] = useState(false)
+  const [selectedClub, setSelectedClub] = useState<string>('')
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([])
+  const [registering, setRegistering] = useState(false)
 
   // Load saved page content
   useEffect(() => {
@@ -143,8 +199,85 @@ export function TournamentPageClient({ hostingRequest, isDirector, user }: Tourn
     }
   }
 
+  // Registration helpers
+  const now = new Date()
+  const registrationOpen = tournament?.registrationStartDate 
+    ? isAfter(now, new Date(tournament.registrationStartDate)) 
+    : true
+  const registrationClosed = tournament?.registrationEndDate 
+    ? isAfter(now, new Date(tournament.registrationEndDate)) 
+    : false
+  const canRegister = registrationOpen && !registrationClosed && tournament
+
+  const isEarlyBird = tournament?.earlyBirdDeadline 
+    ? isBefore(now, new Date(tournament.earlyBirdDeadline)) 
+    : false
+  const isLateFee = tournament?.lateFeeStartDate 
+    ? isAfter(now, new Date(tournament.lateFeeStartDate)) 
+    : false
+
+  const calculatePrice = (teamCount: number) => {
+    if (!tournament) return 0
+    let basePrice = 0
+    
+    if (tournament.feeStructure === 'tiered' && tournament.additionalTeamPrice !== null) {
+      basePrice = tournament.price + (teamCount > 1 ? (teamCount - 1) * tournament.additionalTeamPrice : 0)
+    } else {
+      basePrice = tournament.price * teamCount
+    }
+
+    if (isEarlyBird && tournament.earlyBirdDiscount) {
+      basePrice -= tournament.earlyBirdDiscount * teamCount
+    }
+    if (isLateFee && tournament.lateFee) {
+      basePrice += tournament.lateFee * teamCount
+    }
+
+    return Math.max(0, basePrice)
+  }
+
+  const selectedClubData = userClubs.find(c => c.id === selectedClub)
+  const eligibleTeams = selectedClubData?.teams || []
+
+  const handleRegister = async () => {
+    if (!tournament || !selectedClub || selectedTeams.length === 0) return
+
+    setRegistering(true)
+    try {
+      const response = await fetch(`/api/tournaments/${tournament.id}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clubId: selectedClub,
+          teamIds: selectedTeams,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to register')
+      }
+
+      toast({
+        title: 'Registration Submitted!',
+        description: `Successfully registered ${selectedTeams.length} team${selectedTeams.length > 1 ? 's' : ''} for this tournament.`,
+      })
+      setRegisterDialogOpen(false)
+      setSelectedClub('')
+      setSelectedTeams([])
+    } catch (error) {
+      toast({
+        title: 'Registration Failed',
+        description: error instanceof Error ? error.message : 'Failed to register for tournament',
+        variant: 'destructive',
+      })
+    } finally {
+      setRegistering(false)
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-background text-foreground grid-pattern">
+    <div className="min-h-screen bg-background text-foreground grid-pattern flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -184,10 +317,16 @@ export function TournamentPageClient({ hostingRequest, isDirector, user }: Tourn
                 </Button>
               </>
             )}
-            {user && (
-              <Link href="/td">
+            {user ? (
+              <Link href="/dashboard">
                 <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">
-                  Back to Portal
+                  Dashboard
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <Button variant="ghost" size="sm" className="text-white hover:bg-white/10">
+                  Sign In
                 </Button>
               </Link>
             )}
@@ -199,127 +338,463 @@ export function TournamentPageClient({ hostingRequest, isDirector, user }: Tourn
       <section className="bg-gradient-to-b from-teamy-primary/10 to-transparent py-12 px-4">
         <div className="max-w-4xl mx-auto text-center space-y-4">
           <div className="flex justify-center gap-2 mb-4">
-            <Badge variant="outline" className="text-sm">{hostingRequest.tournamentLevel.charAt(0).toUpperCase() + hostingRequest.tournamentLevel.slice(1)}</Badge>
+            <Badge variant="outline" className="text-sm">
+              {hostingRequest.tournamentLevel.charAt(0).toUpperCase() + hostingRequest.tournamentLevel.slice(1)}
+            </Badge>
             <Badge variant="outline" className="text-sm">Division {hostingRequest.division}</Badge>
+            <Badge variant="outline" className="text-sm">
+              {hostingRequest.tournamentFormat === 'satellite' ? 'Online' : 'In-Person'}
+            </Badge>
           </div>
           <h1 className="font-heading text-4xl md:text-5xl font-bold">{hostingRequest.tournamentName}</h1>
-          {hostingRequest.location && (
-            <p className="text-muted-foreground flex items-center justify-center gap-2">
-              <MapPin className="h-4 w-4" />
-              {hostingRequest.location}
-            </p>
+          {tournament && (
+            <div className="flex flex-wrap justify-center gap-4 text-muted-foreground mt-4">
+              <span className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                {format(new Date(tournament.startDate), 'MMMM d, yyyy')}
+                {tournament.startDate !== tournament.endDate && (
+                  <> - {format(new Date(tournament.endDate), 'MMMM d, yyyy')}</>
+                )}
+              </span>
+              {tournament.location && (
+                <span className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  {tournament.location}
+                </span>
+              )}
+            </div>
+          )}
+          
+          {/* Register Button */}
+          {canRegister && user && userClubs.length > 0 && (
+            <div className="mt-6">
+              <Dialog open={registerDialogOpen} onOpenChange={setRegisterDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="lg" className="gap-2">
+                    <Trophy className="h-5 w-5" />
+                    Register Now
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Register for {hostingRequest.tournamentName}</DialogTitle>
+                    <DialogDescription>
+                      Select your club and teams to register for this tournament.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Select Club</Label>
+                      <Select value={selectedClub} onValueChange={(v) => { setSelectedClub(v); setSelectedTeams([]) }}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a club" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {userClubs.filter(c => c.division === tournament?.division).map(club => (
+                            <SelectItem key={club.id} value={club.id}>
+                              {club.name} (Division {club.division})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {userClubs.filter(c => c.division === tournament?.division).length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          You don&apos;t have any clubs in Division {tournament?.division}.
+                        </p>
+                      )}
+                    </div>
+
+                    {selectedClub && eligibleTeams.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Select Teams</Label>
+                        <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+                          {eligibleTeams.map(team => (
+                            <label key={team.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded">
+                              <Checkbox
+                                checked={selectedTeams.includes(team.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedTeams([...selectedTeams, team.id])
+                                  } else {
+                                    setSelectedTeams(selectedTeams.filter(id => id !== team.id))
+                                  }
+                                }}
+                              />
+                              <span>{team.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedClub && eligibleTeams.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        This club has no teams. Create teams in your club settings first.
+                      </p>
+                    )}
+
+                    {selectedTeams.length > 0 && tournament && (
+                      <Card className="bg-muted/50">
+                        <CardContent className="pt-4">
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Teams selected:</span>
+                              <span className="font-medium">{selectedTeams.length}</span>
+                            </div>
+                            {isEarlyBird && tournament.earlyBirdDiscount && (
+                              <div className="flex justify-between text-green-600">
+                                <span>Early bird discount:</span>
+                                <span>-${tournament.earlyBirdDiscount * selectedTeams.length}</span>
+                              </div>
+                            )}
+                            {isLateFee && tournament.lateFee && (
+                              <div className="flex justify-between text-red-600">
+                                <span>Late fee:</span>
+                                <span>+${tournament.lateFee * selectedTeams.length}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between font-semibold border-t pt-2">
+                              <span>Total:</span>
+                              <span>${calculatePrice(selectedTeams.length)}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setRegisterDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleRegister} 
+                      disabled={registering || !selectedClub || selectedTeams.length === 0}
+                    >
+                      {registering ? 'Registering...' : 'Submit Registration'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+
+          {!user && canRegister && (
+            <div className="mt-6">
+              <Link href="/login">
+                <Button size="lg" className="gap-2">
+                  <Trophy className="h-5 w-5" />
+                  Sign in to Register
+                </Button>
+              </Link>
+            </div>
+          )}
+
+          {registrationClosed && (
+            <Badge variant="destructive" className="mt-4">Registration Closed</Badge>
+          )}
+
+          {!registrationOpen && tournament?.registrationStartDate && (
+            <Badge variant="outline" className="mt-4">
+              Registration opens {format(new Date(tournament.registrationStartDate), 'MMMM d, yyyy')}
+            </Badge>
           )}
         </div>
       </section>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-12 max-w-4xl">
-        {/* Edit Mode Toolbar */}
-        {isEditing && (
-          <Card className="mb-6 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-            <CardHeader>
-              <CardTitle className="text-lg">Add Section</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => addSection('header')} variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Header
-              </Button>
-              <Button size="sm" onClick={() => addSection('text')} variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Text
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Sections */}
-        <div className="space-y-6">
-          {sections.map((section, index) => (
-            <Card key={section.id} className={isEditing ? 'border-2 border-dashed' : ''}>
-              <CardContent className="p-6">
-                {isEditing && (
-                  <div className="flex items-center justify-between mb-4 pb-4 border-b">
-                    <div className="flex items-center gap-2">
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
-                      <Badge variant="outline" className="text-xs">{section.type}</Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => moveSection(section.id, 'up')}
-                        disabled={index === 0}
-                      >
-                        ↑
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => moveSection(section.id, 'down')}
-                        disabled={index === sections.length - 1}
-                      >
-                        ↓
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => deleteSection(section.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
+      <main className="container mx-auto px-4 py-12 max-w-5xl flex-1">
+        <div className="grid gap-8 lg:grid-cols-3">
+          {/* Tournament Details Sidebar */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Quick Info Card */}
+            {tournament && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Trophy className="h-5 w-5" />
+                    Tournament Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Date & Time */}
+                  <div className="flex items-start gap-3">
+                    <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="font-medium">Date</p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(tournament.startDate), 'EEEE, MMMM d, yyyy')}
+                        {tournament.startDate !== tournament.endDate && (
+                          <> - {format(new Date(tournament.endDate), 'MMMM d, yyyy')}</>
+                        )}
+                      </p>
                     </div>
                   </div>
-                )}
 
-                {isEditing ? (
-                  <div className="space-y-4">
-                    {section.type === 'header' && (
-                      <div className="space-y-2">
-                        <Label>Section Title</Label>
-                        <Input
-                          value={section.title}
-                          onChange={(e) => updateSection(section.id, { title: e.target.value })}
-                          placeholder="Section title"
-                        />
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="font-medium">Time</p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(tournament.startTime), 'h:mm a')} - {format(new Date(tournament.endTime), 'h:mm a')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Location */}
+                  <div className="flex items-start gap-3">
+                    {tournament.isOnline ? (
+                      <Globe className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    ) : (
+                      <Building className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    )}
+                    <div>
+                      <p className="font-medium">{tournament.isOnline ? 'Online Tournament' : 'Location'}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {tournament.isOnline ? 'Virtual / Remote' : tournament.location || 'TBA'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Division */}
+                  <div className="flex items-start gap-3">
+                    <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="font-medium">Division</p>
+                      <p className="text-sm text-muted-foreground">Division {tournament.division}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Registration Info Card */}
+            {tournament && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Registration
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Fee */}
+                  <div className="flex items-start gap-3">
+                    <Tag className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="font-medium">Registration Fee</p>
+                      <p className="text-sm text-muted-foreground">
+                        {tournament.price === 0 ? 'Free' : (
+                          tournament.feeStructure === 'tiered' && tournament.additionalTeamPrice !== null ? (
+                            <>
+                              ${tournament.price} (first team), ${tournament.additionalTeamPrice} (additional)
+                            </>
+                          ) : (
+                            <>${tournament.price} per team</>
+                          )
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Registration Window */}
+                  {(tournament.registrationStartDate || tournament.registrationEndDate) && (
+                    <div className="flex items-start gap-3">
+                      <CalendarCheck className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="font-medium">Registration Window</p>
+                        <p className="text-sm text-muted-foreground">
+                          {tournament.registrationStartDate && (
+                            <>Opens: {format(new Date(tournament.registrationStartDate), 'MMM d, yyyy')}</>
+                          )}
+                          {tournament.registrationStartDate && tournament.registrationEndDate && <br />}
+                          {tournament.registrationEndDate && (
+                            <>Closes: {format(new Date(tournament.registrationEndDate), 'MMM d, yyyy')}</>
+                          )}
+                        </p>
                       </div>
-                    )}
-                    <div className="space-y-2">
-                      <Label>Content</Label>
-                      <Textarea
-                        value={section.content}
-                        onChange={(e) => updateSection(section.id, { content: e.target.value })}
-                        placeholder="Enter content..."
-                        rows={section.type === 'header' ? 3 : 6}
-                      />
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    {section.type === 'header' && section.title && (
-                      <h2 className="text-2xl font-bold mb-4">{section.title}</h2>
-                    )}
-                    <div className="prose dark:prose-invert max-w-none">
-                      <p className="whitespace-pre-wrap">{section.content}</p>
+                  )}
+
+                  {/* Early Bird */}
+                  {tournament.earlyBirdDiscount && tournament.earlyBirdDeadline && (
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-green-600">Early Bird Discount</p>
+                        <p className="text-sm text-muted-foreground">
+                          Save ${tournament.earlyBirdDiscount} per team
+                          <br />
+                          Until {format(new Date(tournament.earlyBirdDeadline), 'MMM d, yyyy')}
+                        </p>
+                        {isEarlyBird && (
+                          <Badge variant="outline" className="mt-1 text-green-600 border-green-600">
+                            Active Now!
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Late Fee */}
+                  {tournament.lateFee && tournament.lateFeeStartDate && (
+                    <div className="flex items-start gap-3">
+                      <Clock className="h-5 w-5 text-orange-500 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-orange-600">Late Fee</p>
+                        <p className="text-sm text-muted-foreground">
+                          +${tournament.lateFee} per team
+                          <br />
+                          After {format(new Date(tournament.lateFeeStartDate), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Eligibility Requirements */}
+            {tournament?.eligibilityRequirements && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Eligibility
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {tournament.eligibilityRequirements}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Contact Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Contact</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="font-medium">{hostingRequest.directorName}</p>
+                <p className="text-sm text-muted-foreground">{hostingRequest.directorEmail}</p>
+                {hostingRequest.directorPhone && (
+                  <p className="text-sm text-muted-foreground">{hostingRequest.directorPhone}</p>
                 )}
               </CardContent>
             </Card>
-          ))}
-        </div>
+          </div>
 
-        {/* Default empty state */}
-        {sections.length === 0 && !isEditing && (
-          <Card>
-            <CardContent className="p-12 text-center text-muted-foreground">
-              <p>No content has been added to this tournament page yet.</p>
-              {isDirector && (
-                <p className="mt-2">Click &quot;Edit Page&quot; to get started!</p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+          {/* Main Content Area */}
+          <div className="lg:col-span-2">
+            {/* Edit Mode Toolbar */}
+            {isEditing && (
+              <Card className="mb-6 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                <CardHeader>
+                  <CardTitle className="text-lg">Add Section</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => addSection('header')} variant="outline">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Header
+                  </Button>
+                  <Button size="sm" onClick={() => addSection('text')} variant="outline">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Text
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Sections */}
+            <div className="space-y-6">
+              {sections.map((section, index) => (
+                <Card key={section.id} className={isEditing ? 'border-2 border-dashed' : ''}>
+                  <CardContent className="p-6">
+                    {isEditing && (
+                      <div className="flex items-center justify-between mb-4 pb-4 border-b">
+                        <div className="flex items-center gap-2">
+                          <GripVertical className="h-4 w-4 text-muted-foreground" />
+                          <Badge variant="outline" className="text-xs">{section.type}</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => moveSection(section.id, 'up')}
+                            disabled={index === 0}
+                          >
+                            ↑
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => moveSection(section.id, 'down')}
+                            disabled={index === sections.length - 1}
+                          >
+                            ↓
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => deleteSection(section.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {isEditing ? (
+                      <div className="space-y-4">
+                        {section.type === 'header' && (
+                          <div className="space-y-2">
+                            <Label>Section Title</Label>
+                            <Input
+                              value={section.title}
+                              onChange={(e) => updateSection(section.id, { title: e.target.value })}
+                              placeholder="Section title"
+                            />
+                          </div>
+                        )}
+                        <div className="space-y-2">
+                          <Label>Content</Label>
+                          <Textarea
+                            value={section.content}
+                            onChange={(e) => updateSection(section.id, { content: e.target.value })}
+                            placeholder="Enter content..."
+                            rows={section.type === 'header' ? 3 : 6}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        {section.type === 'header' && section.title && (
+                          <h2 className="text-2xl font-bold mb-4">{section.title}</h2>
+                        )}
+                        <div className="prose dark:prose-invert max-w-none">
+                          <p className="whitespace-pre-wrap">{section.content}</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Default empty state */}
+            {sections.length === 0 && !isEditing && (
+              <Card>
+                <CardContent className="p-12 text-center text-muted-foreground">
+                  <p>No content has been added to this tournament page yet.</p>
+                  {isDirector && (
+                    <p className="mt-2">Click &quot;Edit Page&quot; to get started!</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
       </main>
 
       {/* Footer */}
@@ -337,4 +812,3 @@ export function TournamentPageClient({ hostingRequest, isDirector, user }: Tourn
     </div>
   )
 }
-

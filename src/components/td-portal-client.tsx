@@ -204,26 +204,6 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
           </p>
         </div>
 
-        {/* Submit New Request CTA */}
-        <Card className="border-dashed border-2 mb-8">
-          <CardContent className="py-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Need to host another tournament?</h3>
-                <p className="text-sm text-muted-foreground">
-                  Submit a new hosting request for your next Science Olympiad event.
-                </p>
-              </div>
-              <Link href="/tournaments">
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Request
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Approved Tournaments */}
         <div className="space-y-6">
           <h2 className="text-xl font-semibold">Your Tournaments</h2>
