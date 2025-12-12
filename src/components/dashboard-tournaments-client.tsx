@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AppHeader } from '@/components/app-header'
 import { useToast } from '@/components/ui/use-toast'
 import { PageLoading } from '@/components/ui/loading-spinner'
-import { Search, Calendar, MapPin, Trophy, Monitor, User, Mail } from 'lucide-react'
+import { Search, Calendar, MapPin, Trophy, Monitor, User, Mail, ExternalLink } from 'lucide-react'
 import { Label } from '@/components/ui/label'
+import Link from 'next/link'
 
 interface TournamentRequest {
   id: string
@@ -110,6 +111,17 @@ export function DashboardTournamentsClient({ user }: DashboardTournamentsClientP
       default:
         return format
     }
+  }
+
+  const getTournamentSlug = (tournament: TournamentRequest) => {
+    if (tournament.preferredSlug) {
+      return tournament.preferredSlug
+    }
+    // Generate slug from tournament name
+    return tournament.tournamentName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
   }
 
   // Helper function to highlight search keywords in text
@@ -249,49 +261,54 @@ export function DashboardTournamentsClient({ user }: DashboardTournamentsClientP
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredTournaments.map((tournament) => (
-              <Card key={tournament.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <Badge variant="outline">Division {tournament.division}</Badge>
-                    <Badge variant="outline">{getLevelLabel(tournament.tournamentLevel)}</Badge>
-                    <Badge variant="outline">{getFormatLabel(tournament.tournamentFormat)}</Badge>
-                  </div>
-                  <CardTitle className="text-xl break-words leading-snug">
-                    {highlightText(tournament.tournamentName, search)}
-                  </CardTitle>
-                  {tournament.otherNotes && (
-                    <CardDescription className="line-clamp-2">
-                      {tournament.otherNotes}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {tournament.tournamentFormat === 'in-person' && tournament.location ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <MapPin className="h-4 w-4" />
-                      <span className="line-clamp-1">{highlightText(tournament.location, search)}</span>
+              <Link 
+                key={tournament.id} 
+                href={`/tournaments/${getTournamentSlug(tournament)}`}
+                className="block"
+              >
+                <Card className="hover:shadow-lg transition-all hover:border-teamy-primary/50 cursor-pointer h-full">
+                  <CardHeader>
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                      <Badge variant="outline">Division {tournament.division}</Badge>
+                      <Badge variant="outline">{getLevelLabel(tournament.tournamentLevel)}</Badge>
+                      <Badge variant="outline">{getFormatLabel(tournament.tournamentFormat)}</Badge>
                     </div>
-                  ) : tournament.tournamentFormat !== 'in-person' ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Monitor className="h-4 w-4" />
-                      <span>{getFormatLabel(tournament.tournamentFormat)} Tournament</span>
+                    <CardTitle className="text-xl break-words leading-snug flex items-center gap-2">
+                      {highlightText(tournament.tournamentName, search)}
+                      <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </CardTitle>
+                    {tournament.otherNotes && (
+                      <CardDescription className="line-clamp-2">
+                        {tournament.otherNotes}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {tournament.tournamentFormat === 'in-person' && tournament.location ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        <span className="line-clamp-1">{highlightText(tournament.location, search)}</span>
+                      </div>
+                    ) : tournament.tournamentFormat !== 'in-person' ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Monitor className="h-4 w-4" />
+                        <span>{getFormatLabel(tournament.tournamentFormat)} Tournament</span>
+                      </div>
+                    ) : null}
+                    
+                    <div className="pt-3 border-t space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <User className="h-4 w-4" />
+                        <span>Director: {highlightText(tournament.directorName, search)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Mail className="h-4 w-4" />
+                        <span>{tournament.directorEmail}</span>
+                      </div>
                     </div>
-                  ) : null}
-                  
-                  <div className="pt-3 border-t space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <User className="h-4 w-4" />
-                      <span>Director: {highlightText(tournament.directorName, search)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Mail className="h-4 w-4" />
-                      <a href={`mailto:${tournament.directorEmail}`} className="hover:underline">
-                        {tournament.directorEmail}
-                      </a>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         )}
