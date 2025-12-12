@@ -247,3 +247,129 @@ export async function DELETE(
   }
 }
 
+// PATCH /api/tournaments/[tournamentId]/staff - Update staff role/events
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ tournamentId: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { tournamentId } = await params
+    const body = await request.json()
+    const { staffId, role, eventIds } = body as {
+      staffId: string
+      role?: 'EVENT_SUPERVISOR' | 'TOURNAMENT_DIRECTOR'
+      eventIds?: string[]
+    }
+
+    if (!staffId) {
+      return NextResponse.json({ error: 'Staff ID is required' }, { status: 400 })
+    }
+
+    // Check if user is authorized
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      include: {
+        admins: true,
+        hostingRequest: true,
+      },
+    })
+
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
+    }
+
+    const isCreator = tournament.createdById === session.user.id
+    const isAdmin = tournament.admins.some(a => a.userId === session.user.id)
+    const isDirector = tournament.hostingRequest?.directorEmail.toLowerCase() === session.user.email?.toLowerCase()
+
+    if (!isCreator && !isAdmin && !isDirector) {
+      return NextResponse.json({ error: 'Not authorized to update staff' }, { status: 403 })
+    }
+
+    // Make sure the staff member exists and belongs to this tournament
+    const existingStaff = await prisma.tournamentStaff.findUnique({
+      where: { id: staffId },
+      select: { id: true, tournamentId: true },
+    })
+
+    if (!existingStaff || existingStaff.tournamentId !== tournamentId) {
+      return NextResponse.json({ error: 'Staff member not found' }, { status: 404 })
+    }
+
+    const nextRole = role
+    const nextEventIds = role === 'EVENT_SUPERVISOR' ? eventIds || [] : []
+
+    const updatedStaff = await prisma.$transaction(async tx => {
+      // Update role if provided
+      const staffRecord = await tx.tournamentStaff.update({
+        where: { id: staffId },
+        data: {
+          ...(nextRole && { role: nextRole }),
+          // Clear ES assignments when role changes away from ES
+          ...(nextRole && nextRole !== 'EVENT_SUPERVISOR' ? { events: { deleteMany: {} } } : {}),
+        },
+      })
+
+      // Replace ES event assignments when applicable
+      if (nextRole === 'EVENT_SUPERVISOR') {
+        await tx.eventSupervisorAssignment.deleteMany({ where: { staffId } })
+        if (nextEventIds.length > 0) {
+          await tx.eventSupervisorAssignment.createMany({
+            data: nextEventIds.map(eventId => ({
+              staffId,
+              eventId,
+            })),
+            skipDuplicates: true,
+          })
+        }
+      }
+
+      return staffRecord
+    })
+
+    // Return updated staff with relations for UI refresh
+    const staff = await prisma.tournamentStaff.findUnique({
+      where: { id: updatedStaff.id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+        events: {
+          include: {
+            event: {
+              select: {
+                id: true,
+                name: true,
+                division: true,
+              },
+            },
+          },
+        },
+        tests: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            eventId: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json({ staff })
+  } catch (error) {
+    console.error('Error updating staff:', error)
+    return NextResponse.json({ error: 'Failed to update staff' }, { status: 500 })
+  }
+}
+

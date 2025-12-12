@@ -12,30 +12,18 @@ interface SignInThemeToggleProps {
 }
 
 export function SignInThemeToggle({ variant = 'default' }: SignInThemeToggleProps) {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = React.useState(false)
-
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
+  const { theme, setTheme, resolvedTheme } = useTheme()
+  
+  // Read theme synchronously from DOM (set by blocking script in layout)
+  // Use lazy initializer to only read on client
+  const [initialTheme] = React.useState(() => {
+    if (typeof window === 'undefined') return 'light'
+    return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+  })
 
   const isHeader = variant === 'header'
-
-  if (!mounted) {
-    return (
-      <Button 
-        variant={isHeader ? "ghost" : "outline"} 
-        size="icon" 
-        className={cn(
-          "h-10 w-10",
-          isHeader && "border-0"
-        )}
-      >
-        <Sun className="h-5 w-5" />
-        <span className="sr-only">Toggle theme</span>
-      </Button>
-    )
-  }
+  const currentTheme = resolvedTheme || initialTheme
+  const showMoon = currentTheme === 'light'
 
   return (
     <Button
@@ -46,8 +34,9 @@ export function SignInThemeToggle({ variant = 'default' }: SignInThemeToggleProp
         "h-10 w-10 transition-all hover:scale-105",
         isHeader && "border-0"
       )}
+      suppressHydrationWarning
     >
-      {theme === "light" ? (
+      {showMoon ? (
         <Moon className="h-5 w-5" />
       ) : (
         <Sun className="h-5 w-5" />

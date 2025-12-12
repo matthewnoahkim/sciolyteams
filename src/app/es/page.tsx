@@ -160,6 +160,30 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
     return <ESLoginClient unauthorized email={session.user.email} />
   }
 
+  // Prefetch timelines server-side so the first paint isn't empty
+  const timelineEntries = await Promise.all(
+    staffMemberships.map(async membership => {
+      const items = await prisma.tournamentTimeline.findMany({
+        where: { tournamentId: membership.tournament.id },
+        orderBy: { dueDate: 'asc' },
+      })
+      return [membership.tournament.id, items] as const
+    })
+  )
+
+  const initialTimelines = Object.fromEntries(
+    timelineEntries.map(([tournamentId, items]) => [
+      tournamentId,
+      items.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        dueDate: item.dueDate.toISOString(),
+        type: item.type,
+      })),
+    ])
+  )
+
   // Serialize and map to StaffMembership interface
   const serializedStaffMemberships = staffMemberships.map(membership => ({
     id: membership.id,
@@ -207,6 +231,6 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
     })),
   }))
 
-  return <ESPortalClient user={session.user} staffMemberships={serializedStaffMemberships} />
+  return <ESPortalClient user={session.user} staffMemberships={serializedStaffMemberships} initialTimelines={initialTimelines} />
 }
 

@@ -175,6 +175,7 @@ export function TDTournamentManageClient({
   const [timeline, setTimeline] = useState<TimelineItem[]>(initialTimeline)
   const [loadingStaff, setLoadingStaff] = useState(false)
   const [loadingTimeline, setLoadingTimeline] = useState(false)
+  const [editingTimelineItem, setEditingTimelineItem] = useState<TimelineItem | null>(null)
   
   // Invite dialog state
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
@@ -185,6 +186,15 @@ export function TDTournamentManageClient({
     eventIds: [] as string[],
   })
   const [inviting, setInviting] = useState(false)
+
+  // Staff edit dialog state
+  const [editStaffDialogOpen, setEditStaffDialogOpen] = useState(false)
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null)
+  const [editStaffForm, setEditStaffForm] = useState({
+    role: 'EVENT_SUPERVISOR' as 'EVENT_SUPERVISOR' | 'TOURNAMENT_DIRECTOR',
+    eventIds: [] as string[],
+  })
+  const [updatingStaff, setUpdatingStaff] = useState(false)
   
   // Timeline dialog state
   const [timelineDialogOpen, setTimelineDialogOpen] = useState(false)
@@ -194,7 +204,7 @@ export function TDTournamentManageClient({
     dueDate: '',
     type: 'draft_due',
   })
-  const [addingTimeline, setAddingTimeline] = useState(false)
+  const [savingTimeline, setSavingTimeline] = useState(false)
 
   // Settings edit state
   const [isEditingSettings, setIsEditingSettings] = useState(false)
@@ -318,6 +328,65 @@ export function TDTournamentManageClient({
     }
   }
 
+  const handleOpenEditStaff = (member: StaffMember) => {
+    setEditingStaff(member)
+    setEditStaffForm({
+      role: member.role,
+      eventIds: member.role === 'EVENT_SUPERVISOR'
+        ? member.events.map(e => e.event.id)
+        : [],
+    })
+    setEditStaffDialogOpen(true)
+  }
+
+  const handleEditStaffDialogChange = (open: boolean) => {
+    setEditStaffDialogOpen(open)
+    if (!open) {
+      setEditingStaff(null)
+      setEditStaffForm({
+        role: 'EVENT_SUPERVISOR',
+        eventIds: [],
+      })
+    }
+  }
+
+  const handleUpdateStaff = async () => {
+    if (!editingStaff) return
+
+    setUpdatingStaff(true)
+    try {
+      const res = await fetch(`/api/tournaments/${tournament.id}/staff`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          staffId: editingStaff.id,
+          role: editStaffForm.role,
+          eventIds: editStaffForm.role === 'EVENT_SUPERVISOR' ? editStaffForm.eventIds : [],
+        }),
+      })
+
+      if (res.ok) {
+        toast({
+          title: 'Staff updated',
+          description: `${editingStaff.name || editingStaff.email} has been updated.`,
+        })
+        handleEditStaffDialogChange(false)
+        fetchStaff()
+      } else {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to update staff')
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update staff member',
+        variant: 'destructive',
+      })
+    } finally {
+      setUpdatingStaff(false)
+    }
+  }
+
   const handleEmailAllStaff = () => {
     if (staff.length === 0) {
       toast({
@@ -347,36 +416,74 @@ export function TDTournamentManageClient({
     window.location.href = mailtoLink
   }
 
-  const handleAddTimeline = async () => {
+  const resetTimelineForm = () => {
+    setTimelineForm({ name: '', description: '', dueDate: '', type: 'draft_due' })
+    setEditingTimelineItem(null)
+  }
+
+  const toLocalDateTimeInput = (value: string) => {
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return ''
+    const tzAdjusted = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    return tzAdjusted.toISOString().slice(0, 16)
+  }
+
+  const handleOpenAddTimeline = () => {
+    resetTimelineForm()
+    setTimelineDialogOpen(true)
+  }
+
+  const handleOpenEditTimeline = (item: TimelineItem) => {
+    setEditingTimelineItem(item)
+    setTimelineForm({
+      name: item.name,
+      description: item.description || '',
+      dueDate: toLocalDateTimeInput(item.dueDate),
+      type: item.type || 'draft_due',
+    })
+    setTimelineDialogOpen(true)
+  }
+
+  const handleTimelineDialogChange = (open: boolean) => {
+    setTimelineDialogOpen(open)
+    if (!open) {
+      resetTimelineForm()
+    }
+  }
+
+  const handleSaveTimeline = async () => {
     if (!timelineForm.name || !timelineForm.dueDate) return
 
-    setAddingTimeline(true)
+    setSavingTimeline(true)
     try {
       const res = await fetch(`/api/tournaments/${tournament.id}/timeline`, {
-        method: 'POST',
+        method: editingTimelineItem ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(timelineForm),
+        body: JSON.stringify(
+          editingTimelineItem
+            ? { id: editingTimelineItem.id, ...timelineForm }
+            : timelineForm
+        ),
       })
 
       if (res.ok) {
         toast({
-          title: 'Deadline added',
-          description: 'The timeline item has been added.',
+          title: editingTimelineItem ? 'Deadline updated' : 'Deadline added',
+          description: editingTimelineItem ? 'The timeline item has been updated.' : 'The timeline item has been added.',
         })
-        setTimelineDialogOpen(false)
-        setTimelineForm({ name: '', description: '', dueDate: '', type: 'draft_due' })
+        handleTimelineDialogChange(false)
         fetchTimeline()
       } else {
-        throw new Error('Failed to add timeline item')
+        throw new Error('Failed to save timeline item')
       }
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to add timeline item',
+        description: 'Failed to save timeline item',
         variant: 'destructive',
       })
     } finally {
-      setAddingTimeline(false)
+      setSavingTimeline(false)
     }
   }
 
@@ -457,13 +564,22 @@ export function TDTournamentManageClient({
   }
 
   const handleAddOtherDiscount = () => {
-    if (newDiscount.condition && newDiscount.amount) {
-      setSettingsForm(prev => ({
-        ...prev,
-        otherDiscounts: [...prev.otherDiscounts, { condition: newDiscount.condition, amount: parseFloat(newDiscount.amount) }],
-      }))
-      setNewDiscount({ condition: '', amount: '' })
+    const amountValue = parseFloat(newDiscount.amount)
+    if (!newDiscount.condition || Number.isNaN(amountValue)) return
+    if (amountValue < 0) {
+      toast({
+        title: 'Invalid discount',
+        description: 'Discount amount cannot be negative.',
+        variant: 'destructive',
+      })
+      return
     }
+
+    setSettingsForm(prev => ({
+      ...prev,
+      otherDiscounts: [...prev.otherDiscounts, { condition: newDiscount.condition, amount: amountValue }],
+    }))
+    setNewDiscount({ condition: '', amount: '' })
   }
 
   const handleRemoveOtherDiscount = (index: number) => {
@@ -479,6 +595,15 @@ export function TDTournamentManageClient({
       eventsRun: prev.eventsRun.includes(eventId)
         ? prev.eventsRun.filter(id => id !== eventId)
         : [...prev.eventsRun, eventId],
+    }))
+  }
+
+  const handleSelectAllEvents = () => {
+    setSettingsForm(prev => ({
+      ...prev,
+      eventsRun: prev.eventsRun.length === events.length
+        ? []
+        : events.map(e => e.id),
     }))
   }
 
@@ -764,6 +889,13 @@ export function TDTournamentManageClient({
                               {member.tests.length} test{member.tests.length !== 1 ? 's' : ''}
                             </Badge>
                           )}
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleOpenEditStaff(member)}
+                        >
+                          <Edit className="h-4 w-4 text-muted-foreground" />
+                        </Button>
                           <Button 
                             variant="ghost" 
                             size="sm"
@@ -778,6 +910,104 @@ export function TDTournamentManageClient({
                 )}
               </CardContent>
             </Card>
+            <Dialog open={editStaffDialogOpen} onOpenChange={handleEditStaffDialogChange}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Staff Member</DialogTitle>
+                  <DialogDescription>
+                    Update the staff role and assigned events.
+                  </DialogDescription>
+                </DialogHeader>
+                {editingStaff ? (
+                  <div className="space-y-4 py-2">
+                    <div>
+                      <p className="font-semibold">{editingStaff.name || editingStaff.email}</p>
+                      <p className="text-sm text-muted-foreground">{editingStaff.email}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-role">Role</Label>
+                      <Select
+                        value={editStaffForm.role}
+                        onValueChange={(value: 'EVENT_SUPERVISOR' | 'TOURNAMENT_DIRECTOR') =>
+                          setEditStaffForm(prev => ({ ...prev, role: value, eventIds: [] }))
+                        }
+                      >
+                        <SelectTrigger id="edit-role">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EVENT_SUPERVISOR">Event Supervisor</SelectItem>
+                          <SelectItem value="TOURNAMENT_DIRECTOR">Tournament Director</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {editStaffForm.role === 'EVENT_SUPERVISOR' && events.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label>Assign Events</Label>
+                          {events.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const allSelected = events.every(e => editStaffForm.eventIds.includes(e.id))
+                                setEditStaffForm(prev => ({
+                                  ...prev,
+                                  eventIds: allSelected ? [] : events.map(e => e.id),
+                                }))
+                              }}
+                              className="h-7 text-xs"
+                            >
+                              {events.every(e => editStaffForm.eventIds.includes(e.id)) ? 'Deselect All' : 'Select All'}
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+                          {events.map(event => (
+                            <label 
+                              key={event.id} 
+                              className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
+                            >
+                              <Checkbox
+                                checked={editStaffForm.eventIds.includes(event.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setEditStaffForm(prev => ({ 
+                                      ...prev, 
+                                      eventIds: [...prev.eventIds, event.id] 
+                                    }))
+                                  } else {
+                                    setEditStaffForm(prev => ({ 
+                                      ...prev, 
+                                      eventIds: prev.eventIds.filter(id => id !== event.id) 
+                                    }))
+                                  }
+                                }}
+                              />
+                              <span>{event.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Select a staff member to edit.</p>
+                )}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => handleEditStaffDialogChange(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleUpdateStaff} 
+                    disabled={!editingStaff || updatingStaff}
+                  >
+                    {updatingStaff ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Timeline Tab */}
@@ -794,16 +1024,16 @@ export function TDTournamentManageClient({
                       Set deadlines for ES test submissions
                     </CardDescription>
                   </div>
-                  <Dialog open={timelineDialogOpen} onOpenChange={setTimelineDialogOpen}>
+                  <Dialog open={timelineDialogOpen} onOpenChange={handleTimelineDialogChange}>
                     <DialogTrigger asChild>
-                      <Button variant="outline">
+                      <Button variant="outline" onClick={handleOpenAddTimeline}>
                         <Plus className="h-4 w-4 mr-2" />
                         Add Deadline
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Add Timeline Item</DialogTitle>
+                        <DialogTitle>{editingTimelineItem ? 'Edit Timeline Item' : 'Add Timeline Item'}</DialogTitle>
                         <DialogDescription>
                           Create a deadline for your Event Supervisors.
                         </DialogDescription>
@@ -857,14 +1087,14 @@ export function TDTournamentManageClient({
                         </div>
                       </div>
                       <DialogFooter>
-                        <Button variant="outline" onClick={() => setTimelineDialogOpen(false)}>
+                          <Button variant="outline" onClick={() => handleTimelineDialogChange(false)}>
                           Cancel
                         </Button>
                         <Button 
-                          onClick={handleAddTimeline}
-                          disabled={addingTimeline || !timelineForm.name || !timelineForm.dueDate}
+                          onClick={handleSaveTimeline}
+                          disabled={savingTimeline || !timelineForm.name || !timelineForm.dueDate}
                         >
-                          {addingTimeline ? 'Adding...' : 'Add Deadline'}
+                          {savingTimeline ? 'Saving...' : editingTimelineItem ? 'Save Changes' : 'Add Deadline'}
                         </Button>
                       </DialogFooter>
                     </DialogContent>
@@ -923,6 +1153,13 @@ export function TDTournamentManageClient({
                               {format(new Date(item.dueDate), 'h:mm a')}
                             </p>
                           </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleOpenEditTimeline(item)}
+                            >
+                              <Edit className="h-4 w-4 text-muted-foreground" />
+                            </Button>
                           <Button 
                             variant="ghost" 
                             size="sm"
@@ -1064,7 +1301,18 @@ export function TDTournamentManageClient({
 
                 {/* Events Run */}
                 <div className="border-b pb-6">
-                  <h3 className="text-base font-semibold mb-5 text-foreground">Events Run</h3>
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-base font-semibold text-foreground">Events Run</h3>
+                    {isEditingSettings && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSelectAllEvents}
+                      >
+                        {settingsForm.eventsRun.length === events.length ? 'Deselect All' : 'Select All'}
+                      </Button>
+                    )}
+                  </div>
                   {isEditingSettings ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto border rounded-lg p-3">
                       {events.map(event => (
@@ -1072,11 +1320,21 @@ export function TDTournamentManageClient({
                           key={event.id} 
                           className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
                         >
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={settingsForm.eventsRun.includes(event.id)}
-                            onChange={() => handleToggleEvent(event.id)}
-                            className="h-4 w-4"
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSettingsForm(prev => ({
+                                  ...prev,
+                                  eventsRun: [...prev.eventsRun, event.id]
+                                }))
+                              } else {
+                                setSettingsForm(prev => ({
+                                  ...prev,
+                                  eventsRun: prev.eventsRun.filter(id => id !== event.id)
+                                }))
+                              }
+                            }}
                           />
                           {event.name}
                         </label>
@@ -1289,9 +1547,21 @@ export function TDTournamentManageClient({
                           <Input
                             type="number"
                             placeholder="Amount"
+                            min="0"
+                            step="1"
                             value={newDiscount.amount}
-                            onChange={e => setNewDiscount(prev => ({ ...prev, amount: e.target.value }))}
-                            className="w-24"
+                            onChange={e => {
+                              const val = e.target.value
+                              if (val === '') {
+                                setNewDiscount(prev => ({ ...prev, amount: '' }))
+                                return
+                              }
+                              const num = Number(val)
+                              if (Number.isNaN(num)) return
+                              const clamped = Math.max(0, num)
+                              setNewDiscount(prev => ({ ...prev, amount: clamped.toString() }))
+                            }}
+                            className="w-28 md:w-32"
                           />
                           <Button variant="outline" onClick={handleAddOtherDiscount}>
                             <Plus className="h-4 w-4" />

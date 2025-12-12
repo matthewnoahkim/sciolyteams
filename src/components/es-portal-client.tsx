@@ -87,12 +87,18 @@ interface ESPortalClientProps {
     image?: string | null
   }
   staffMemberships: StaffMembership[]
+  initialTimelines?: Record<string, TimelineItem[]>
 }
 
-export function ESPortalClient({ user, staffMemberships }: ESPortalClientProps) {
+export function ESPortalClient({ user, staffMemberships, initialTimelines = {} }: ESPortalClientProps) {
   const [activeTab, setActiveTab] = useState<string>(staffMemberships[0]?.tournament.id || '')
-  const [timelines, setTimelines] = useState<Record<string, TimelineItem[]>>({})
+  const [timelines, setTimelines] = useState<Record<string, TimelineItem[]>>(() => initialTimelines)
   const [loadingTimelines, setLoadingTimelines] = useState<Set<string>>(new Set())
+
+  const formatType = (type: string) =>
+    type
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
 
   const handleSignOut = () => {
     signOut({ callbackUrl: '/es' })
@@ -284,7 +290,7 @@ export function ESPortalClient({ user, staffMemberships }: ESPortalClientProps) 
                                   {format(new Date(item.dueDate), 'MMM d, yyyy')}
                                 </p>
                                 <Badge variant="outline" className="text-xs">
-                                  {item.type.replace('_', ' ')}
+                                  {formatType(item.type)}
                                 </Badge>
                               </div>
                             </div>
