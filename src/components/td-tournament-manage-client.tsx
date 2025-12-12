@@ -48,7 +48,7 @@ interface StaffMember {
     email: string
     image: string | null
   } | null
-  eventAssignments: Array<{
+  events: Array<{
     event: {
       id: string
       name: string
@@ -547,9 +547,9 @@ export function TDTournamentManageClient({
                               <Badge variant="secondary" className="text-xs">
                                 {member.role === 'EVENT_SUPERVISOR' ? 'ES' : 'TD'}
                               </Badge>
-                              {member.eventAssignments.length > 0 && (
+                              {member.events.length > 0 && (
                                 <span>
-                                  {member.eventAssignments.map(e => e.event.name).join(', ')}
+                                  {member.events.map(e => e.event.name).join(', ')}
                                 </span>
                               )}
                             </div>

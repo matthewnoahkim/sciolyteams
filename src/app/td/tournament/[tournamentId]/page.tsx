@@ -63,7 +63,7 @@ export default async function TournamentManagePage({ params }: Props) {
           image: true,
         },
       },
-      eventAssignments: {
+      events: {
         include: {
           event: {
             select: {
