@@ -50,7 +50,7 @@ export function ESLoginClient({ unauthorized, email, inviteInfo, token }: ESLogi
   const roleLabel = inviteInfo?.role === 'EVENT_SUPERVISOR' ? 'Event Supervisor' : 'Tournament Director'
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-foreground grid-pattern relative">
+    <div className="min-h-screen bg-background text-foreground grid-pattern">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -64,8 +64,8 @@ export function ESLoginClient({ unauthorized, email, inviteInfo, token }: ESLogi
       </header>
 
       {/* Main Content */}
-      <div className="min-h-screen flex items-center justify-center p-8 pt-24 relative">
-        <Card className="w-full max-w-lg shadow-nav">
+      <div className="min-h-screen flex items-center justify-center p-8 pt-24">
+        <Card className="w-full max-w-md">
           <CardHeader className="text-center pb-2">
             <div className="inline-flex p-4 rounded-2xl bg-teamy-primary/10 mx-auto mb-4">
               <ClipboardList className="h-10 w-10 text-teamy-primary" />

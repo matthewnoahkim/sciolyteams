@@ -48,7 +48,16 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
 
   // If not signed in, show login page with invite info if available
   if (!session?.user?.email) {
-    return <ESLoginClient inviteInfo={inviteInfo} token={token} />
+    // Serialize dates to strings for client component
+    const serializedInviteInfo = inviteInfo ? {
+      ...inviteInfo,
+      tournament: {
+        ...inviteInfo.tournament,
+        startDate: inviteInfo.tournament.startDate.toISOString(),
+        endDate: inviteInfo.tournament.endDate.toISOString(),
+      },
+    } : null
+    return <ESLoginClient inviteInfo={serializedInviteInfo} token={token} />
   }
 
   // If there's a token, try to accept the invitation
@@ -136,7 +145,16 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
     // If there's a pending invite that matches but wasn't auto-accepted (edge case), show appropriate message
     if (pendingInvite && pendingInvite.inviteToken === token) {
       // The email didn't match but there's an invite - redirect to correct flow
-      return <ESLoginClient unauthorized email={session.user.email} inviteInfo={inviteInfo} token={token} />
+      // Serialize dates to strings for client component
+      const serializedInviteInfo = inviteInfo ? {
+        ...inviteInfo,
+        tournament: {
+          ...inviteInfo.tournament,
+          startDate: inviteInfo.tournament.startDate.toISOString(),
+          endDate: inviteInfo.tournament.endDate.toISOString(),
+        },
+      } : null
+      return <ESLoginClient unauthorized email={session.user.email} inviteInfo={serializedInviteInfo} token={token} />
     }
 
     return <ESLoginClient unauthorized email={session.user.email} />

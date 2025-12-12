@@ -41,6 +41,18 @@ export default async function TDPortalPage() {
     return <TDLoginClient unauthorized email={session.user.email} />
   }
 
-  return <TDPortalClient user={session.user} requests={requests} />
+  // Serialize dates for client component
+  const serializedRequests = requests.map(request => ({
+    ...request,
+    createdAt: request.createdAt.toISOString(),
+    updatedAt: request.updatedAt.toISOString(),
+    tournament: request.tournament ? {
+      ...request.tournament,
+      startDate: request.tournament.startDate.toISOString(),
+      endDate: request.tournament.endDate.toISOString(),
+    } : null,
+  }))
+
+  return <TDPortalClient user={session.user} requests={serializedRequests} />
 }
 
