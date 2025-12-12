@@ -1964,8 +1964,8 @@ export function CalendarTab({ clubId, currentMembership, isAdmin, user, initialE
                   {isAdmin && (
                     <>
                       <div className="flex items-center gap-2">
-                        <RadioGroupItem value="TEAM" id="scope-team" />
-                        <Label htmlFor="scope-team" className="cursor-pointer font-normal text-sm">
+                        <RadioGroupItem value="CLUB" id="scope-club" />
+                        <Label htmlFor="scope-club" className="cursor-pointer font-normal text-sm">
                           Entire club
                         </Label>
                       </div>
