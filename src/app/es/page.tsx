@@ -160,25 +160,46 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
     return <ESLoginClient unauthorized email={session.user.email} />
   }
 
-  // Serialize dates for client component
+  // Serialize and map to StaffMembership interface
   const serializedStaffMemberships = staffMemberships.map(membership => ({
-    ...membership,
-    invitedAt: membership.invitedAt.toISOString(),
-    acceptedAt: membership.acceptedAt?.toISOString() || null,
+    id: membership.id,
+    email: membership.email,
+    name: membership.name,
+    role: membership.role,
+    status: membership.status,
     tournament: {
-      ...membership.tournament,
+      id: membership.tournament.id,
+      name: membership.tournament.name,
+      division: membership.tournament.division,
       startDate: membership.tournament.startDate.toISOString(),
     },
+    events: membership.events.map(e => ({
+      event: {
+        id: e.event.id,
+        name: e.event.name,
+        division: e.event.division,
+      },
+    })),
     tests: membership.tests.map(test => ({
-      ...test,
-      createdAt: test.createdAt.toISOString(),
-      updatedAt: test.updatedAt.toISOString(),
+      id: test.id,
+      name: test.name,
+      status: test.status,
+      eventId: test.eventId,
+      event: test.event ? {
+        id: test.event.id,
+        name: test.event.name,
+      } : null,
       questions: test.questions.map(q => ({
-        ...q,
-        createdAt: q.createdAt.toISOString(),
+        id: q.id,
+        type: q.type,
+        promptMd: q.promptMd,
+        points: Number(q.points),
+        order: q.order,
         options: q.options.map(o => ({
-          ...o,
-          createdAt: o.createdAt.toISOString(),
+          id: o.id,
+          label: o.label,
+          isCorrect: o.isCorrect,
+          order: o.order,
         })),
       })),
     })),
