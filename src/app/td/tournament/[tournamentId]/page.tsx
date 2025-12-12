@@ -39,8 +39,6 @@ export default async function TournamentManagePage({ params }: Props) {
           endDate: true,
           location: true,
           description: true,
-          registrationDeadline: true,
-          maxTeams: true,
           price: true,
         },
       },
@@ -120,7 +118,6 @@ export default async function TournamentManagePage({ params }: Props) {
     ...request.tournament,
     startDate: request.tournament.startDate.toISOString(),
     endDate: request.tournament.endDate.toISOString(),
-    registrationDeadline: request.tournament.registrationDeadline?.toISOString() || null,
   }
 
   const serializedStaff = staff.map(s => ({

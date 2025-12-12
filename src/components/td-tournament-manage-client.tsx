@@ -86,8 +86,6 @@ interface Tournament {
   endDate: string
   location: string | null
   description: string | null
-  registrationDeadline: string | null
-  maxTeams: number | null
   price: number | null
 }
 
@@ -773,18 +771,6 @@ export function TDTournamentManageClient({
                       <div>
                         <Label className="text-sm text-muted-foreground">Location</Label>
                         <p className="font-medium">{tournament.location}</p>
-                      </div>
-                    )}
-                    {tournament.registrationDeadline && (
-                      <div>
-                        <Label className="text-sm text-muted-foreground">Registration Deadline</Label>
-                        <p className="font-medium">{format(new Date(tournament.registrationDeadline), 'MMMM d, yyyy')}</p>
-                      </div>
-                    )}
-                    {tournament.maxTeams && (
-                      <div>
-                        <Label className="text-sm text-muted-foreground">Max Teams</Label>
-                        <p className="font-medium">{tournament.maxTeams}</p>
                       </div>
                     )}
                     {tournament.price !== null && (
