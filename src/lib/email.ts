@@ -54,7 +54,7 @@ export async function sendStaffInviteEmail({
     })
 
     const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Teamy <noreply@teamy.app>',
+      from: 'Teamy <no-reply@teamy.site>',
       to,
       subject: `You've been invited as ${roleLabel} for ${tournamentName}`,
       html: `
@@ -247,7 +247,7 @@ export async function sendAnnouncementEmail({
     })
 
     const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'Teamy <noreply@teamy.app>',
+      from: 'Teamy <no-reply@teamy.site>',
       to,
       cc,
       bcc,

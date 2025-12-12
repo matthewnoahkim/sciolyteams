@@ -6,13 +6,20 @@ import { getUserMembership } from '@/lib/rbac'
 import { Role } from '@prisma/client'
 import { z } from 'zod'
 
-const registerSchema = z.object({
+// Schema for bulk registration (legacy)
+const bulkRegisterSchema = z.object({
   registrations: z.array(z.object({
     clubId: z.string(),
     teamId: z.string().optional(),
-    subclubId: z.string().optional(), // Support both teamId and subclubId for backwards compatibility
-    eventIds: z.array(z.string()).min(1, 'At least one event must be selected'),
+    subclubId: z.string().optional(),
+    eventIds: z.array(z.string()).optional(),
   })).min(1, 'At least one team must be registered'),
+})
+
+// Schema for simple registration (new tournament page)
+const simpleRegisterSchema = z.object({
+  clubId: z.string(),
+  teamIds: z.array(z.string()).min(1, 'At least one team must be selected'),
 })
 
 // POST /api/tournaments/[tournamentId]/register
@@ -27,8 +34,7 @@ export async function POST(
     }
 
     const body = await req.json()
-    const validated = registerSchema.parse(body)
-
+    
     // Verify tournament exists
     const tournament = await prisma.tournament.findUnique({
       where: { id: params.tournamentId },
@@ -38,10 +44,35 @@ export async function POST(
       return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
     }
 
+    // Determine which schema to use based on input format
+    let registrationsToProcess: Array<{ clubId: string; teamId?: string; eventIds?: string[] }> = []
+    
+    // Try simple schema first (new format from tournament page)
+    const simpleResult = simpleRegisterSchema.safeParse(body)
+    if (simpleResult.success) {
+      // Convert simple format to registrations array
+      registrationsToProcess = simpleResult.data.teamIds.map(teamId => ({
+        clubId: simpleResult.data.clubId,
+        teamId,
+        eventIds: [], // No event selection in simple format
+      }))
+    } else {
+      // Try bulk schema (legacy format)
+      const bulkResult = bulkRegisterSchema.safeParse(body)
+      if (bulkResult.success) {
+        registrationsToProcess = bulkResult.data.registrations.map(reg => ({
+          clubId: reg.clubId,
+          teamId: reg.teamId || reg.subclubId,
+          eventIds: reg.eventIds || [],
+        }))
+      } else {
+        return NextResponse.json({ error: 'Invalid input', details: simpleResult.error.errors }, { status: 400 })
+      }
+    }
+
     // Validate all registrations
-    for (const reg of validated.registrations) {
-      // Map subclubId to teamId if provided (for backwards compatibility)
-      const teamId = reg.teamId || reg.subclubId
+    for (const reg of registrationsToProcess) {
+      const teamId = reg.teamId
       
       // Verify user is an admin of the club
       const membership = await getUserMembership(session.user.id, reg.clubId)
@@ -70,7 +101,6 @@ export async function POST(
       }
 
       // Check if already registered (with same team if specified)
-      // Use findFirst for nullable teamId since findUnique can have issues with null in composite keys
       const existingRegistration = await prisma.tournamentRegistration.findFirst({
         where: {
           tournamentId: params.tournamentId,
@@ -80,7 +110,6 @@ export async function POST(
       })
 
       if (existingRegistration) {
-        // Get club and team names for better error message
         const club = await prisma.club.findUnique({
           where: { id: reg.clubId },
           select: { name: true },
@@ -99,37 +128,41 @@ export async function POST(
         }, { status: 400 })
       }
 
-      // Verify all events exist and match tournament division
-      const events = await prisma.event.findMany({
-        where: {
-          id: { in: reg.eventIds },
-          division: tournament.division,
-        },
-      })
+      // Verify all events exist and match tournament division (only if eventIds provided)
+      if (reg.eventIds && reg.eventIds.length > 0) {
+        const events = await prisma.event.findMany({
+          where: {
+            id: { in: reg.eventIds },
+            division: tournament.division,
+          },
+        })
 
-      if (events.length !== reg.eventIds.length) {
-        return NextResponse.json({ error: 'Some events are invalid or do not match tournament division' }, { status: 400 })
+        if (events.length !== reg.eventIds.length) {
+          return NextResponse.json({ error: 'Some events are invalid or do not match tournament division' }, { status: 400 })
+        }
       }
     }
 
     // Create all registrations
     const registrations = await Promise.all(
-      validated.registrations.map(reg => {
-        // Map subclubId to teamId if provided
-        const teamId = reg.teamId || reg.subclubId
+      registrationsToProcess.map(reg => {
+        const teamId = reg.teamId
         
         return prisma.tournamentRegistration.create({
           data: {
             tournamentId: params.tournamentId,
             clubId: reg.clubId,
-            teamId: teamId ?? null, // Use ?? to properly handle undefined
+            teamId: teamId ?? null,
             registeredById: session.user.id,
             status: 'CONFIRMED',
-            eventSelections: {
-              create: reg.eventIds.map(eventId => ({
-                eventId,
-              })),
-            },
+            // Only create event selections if eventIds are provided
+            ...(reg.eventIds && reg.eventIds.length > 0 ? {
+              eventSelections: {
+                create: reg.eventIds.map(eventId => ({
+                  eventId,
+                })),
+              },
+            } : {}),
           },
           include: {
             club: {

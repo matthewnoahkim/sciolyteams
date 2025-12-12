@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
         const baseUrl = process.env.NEXTAUTH_URL || 'https://teamy.site'
         
         await resend.emails.send({
-          from: process.env.EMAIL_FROM || 'Teamy <noreply@teamy.site>',
+          from: 'Teamy <no-reply@teamy.site>',
           to: [directorEmail],
           subject: `Tournament Hosting Request Received - ${tournamentName}`,
           html: `
