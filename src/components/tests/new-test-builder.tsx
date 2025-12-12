@@ -103,6 +103,11 @@ interface NewTestBuilderProps {
   tournamentId?: string
   tournamentName?: string
   tournamentDivision?: 'B' | 'C'
+  // ES (Event Supervisor) mode props
+  esMode?: boolean
+  staffMembershipId?: string
+  eventId?: string
+  eventName?: string
   test?: {
     id: string
     name: string
@@ -296,7 +301,20 @@ function generateMarkdownTable(rows: number, cols: number): string {
   return `${header}\n${separator}\n${body}`
 }
 
-export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tournamentId, tournamentName, tournamentDivision, test }: NewTestBuilderProps) {
+export function NewTestBuilder({ 
+  clubId, 
+  clubName, 
+  clubDivision, 
+  teams, 
+  tournamentId, 
+  tournamentName, 
+  tournamentDivision, 
+  esMode,
+  staffMembershipId,
+  eventId: initialEventId,
+  eventName,
+  test 
+}: NewTestBuilderProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
@@ -928,15 +946,40 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
           router.refresh()
         }
       } else {
-        // Create new test - use tournament API if tournamentId is provided
-        const apiUrl = tournamentId 
-          ? `/api/tournaments/${tournamentId}/tests/create`
-          : '/api/tests'
-        
-        // For tournament mode, remove clubId from payload
-        const createPayload = tournamentId 
-          ? { ...payload, clubId: undefined }
-          : payload
+        // Create new test - use appropriate API based on mode
+        let apiUrl: string
+        let createPayload: any
+
+        if (esMode && staffMembershipId && tournamentId) {
+          // ES Mode - use ES API
+          apiUrl = '/api/es/tests'
+          createPayload = {
+            staffId: staffMembershipId,
+            tournamentId,
+            eventId: initialEventId || undefined,
+            name: payload.name,
+            description: payload.description,
+            instructions: payload.instructions,
+            durationMinutes: payload.durationMinutes,
+            questions: payload.questions.map((q: any) => ({
+              type: q.type,
+              promptMd: q.promptMd,
+              explanation: q.explanation,
+              points: q.points,
+              order: q.order,
+              shuffleOptions: q.shuffleOptions,
+              options: q.type.startsWith('MCQ') ? q.options : undefined,
+            })),
+          }
+        } else if (tournamentId) {
+          // Tournament mode
+          apiUrl = `/api/tournaments/${tournamentId}/tests/create`
+          createPayload = { ...payload, clubId: undefined }
+        } else {
+          // Club mode
+          apiUrl = '/api/tests'
+          createPayload = payload
+        }
 
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -964,14 +1007,21 @@ export function NewTestBuilder({ clubId, clubName, clubDivision, teams, tourname
           if (tournamentId) {
             sessionStorage.setItem('tournamentId', tournamentId)
           }
+          if (esMode) {
+            sessionStorage.setItem('esMode', 'true')
+          }
         } else {
           toast({
             title: 'Test saved',
-            description: tournamentId 
-              ? 'Your test draft has been created and added to the tournament.'
-              : 'Your test draft has been created successfully.',
+            description: esMode 
+              ? 'Your test draft has been created.'
+              : tournamentId 
+                ? 'Your test draft has been created and added to the tournament.'
+                : 'Your test draft has been created successfully.',
           })
-          if (tournamentId) {
+          if (esMode) {
+            router.push('/es')
+          } else if (tournamentId) {
             router.push(`/tournaments/${tournamentId}/tests`)
           } else {
             router.push(`/club/${clubId}?tab=tests`)

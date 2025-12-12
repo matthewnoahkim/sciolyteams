@@ -167,6 +167,8 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
     name: membership.name,
     role: membership.role,
     status: membership.status,
+    invitedAt: membership.invitedAt.toISOString(),
+    acceptedAt: membership.acceptedAt?.toISOString() || null,
     tournament: {
       id: membership.tournament.id,
       name: membership.tournament.name,
