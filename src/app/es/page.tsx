@@ -160,6 +160,30 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
     return <ESLoginClient unauthorized email={session.user.email} />
   }
 
-  return <ESPortalClient user={session.user} staffMemberships={staffMemberships} />
+  // Serialize dates for client component
+  const serializedStaffMemberships = staffMemberships.map(membership => ({
+    ...membership,
+    invitedAt: membership.invitedAt.toISOString(),
+    acceptedAt: membership.acceptedAt?.toISOString() || null,
+    tournament: {
+      ...membership.tournament,
+      startDate: membership.tournament.startDate.toISOString(),
+    },
+    tests: membership.tests.map(test => ({
+      ...test,
+      createdAt: test.createdAt.toISOString(),
+      updatedAt: test.updatedAt.toISOString(),
+      questions: test.questions.map(q => ({
+        ...q,
+        createdAt: q.createdAt.toISOString(),
+        options: q.options.map(o => ({
+          ...o,
+          createdAt: o.createdAt.toISOString(),
+        })),
+      })),
+    })),
+  }))
+
+  return <ESPortalClient user={session.user} staffMemberships={serializedStaffMemberships} />
 }
 

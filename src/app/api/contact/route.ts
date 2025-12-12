@@ -19,26 +19,26 @@ export async function POST(request: NextRequest) {
     const discordPayload = {
       embeds: [
         {
-          title: '📧 New Contact Form Submission',
-          color: 0x3b82f6, // Blue color
+          title: 'New Contact Form Submission',
+          color: 0x0056C7, // Teamy primary blue
           fields: [
             {
-              name: '👤 Name',
+              name: 'Name',
               value: name,
               inline: true,
             },
             {
-              name: '📧 Email',
+              name: 'Email',
               value: email,
               inline: true,
             },
             {
-              name: '📋 Subject',
+              name: 'Subject',
               value: subject,
               inline: false,
             },
             {
-              name: '💬 Message',
+              name: 'Message',
               value: message.length > 1024 ? message.substring(0, 1021) + '...' : message,
               inline: false,
             },
