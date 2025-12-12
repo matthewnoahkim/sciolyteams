@@ -78,7 +78,7 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -194,7 +194,7 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-6xl">
+      <main className="container mx-auto px-4 py-8 max-w-6xl flex-1">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
             Welcome, {user.name?.split(' ')[0] || 'Tournament Director'}!
@@ -248,18 +248,13 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {approvedRequests.map((request) => {
-                const hasTournament = !!request.tournament
-                
-                const cardContent = (
-                  <Card 
-                    key={request.id} 
-                    className={`overflow-hidden transition-all h-full ${
-                      hasTournament 
-                        ? 'cursor-pointer hover:shadow-lg hover:border-primary/30' 
-                        : 'opacity-80'
-                    }`}
-                  >
+              {approvedRequests.map((request) => (
+                <Link 
+                  key={request.id} 
+                  href={`/td/manage/${request.id}`}
+                  className="block"
+                >
+                  <Card className="overflow-hidden transition-all h-full cursor-pointer hover:shadow-lg hover:border-primary/30">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-4">
                         <div className="space-y-1 flex-1 min-w-0">
@@ -268,14 +263,10 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
                             <Calendar className="h-3.5 w-3.5" />
                             {request.tournament 
                               ? format(new Date(request.tournament.startDate), 'MMM d, yyyy')
-                              : 'Date pending'}
+                              : 'Click to set up'}
                           </CardDescription>
                         </div>
-                        {hasTournament ? (
-                          <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">Setting up</Badge>
-                        )}
+                        <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
@@ -290,36 +281,17 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
                           <span className="truncate">{request.location}</span>
                         </div>
                       )}
-                      {!hasTournament && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Your tournament page is being set up. Check back soon!
-                        </p>
-                      )}
                     </CardContent>
                   </Card>
-                )
-                
-                if (hasTournament) {
-                  return (
-                    <Link 
-                      key={request.id} 
-                      href={`/td/tournament/${request.tournament!.id}`}
-                      className="block"
-                    >
-                      {cardContent}
-                    </Link>
-                  )
-                }
-                
-                return <div key={request.id}>{cardContent}</div>
-              })}
+                </Link>
+              ))}
             </div>
           )}
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-card py-4 mt-12">
+      <footer className="border-t border-border bg-card py-4 mt-auto">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-2">
             <div className="flex items-center gap-6 text-sm text-muted-foreground">

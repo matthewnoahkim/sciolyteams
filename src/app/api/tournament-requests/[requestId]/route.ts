@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 // PATCH - Update tournament hosting request status
 export async function PATCH(
@@ -7,6 +9,11 @@ export async function PATCH(
   { params }: { params: { requestId: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { requestId } = params
     const body = await request.json()
     const { status, reviewNotes } = body
@@ -19,12 +26,93 @@ export async function PATCH(
       )
     }
 
-    // Update the request
+    // Get the current request
+    const currentRequest = await prisma.tournamentHostingRequest.findUnique({
+      where: { id: requestId },
+      include: { tournament: true },
+    })
+
+    if (!currentRequest) {
+      return NextResponse.json({ error: 'Request not found' }, { status: 404 })
+    }
+
+    // If approving and no tournament exists yet, create one
+    if (status === 'APPROVED' && !currentRequest.tournament) {
+      // Generate a slug from the tournament name
+      const baseSlug = currentRequest.preferredSlug || 
+        currentRequest.tournamentName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+      
+      // Ensure slug is unique
+      let slug = baseSlug
+      let counter = 1
+      while (await prisma.tournament.findUnique({ where: { slug } })) {
+        slug = `${baseSlug}-${counter}`
+        counter++
+      }
+
+      // Determine division - handle "B&C" case
+      let division: 'B' | 'C' = 'C'
+      if (currentRequest.division === 'B') {
+        division = 'B'
+      } else if (currentRequest.division === 'C') {
+        division = 'C'
+      }
+      // For "B&C", default to C (can be changed later)
+
+      // Create tournament and update request in a transaction
+      const result = await prisma.$transaction(async (tx) => {
+        // Create the tournament
+        const tournament = await tx.tournament.create({
+          data: {
+            name: currentRequest.tournamentName,
+            slug,
+            division,
+            description: currentRequest.otherNotes,
+            isOnline: currentRequest.tournamentFormat === 'satellite',
+            startDate: new Date(), // Default to now, TD can update later
+            endDate: new Date(),
+            startTime: new Date(),
+            endTime: new Date(),
+            location: currentRequest.location,
+            approved: true,
+            createdById: session.user.id,
+            hostingRequestId: requestId,
+          },
+        })
+
+        // Update the request status
+        const updatedRequest = await tx.tournamentHostingRequest.update({
+          where: { id: requestId },
+          data: {
+            status,
+            reviewNotes: reviewNotes || null,
+          },
+          include: {
+            tournament: true,
+          },
+        })
+
+        return updatedRequest
+      })
+
+      return NextResponse.json({ 
+        success: true, 
+        request: result 
+      })
+    }
+
+    // For non-approval or if tournament already exists, just update the status
     const updatedRequest = await prisma.tournamentHostingRequest.update({
       where: { id: requestId },
       data: {
         status,
         reviewNotes: reviewNotes || null,
+      },
+      include: {
+        tournament: true,
       },
     })
 
