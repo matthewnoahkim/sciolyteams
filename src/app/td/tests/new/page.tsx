@@ -160,7 +160,7 @@ export default async function TDNewTestPage({ searchParams }: Props) {
     })
     
     if (!staffWithEvent) {
-      await prisma.tournamentStaffEvent.create({
+      await prisma.eventSupervisorAssignment.create({
         data: {
           staffId: staffMembershipId,
           eventId,

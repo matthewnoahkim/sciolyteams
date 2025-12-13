@@ -50,8 +50,8 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
 
   // If not signed in, show login page with invite info if available
   if (!session?.user?.email) {
-    // Get hosting request division for display if available
-    let displayDivision = inviteInfo?.tournament?.division
+    // Get hosting request division for display if available (as string, since hosting request supports "B&C")
+    let displayDivision: string | undefined = inviteInfo?.tournament?.division
     if (inviteInfo?.tournament?.hostingRequestId) {
       const hostingRequest = await prisma.tournamentHostingRequest.findUnique({
         where: { id: inviteInfo.tournament.hostingRequestId },
@@ -67,7 +67,7 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
       ...inviteInfo,
       tournament: {
         ...inviteInfo.tournament,
-        division: displayDivision,
+        division: displayDivision || inviteInfo.tournament.division,
         startDate: inviteInfo.tournament.startDate.toISOString(),
         endDate: inviteInfo.tournament.endDate.toISOString(),
       },
@@ -149,8 +149,8 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
 
     // If there's a pending invite that matches but wasn't auto-accepted (edge case), show appropriate message
     if (pendingInvite && pendingInvite.inviteToken === token) {
-      // Get hosting request division for display if available
-      let displayDivision = inviteInfo?.tournament?.division
+      // Get hosting request division for display if available (as string, since hosting request supports "B&C")
+      let displayDivision: string | undefined = inviteInfo?.tournament?.division
       if (inviteInfo?.tournament?.hostingRequestId) {
         const hostingRequest = await prisma.tournamentHostingRequest.findUnique({
           where: { id: inviteInfo.tournament.hostingRequestId },
@@ -167,7 +167,7 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
         ...inviteInfo,
         tournament: {
           ...inviteInfo.tournament,
-          division: displayDivision,
+          division: displayDivision || inviteInfo.tournament.division,
           startDate: inviteInfo.tournament.startDate.toISOString(),
           endDate: inviteInfo.tournament.endDate.toISOString(),
         },
@@ -283,7 +283,11 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
       },
     },
   })
-  const hostingRequestMap = new Map(hostingRequests.map(hr => [hr.tournament.id, hr.division]))
+  const hostingRequestMap = new Map(
+    hostingRequests
+      .filter(hr => hr.tournament !== null)
+      .map(hr => [hr.tournament!.id, hr.division])
+  )
 
   // Map staff memberships with tests organized by event
   const staffMembershipsWithTests = staffMemberships.map(membership => {

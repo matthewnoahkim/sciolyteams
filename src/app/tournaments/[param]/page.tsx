@@ -128,7 +128,7 @@ export default async function TournamentPage({ params }: Props) {
 
   // Serialize tournament data
   // Use hosting request division for display (supports "B&C")
-  const displayDivision = hostingRequest.division || hostingRequest.tournament?.division
+  const displayDivision = hostingRequest.division || hostingRequest.tournament?.division || 'C'
   const serializedTournament = hostingRequest.tournament ? {
     id: hostingRequest.tournament.id,
     name: hostingRequest.tournament.name,

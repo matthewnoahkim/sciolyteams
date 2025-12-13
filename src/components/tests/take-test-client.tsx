@@ -779,7 +779,7 @@ export function TakeTestClient({
                       // Split on blank markers ([blank], [blank1], [blank2], etc.) to get text segments
                       // First normalize all blank markers to a placeholder, then split
                       const normalizedText = textOnly.replace(/\[blank\d*\]/g, '[BLANK_MARKER]')
-                      const textSegments = normalizedText.split('[BLANK_MARKER]')
+                      const textSegments: string[] = normalizedText.split('[BLANK_MARKER]')
                       const blankCount = textSegments.length - 1
                       
                       // Initialize blank answers if not present
@@ -861,7 +861,6 @@ export function TakeTestClient({
                           onChange={(e) => handleAnswerChange(question.id, {
                             answerText: e.target.value,
                           })}
-                        />
                         />
                       </>
                     )

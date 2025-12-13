@@ -215,7 +215,11 @@ export async function GET(request: NextRequest) {
         },
       },
     })
-    const hostingRequestMap = new Map(hostingRequests.map(hr => [hr.tournament.id, hr.division]))
+    const hostingRequestMap = new Map(
+      hostingRequests
+        .filter(hr => hr.tournament !== null)
+        .map(hr => [hr.tournament!.id, hr.division])
+    )
 
     // Map staff memberships with tests organized by event
     // For each event assignment, look for tests in ANY tournament the user has access to
