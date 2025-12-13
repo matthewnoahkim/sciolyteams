@@ -34,6 +34,9 @@ import {
   Edit,
   Trophy,
   Mail,
+  ClipboardList,
+  FileText,
+  RefreshCw,
 } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -139,14 +142,14 @@ export function TDTournamentManageClient({
   
   // Persist active tab in localStorage
   const storageKey = `td-tournament-tab-${tournament.id}`
-  const [activeTab, setActiveTab] = useState<'staff' | 'timeline' | 'settings'>('staff')
+  const [activeTab, setActiveTab] = useState<'staff' | 'timeline' | 'settings' | 'events'>('staff')
   const [isHydrated, setIsHydrated] = useState(false)
   
   // Load saved tab from localStorage on mount and mark as hydrated
   useEffect(() => {
     try {
-      const savedTab = localStorage.getItem(storageKey) as 'staff' | 'timeline' | 'settings' | null
-      if (savedTab && ['staff', 'timeline', 'settings'].includes(savedTab)) {
+      const savedTab = localStorage.getItem(storageKey) as 'staff' | 'timeline' | 'settings' | 'events' | null
+      if (savedTab && ['staff', 'timeline', 'settings', 'events'].includes(savedTab)) {
         setActiveTab(savedTab)
       }
     } catch (e) {
@@ -168,7 +171,7 @@ export function TDTournamentManageClient({
   
   // Handle tab changes
   const handleTabChange = (value: string) => {
-    setActiveTab(value as 'staff' | 'timeline' | 'settings')
+    setActiveTab(value as 'staff' | 'timeline' | 'settings' | 'events')
   }
   
   const [staff, setStaff] = useState<StaffMember[]>(initialStaff)
@@ -228,6 +231,44 @@ export function TDTournamentManageClient({
     eventsRun: tournament.eventsRun ? JSON.parse(tournament.eventsRun) as string[] : [],
   })
   const [newDiscount, setNewDiscount] = useState({ condition: '', amount: '' })
+  const [hoveredTestBadge, setHoveredTestBadge] = useState<string | null>(null)
+
+  // Events tab state
+  const [eventsWithTests, setEventsWithTests] = useState<Array<{
+    event: { id: string; name: string; division: string }
+    tests: Array<{
+      id: string
+      name: string
+      description: string | null
+      instructions: string | null
+      durationMinutes: number
+      status: string
+      eventId: string | null
+      event: { id: string; name: string } | null
+      staff?: { id: string; name: string | null; email: string }
+      createdBy?: { id: string; name: string | null; email: string }
+      updatedAt: string
+      createdAt: string
+      questions: Array<{
+        id: string
+        type: string
+        promptMd: string
+        explanation: string | null
+        points: number
+        order: number
+        options: Array<{ id: string; label: string; isCorrect: boolean; order: number }>
+      }>
+    }>
+  }>>([])
+  const [loadingEvents, setLoadingEvents] = useState(false)
+  
+  // Delete test dialog state
+  const [deleteTestDialogOpen, setDeleteTestDialogOpen] = useState(false)
+  const [testToDelete, setTestToDelete] = useState<{
+    id: string
+    name: string
+  } | null>(null)
+  const [deletingTest, setDeletingTest] = useState(false)
 
   const handleSignOut = () => {
     signOut({ callbackUrl: '/td' })
@@ -607,8 +648,84 @@ export function TDTournamentManageClient({
     }))
   }
 
+  // Fetch events with tests
+  const fetchEventsWithTests = async () => {
+    setLoadingEvents(true)
+    try {
+      const res = await fetch(`/api/td/tournaments/${tournament.id}/tests`)
+      if (res.ok) {
+        const data = await res.json()
+        setEventsWithTests(data.events || [])
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch events and tests',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      console.error('Failed to fetch events with tests:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch events and tests',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingEvents(false)
+    }
+  }
+
+  // Fetch events when events tab is activated
+  useEffect(() => {
+    if (activeTab === 'events' && eventsWithTests.length === 0) {
+      fetchEventsWithTests()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
+
+  // Delete test handlers
+  const handleDeleteTestClick = (test: { id: string; name: string }) => {
+    setTestToDelete(test)
+    setDeleteTestDialogOpen(true)
+  }
+
+  const handleDeleteTestConfirm = async () => {
+    if (!testToDelete) return
+
+    setDeletingTest(true)
+    try {
+      const response = await fetch(`/api/es/tests?testId=${testToDelete.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete test')
+      }
+
+      toast({
+        title: 'Test Deleted',
+        description: 'The test has been successfully deleted.',
+      })
+
+      setDeleteTestDialogOpen(false)
+      setTestToDelete(null)
+      
+      // Refresh tests list
+      fetchEventsWithTests()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete test',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeletingTest(false)
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -635,7 +752,7 @@ export function TDTournamentManageClient({
               variant="ghost"
               size="sm"
               onClick={handleSignOut}
-              className="px-2 sm:px-3 text-white hover:bg-white/10"
+              className="px-2 sm:px-3 text-white hover:bg-white/20 hover:text-white transition-colors duration-200 rounded-md"
             >
               <LogOut className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline text-sm">Sign Out</span>
@@ -645,7 +762,7 @@ export function TDTournamentManageClient({
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-6xl">
+      <main className="container mx-auto px-4 py-8 max-w-6xl flex-1">
         {/* Back Button and Tournament Info */}
         <div className="mb-6">
           <Button
@@ -692,10 +809,14 @@ export function TDTournamentManageClient({
         {/* Tabs */}
         {isHydrated && (
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid grid-cols-3 w-full max-w-lg">
+          <TabsList className="grid grid-cols-4 w-full max-w-2xl">
             <TabsTrigger value="staff" className="gap-2">
               <Users className="h-4 w-4" />
               Staff
+            </TabsTrigger>
+            <TabsTrigger value="events" className="gap-2">
+              <ClipboardList className="h-4 w-4" />
+              Events
             </TabsTrigger>
             <TabsTrigger value="timeline" className="gap-2">
               <Calendar className="h-4 w-4" />
@@ -885,9 +1006,41 @@ export function TDTournamentManageClient({
                         </div>
                         <div className="flex items-center gap-2">
                           {member.tests.length > 0 && (
-                            <Badge variant="outline">
-                              {member.tests.length} test{member.tests.length !== 1 ? 's' : ''}
-                            </Badge>
+                            <div 
+                              className="relative"
+                              onMouseEnter={() => setHoveredTestBadge(member.id)}
+                              onMouseLeave={() => setHoveredTestBadge(null)}
+                            >
+                              <Badge variant="outline" className="whitespace-nowrap">
+                                {member.tests.length} test{member.tests.length !== 1 ? 's' : ''}
+                              </Badge>
+                              {hoveredTestBadge === member.id && (
+                                <div className="absolute bottom-full right-0 mb-2 z-50 w-64 p-3 bg-popover border border-border rounded-lg shadow-lg text-sm animate-in fade-in slide-in-from-bottom-1">
+                                  <div className="space-y-2.5">
+                                    {member.tests.map((test, index) => {
+                                      const event = test.eventId ? events.find(e => e.id === test.eventId) : null
+                                      return (
+                                        <div key={test.id}>
+                                          {index > 0 && <div className="h-px bg-border mb-2.5 -mt-1" />}
+                                          <div className="flex flex-col gap-0.5">
+                                            <p className="font-medium text-foreground">{test.name}</p>
+                                            {event ? (
+                                              <p className="text-xs text-muted-foreground">Event: {event.name}</p>
+                                            ) : test.eventId ? (
+                                              <p className="text-xs text-muted-foreground">Event: Unknown</p>
+                                            ) : (
+                                              <p className="text-xs text-muted-foreground">No event assigned</p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                  {/* Arrow pointing down */}
+                                  <div className="absolute top-full right-4 -mt-1.5 w-2.5 h-2.5 bg-popover border-r border-b border-border transform rotate-45" />
+                                </div>
+                              )}
+                            </div>
                           )}
                         <Button 
                           variant="ghost" 
@@ -1168,6 +1321,140 @@ export function TDTournamentManageClient({
                             <Trash2 className="h-4 w-4 text-muted-foreground" />
                           </Button>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Events Tab */}
+          <TabsContent value="events" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <ClipboardList className="h-5 w-5" />
+                      Events & Tests
+                    </CardTitle>
+                    <CardDescription>
+                      View all events and manage tests for your tournament
+                    </CardDescription>
+                  </div>
+                  <Button onClick={fetchEventsWithTests} variant="outline">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingEvents ? (
+                  <p className="text-muted-foreground text-center py-8">Loading events and tests...</p>
+                ) : eventsWithTests.length === 0 ? (
+                  <div className="text-center py-8">
+                    <ClipboardList className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                    <p className="text-muted-foreground">No events found for this tournament.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {eventsWithTests.map(({ event, tests }) => (
+                      <div key={event.id} className="space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-border">
+                          <div>
+                            <h3 className="font-semibold text-lg">{event.name}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {tests.length} test{tests.length !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                          <Button 
+                            size="sm"
+                            onClick={() => {
+                              router.push(`/td/tests/new?tournamentId=${tournament.id}&eventId=${event.id}`)
+                            }}
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Create Test
+                          </Button>
+                        </div>
+                        
+                        {tests.length === 0 ? (
+                          <div className="text-center py-6 bg-muted/50 rounded-lg border border-border">
+                            <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                            <p className="text-sm text-muted-foreground">No tests created yet for this event.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {tests.map(test => (
+                              <div 
+                                key={test.id}
+                                className="flex items-center justify-between p-4 rounded-lg border bg-card"
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h4 className="font-semibold">{test.name}</h4>
+                                    <Badge 
+                                      variant="outline" 
+                                      className={
+                                        test.status === 'PUBLISHED' 
+                                          ? 'bg-green-500/10 text-green-600 border-green-500/20' 
+                                          : test.status === 'CLOSED'
+                                            ? 'bg-slate-500/10 text-slate-600 border-slate-500/20'
+                                            : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                      }
+                                    >
+                                      {test.status}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                    <span>{test.questions.length} question{test.questions.length !== 1 ? 's' : ''}</span>
+                                    {test.createdBy && (
+                                      <>
+                                        <span>•</span>
+                                        <span>Created by {test.createdBy.name || test.createdBy.email}</span>
+                                      </>
+                                    )}
+                                    {test.updatedAt !== test.createdAt && (
+                                      <>
+                                        <span>•</span>
+                                        <span>
+                                          Last edited {
+                                            test.staff && test.createdBy && test.staff.id !== test.createdBy.id 
+                                              ? `by ${test.staff.name || test.staff.email} `
+                                              : test.staff
+                                                ? `by ${test.staff.name || test.staff.email} `
+                                                : test.createdBy 
+                                                  ? `by ${test.createdBy.name || test.createdBy.email} `
+                                                  : ''
+                                          }
+                                          on {format(new Date(test.updatedAt), 'MMM d, yyyy \'at\' h:mm a')}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Link href={`/td/tests/${test.id}`}>
+                                    <Button variant="outline" size="sm">
+                                      <Edit className="h-4 w-4 mr-1" />
+                                      Edit
+                                    </Button>
+                                  </Link>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handleDeleteTestClick({ id: test.id, name: test.name })}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Delete
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1601,7 +1888,7 @@ export function TDTournamentManageClient({
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-card py-4 mt-12">
+      <footer className="border-t border-border bg-card py-4 mt-auto">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-2">
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
@@ -1613,6 +1900,37 @@ export function TDTournamentManageClient({
           </div>
         </div>
       </footer>
+
+      {/* Delete Test Confirmation Dialog */}
+      <Dialog open={deleteTestDialogOpen} onOpenChange={setDeleteTestDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Test</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{testToDelete?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteTestDialogOpen(false)
+                setTestToDelete(null)
+              }}
+              disabled={deletingTest}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTestConfirm}
+              disabled={deletingTest}
+            >
+              {deletingTest ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

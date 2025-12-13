@@ -31,15 +31,15 @@ export function SignInThemeToggle({ variant = 'default' }: SignInThemeToggleProp
       size="icon"
       onClick={() => setTheme(theme === "light" ? "dark" : "light")}
       className={cn(
-        "h-10 w-10 transition-all hover:scale-105",
+        "h-10 w-10 transition-all hover:scale-105 group",
         isHeader && "border-0"
       )}
       suppressHydrationWarning
     >
       {showMoon ? (
-        <Moon className="h-5 w-5" />
+        <Moon className="h-5 w-5 text-white" />
       ) : (
-        <Sun className="h-5 w-5" />
+        <Sun className="h-5 w-5 group-hover:text-white transition-colors" />
       )}
       <span className="sr-only">Toggle theme</span>
     </Button>

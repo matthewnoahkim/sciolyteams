@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { nanoid } from 'nanoid'
 import {
   DndContext,
@@ -56,7 +56,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { QuestionPrompt } from '@/components/tests/question-prompt'
 import { ImportedQuestion, ImportedQuestionType } from '@/lib/import-types'
 
-type QuestionType = 'MCQ_SINGLE' | 'MCQ_MULTI' | 'LONG_TEXT'
+type QuestionType = 'MCQ_SINGLE' | 'MCQ_MULTI' | 'LONG_TEXT' | 'FILL_BLANK' | 'TEXT_BLOCK' | 'TRUE_FALSE'
 
 interface TeamInfo {
   id: string
@@ -93,6 +93,8 @@ interface QuestionDraft {
   frqParts?: FRQPart[] // For multi-part FRQ questions
   contextTables?: TableData[] // Tables for context field
   promptTables?: TableData[] // Tables for prompt field
+  blankAnswers?: string[] // Correct answers for each blank in fill-in-the-blank questions
+  blankPoints?: (number | null)[] // Optional points allocation for each blank
 }
 
 interface NewTestBuilderProps {
@@ -147,6 +149,27 @@ interface NewTestBuilderProps {
 }
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024 // 2MB
+
+// Helper function to normalize blank markers (number unnumbered [blank] markers)
+function normalizeBlankMarkers(text: string): string {
+  const blankMatches = text.match(/\[blank\d*\]/g) || []
+  if (blankMatches.length === 0) return text
+  
+  // Use a temporary placeholder approach to preserve positions
+  const placeholders: string[] = []
+  let tempCounter = 0
+  let normalized = text.replace(/\[blank\d*\]/g, () => {
+    placeholders.push(`__BLANK_PLACEHOLDER_${tempCounter++}__`)
+    return placeholders[placeholders.length - 1]
+  })
+  
+  // Replace placeholders with numbered blanks sequentially
+  placeholders.forEach((placeholder, index) => {
+    normalized = normalized.replace(placeholder, `[blank${index + 1}]`)
+  })
+  
+  return normalized
+}
 
 // Parse promptMd to extract context, prompt, tables, and FRQ parts
 function parsePromptMd(promptMd: string): { 
@@ -269,7 +292,8 @@ function dataToMarkdownTable(headers: string[], rows: string[][]): string {
 
 // Remove image markdown from content for textarea display
 function removeImageMarkdown(content: string): string {
-  return content.replace(/!\[([^\]]*)\]\((data:image\/[^)]+)\)/g, '').trim()
+  // Don't trim - preserve all spaces including leading/trailing
+  return content.replace(/!\[([^\]]*)\]\((data:image\/[^)]+)\)/g, '')
 }
 
 // Remove table markdown from content for textarea display
@@ -282,7 +306,8 @@ function reconstructMarkdown(
   text: string, 
   images: Array<{ alt: string; src: string }>
 ): string {
-  const textPart = text.trim()
+  // Don't trim - preserve all spaces including leading/trailing
+  const textPart = text
   const imageParts = images.map(img => `![${img.alt}](${img.src})`).join('\n\n')
   
   if (textPart && imageParts) {
@@ -291,12 +316,12 @@ function reconstructMarkdown(
   return textPart || imageParts
 }
 
-// Generate a markdown table with all cells labeled "Cell"
+// Generate a markdown table with empty cells
 function generateMarkdownTable(rows: number, cols: number): string {
-  const header = '| ' + Array(cols).fill('Cell').join(' | ') + ' |'
+  const header = '| ' + Array(cols).fill('').join(' | ') + ' |'
   const separator = '| ' + Array(cols).fill('---').join(' | ') + ' |'
   const body = Array(rows - 1).fill(0).map((_, rowIdx) => 
-    '| ' + Array(cols).fill('Cell').join(' | ') + ' |'
+    '| ' + Array(cols).fill('').join(' | ') + ' |'
   ).join('\n')
   return `${header}\n${separator}\n${body}`
 }
@@ -316,7 +341,11 @@ export function NewTestBuilder({
   test 
 }: NewTestBuilderProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const { toast } = useToast()
+  
+  // Check if we're in TD portal (pathname starts with /td/)
+  const isInTDPortal = pathname?.startsWith('/td/') ?? false
   const [saving, setSaving] = useState(false)
   const [publishDialogOpen, setPublishDialogOpen] = useState(false)
   const [calendarModalOpen, setCalendarModalOpen] = useState(false)
@@ -378,16 +407,63 @@ export function NewTestBuilder({
     if (test?.questions) {
       return test.questions.map((q) => {
         const { context, prompt, frqParts, contextTables, promptTables } = parsePromptMd(q.promptMd)
-        const type = (q.type === 'MCQ_SINGLE' || q.type === 'MCQ_MULTI' || q.type === 'LONG_TEXT') 
-          ? q.type as QuestionType
-          : 'MCQ_SINGLE'
+        // Map backend types to frontend types
+        let type: QuestionType = 'MCQ_SINGLE'
+        if (q.type === 'MCQ_SINGLE' || q.type === 'MCQ_MULTI' || q.type === 'LONG_TEXT') {
+          type = q.type as QuestionType
+          // Check if MCQ_SINGLE with exactly 2 options "True" and "False" -> TRUE_FALSE
+          if (q.type === 'MCQ_SINGLE' && q.options.length === 2) {
+            const optionLabels = q.options.map(opt => opt.label.trim().toLowerCase())
+            if (optionLabels.includes('true') && optionLabels.includes('false')) {
+              type = 'TRUE_FALSE'
+            }
+          }
+        } else if (q.type === 'SHORT_TEXT') {
+          // Check if it's a text block (0 points) or fill in the blank
+          if (Number(q.points) === 0) {
+            type = 'TEXT_BLOCK'
+          } else {
+            type = 'FILL_BLANK'
+          }
+        }
+        
+        // For fill-in-the-blank questions, parse blankAnswers and blankPoints from explanation
+        let blankAnswers: string[] | undefined = undefined
+        let blankPoints: (number | null)[] | undefined = undefined
+        if (type === 'FILL_BLANK' && q.explanation) {
+          try {
+            const parsed = JSON.parse(q.explanation)
+            // Check if it's new format with answers and points
+            if (parsed && typeof parsed === 'object' && 'answers' in parsed) {
+              blankAnswers = parsed.answers || []
+              // Convert number[] back to (number | null)[] by mapping to match answers length
+              const savedPoints: number[] = parsed.points || []
+              const answerCount = (blankAnswers || []).length
+              blankPoints = Array(answerCount).fill(null).map((_, i) => savedPoints[i] ?? null)
+            } else if (Array.isArray(parsed)) {
+              // Old format: just array of answers
+              blankAnswers = parsed
+              blankPoints = []
+            }
+          } catch {
+            // If not JSON, treat as empty (old format)
+            blankAnswers = []
+            blankPoints = []
+          }
+        }
+        
+        // For fill-in-the-blank questions, normalize blank markers in the prompt
+        let normalizedPrompt = prompt
+        if (type === 'FILL_BLANK') {
+          normalizedPrompt = normalizeBlankMarkers(prompt)
+        }
         
         return {
           id: q.id,
           type,
-          prompt,
+          prompt: normalizedPrompt,
           context,
-          explanation: q.explanation || '',
+          explanation: type === 'FILL_BLANK' ? '' : (q.explanation || ''),
           points: Number(q.points),
           options: q.options.map((opt) => ({
             id: opt.id,
@@ -398,6 +474,8 @@ export function NewTestBuilder({
           frqParts,
           contextTables,
           promptTables,
+          blankAnswers,
+          blankPoints,
         }
       })
     }
@@ -405,15 +483,31 @@ export function NewTestBuilder({
   })
 
   const addQuestion = (type: QuestionType) => {
-    const baseOptions: OptionDraft[] =
-      type === 'LONG_TEXT'
-        ? []
-        : [
-            { id: nanoid(), label: '', isCorrect: false },
-            { id: nanoid(), label: '', isCorrect: false },
-            { id: nanoid(), label: '', isCorrect: false },
-            { id: nanoid(), label: '', isCorrect: false },
-          ]
+    let baseOptions: OptionDraft[] = []
+    let defaultPoints = 1
+    
+    if (type === 'TRUE_FALSE') {
+      // Pre-populate with True and False options
+      baseOptions = [
+        { id: nanoid(), label: 'True', isCorrect: true },
+        { id: nanoid(), label: 'False', isCorrect: false },
+      ]
+    } else if (type === 'TEXT_BLOCK') {
+      // Text blocks are display-only, no options, 0 points
+      baseOptions = []
+      defaultPoints = 0
+    } else if (type === 'LONG_TEXT' || type === 'FILL_BLANK') {
+      // These types don't have options
+      baseOptions = []
+    } else {
+      // MCQ types get 4 empty options
+      baseOptions = [
+        { id: nanoid(), label: '', isCorrect: false },
+        { id: nanoid(), label: '', isCorrect: false },
+        { id: nanoid(), label: '', isCorrect: false },
+        { id: nanoid(), label: '', isCorrect: false },
+      ]
+    }
 
     const newQuestion: QuestionDraft = {
       id: nanoid(),
@@ -421,9 +515,10 @@ export function NewTestBuilder({
       prompt: '',
       context: '',
       explanation: '',
-      points: 1,
+      points: defaultPoints,
       options: baseOptions,
-      shuffleOptions: true,
+      shuffleOptions: type !== 'TRUE_FALSE' && type !== 'TEXT_BLOCK' && type !== 'LONG_TEXT' && type !== 'FILL_BLANK',
+      blankAnswers: type === 'FILL_BLANK' ? [] : undefined,
     }
 
     setQuestions((prev) => [...prev, newQuestion])
@@ -467,6 +562,28 @@ export function NewTestBuilder({
       return newQuestions
     })
   }
+
+  const moveQuestionToPosition = (id: string, targetPosition: number) => {
+    // targetPosition is 1-indexed
+    if (targetPosition < 1 || targetPosition > questions.length) return
+    
+    setQuestions((prev) => {
+      const currentIndex = prev.findIndex((q) => q.id === id)
+      if (currentIndex === -1) return prev
+      
+      // Convert to 0-indexed
+      const targetIndex = targetPosition - 1
+      
+      // If already at the target position, do nothing
+      if (currentIndex === targetIndex) return prev
+      
+      const newQuestions = [...prev]
+      const [question] = newQuestions.splice(currentIndex, 1)
+      newQuestions.splice(targetIndex, 0, question)
+      return newQuestions
+    })
+  }
+
 
   const handleImportFromDocx = async () => {
     // Create a file input element
@@ -686,6 +803,22 @@ export function NewTestBuilder({
     if (!details.durationMinutes || details.durationMinutes < 1 || details.durationMinutes > 720) {
       errors.push('Duration must be between 1 and 720 minutes.')
     }
+    
+    // Validate fill-in-the-blank questions: sum of blank points shouldn't exceed question points
+    questions.forEach((question, index) => {
+      if (question.type === 'FILL_BLANK' && question.blankPoints) {
+        const specifiedPointsSum = question.blankPoints.reduce((sum: number, p) => {
+          if (p !== null && p !== undefined) {
+            return sum + Number(p)
+          }
+          return sum
+        }, 0)
+        
+        if (specifiedPointsSum > question.points) {
+          errors.push(`Question ${index + 1}: Sum of blank points (${specifiedPointsSum}) exceeds question points (${question.points}).`)
+        }
+      }
+    })
 
     if (questions.length === 0) {
       errors.push('Add at least one question before saving.')
@@ -697,11 +830,13 @@ export function NewTestBuilder({
         errors.push(`Question ${index + 1} needs a prompt.`)
       }
 
-      if (question.points < 0.5) {
+      // TEXT_BLOCK can have 0 points (it's display-only)
+      if (question.type !== 'TEXT_BLOCK' && question.points < 0.5) {
         errors.push(`Question ${index + 1} must be worth at least 0.5 points.`)
       }
 
-      if (question.type !== 'LONG_TEXT') {
+      // TEXT_BLOCK and LONG_TEXT don't need answer validation (display-only or free response)
+      if (question.type !== 'LONG_TEXT' && question.type !== 'FILL_BLANK' && question.type !== 'TEXT_BLOCK') {
         // Filter out empty options for validation
         const filledOptions = question.options.filter((option) => option.label.trim())
         
@@ -713,9 +848,14 @@ export function NewTestBuilder({
         if (correctCount === 0) {
           errors.push(`Question ${index + 1} needs at least one correct answer.`)
         }
-        if (question.type === 'MCQ_SINGLE' && correctCount !== 1) {
+        if ((question.type === 'MCQ_SINGLE' || question.type === 'TRUE_FALSE') && correctCount !== 1) {
           errors.push(`Question ${index + 1} must have exactly one correct answer.`)
         }
+      }
+      
+      // TEXT_BLOCK can have 0 points (it's display-only)
+      if (question.type === 'TEXT_BLOCK' && question.points < 0) {
+        errors.push(`Question ${index + 1} (text block) cannot have negative points.`)
       }
     })
 
@@ -820,34 +960,130 @@ export function NewTestBuilder({
       allowNoteSheet: details.allowNoteSheet,
       noteSheetInstructions: details.allowNoteSheet ? details.noteSheetInstructions.trim() || undefined : undefined,
       assignments,
-      questions: questions.map((question, index) => ({
-        type: question.type,
-        promptMd: composePrompt(question),
-        explanation: question.explanation.trim() || undefined,
-        points: question.points,
-        order: index,
-        shuffleOptions: question.type === 'LONG_TEXT' ? false : question.shuffleOptions,
-        options:
-          question.type === 'LONG_TEXT'
-            ? undefined
-            : question.options
-                .filter((option) => option.label.trim()) // Filter out empty options
-                .map((option, optIndex) => ({
-                  label: option.label.trim(),
-                  isCorrect: option.isCorrect,
-                  order: optIndex,
-                })),
-      })),
+      questions: questions.map((question, index) => {
+        // Map frontend types to backend types
+        let backendType: 'MCQ_SINGLE' | 'MCQ_MULTI' | 'LONG_TEXT' | 'SHORT_TEXT' | 'NUMERIC' = question.type as any
+        if (question.type === 'TRUE_FALSE') {
+          backendType = 'MCQ_SINGLE'
+        } else if (question.type === 'FILL_BLANK' || question.type === 'TEXT_BLOCK') {
+          backendType = 'SHORT_TEXT'
+        }
+        
+        // For fill-in-the-blank, store blankAnswers and blankPoints in explanation field as JSON
+        let explanationValue: string | undefined = undefined
+        if (question.type === 'FILL_BLANK') {
+          // Store blankAnswers and blankPoints as JSON object in explanation field
+          if (question.blankAnswers && question.blankAnswers.length > 0) {
+            const data: { answers: string[], points?: number[] } = {
+              answers: question.blankAnswers,
+            }
+            if (question.blankPoints && question.blankPoints.some(p => p !== null && p !== undefined)) {
+              // Filter out null values and convert to number[]
+              data.points = question.blankPoints.filter((p): p is number => p !== null && p !== undefined)
+            }
+            explanationValue = JSON.stringify(data)
+          } else {
+            explanationValue = undefined
+          }
+        } else {
+          explanationValue = question.explanation.trim() || undefined
+        }
+        
+        return {
+          type: backendType,
+          promptMd: composePrompt(question),
+          explanation: explanationValue,
+          points: question.points,
+          order: index,
+          shuffleOptions: (question.type === 'LONG_TEXT' || question.type === 'FILL_BLANK' || question.type === 'TEXT_BLOCK') ? false : question.shuffleOptions,
+          options:
+            (question.type === 'LONG_TEXT' || question.type === 'FILL_BLANK' || question.type === 'TEXT_BLOCK')
+              ? undefined
+              : question.options
+                  .filter((option) => option.label.trim()) // Filter out empty options
+                  .map((option, optIndex) => ({
+                    label: option.label.trim(),
+                    isCorrect: option.isCorrect,
+                    order: optIndex,
+                  })),
+        }
+      }),
     }
 
     setSaving(true)
     try {
       if (isEditMode && test) {
         // Update existing test
-        const response = await fetch(`/api/tests/${test.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        // Use ES API if in ES mode, otherwise use regular test API
+        let updateUrl: string
+        let updateMethod: string
+        let updatePayload: any
+        
+        if (esMode && staffMembershipId) {
+          // ES Mode - use ES API with PUT method
+          updateUrl = '/api/es/tests'
+          updateMethod = 'PUT'
+          
+          // Get existing question IDs
+          const existingQuestionIds = new Set(test.questions.map(q => q.id))
+          
+          // Build questions array for ES API
+          updatePayload = {
+            testId: test.id,
+            name: payload.name,
+            description: payload.description,
+            instructions: payload.instructions,
+            durationMinutes: payload.durationMinutes,
+            status: andPublish ? 'PUBLISHED' : test.status,
+            eventId: initialEventId || undefined,
+            questions: questions.map((question, index) => {
+              // For fill-in-the-blank, store blankAnswers and blankPoints in explanation field as JSON
+              let explanationValue: string | undefined = undefined
+              if (question.type === 'FILL_BLANK') {
+                if (question.blankAnswers && question.blankAnswers.length > 0) {
+                  const data: { answers: string[], points?: number[] } = {
+                    answers: question.blankAnswers,
+                  }
+                  if (question.blankPoints && question.blankPoints.some(p => p !== null && p !== undefined)) {
+                    data.points = question.blankPoints.filter((p): p is number => p !== null && p !== undefined)
+                  }
+                  explanationValue = JSON.stringify(data)
+                }
+              } else {
+                explanationValue = question.explanation.trim() || undefined
+              }
+              
+              const questionPayload: any = {
+                ...(existingQuestionIds.has(question.id) ? { id: question.id } : {}),
+                type: question.type === 'TRUE_FALSE' ? 'MCQ_SINGLE' : 
+                      question.type === 'FILL_BLANK' || question.type === 'TEXT_BLOCK' ? 'SHORT_TEXT' : 
+                      question.type,
+                promptMd: composePrompt(question),
+                explanation: explanationValue,
+                points: question.points,
+                order: index,
+                shuffleOptions: question.type === 'LONG_TEXT' ? false : question.shuffleOptions,
+              }
+              
+              // Only include options for MCQ question types
+              if ((question.type === 'MCQ_SINGLE' || question.type === 'MCQ_MULTI' || question.type === 'TRUE_FALSE') && question.options && Array.isArray(question.options)) {
+                questionPayload.options = question.options
+                  .filter((option) => option.label.trim())
+                  .map((option, optIndex) => ({
+                    ...(option.id ? { id: option.id } : {}),
+                    label: option.label.trim(),
+                    isCorrect: option.isCorrect,
+                    order: optIndex,
+                  }))
+              }
+              return questionPayload
+            }),
+          }
+        } else {
+          // Regular club/tournament mode
+          updateUrl = `/api/tests/${test.id}`
+          updateMethod = 'PATCH'
+          updatePayload = {
             name: payload.name,
             description: payload.description,
             instructions: payload.instructions,
@@ -858,12 +1094,43 @@ export function NewTestBuilder({
             calculatorType: payload.calculatorType,
             allowNoteSheet: payload.allowNoteSheet,
             noteSheetInstructions: payload.noteSheetInstructions,
-          }),
+          }
+        }
+
+        const response = await fetch(updateUrl, {
+          method: updateMethod,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatePayload),
         })
 
         if (!response.ok) {
           const data = await response.json()
           throw new Error(data.error || 'Failed to update test')
+        }
+        
+        // For ES mode, questions are updated in the PUT request above, so skip the individual question updates
+        if (esMode) {
+          if (andPublish && test.status === 'DRAFT') {
+            // Open the publish dialog
+            setPublishDialogOpen(true)
+          } else {
+            toast({
+              title: 'Test Updated',
+              description: 'Your changes have been saved',
+            })
+            if (isInTDPortal && tournamentId) {
+              // Set events tab in localStorage and redirect to TD tournament manage page
+              const storageKey = `td-tournament-tab-${tournamentId}`
+              localStorage.setItem(storageKey, 'events')
+              router.push(`/td/tournament/${tournamentId}`)
+            } else if (tournamentId) {
+              router.push(`/es?tournament=${tournamentId}`)
+            } else {
+              router.push('/es')
+            }
+            router.refresh()
+          }
+          return
         }
 
         // Update assignments
@@ -889,10 +1156,30 @@ export function NewTestBuilder({
         // Update or create questions
         for (let i = 0; i < questions.length; i++) {
           const question = questions[i]
+          
+          // For fill-in-the-blank, store blankAnswers and blankPoints in explanation field as JSON
+          let explanationValue: string | undefined = undefined
+          if (question.type === 'FILL_BLANK') {
+            if (question.blankAnswers && question.blankAnswers.length > 0) {
+              const data: { answers: string[], points?: number[] } = {
+                answers: question.blankAnswers,
+              }
+              if (question.blankPoints && question.blankPoints.some(p => p !== null && p !== undefined)) {
+                // Filter out null values and convert to number[]
+                data.points = question.blankPoints.filter((p): p is number => p !== null && p !== undefined)
+              }
+              explanationValue = JSON.stringify(data)
+            } else {
+              explanationValue = undefined
+            }
+          } else {
+            explanationValue = question.explanation.trim() || undefined
+          }
+          
           const questionPayload = {
             type: question.type,
             promptMd: composePrompt(question),
-            explanation: question.explanation.trim() || undefined,
+            explanation: explanationValue,
             points: question.points,
             order: i,
             shuffleOptions: question.type === 'LONG_TEXT' ? false : question.shuffleOptions,
@@ -936,12 +1223,23 @@ export function NewTestBuilder({
             title: 'Test Updated',
             description: 'Your changes have been saved',
           })
-          const tournamentId = sessionStorage.getItem('tournamentId')
-          if (tournamentId) {
-            router.push(`/tournaments/${tournamentId}/tests`)
-            sessionStorage.removeItem('tournamentId')
+          if (isInTDPortal && tournamentId) {
+            // Set events tab in localStorage and redirect to TD tournament manage page
+            const storageKey = `td-tournament-tab-${tournamentId}`
+            localStorage.setItem(storageKey, 'events')
+            router.push(`/td/tournament/${tournamentId}`)
+          } else if (esMode && tournamentId) {
+            router.push(`/es?tournament=${tournamentId}`)
+          } else if (esMode) {
+            router.push('/es')
           } else {
-            router.push(`/club/${clubId}?tab=tests`)
+            const savedTournamentId = sessionStorage.getItem('tournamentId')
+            if (savedTournamentId) {
+              router.push(`/tournaments/${savedTournamentId}/tests`)
+              sessionStorage.removeItem('tournamentId')
+            } else if (clubId) {
+              router.push(`/club/${clubId}?tab=tests`)
+            }
           }
           router.refresh()
         }
@@ -961,15 +1259,21 @@ export function NewTestBuilder({
             description: payload.description,
             instructions: payload.instructions,
             durationMinutes: payload.durationMinutes,
-            questions: payload.questions.map((q: any) => ({
-              type: q.type,
-              promptMd: q.promptMd,
-              explanation: q.explanation,
-              points: q.points,
-              order: q.order,
-              shuffleOptions: q.shuffleOptions,
-              options: q.type.startsWith('MCQ') ? q.options : undefined,
-            })),
+            questions: payload.questions.map((q: any) => {
+              const questionPayload: any = {
+                type: q.type,
+                promptMd: q.promptMd,
+                explanation: q.explanation,
+                points: q.points,
+                order: q.order,
+                shuffleOptions: q.shuffleOptions || false,
+              }
+              // Only include options for MCQ question types
+              if ((q.type === 'MCQ_SINGLE' || q.type === 'MCQ_MULTI') && q.options && Array.isArray(q.options)) {
+                questionPayload.options = q.options
+              }
+              return questionPayload
+            }),
           }
         } else if (tournamentId) {
           // Tournament mode
@@ -1019,7 +1323,14 @@ export function NewTestBuilder({
                 ? 'Your test draft has been created and added to the tournament.'
                 : 'Your test draft has been created successfully.',
           })
-          if (esMode) {
+          if (isInTDPortal && tournamentId) {
+            // Set events tab in localStorage and redirect to TD tournament manage page
+            const storageKey = `td-tournament-tab-${tournamentId}`
+            localStorage.setItem(storageKey, 'events')
+            router.push(`/td/tournament/${tournamentId}`)
+          } else if (esMode && tournamentId) {
+            router.push(`/es?tournament=${tournamentId}`)
+          } else if (esMode) {
             router.push('/es')
           } else if (tournamentId) {
             router.push(`/tournaments/${tournamentId}/tests`)
@@ -1160,7 +1471,16 @@ export function NewTestBuilder({
       }
       setPublishDialogOpen(false)
       setAddToCalendar(false)
-      if (savedTournamentId) {
+      if (isInTDPortal && tournamentId) {
+        // Set events tab in localStorage and redirect to TD tournament manage page
+        const storageKey = `td-tournament-tab-${tournamentId}`
+        localStorage.setItem(storageKey, 'events')
+        router.push(`/td/tournament/${tournamentId}`)
+      } else if (esMode && tournamentId) {
+        router.push(`/es?tournament=${tournamentId}`)
+      } else if (esMode) {
+        router.push('/es')
+      } else if (savedTournamentId) {
         if (!isEditMode) {
           sessionStorage.removeItem('tournamentId')
         }
@@ -1198,7 +1518,19 @@ export function NewTestBuilder({
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => router.push(`/club/${clubId}?tab=tests`)}
+            onClick={() => {
+              if (isInTDPortal && tournamentId) {
+                router.push(`/td/tournament/${tournamentId}`)
+              } else if (esMode && tournamentId) {
+                router.push(`/es?tournament=${tournamentId}`)
+              } else if (esMode) {
+                router.push('/es')
+              } else if (clubId) {
+                router.push(`/club/${clubId}?tab=tests`)
+              } else {
+                router.back()
+              }
+            }}
             disabled={saving}
           >
             Cancel
@@ -1413,6 +1745,18 @@ export function NewTestBuilder({
                   <Plus className="mr-2 h-4 w-4" />
                   Select All That Apply
                 </Button>
+                <Button size="sm" variant="outline" onClick={() => addQuestion('TRUE_FALSE')}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  True or False
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => addQuestion('FILL_BLANK')}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Fill in the Blank
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => addQuestion('TEXT_BLOCK')}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Text Block
+                </Button>
                 <Button 
                   size="sm" 
                   variant="outline" 
@@ -1444,6 +1788,7 @@ export function NewTestBuilder({
               onRemove={() => removeQuestion(question.id)}
               onMoveUp={() => moveQuestion(question.id, -1)}
               onMoveDown={() => moveQuestion(question.id, 1)}
+              onMoveToPosition={(position) => moveQuestionToPosition(question.id, position)}
               onImageUpload={(field, file, cursorPosition) => handleImageEmbed(question.id, field, file, cursorPosition)}
               onAddRecommendedOptions={() => addRecommendedOptions(question.id)}
             />
@@ -1800,6 +2145,7 @@ interface QuestionCardProps {
   onRemove: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  onMoveToPosition: (position: number) => void
   onImageUpload: (field: 'context' | 'prompt', file: File, cursorPosition?: number | null) => void
   onAddRecommendedOptions: () => void
 }
@@ -1812,6 +2158,7 @@ function QuestionCard({
   onRemove,
   onMoveUp,
   onMoveDown,
+  onMoveToPosition,
   onImageUpload,
   onAddRecommendedOptions,
 }: QuestionCardProps) {
@@ -1828,6 +2175,9 @@ function QuestionCard({
     context: 'stacked',
     prompt: 'stacked',
   })
+  
+  // Note: Blank marker normalization happens in handlePromptTextChange during typing
+  // and when loading questions (in the initial state). No useEffect needed here.
   const [showPreview, setShowPreview] = useState(false)
   const [showTableDialog, setShowTableDialog] = useState(false)
   const [tableConfig, setTableConfig] = useState<{ field: 'context' | 'prompt' | null; rows: number; cols: number }>({
@@ -1974,6 +2324,9 @@ function QuestionCard({
   // Remove only images from text (tables are stored separately now)
   let contextText = removeImageMarkdown(question.context)
   let promptText = removeImageMarkdown(question.prompt)
+  
+  // Don't normalize here - it causes re-renders that interfere with typing
+  // Normalization happens in handlePromptTextChange when user types
 
   const handleContextTextChange = (newText: string) => {
     const newImages = extractImages(question.context)
@@ -1983,8 +2336,79 @@ function QuestionCard({
 
   const handlePromptTextChange = (newText: string) => {
     const newImages = extractImages(question.prompt)
-    const reconstructed = reconstructMarkdown(newText, newImages)
-    onChange((prev) => ({ ...prev, prompt: reconstructed }))
+    let reconstructed = reconstructMarkdown(newText, newImages)
+    
+    // For fill-in-the-blank questions, automatically number any unnumbered [blank] markers
+    if (question.type === 'FILL_BLANK') {
+      reconstructed = normalizeBlankMarkers(reconstructed)
+      
+      // Count blanks
+      const newBlankCount = (reconstructed.match(/\[blank\d+\]/g) || []).length
+      const currentBlankAnswers = question.blankAnswers || []
+      const currentBlankPoints = question.blankPoints || []
+      
+      // Adjust blankAnswers array to match new blank count
+      let newBlankAnswers: string[]
+      if (newBlankCount > currentBlankAnswers.length) {
+        // Added blanks - pad with empty strings
+        newBlankAnswers = [...currentBlankAnswers, ...Array(newBlankCount - currentBlankAnswers.length).fill('')]
+      } else if (newBlankCount < currentBlankAnswers.length) {
+        // Removed blanks - truncate array
+        newBlankAnswers = currentBlankAnswers.slice(0, newBlankCount)
+      } else {
+        // Same count - keep existing
+        newBlankAnswers = currentBlankAnswers
+      }
+      
+      // Adjust blankPoints array to match new blank count
+      let newBlankPoints: (number | null)[]
+      if (newBlankCount > currentBlankPoints.length) {
+        // Added blanks - pad with null
+        newBlankPoints = [...currentBlankPoints, ...Array(newBlankCount - currentBlankPoints.length).fill(null)]
+      } else if (newBlankCount < currentBlankPoints.length) {
+        // Removed blanks - truncate array
+        newBlankPoints = currentBlankPoints.slice(0, newBlankCount)
+      } else {
+        // Same count - keep existing
+        newBlankPoints = currentBlankPoints
+      }
+      
+      onChange((prev) => ({ ...prev, prompt: reconstructed, blankAnswers: newBlankAnswers, blankPoints: newBlankPoints }))
+    } else {
+      onChange((prev) => ({ ...prev, prompt: reconstructed }))
+    }
+  }
+
+  const handleInsertBlank = () => {
+    if (!promptTextareaRef.current) return
+    const textarea = promptTextareaRef.current
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    
+    // Use promptText which already has images removed
+    const currentText = promptText
+    
+    // Count existing blanks (both [blank] and [blank1], [blank2], etc.)
+    const blankMatches = currentText.match(/\[blank\d*\]/g) || []
+    const blankCount = blankMatches.length
+    
+    // Create numbered blank marker
+    const blankMarker = `[blank${blankCount + 1}]`
+    
+    // Insert blank marker at cursor position
+    const newText = currentText.substring(0, start) + blankMarker + currentText.substring(end)
+    
+    // Update the text using handlePromptTextChange which handles image reconstruction
+    handlePromptTextChange(newText)
+    
+    // Set cursor position after the inserted blank marker
+    setTimeout(() => {
+      if (promptTextareaRef.current) {
+        const newPosition = start + blankMarker.length
+        promptTextareaRef.current.setSelectionRange(newPosition, newPosition)
+        promptTextareaRef.current.focus()
+      }
+    }, 0)
   }
 
   const removeImage = (field: 'context' | 'prompt', imageSrc: string) => {
@@ -2109,16 +2533,54 @@ function QuestionCard({
     })
   )
 
+  const [positionInput, setPositionInput] = useState<string>((index + 1).toString())
+
+  // Update position input when index changes
+  useEffect(() => {
+    setPositionInput((index + 1).toString())
+  }, [index])
+
+  const handlePositionChange = (value: string) => {
+    setPositionInput(value)
+  }
+
+  const handlePositionBlur = () => {
+    const numValue = parseInt(positionInput, 10)
+    if (!isNaN(numValue) && numValue >= 1 && numValue <= total) {
+      onMoveToPosition(numValue)
+    } else {
+      // Reset to current position if invalid
+      setPositionInput((index + 1).toString())
+    }
+  }
+
+  const handlePositionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur()
+    }
+  }
+
   return (
     <div className="rounded-lg border border-border bg-card shadow-sm">
       <div className="flex flex-col gap-2 border-b border-border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="flex items-center gap-2">
           <p className="text-sm font-semibold text-muted-foreground">
-            Question {index + 1}{' '}
+            Question{' '}
             <span className="font-normal text-muted-foreground/80">
               • {renderTypeLabel(question.type)}
             </span>
           </p>
+          <Input
+            type="number"
+            min={1}
+            max={total}
+            value={positionInput}
+            onChange={(e) => handlePositionChange(e.target.value)}
+            onBlur={handlePositionBlur}
+            onKeyDown={handlePositionKeyDown}
+            className="w-16 h-7 text-center text-xs"
+          />
+          <span className="text-xs text-muted-foreground">of {total}</span>
         </div>
         <div className="flex flex-wrap gap-1.5">
           <Button
@@ -2160,6 +2622,7 @@ function QuestionCard({
         </div>
       </div>
       <div className="space-y-6 p-4">
+        {question.type !== 'TEXT_BLOCK' && (
         <div>
           <div className="flex items-center justify-between text-sm font-medium mb-2">
             <Label htmlFor={`context-label-${index}`}>Context / stimulus (optional)</Label>
@@ -2306,11 +2769,29 @@ function QuestionCard({
             />
           </div>
         </div>
+        )}
 
         <div>
           <div className="flex items-center justify-between text-sm font-medium mb-2">
-            <Label htmlFor={`prompt-label-${index}`}>Prompt *</Label>
+            <Label htmlFor={`prompt-label-${index}`}>
+              {question.type === 'TEXT_BLOCK' ? 'Content *' : 'Prompt *'}
+            </Label>
             <div className="flex gap-2">
+              {question.type === 'FILL_BLANK' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleInsertBlank()
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Insert Blank
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -2449,7 +2930,13 @@ function QuestionCard({
               onClick={() => handleTextareaClick('prompt')}
               onKeyUp={() => handleTextareaKeyUp('prompt')}
               onSelect={() => handleTextareaKeyUp('prompt')}
-              placeholder="Type your question here. Click where you want to insert an image, then click 'Add Image'."
+              placeholder={
+                question.type === 'FILL_BLANK' 
+                  ? "Type your text here. Click where you want a blank, then click 'Insert Blank' to add numbered blank markers."
+                  : question.type === 'TEXT_BLOCK'
+                  ? "Type your text content here. Click where you want to insert an image, then click 'Add Image'."
+                  : "Type your question here. Click where you want to insert an image, then click 'Add Image'."
+              }
               required
             />
           </div>
@@ -2542,17 +3029,19 @@ function QuestionCard({
           </div>
         )}
 
-        {question.type !== 'LONG_TEXT' && (
+        {question.type !== 'LONG_TEXT' && question.type !== 'FILL_BLANK' && question.type !== 'TEXT_BLOCK' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-sm font-medium">Answer choices *</Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  At least one filled choice required. 4 recommended for multiple choice.
+                  {question.type === 'TRUE_FALSE' 
+                    ? 'Select which option is correct (True or False).'
+                    : 'At least one filled choice required. 4 recommended for multiple choice.'}
                 </p>
               </div>
               <div className="flex gap-2">
-                {question.options.length < 4 && (
+                {question.type !== 'TRUE_FALSE' && question.options.length < 4 && (
                   <Button
                     type="button"
                     size="sm"
@@ -2563,14 +3052,16 @@ function QuestionCard({
                     Add to 4
                   </Button>
                 )}
-                <Button type="button" size="sm" variant="outline" onClick={addOption}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add choice
-                </Button>
+                {question.type !== 'TRUE_FALSE' && (
+                  <Button type="button" size="sm" variant="outline" onClick={addOption}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add choice
+                  </Button>
+                )}
               </div>
             </div>
             <div className="space-y-2">
-              {question.type === 'MCQ_SINGLE' ? (
+              {(question.type === 'MCQ_SINGLE' || question.type === 'TRUE_FALSE') ? (
                 <RadioGroup
                   value={question.options.find((opt) => opt.isCorrect)?.id || ''}
                   onValueChange={(value) => {
@@ -2610,7 +3101,7 @@ function QuestionCard({
                         variant="ghost"
                         size="icon"
                         onClick={() => removeOption(option.id)}
-                        disabled={question.options.length <= 1}
+                        disabled={question.options.length <= 1 || question.type === 'TRUE_FALSE'}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -2661,31 +3152,35 @@ function QuestionCard({
                 ))
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id={`shuffle-${question.id}`}
-                checked={question.shuffleOptions}
-                onCheckedChange={(checked) =>
-                  onChange((prev) => ({
-                    ...prev,
-                    shuffleOptions: checked as boolean,
-                  }))
-                }
-              />
-              <Label htmlFor={`shuffle-${question.id}`} className="cursor-pointer font-normal text-sm">
-                Shuffle choices per student
-              </Label>
-            </div>
+            {question.type !== 'TRUE_FALSE' && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id={`shuffle-${question.id}`}
+                  checked={question.shuffleOptions}
+                  onCheckedChange={(checked) =>
+                    onChange((prev) => ({
+                      ...prev,
+                      shuffleOptions: checked as boolean,
+                    }))
+                  }
+                />
+                <Label htmlFor={`shuffle-${question.id}`} className="cursor-pointer font-normal text-sm">
+                  Shuffle choices per student
+                </Label>
+              </div>
+            )}
           </div>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor={`points-${question.id}`}>Points *</Label>
+            <Label htmlFor={`points-${question.id}`}>
+              Points {question.type === 'TEXT_BLOCK' ? '(optional)' : '*'}
+            </Label>
             <Input
               id={`points-${question.id}`}
               type="number"
-              min="0.5"
+              min={question.type === 'TEXT_BLOCK' ? "0" : "0.5"}
               step="0.5"
               value={question.points}
               onChange={(event) =>
@@ -2697,27 +3192,156 @@ function QuestionCard({
                 }))
               }
             />
+            {question.type === 'TEXT_BLOCK' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Text blocks are display-only and typically have 0 points.
+              </p>
+            )}
           </div>
           <div>
-            <Label htmlFor={`explanation-${question.id}`}>
-              {question.type === 'LONG_TEXT' ? 'Example Answer (optional)' : 'Explanation (optional)'}
-            </Label>
-            <textarea
-              id={`explanation-${question.id}`}
-              className="mt-2 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={question.explanation}
-              onChange={(event) =>
-                onChange((prev) => ({
-                  ...prev,
-                  explanation: event.target.value,
-                }))
-              }
-              placeholder={
-                question.type === 'LONG_TEXT'
-                  ? 'Provide an example of a good answer for grading reference.'
-                  : 'Share the reasoning for the correct answer.'
-              }
-            />
+            {question.type === 'FILL_BLANK' ? (() => {
+              // Count the number of blank markers in the prompt (supports both [blank] and [blank1], [blank2], etc.)
+              const blankCount = (question.prompt.match(/\[blank\d*\]/g) || []).length
+              const blankAnswers = question.blankAnswers || Array(blankCount).fill('')
+              const blankPoints = question.blankPoints || Array(blankCount).fill(null)
+              
+              return (
+                <div>
+                  <Label>
+                    Correct Answers for Each Blank *
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1 mb-3">
+                    Enter the correct answer for each blank. Answers will be auto-graded (case-insensitive).
+                  </p>
+                  {blankCount === 0 ? (
+                    <div className="text-sm text-muted-foreground p-3 border border-dashed rounded-md">
+                      Add [blank] markers to your prompt to set correct answers.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {Array.from({ length: blankCount }).map((_, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Label htmlFor={`blank-answer-${question.id}-${index}`} className="w-20 text-sm">
+                            Blank {index + 1}:
+                          </Label>
+                          <Input
+                            id={`blank-answer-${question.id}-${index}`}
+                            type="text"
+                            value={blankAnswers[index] || ''}
+                            onChange={(e) => {
+                              const newBlankAnswers = [...blankAnswers]
+                              newBlankAnswers[index] = e.target.value
+                              onChange((prev) => ({
+                                ...prev,
+                                blankAnswers: newBlankAnswers,
+                              }))
+                            }}
+                            placeholder={`Correct answer for blank ${index + 1}`}
+                            className="flex-1"
+                          />
+                          <Label htmlFor={`blank-points-${question.id}-${index}`} className="w-16 text-xs text-muted-foreground">
+                            Points (optional):
+                          </Label>
+                          <Input
+                            id={`blank-points-${question.id}-${index}`}
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            max={question.points}
+                            value={blankPoints[index] !== null && blankPoints[index] !== undefined ? blankPoints[index] : ''}
+                            onChange={(e) => {
+                              const newBlankPoints = [...blankPoints]
+                              const value = e.target.value
+                              const numValue = value === '' ? null : (Number.isFinite(Number(value)) ? Number(value) : null)
+                              
+                              // Calculate sum of all blank points (excluding the current one being edited)
+                              const otherPointsSum = newBlankPoints.reduce((sum, p, i) => {
+                                if (i !== index && p !== null && p !== undefined) {
+                                  return sum + Number(p)
+                                }
+                                return sum
+                              }, 0)
+                              
+                              // Check if adding this value would exceed total points
+                              const newValue = numValue !== null ? Number(numValue) : 0
+                              const totalSum = otherPointsSum + newValue
+                              
+                              if (numValue !== null && totalSum > question.points) {
+                                // Don't update if it would exceed total points
+                                return
+                              }
+                              
+                              newBlankPoints[index] = numValue
+                              onChange((prev) => ({
+                                ...prev,
+                                blankPoints: newBlankPoints,
+                              }))
+                            }}
+                            placeholder="Auto"
+                            className="w-20"
+                          />
+                        </div>
+                      ))}
+                      {(() => {
+                        // Calculate sum of specified blank points
+                        const specifiedPointsSum = blankPoints.reduce((sum, p) => {
+                          if (p !== null && p !== undefined) {
+                            return sum + Number(p)
+                          }
+                          return sum
+                        }, 0)
+                        
+                        // Show warning if sum exceeds total points
+                        if (specifiedPointsSum > question.points) {
+                          return (
+                            <p className="text-xs text-destructive mt-2 font-medium">
+                              Warning: Sum of blank points ({specifiedPointsSum}) exceeds question points ({question.points}).
+                            </p>
+                          )
+                        }
+                        
+                        return (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            If points are not specified, full credit requires all blanks to be correct.
+                            {specifiedPointsSum > 0 && (
+                              <span className="block mt-1">Total blank points: {specifiedPointsSum} / {question.points}</span>
+                            )}
+                          </p>
+                        )
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )
+            })() : (
+              <>
+                <Label htmlFor={`explanation-${question.id}`}>
+                  {question.type === 'LONG_TEXT'
+                    ? 'Example Answer (optional)' 
+                    : question.type === 'TEXT_BLOCK'
+                    ? 'Notes (optional)'
+                    : 'Explanation (optional)'}
+                </Label>
+                <textarea
+                  id={`explanation-${question.id}`}
+                  className="mt-2 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={question.explanation}
+                  onChange={(event) =>
+                    onChange((prev) => ({
+                      ...prev,
+                      explanation: event.target.value,
+                    }))
+                  }
+                  placeholder={
+                    question.type === 'LONG_TEXT'
+                      ? 'Provide an example of a good answer for grading reference.'
+                      : question.type === 'TEXT_BLOCK'
+                      ? 'Add any notes or instructions about this text block.'
+                      : 'Share the reasoning for the correct answer.'
+                  }
+                />
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -2797,18 +3421,24 @@ function QuestionCard({
             )}
             <div>
               <p className="text-xs font-semibold text-muted-foreground mb-2">Question {index + 1}</p>
-              <QuestionPrompt 
-                promptMd={
-                  question.promptTables && question.promptTables.length > 0
-                    ? `${question.prompt}\n\n${question.promptTables.map(t => t.markdown).join('\n\n')}`
-                    : question.prompt
-                } 
-                imageLayout={imageLayout.prompt} 
-              />
+              {question.type === 'FILL_BLANK' && /\[blank\d*\]/.test(question.prompt || '') ? (
+                // For fill-in-the-blank, we'll render it inline with input fields below
+                // Don't render the prompt separately here
+                null
+              ) : (
+                <QuestionPrompt 
+                  promptMd={
+                    question.promptTables && question.promptTables.length > 0
+                      ? `${question.prompt}\n\n${question.promptTables.map(t => t.markdown).join('\n\n')}`
+                      : question.prompt
+                  } 
+                  imageLayout={imageLayout.prompt} 
+                />
+              )}
             </div>
-            {question.type !== 'LONG_TEXT' && question.options.length > 0 && (
+            {question.type !== 'LONG_TEXT' && question.type !== 'FILL_BLANK' && question.type !== 'TEXT_BLOCK' && question.options.length > 0 && (
               <div className="space-y-2 pt-2">
-                {question.type === 'MCQ_SINGLE' ? (
+                {(question.type === 'MCQ_SINGLE' || question.type === 'TRUE_FALSE') ? (
                   <RadioGroup className="space-y-2">
                     {question.options.filter(opt => opt.label.trim()).map((option, idx) => (
                       <div key={option.id} className="flex items-center gap-2">
@@ -2831,6 +3461,108 @@ function QuestionCard({
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+            {question.type === 'FILL_BLANK' && (() => {
+              // Render fill-in-the-blank exactly as students will see it
+              const promptText = question.prompt || ''
+              const hasBlanks = /\[blank\d*\]/.test(promptText)
+              
+              if (hasBlanks) {
+                // Parse the prompt to extract context and prompt sections
+                const parts = promptText.split('---')
+                const contextSection = parts.length > 1 ? parts[0].trim() : ''
+                const promptSection = parts.length > 1 ? parts[1].trim() : promptText.trim()
+                
+                // Extract images and tables temporarily (similar to take-test-client)
+                const imageRegex = /!\[([^\]]*)\]\((data:image\/[^)]+)\)/g
+                const tableRegex = /(\|.+\|[\r\n]+\|[-:\s|]+\|[\r\n]+(?:\|.+\|(?:\r?\n(?!\r?\n))?)+)/g
+                
+                // Extract images and tables to render separately
+                const imageMatches: string[] = []
+                const tableMatches: string[] = []
+                let match
+                while ((match = imageRegex.exec(promptSection)) !== null) {
+                  imageMatches.push(match[0])
+                }
+                while ((match = tableRegex.exec(promptSection)) !== null) {
+                  tableMatches.push(match[0])
+                }
+                
+                let textOnly = promptSection
+                textOnly = textOnly.replace(imageRegex, '')
+                textOnly = textOnly.replace(tableRegex, '')
+                
+                // Split on blank markers
+                const normalizedText = textOnly.replace(/\[blank\d*\]/g, '[BLANK_MARKER]')
+                const textSegments = normalizedText.split('[BLANK_MARKER]')
+                const blankCount = textSegments.length - 1
+                
+                return (
+                  <div className="pt-2 space-y-4">
+                    {/* Render images separately if they exist (before the text) */}
+                    {imageMatches.length > 0 && (
+                      <div className="mb-4">
+                        {imageMatches.map((img, idx) => (
+                          <div key={`preview-img-${idx}`} className="my-3 rounded-md border border-input overflow-hidden bg-muted/30">
+                            <img
+                              src={img.match(/\(([^)]+)\)/)?.[1] || ''}
+                              alt={img.match(/\[([^\]]*)\]/)?.[1] || 'Image'}
+                              className="max-w-full max-h-96 object-contain block mx-auto"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Render prompt text with inline input fields (disabled for preview) */}
+                    <div className="text-base leading-relaxed">
+                      {textSegments.map((segment, index) => (
+                        <span key={index} className="inline">
+                          {segment && (
+                            <span className="whitespace-pre-wrap">{segment}</span>
+                          )}
+                          {index < textSegments.length - 1 && (
+                            <Input
+                              type="text"
+                              placeholder=""
+                              disabled
+                              value=""
+                              className="inline-block w-auto min-w-[150px] max-w-[300px] mx-2 align-middle"
+                            />
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                    
+                    {/* Render tables separately if they exist (after the text) */}
+                    {tableMatches.length > 0 && (
+                      <div className="mt-4">
+                        {tableMatches.map((table, idx) => (
+                          <div key={`preview-table-${idx}`} className="my-3">
+                            <QuestionPrompt promptMd={table} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+              
+              // Fallback if no blanks found
+              return (
+                <div className="pt-2">
+                  <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/10 p-4 text-sm text-muted-foreground">
+                    Add [blank] markers to your prompt to create fill-in-the-blank questions.
+                  </div>
+                </div>
+              )
+            })()}
+            {question.type === 'TEXT_BLOCK' && (
+              <div className="pt-2">
+                <div className="rounded-md border border-muted-foreground/20 bg-muted/5 p-4 text-sm text-muted-foreground italic">
+                  This is a text block (display-only content). Students will see this content but won&apos;t need to answer it.
+                </div>
               </div>
             )}
             {question.type === 'LONG_TEXT' && (
@@ -2876,6 +3608,12 @@ function renderTypeLabel(type: QuestionType) {
       return 'Multiple choice'
     case 'MCQ_MULTI':
       return 'Select all that apply'
+    case 'TRUE_FALSE':
+      return 'True or False'
+    case 'FILL_BLANK':
+      return 'Fill in the blank'
+    case 'TEXT_BLOCK':
+      return 'Text block'
     default:
       return type
   }

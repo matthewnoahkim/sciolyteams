@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getUserMembership } from '@/lib/rbac'
 import { z } from 'zod'
 
 const saveAnswerSchema = z.object({
@@ -44,14 +45,8 @@ export async function POST(
       )
     }
 
-    // Verify ownership
-    const membership = await prisma.membership.findFirst({
-      where: {
-        userId: session.user.id,
-        teamId: attempt.test.clubId,
-      },
-    })
-
+    // Verify ownership - check if user is a member of the club and owns this attempt
+    const membership = await getUserMembership(session.user.id, attempt.test.clubId)
     if (!membership || membership.id !== attempt.membershipId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }

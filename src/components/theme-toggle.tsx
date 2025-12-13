@@ -26,13 +26,13 @@ export function ThemeToggle({ variant = 'default' }: ThemeToggleProps) {
       variant="ghost"
       size="icon"
       onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-      className="h-9 w-9 transition-all hover:scale-105"
+      className="h-9 w-9 transition-all hover:scale-105 group"
       suppressHydrationWarning
     >
       {showMoon ? (
-        <Moon className="h-4 w-4" />
+        <Moon className="h-4 w-4 text-white" />
       ) : (
-        <Sun className="h-4 w-4" />
+        <Sun className="h-4 w-4 group-hover:text-white transition-colors" />
       )}
       <span className="sr-only">Toggle theme</span>
     </Button>

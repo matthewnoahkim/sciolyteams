@@ -3,7 +3,46 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-// GET /api/es/tests - List ES tests for the authenticated user
+// Helper to check if user is a tournament director for a tournament
+async function isTournamentDirector(userId: string, userEmail: string, tournamentId: string): Promise<boolean> {
+  // Check if user is tournament admin
+  const admin = await prisma.tournamentAdmin.findUnique({
+    where: {
+      tournamentId_userId: {
+        tournamentId,
+        userId,
+      },
+    },
+  })
+  
+  if (admin) return true
+  
+  // Check if user created the tournament
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { createdById: true },
+  })
+  
+  if (tournament?.createdById === userId) return true
+  
+  // Check if user is the director on the hosting request
+  const hostingRequest = await prisma.tournamentHostingRequest.findFirst({
+    where: {
+      tournament: {
+        id: tournamentId,
+      },
+      directorEmail: {
+        equals: userEmail,
+        mode: 'insensitive',
+      },
+      status: 'APPROVED',
+    },
+  })
+  
+  return !!hostingRequest
+}
+
+// GET /api/es/tests - List ES tests organized by event for the authenticated user
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -40,26 +79,196 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        tests: {
-          include: {
-            event: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-            questions: {
-              include: {
-                options: true,
-              },
-              orderBy: { order: 'asc' },
-            },
-          },
-        },
       },
     })
 
-    return NextResponse.json({ staffMemberships })
+    // Get all event IDs that the user is assigned to
+    const userEventIds = new Set<string>()
+    staffMemberships.forEach(membership => {
+      membership.events.forEach(e => userEventIds.add(e.event.id))
+    })
+
+    console.log('Fetching ES tests for user:', session.user.email)
+    console.log('User event IDs:', Array.from(userEventIds))
+    console.log('User tournament IDs:', staffMemberships.map(m => m.tournament.id))
+
+    // First, let's check ALL tests in the tournaments to see what exists
+    const tournamentIds = staffMemberships.map(m => m.tournament.id)
+    const allTournamentTests = await prisma.eSTest.findMany({
+      where: {
+        tournamentId: { in: tournamentIds },
+      },
+      select: {
+        id: true,
+        name: true,
+        eventId: true,
+        tournamentId: true,
+        staffId: true,
+        createdByStaffId: true,
+      },
+    })
+    console.log('ALL tests in user tournaments:', allTournamentTests)
+
+    // Fetch all tests for events the user is assigned to (collaborative access)
+    // This returns ALL tests for events the user is assigned to, regardless of who created them
+    // IMPORTANT: We don't filter by staffId - all staff assigned to an event can see all tests for that event
+    const eventIdsArray = Array.from(userEventIds)
+    console.log('Querying tests with:', { tournamentIds, eventIdsArray })
+    
+    const allTests = await prisma.eSTest.findMany({
+      where: {
+        tournamentId: { in: tournamentIds },
+        ...(eventIdsArray.length > 0 ? { eventId: { in: eventIdsArray } } : {}),
+        // No filter by staffId - we want ALL tests for shared events (collaborative)
+      },
+      include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        staff: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        questions: {
+          include: {
+            options: true,
+          },
+          orderBy: { order: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    console.log('Found tests:', allTests.length)
+    console.log('Tests details:', allTests.map(t => ({ 
+      id: t.id, 
+      name: t.name, 
+      eventId: t.eventId, 
+      tournamentId: t.tournamentId,
+      staffId: t.staffId, 
+      createdBy: t.createdByStaffId,
+      createdByEmail: t.createdBy?.email 
+    })))
+
+    // Organize tests by tournament and event
+    const testsByTournament = new Map<string, Map<string, typeof allTests>>()
+    
+    for (const test of allTests) {
+      if (!test.eventId) {
+        console.log('Skipping test without eventId:', test.id, test.name)
+        continue
+      }
+      
+      if (!testsByTournament.has(test.tournamentId)) {
+        testsByTournament.set(test.tournamentId, new Map())
+      }
+      const testsByEvent = testsByTournament.get(test.tournamentId)!
+      
+      if (!testsByEvent.has(test.eventId)) {
+        testsByEvent.set(test.eventId, [])
+      }
+      testsByEvent.get(test.eventId)!.push(test)
+    }
+    
+    console.log('Tests organized by tournament:', Array.from(testsByTournament.keys()))
+    for (const [tournamentId, eventMap] of testsByTournament.entries()) {
+      console.log(`Tournament ${tournamentId} has tests for events:`, Array.from(eventMap.keys()))
+      for (const [eventId, tests] of eventMap.entries()) {
+        console.log(`  Event ${eventId} has ${tests.length} tests:`, tests.map(t => t.name))
+      }
+    }
+
+    // Map staff memberships with tests organized by event
+    // For each event assignment, look for tests in ANY tournament the user has access to
+    // (not just the membership's tournament) - this enables cross-tournament test visibility
+    const staffMembershipsWithTests = staffMemberships.map(membership => {
+      const membershipData = {
+        id: membership.id,
+        email: membership.email,
+        name: membership.name,
+        role: membership.role,
+        status: membership.status,
+        invitedAt: membership.invitedAt.toISOString(),
+        acceptedAt: membership.acceptedAt?.toISOString() || null,
+        tournament: {
+          id: membership.tournament.id,
+          name: membership.tournament.name,
+          division: membership.tournament.division,
+          startDate: membership.tournament.startDate.toISOString(),
+        },
+        events: membership.events.map(e => {
+          // Look for tests for this event across ALL tournaments the user has access to
+          // This allows tests to be visible to all ESs assigned to the same event, even if they're in different tournament memberships
+          let eventTests: typeof allTests = []
+          for (const [tournamentId, eventMap] of testsByTournament.entries()) {
+            // Check if user has access to this tournament (they should, since testsByTournament only contains their tournaments)
+            // and if there are tests for this event in this tournament
+            const testsForEventInTournament = eventMap.get(e.event.id) || []
+            eventTests = [...eventTests, ...testsForEventInTournament]
+          }
+          console.log(`Mapping tests for membership ${membership.id}, tournament ${membership.tournament.id}, event ${e.event.id}:`, eventTests.length, 'tests')
+          return {
+            event: {
+              id: e.event.id,
+              name: e.event.name,
+              division: e.event.division,
+            },
+            tests: eventTests.map(test => ({
+              id: test.id,
+              name: test.name,
+              status: test.status,
+              eventId: test.eventId,
+              createdAt: test.createdAt.toISOString(),
+              updatedAt: test.updatedAt.toISOString(),
+              event: test.event ? {
+                id: test.event.id,
+                name: test.event.name,
+              } : null,
+              staff: test.staff ? {
+                id: test.staff.id,
+                name: test.staff.name,
+                email: test.staff.email,
+              } : undefined,
+              createdBy: test.createdBy ? {
+                id: test.createdBy.id,
+                name: test.createdBy.name,
+                email: test.createdBy.email,
+              } : undefined,
+              questions: test.questions.map(q => ({
+                id: q.id,
+                type: q.type,
+                promptMd: q.promptMd,
+                points: Number(q.points),
+                order: q.order,
+                options: q.options.map(o => ({
+                  id: o.id,
+                  label: o.label,
+                  isCorrect: o.isCorrect,
+                  order: o.order,
+                })),
+              })),
+            })),
+          }
+        }),
+      }
+      console.log(`Membership ${membership.id} has ${membershipData.events.length} events with tests`)
+      return membershipData
+    })
+
+    return NextResponse.json({ staffMemberships: staffMembershipsWithTests })
   } catch (error) {
     console.error('Error fetching ES tests:', error)
     return NextResponse.json({ error: 'Failed to fetch tests' }, { status: 500 })
@@ -119,12 +328,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authorized to create tests for this staff membership' }, { status: 403 })
     }
 
+    console.log('Creating ES test:', { staffId, tournamentId, eventId, name })
+    
     // Create the test with questions
     const test = await prisma.eSTest.create({
       data: {
         staffId,
+        createdByStaffId: staffId, // Track original creator
         tournamentId,
-        eventId,
+        eventId: eventId || null, // Ensure we store null if not provided
         name,
         description,
         instructions,
@@ -159,6 +371,20 @@ export async function POST(request: NextRequest) {
             name: true,
           },
         },
+        staff: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
         questions: {
           include: {
             options: true,
@@ -171,7 +397,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ test })
   } catch (error) {
     console.error('Error creating ES test:', error)
-    return NextResponse.json({ error: 'Failed to create test' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create test'
+    // Check for database schema errors
+    if (errorMessage.includes('createdByStaffId') || errorMessage.includes('column') || errorMessage.includes('field')) {
+      return NextResponse.json({ 
+        error: 'Database schema error. Please run migrations: npx prisma migrate deploy',
+        details: errorMessage 
+      }, { status: 500 })
+    }
+    return NextResponse.json({ 
+      error: errorMessage || 'Failed to create test',
+      details: error instanceof Error ? error.stack : undefined
+    }, { status: 500 })
   }
 }
 
@@ -214,28 +451,67 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Test ID is required' }, { status: 400 })
     }
 
-    // Verify the user owns this test
-    const existingTest = await prisma.eSTest.findFirst({
-      where: {
-        id: testId,
-        staff: {
-          OR: [
-            { userId: session.user.id },
-            { email: { equals: session.user.email, mode: 'insensitive' } },
-          ],
-        },
-      },
+    // First, get the existing test to check its event
+    const existingTest = await prisma.eSTest.findUnique({
+      where: { id: testId },
       include: {
         questions: {
           include: {
             options: true,
           },
         },
+        event: {
+          select: {
+            id: true,
+          },
+        },
       },
     })
 
     if (!existingTest) {
-      return NextResponse.json({ error: 'Test not found or not authorized' }, { status: 404 })
+      return NextResponse.json({ error: 'Test not found' }, { status: 404 })
+    }
+
+    // Verify the user has access to this test (check ALL staff memberships to see if any has access to this event)
+    const userStaffMemberships = await prisma.tournamentStaff.findMany({
+      where: {
+        OR: [
+          { userId: session.user.id },
+          { email: { equals: session.user.email, mode: 'insensitive' } },
+        ],
+        status: 'ACCEPTED',
+      },
+      include: {
+        events: {
+          select: {
+            eventId: true,
+          },
+        },
+      },
+    })
+
+    // Check if user is a tournament director for this tournament first
+    // (TDs might not have staff memberships)
+    const isTD = await isTournamentDirector(session.user.id, session.user.email, existingTest.tournamentId)
+
+    // If TD, allow access
+    if (isTD) {
+      // Continue with the update - TDs can edit any test in their tournament
+    } else {
+      // For non-TDs, check staff membership and event access
+      if (!userStaffMemberships || userStaffMemberships.length === 0) {
+        return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+      }
+
+      // Check if user is assigned to the same event as the test (collaborative access)
+      // User must be assigned to the event in at least one of their staff memberships
+      const hasEventAccess = existingTest.eventId && userStaffMemberships.some(staff => 
+        staff.events.some(e => e.eventId === existingTest.eventId)
+      )
+
+      if (!hasEventAccess) {
+        return NextResponse.json({ error: 'Not authorized to edit this test' }, { status: 403 })
+      }
     }
 
     // Use a transaction to update test and questions
@@ -353,6 +629,20 @@ export async function PUT(request: NextRequest) {
             name: true,
           },
         },
+        staff: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
         questions: {
           include: {
             options: true,
@@ -384,21 +674,89 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Test ID is required' }, { status: 400 })
     }
 
-    // Verify the user owns this test
-    const existingTest = await prisma.eSTest.findFirst({
-      where: {
-        id: testId,
-        staff: {
-          OR: [
-            { userId: session.user.id },
-            { email: { equals: session.user.email, mode: 'insensitive' } },
-          ],
+    // First, get the existing test to check its event
+    const existingTest = await prisma.eSTest.findUnique({
+      where: { id: testId },
+      include: {
+        event: {
+          select: {
+            id: true,
+          },
         },
       },
     })
 
     if (!existingTest) {
-      return NextResponse.json({ error: 'Test not found or not authorized' }, { status: 404 })
+      return NextResponse.json({ error: 'Test not found' }, { status: 404 })
+    }
+
+    // Verify the user has access to this test (check ALL staff memberships to see if any has access to this event)
+    const userStaffMemberships = await prisma.tournamentStaff.findMany({
+      where: {
+        OR: [
+          { userId: session.user.id },
+          { email: { equals: session.user.email, mode: 'insensitive' } },
+        ],
+        status: 'ACCEPTED',
+      },
+      include: {
+        events: {
+          select: {
+            eventId: true,
+          },
+        },
+      },
+    })
+
+    if (!userStaffMemberships || userStaffMemberships.length === 0) {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+    }
+
+    // Check if user is assigned to the same event as the test (collaborative access)
+    // OR if user is a tournament director for this tournament
+    // User must be assigned to the event in at least one of their staff memberships
+    const hasEventAccess = existingTest.eventId && userStaffMemberships.some(staff => 
+      staff.events.some(e => e.eventId === existingTest.eventId)
+    )
+
+    // Check if user is a tournament director for this tournament
+    const isTournamentDirector = await (async () => {
+      // Check tournament admin table
+      const admin = await prisma.tournamentAdmin.findUnique({
+        where: {
+          tournamentId_userId: {
+            tournamentId: existingTest.tournamentId,
+            userId: session.user.id,
+          },
+        },
+      })
+      if (admin) return true
+
+      // Check if user created the tournament
+      const tournament = await prisma.tournament.findUnique({
+        where: { id: existingTest.tournamentId },
+        select: { createdById: true },
+      })
+      if (tournament?.createdById === session.user.id) return true
+
+      // Check if user is director on hosting request
+      const hostingRequest = await prisma.tournamentHostingRequest.findFirst({
+        where: {
+          tournament: {
+            id: existingTest.tournamentId,
+          },
+          directorEmail: {
+            equals: session.user.email,
+            mode: 'insensitive',
+          },
+          status: 'APPROVED',
+        },
+      })
+      return !!hostingRequest
+    })()
+
+    if (!hasEventAccess && !isTournamentDirector) {
+      return NextResponse.json({ error: 'Not authorized to delete this test' }, { status: 403 })
     }
 
     await prisma.eSTest.delete({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getUserMembership } from '@/lib/rbac'
 import { getClientIp, autoGradeQuestion, calculateProctoringScore } from '@/lib/test-security'
 import { z } from 'zod'
 
@@ -52,14 +53,8 @@ export async function POST(
       )
     }
 
-    // Verify ownership
-    const membership = await prisma.membership.findFirst({
-      where: {
-        userId: session.user.id,
-        teamId: attempt.test.clubId,
-      },
-    })
-
+    // Verify ownership - check if user is a member of the club and owns this attempt
+    const membership = await getUserMembership(session.user.id, attempt.test.clubId)
     if (!membership || membership.id !== attempt.membershipId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
@@ -72,7 +67,9 @@ export async function POST(
       }
 
       // Check if needs manual grading
-      if (question.type === 'SHORT_TEXT' || question.type === 'LONG_TEXT') {
+      // Fill-in-the-blank questions (SHORT_TEXT with [blank] or [blank1], [blank2], etc. markers) can be auto-graded
+      const isFillInTheBlank = question.type === 'SHORT_TEXT' && question.promptMd && /\[blank\d*\]/.test(question.promptMd)
+      if ((question.type === 'SHORT_TEXT' && !isFillInTheBlank) || question.type === 'LONG_TEXT') {
         return { questionId: question.id, pointsAwarded: 0, needsManualGrade: true }
       }
 
@@ -82,11 +79,14 @@ export async function POST(
           type: question.type,
           points: Number(question.points),
           numericTolerance: question.numericTolerance ? Number(question.numericTolerance) : null,
+          promptMd: question.promptMd || null,
+          explanation: question.explanation || null,
           options: question.options,
         },
         {
           selectedOptionIds: answer.selectedOptionIds as string[] | undefined,
           numericAnswer: answer.numericAnswer ? Number(answer.numericAnswer) : null,
+          answerText: answer.answerText || null,
         }
       )
 

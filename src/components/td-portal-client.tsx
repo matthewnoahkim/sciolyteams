@@ -202,7 +202,7 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
               variant="ghost"
               size="sm"
               onClick={handleSignOut}
-              className="px-2 sm:px-3 text-white hover:bg-white/10"
+              className="px-2 sm:px-3 text-white hover:bg-white/20 hover:text-white transition-colors duration-200 rounded-md"
             >
               <LogOut className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline text-sm">Sign Out</span>

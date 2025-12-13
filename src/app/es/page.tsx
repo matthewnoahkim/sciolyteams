@@ -3,13 +3,14 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { ESPortalClient } from '@/components/es-portal-client'
 import { ESLoginClient } from '@/components/es-login-client'
+import { Suspense } from 'react'
 
 interface ESPortalPageProps {
-  searchParams: Promise<{ token?: string }>
+  searchParams: Promise<{ token?: string; tournament?: string }>
 }
 
 export default async function ESPortalPage({ searchParams }: ESPortalPageProps) {
-  const { token } = await searchParams
+  const { token, tournament } = await searchParams
   const session = await getServerSession(authOptions)
 
   // If there's a token, fetch invite info for display
@@ -106,24 +107,7 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
           },
         },
       },
-      tests: {
-        include: {
-          event: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          questions: {
-            include: {
-              options: {
-                orderBy: { order: 'asc' },
-              },
-            },
-            orderBy: { order: 'asc' },
-          },
-        },
-      },
+      // Tests will be fetched separately via API organized by event
     },
     orderBy: {
       tournament: {
@@ -184,53 +168,152 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
     ])
   )
 
-  // Serialize and map to StaffMembership interface
-  const serializedStaffMemberships = staffMemberships.map(membership => ({
-    id: membership.id,
-    email: membership.email,
-    name: membership.name,
-    role: membership.role,
-    status: membership.status,
-    invitedAt: membership.invitedAt.toISOString(),
-    acceptedAt: membership.acceptedAt?.toISOString() || null,
-    tournament: {
-      id: membership.tournament.id,
-      name: membership.tournament.name,
-      division: membership.tournament.division,
-      startDate: membership.tournament.startDate.toISOString(),
-    },
-    events: membership.events.map(e => ({
-      event: {
-        id: e.event.id,
-        name: e.event.name,
-        division: e.event.division,
-      },
-    })),
-    tests: membership.tests.map(test => ({
-      id: test.id,
-      name: test.name,
-      status: test.status,
-      eventId: test.eventId,
-      event: test.event ? {
-        id: test.event.id,
-        name: test.event.name,
-      } : null,
-      questions: test.questions.map(q => ({
-        id: q.id,
-        type: q.type,
-        promptMd: q.promptMd,
-        points: Number(q.points),
-        order: q.order,
-        options: q.options.map(o => ({
-          id: o.id,
-          label: o.label,
-          isCorrect: o.isCorrect,
-          order: o.order,
-        })),
-      })),
-    })),
-  }))
+  // Prefetch tests server-side to eliminate loading delay
+  // Get all event IDs that the user is assigned to
+  const userEventIds = new Set<string>()
+  staffMemberships.forEach(membership => {
+    membership.events.forEach(e => userEventIds.add(e.event.id))
+  })
 
-  return <ESPortalClient user={session.user} staffMemberships={serializedStaffMemberships} initialTimelines={initialTimelines} />
+  // Fetch all tests for events the user is assigned to (collaborative access)
+  const tournamentIds = staffMemberships.map(m => m.tournament.id)
+  const eventIdsArray = Array.from(userEventIds)
+  
+  const allTests = eventIdsArray.length > 0 ? await prisma.eSTest.findMany({
+    where: {
+      tournamentId: { in: tournamentIds },
+      eventId: { in: eventIdsArray },
+    },
+    include: {
+      event: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      staff: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      questions: {
+        include: {
+          options: true,
+        },
+        orderBy: { order: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  }) : []
+
+  // Organize tests by tournament and event
+  const testsByTournament = new Map<string, Map<string, typeof allTests>>()
+  
+  for (const test of allTests) {
+    if (!test.eventId) continue
+    
+    if (!testsByTournament.has(test.tournamentId)) {
+      testsByTournament.set(test.tournamentId, new Map())
+    }
+    const testsByEvent = testsByTournament.get(test.tournamentId)!
+    
+    if (!testsByEvent.has(test.eventId)) {
+      testsByEvent.set(test.eventId, [])
+    }
+    testsByEvent.get(test.eventId)!.push(test)
+  }
+
+  // Map staff memberships with tests organized by event
+  const staffMembershipsWithTests = staffMemberships.map(membership => {
+    return {
+      id: membership.id,
+      email: membership.email,
+      name: membership.name,
+      role: membership.role,
+      status: membership.status,
+      invitedAt: membership.invitedAt.toISOString(),
+      acceptedAt: membership.acceptedAt?.toISOString() || null,
+      tournament: {
+        id: membership.tournament.id,
+        name: membership.tournament.name,
+        division: membership.tournament.division,
+        startDate: membership.tournament.startDate.toISOString(),
+      },
+      events: membership.events.map(e => {
+        // Look for tests for this event across ALL tournaments the user has access to
+        let eventTests: typeof allTests = []
+        for (const [tournamentId, eventMap] of testsByTournament.entries()) {
+          const testsForEventInTournament = eventMap.get(e.event.id) || []
+          eventTests = [...eventTests, ...testsForEventInTournament]
+        }
+        
+        return {
+          event: {
+            id: e.event.id,
+            name: e.event.name,
+            division: e.event.division,
+          },
+          tests: eventTests.map(test => ({
+            id: test.id,
+            name: test.name,
+            status: test.status,
+            eventId: test.eventId,
+            createdAt: test.createdAt.toISOString(),
+            updatedAt: test.updatedAt.toISOString(),
+            event: test.event ? {
+              id: test.event.id,
+              name: test.event.name,
+            } : null,
+            staff: test.staff ? {
+              id: test.staff.id,
+              name: test.staff.name,
+              email: test.staff.email,
+            } : undefined,
+            createdBy: test.createdBy ? {
+              id: test.createdBy.id,
+              name: test.createdBy.name,
+              email: test.createdBy.email,
+            } : undefined,
+            questions: test.questions.map(q => ({
+              id: q.id,
+              type: q.type,
+              promptMd: q.promptMd,
+              points: Number(q.points),
+              order: q.order,
+              options: q.options.map(o => ({
+                id: o.id,
+                label: o.label,
+                isCorrect: o.isCorrect,
+                order: o.order,
+              })),
+            })),
+          })),
+        }
+      }),
+    }
+  })
+
+  // Use the staffMembershipsWithTests that includes server-side fetched tests
+  const serializedStaffMemberships = staffMembershipsWithTests
+
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern" />}>
+      <ESPortalClient 
+        user={session.user} 
+        staffMemberships={serializedStaffMemberships} 
+        initialTimelines={initialTimelines}
+        initialTournamentId={tournament || null}
+      />
+    </Suspense>
+  )
 }
 

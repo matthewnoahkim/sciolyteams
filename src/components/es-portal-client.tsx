@@ -1,14 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { signOut } from 'next-auth/react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useToast } from '@/components/ui/use-toast'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Logo } from '@/components/logo'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   ClipboardList,
   LogOut, 
@@ -16,14 +19,52 @@ import {
   FileText,
   Plus,
   Edit,
+  Trash2,
   Clock,
   CheckCircle2,
   AlertCircle,
   Trophy,
-  ExternalLink,
+  ChevronRight,
+  ArrowLeft,
 } from 'lucide-react'
 import { format, isPast, isToday } from 'date-fns'
 import Link from 'next/link'
+
+interface Test {
+  id: string
+  name: string
+  status: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
+  eventId: string | null
+  createdAt: string
+  updatedAt: string
+  event?: {
+    id: string
+    name: string
+  } | null
+  staff?: {
+    id: string
+    name: string | null
+    email: string
+  }
+  createdBy?: {
+    id: string
+    name: string | null
+    email: string
+  }
+  questions: Array<{
+    id: string
+    type: string
+    promptMd: string
+    points: number
+    order: number
+    options: Array<{
+      id: string
+      label: string
+      isCorrect: boolean
+      order: number
+    }>
+  }>
+}
 
 interface StaffMembership {
   id: string
@@ -45,29 +86,7 @@ interface StaffMembership {
       name: string
       division: 'B' | 'C'
     }
-  }>
-  tests: Array<{
-    id: string
-    name: string
-    status: 'DRAFT' | 'PUBLISHED' | 'CLOSED'
-    eventId: string | null
-    event?: {
-      id: string
-      name: string
-    } | null
-    questions: Array<{
-      id: string
-      type: string
-      promptMd: string
-      points: number
-      order: number
-      options: Array<{
-        id: string
-        label: string
-        isCorrect: boolean
-        order: number
-      }>
-    }>
+    tests: Test[]
   }>
 }
 
@@ -88,13 +107,95 @@ interface ESPortalClientProps {
   }
   staffMemberships: StaffMembership[]
   initialTimelines?: Record<string, TimelineItem[]>
+  initialTournamentId?: string | null
 }
 
-export function ESPortalClient({ user, staffMemberships, initialTimelines = {} }: ESPortalClientProps) {
-  const [activeTab, setActiveTab] = useState<string>(staffMemberships[0]?.tournament.id || '')
+export function ESPortalClient({ user, staffMemberships, initialTimelines = {}, initialTournamentId }: ESPortalClientProps) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  
+  // Use server-provided tournament ID or read from URL, return empty string if none
+  const getInitialTab = () => {
+    // Prefer server-provided value (avoids hydration mismatch)
+    if (initialTournamentId && staffMemberships.some(m => m.tournament.id === initialTournamentId)) {
+      return initialTournamentId
+    }
+    // Fallback to reading from URL (client-side)
+    const tournamentIdFromUrl = searchParams.get('tournament')
+    if (tournamentIdFromUrl && staffMemberships.some(m => m.tournament.id === tournamentIdFromUrl)) {
+      return tournamentIdFromUrl
+    }
+    return ''
+  }
+  
+  const [activeTournament, setActiveTournament] = useState<string>(getInitialTab)
+  const [activeContentTab, setActiveContentTab] = useState<'events' | 'timeline'>('events')
+  const [isHydrated, setIsHydrated] = useState(false)
   const [timelines, setTimelines] = useState<Record<string, TimelineItem[]>>(() => initialTimelines)
   const [loadingTimelines, setLoadingTimelines] = useState<Set<string>>(new Set())
+  // Initialize with tests from server-side props (server-side fetch includes tests, so use them directly)
+  const [staffMembershipsWithTests, setStaffMembershipsWithTests] = useState<StaffMembership[]>(() => {
+    // Check if tests are already included in the props (from server-side fetch)
+    const hasTestsInProps = staffMemberships.some(m => 
+      m.events.some(e => 'tests' in e && Array.isArray((e as any).tests))
+    )
+    
+    if (hasTestsInProps) {
+      // Tests already loaded from server, use them
+      return staffMemberships as StaffMembership[]
+    }
+    
+    // No tests in props, initialize with empty arrays (client-side fetch will populate)
+    return staffMemberships.map(membership => ({
+      ...membership,
+      events: membership.events.map(e => ({
+        ...e,
+        tests: [],
+      })),
+    }))
+  })
+  const [loadingTests, setLoadingTests] = useState(false)
+  const hasInitialized = useRef(false)
+  const hasFetchedTests = useRef(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [testToDelete, setTestToDelete] = useState<Test | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const { toast } = useToast()
 
+  // Load saved content tab from localStorage on mount and mark as hydrated
+  useEffect(() => {
+    try {
+      if (activeTournament) {
+        const storageKey = `es-portal-tab-${activeTournament}`
+        const savedTab = localStorage.getItem(storageKey) as 'events' | 'timeline' | null
+        if (savedTab && (savedTab === 'events' || savedTab === 'timeline')) {
+          setActiveContentTab(savedTab)
+        }
+      }
+    } catch (e) {
+      // localStorage not available
+    }
+    setIsHydrated(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Save content tab to localStorage when it changes
+  useEffect(() => {
+    if (isHydrated && activeTournament) {
+      try {
+        const storageKey = `es-portal-tab-${activeTournament}`
+        localStorage.setItem(storageKey, activeContentTab)
+      } catch (e) {
+        // localStorage not available
+      }
+    }
+  }, [activeContentTab, activeTournament, isHydrated])
+
+  // Handle content tab changes
+  const handleContentTabChange = (value: string) => {
+    setActiveContentTab(value as 'events' | 'timeline')
+  }
+  
   const formatType = (type: string) =>
     type
       .replace(/_/g, ' ')
@@ -102,6 +203,46 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {} }
 
   const handleSignOut = () => {
     signOut({ callbackUrl: '/es' })
+  }
+
+  const handleDeleteClick = (test: Test) => {
+    setTestToDelete(test)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!testToDelete) return
+
+    setDeleting(true)
+    try {
+      const response = await fetch(`/api/es/tests?testId=${testToDelete.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete test')
+      }
+
+      toast({
+        title: 'Test Deleted',
+        description: 'The test has been successfully deleted.',
+      })
+
+      setDeleteDialogOpen(false)
+      setTestToDelete(null)
+      
+      // Refresh tests list
+      fetchTests()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete test',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleting(false)
+    }
   }
 
   // Fetch timeline for a tournament
@@ -126,12 +267,111 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {} }
     }
   }
 
+  // Fetch tests organized by event
+  const fetchTests = async () => {
+    if (loadingTests) return
+    setLoadingTests(true)
+    try {
+      // Add cache-busting to ensure we get fresh data
+      const res = await fetch(`/api/es/tests?t=${Date.now()}`)
+      if (res.ok) {
+        const data = await res.json()
+        console.log('Fetched ES tests data:', data)
+        console.log('Staff memberships with tests:', data.staffMemberships?.map((m: any) => ({
+          id: m.id,
+          tournament: m.tournament.name,
+          events: m.events?.map((e: any) => ({
+            event: e.event.name,
+            testCount: e.tests?.length || 0,
+            tests: e.tests?.map((t: any) => ({ name: t.name, createdBy: t.createdBy?.name || t.createdBy?.email }))
+          }))
+        })))
+        setStaffMembershipsWithTests(data.staffMemberships)
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('Failed to fetch tests:', errorData)
+      }
+    } catch (error) {
+      console.error('Failed to fetch tests:', error)
+    } finally {
+      setLoadingTests(false)
+    }
+  }
+
+  // Check if tests were provided from server-side - if not, fetch them on mount
   useEffect(() => {
-    if (activeTab) {
-      fetchTimeline(activeTab)
+    // Check if tests are already in the initial state (from server-side)
+    const hasServerSideTests = staffMembershipsWithTests.some(m => 
+      m.events.some(e => e.tests && e.tests.length > 0)
+    )
+    
+    // Only fetch if we don't already have tests from server-side
+    if (!hasServerSideTests) {
+      fetchTests()
+    }
+    hasFetchedTests.current = true
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Run once on mount
+  
+  // Also refetch tests when tournament changes (for fresh data when switching tournaments)
+  useEffect(() => {
+    // Only refetch if we've already done the initial fetch
+    if (hasFetchedTests.current) {
+      fetchTests()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab])
+  }, [activeTournament])
+  
+  // Refresh tests when window regains focus (user might have created a test in another tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (activeTournament) {
+        fetchTests()
+      }
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTournament])
+
+  // Ensure URL is set correctly on mount
+  useEffect(() => {
+    if (hasInitialized.current) return
+    
+    hasInitialized.current = true
+    const tournamentIdFromUrl = searchParams.get('tournament')
+    
+    // If URL has a tournament param, set activeTournament to it
+    if (tournamentIdFromUrl && staffMemberships.some(m => m.tournament.id === tournamentIdFromUrl)) {
+      setActiveTournament(tournamentIdFromUrl)
+    } else if (!tournamentIdFromUrl) {
+      // No tournament in URL, clear activeTournament
+      setActiveTournament('')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  
+  // Sync with URL changes after initialization (e.g., browser back/forward)
+  useEffect(() => {
+    if (!hasInitialized.current) return
+    
+    const tournamentIdFromUrl = searchParams.get('tournament')
+    
+    if (tournamentIdFromUrl && tournamentIdFromUrl !== activeTournament && staffMemberships.some(m => m.tournament.id === tournamentIdFromUrl)) {
+      setActiveTournament(tournamentIdFromUrl)
+    } else if (!tournamentIdFromUrl && activeTournament) {
+      // URL param was removed, clear activeTournament
+      setActiveTournament('')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+  
+  useEffect(() => {
+    if (activeTournament) {
+      fetchTimeline(activeTournament)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTournament])
 
   const getTimelineStatus = (dueDate: string) => {
     const date = new Date(dueDate)
@@ -141,7 +381,7 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {} }
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 grid-pattern flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -158,17 +398,17 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {} }
               </AvatarFallback>
             </Avatar>
             <div className="hidden sm:block max-w-[120px] md:max-w-none">
-              <p className="text-xs sm:text-sm font-medium truncate text-white">
+              <p className="text-xs sm:text-sm font-medium text-white truncate">
                 {user.name || user.email}
               </p>
-              <p className="text-[10px] sm:text-xs text-white/70 truncate">{user.email}</p>
+              <p className="text-[10px] sm:text-xs text-white/60 truncate">{user.email}</p>
             </div>
             <ThemeToggle variant="header" />
             <Button
               variant="ghost"
               size="sm"
               onClick={handleSignOut}
-              className="px-2 sm:px-3 text-white hover:bg-white/10"
+              className="px-2 sm:px-3 text-white hover:bg-white/20 hover:text-white transition-colors duration-200 rounded-md"
             >
               <LogOut className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline text-sm">Sign Out</span>
@@ -178,7 +418,7 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {} }
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-6xl relative">
+      <main className="container mx-auto px-4 py-8 max-w-6xl flex-1">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
             Welcome, {user.name?.split(' ')[0] || 'Event Supervisor'}!
@@ -188,192 +428,322 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {} }
           </p>
         </div>
 
-        {staffMemberships.length === 0 ? (
-          <Card className="bg-card/90 backdrop-blur border border-white/10">
-            <CardContent className="py-12 text-center">
-              <ClipboardList className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">No Active Assignments</h3>
-              <p className="text-muted-foreground">
-                You don&apos;t have any tournament assignments yet. Contact a Tournament Director to get invited.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="bg-white/80 dark:bg-slate-800/80 border border-white/10">
-              {staffMemberships.map(membership => (
-                <TabsTrigger 
-                  key={membership.tournament.id} 
-                  value={membership.tournament.id}
-                  className="data-[state=active]:bg-teamy-primary data-[state=active]:text-white"
-                >
-                  <Trophy className="h-4 w-4 mr-2" />
-                  {membership.tournament.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            {staffMemberships.map(membership => (
-              <TabsContent key={membership.tournament.id} value={membership.tournament.id} className="space-y-6">
-                {/* Tournament Info */}
-                <Card className="bg-card/90 backdrop-blur border border-white/10">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
+        {/* Show detail view if tournament is selected, otherwise show tournament cards */}
+        {activeTournament && staffMemberships.some(m => m.tournament.id === activeTournament) ? (
+          <div className="space-y-6">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setActiveTournament('')
+                router.push('/es', { scroll: false })
+              }}
+              className="mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Tournaments
+            </Button>
+            
+            {(() => {
+              const membership = staffMembershipsWithTests.find(m => m.tournament.id === activeTournament) || staffMemberships.find(m => m.tournament.id === activeTournament)!
+              console.log('Active tournament:', activeTournament)
+              console.log('Selected membership:', membership?.id, membership?.tournament.name)
+              console.log('Membership events with tests:', membership?.events?.map((e: any) => ({
+                eventId: e.event.id,
+                eventName: e.event.name,
+                testCount: e.tests?.length || 0
+              })))
+              return (
+                <>
+                  {/* Tournament Info */}
+                  <Card className="bg-card/90 backdrop-blur border border-white/10">
+                    <CardHeader>
                       <div>
                         <CardTitle className="text-xl">{membership.tournament.name}</CardTitle>
                         <CardDescription>
                           Division {membership.tournament.division} • {format(new Date(membership.tournament.startDate), 'MMMM d, yyyy')}
                         </CardDescription>
                       </div>
-                      <Badge className="bg-teamy-primary/10 text-teamy-primary border-teamy-primary/20">
-                        {membership.role === 'EVENT_SUPERVISOR' ? 'Event Supervisor' : 'Tournament Director'}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  {membership.events.length > 0 && (
-                    <CardContent>
-                      <h4 className="text-sm font-medium mb-2">Your Assigned Events:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {membership.events.map(e => (
-                          <Badge key={e.event.id} variant="secondary" className="bg-teamy-primary/5 dark:bg-white/5">
-                            {e.event.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-
-                {/* Timeline */}
-                {timelines[membership.tournament.id] && timelines[membership.tournament.id].length > 0 && (
-                  <Card className="bg-card/90 backdrop-blur border border-white/10">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Calendar className="h-5 w-5 text-teamy-primary" />
-                        Timeline & Deadlines
-                      </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {timelines[membership.tournament.id].map(item => {
-                          const status = getTimelineStatus(item.dueDate)
-                          return (
-                            <div 
-                              key={item.id}
-                              className={`flex items-center justify-between p-3 rounded-lg border ${
-                                status === 'overdue' 
-                                  ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/30' 
-                                  : status === 'today'
-                                    ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/30'
-                                    : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/50'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                {status === 'overdue' ? (
-                                  <AlertCircle className="h-5 w-5 text-red-500" />
-                                ) : status === 'today' ? (
-                                  <Clock className="h-5 w-5 text-amber-500" />
-                                ) : (
-                                  <CheckCircle2 className="h-5 w-5 text-teamy-primary" />
-                                )}
-                                <div>
-                                  <p className="font-medium">{item.name}</p>
-                                  {item.description && (
-                                    <p className="text-sm text-muted-foreground">{item.description}</p>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <p className={`text-sm font-medium ${
-                                  status === 'overdue' ? 'text-red-600' : status === 'today' ? 'text-amber-600' : ''
-                                }`}>
-                                  {format(new Date(item.dueDate), 'MMM d, yyyy')}
-                                </p>
-                                <Badge variant="outline" className="text-xs">
-                                  {formatType(item.type)}
-                                </Badge>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </CardContent>
                   </Card>
-                )}
 
-                {/* Tests Section */}
-                <Card className="bg-card/90 backdrop-blur border border-white/10">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-teamy-primary" />
-                        Your Tests
-                      </CardTitle>
-                      <Link 
-                        href={`/es/tests/new?staffId=${membership.id}${membership.events[0] ? `&eventId=${membership.events[0].event.id}` : ''}`}
-                      >
-                        <Button className="bg-teamy-primary text-white hover:bg-teamy-primary-dark">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Create Test
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {membership.tests.length === 0 ? (
-                      <div className="text-center py-8">
-                        <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">No tests created yet. Click &ldquo;Create Test&rdquo; to get started.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {membership.tests.map(test => (
-                          <div 
-                            key={test.id}
-                            className="flex items-center justify-between p-4 rounded-lg border border-white/10 bg-white/60 dark:bg-slate-900/60"
-                          >
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-semibold">{test.name}</h4>
-                                <Badge 
-                                  variant="outline" 
-                                  className={
-                                    test.status === 'PUBLISHED' 
-                                      ? 'bg-green-500/10 text-green-600 border-green-500/20' 
-                                      : test.status === 'CLOSED'
-                                        ? 'bg-slate-500/10 text-slate-600 border-slate-500/20'
-                                        : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                                  }
-                                >
-                                  {test.status}
-                                </Badge>
+                  {/* Tabs */}
+                  {isHydrated && (
+                    <Tabs value={activeContentTab} onValueChange={handleContentTabChange} className="space-y-6">
+                      <TabsList className="grid grid-cols-2 w-full max-w-lg">
+                        <TabsTrigger value="events" className="gap-2">
+                          <ClipboardList className="h-4 w-4" />
+                          Events
+                        </TabsTrigger>
+                        <TabsTrigger value="timeline" className="gap-2">
+                          <Calendar className="h-4 w-4" />
+                          Timeline
+                        </TabsTrigger>
+                      </TabsList>
+
+                      {/* Events Tab */}
+                      <TabsContent value="events" className="space-y-6">
+                        <Card className="bg-card/90 backdrop-blur border border-white/10">
+                          <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                              <ClipboardList className="h-5 w-5 text-teamy-primary" />
+                              Your Events
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {membership.events.length === 0 ? (
+                              <div className="text-center py-8">
+                                <ClipboardList className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                                <p className="text-muted-foreground">No events assigned yet.</p>
                               </div>
-                              <p className="text-sm text-muted-foreground">
-                                {test.event?.name || 'No event assigned'} • {test.questions.length} question{test.questions.length !== 1 ? 's' : ''}
+                            ) : (
+                              <div className="space-y-6">
+                                {membership.events.map(eventAssignment => {
+                                  const tests = eventAssignment.tests || []
+                                  console.log(`Rendering event ${eventAssignment.event.id} (${eventAssignment.event.name}):`, tests.length, 'tests', tests.map((t: any) => ({ id: t.id, name: t.name })))
+                                  return (
+                                  <div key={eventAssignment.event.id} className="space-y-3">
+                                    <div className="flex items-center justify-between pb-2 border-b border-border">
+                                      <div>
+                                        <h3 className="font-semibold text-lg">{eventAssignment.event.name}</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                          {tests.length} test{tests.length !== 1 ? 's' : ''}
+                                        </p>
+                                      </div>
+                                      <Link 
+                                        href={`/es/tests/new?staffId=${membership.id}&eventId=${eventAssignment.event.id}`}
+                                      >
+                                        <Button size="sm" className="bg-teamy-primary text-white hover:bg-teamy-primary-dark">
+                                          <Plus className="h-4 w-4 mr-2" />
+                                          Create Test
+                                        </Button>
+                                      </Link>
+                                    </div>
+                                    
+                                    {tests.length === 0 ? (
+                                      <div className="text-center py-6 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-border">
+                                        <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                                        <p className="text-sm text-muted-foreground">No tests created yet for this event.</p>
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-3">
+                                        {tests.map(test => (
+                                          <div 
+                                            key={test.id}
+                                            className="flex items-center justify-between p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-slate-900/60"
+                                          >
+                                            <div className="flex-1">
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <h4 className="font-semibold">{test.name}</h4>
+                                                <Badge 
+                                                  variant="outline" 
+                                                  className={
+                                                    test.status === 'PUBLISHED' 
+                                                      ? 'bg-green-500/10 text-green-600 border-green-500/20' 
+                                                      : test.status === 'CLOSED'
+                                                        ? 'bg-slate-500/10 text-slate-600 border-slate-500/20'
+                                                        : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                                  }
+                                                >
+                                                  {test.status}
+                                                </Badge>
+                                              </div>
+                                              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                                <span>{test.questions.length} question{test.questions.length !== 1 ? 's' : ''}</span>
+                                                {test.createdBy && (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span>Created by {test.createdBy.name || test.createdBy.email}</span>
+                                                  </>
+                                                )}
+                                                {test.updatedAt !== test.createdAt && (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span>
+                                                      Last edited {
+                                                        test.staff && test.createdBy && test.staff.id !== test.createdBy.id 
+                                                          ? `by ${test.staff.name || test.staff.email} `
+                                                          : test.staff
+                                                            ? `by ${test.staff.name || test.staff.email} `
+                                                            : test.createdBy 
+                                                              ? `by ${test.createdBy.name || test.createdBy.email} `
+                                                              : ''
+                                                      }
+                                                      on {format(new Date(test.updatedAt), 'MMM d, yyyy \'at\' h:mm a')}
+                                                    </span>
+                                                  </>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                              <Link href={`/es/tests/${test.id}`}>
+                                                <Button variant="outline" size="sm">
+                                                  <Edit className="h-4 w-4 mr-1" />
+                                                  Edit
+                                                </Button>
+                                              </Link>
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={() => handleDeleteClick(test)}
+                                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                              >
+                                                <Trash2 className="h-4 w-4 mr-1" />
+                                                Delete
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+
+                      {/* Timeline Tab */}
+                      <TabsContent value="timeline" className="space-y-6">
+                        {timelines[membership.tournament.id] && timelines[membership.tournament.id].length > 0 ? (
+                          <Card className="bg-card/90 backdrop-blur border border-white/10">
+                            <CardHeader>
+                              <CardTitle className="text-lg flex items-center gap-2">
+                                <Calendar className="h-5 w-5 text-teamy-primary" />
+                                Timeline & Deadlines
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-3">
+                                {timelines[membership.tournament.id].map(item => {
+                                  const status = getTimelineStatus(item.dueDate)
+                                  return (
+                                    <div 
+                                      key={item.id}
+                                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                                        status === 'overdue' 
+                                          ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/30' 
+                                          : status === 'today'
+                                            ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/30'
+                                            : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/50'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        {status === 'overdue' ? (
+                                          <AlertCircle className="h-5 w-5 text-red-500" />
+                                        ) : status === 'today' ? (
+                                          <Clock className="h-5 w-5 text-amber-500" />
+                                        ) : (
+                                          <CheckCircle2 className="h-5 w-5 text-teamy-primary" />
+                                        )}
+                                        <div>
+                                          <p className="font-medium">{item.name}</p>
+                                          {item.description && (
+                                            <p className="text-sm text-muted-foreground">{item.description}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className={`text-sm font-medium ${
+                                          status === 'overdue' ? 'text-red-600' : status === 'today' ? 'text-amber-600' : ''
+                                        }`}>
+                                          {format(new Date(item.dueDate), 'MMM d, yyyy')}
+                                        </p>
+                                        <Badge variant="outline" className="text-xs">
+                                          {formatType(item.type)}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ) : (
+                          <Card className="bg-card/90 backdrop-blur border border-white/10">
+                            <CardContent className="py-12 text-center">
+                              <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                              <h3 className="text-lg font-semibold mb-2">No Timeline Items</h3>
+                              <p className="text-muted-foreground">
+                                There are no timeline items or deadlines for this tournament yet.
                               </p>
-                            </div>
-                            <div className="flex gap-2">
-                              <Link href={`/es/tests/${test.id}`}>
-                                <Button variant="outline" size="sm">
-                                  <Edit className="h-4 w-4 mr-1" />
-                                  Edit
-                                </Button>
-                              </Link>
-                            </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </TabsContent>
+                    </Tabs>
+                  )}
+                </>
+              )
+            })()}
+          </div>
+        ) : (
+          /* Tournaments */
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold">Your Tournaments</h2>
+            
+            {staffMemberships.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <ClipboardList className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                  <h3 className="text-lg font-semibold mb-2">No Active Assignments</h3>
+                  <p className="text-muted-foreground">
+                    You don&apos;t have any tournament assignments yet. Contact a Tournament Director to get invited.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {staffMemberships.map((membership) => (
+                  <Link
+                    key={membership.tournament.id}
+                    href={`/es?tournament=${membership.tournament.id}`}
+                    className="block"
+                  >
+                    <Card className="overflow-hidden transition-all h-full cursor-pointer hover:shadow-lg hover:border-primary/30">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <CardTitle className="text-lg truncate">{membership.tournament.name}</CardTitle>
+                            <CardDescription className="flex items-center gap-2">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {format(new Date(membership.tournament.startDate), 'MMM d, yyyy')}
+                            </CardDescription>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            ))}
-          </Tabs>
+                          <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          <Badge variant="outline">Division {membership.tournament.division}</Badge>
+                          {membership.events.length > 0 && (
+                            <Badge variant="outline">
+                              {membership.events.length} Event{membership.events.length !== 1 ? 's' : ''}
+                            </Badge>
+                          )}
+                        </div>
+                        {membership.events.length > 0 && (
+                          <div className="text-sm text-muted-foreground">
+                            <span className="font-medium">Assigned Events: </span>
+                            <span className="truncate">
+                              {membership.events.slice(0, 3).map(e => e.event.name).join(', ')}
+                              {membership.events.length > 3 && ` +${membership.events.length - 3} more`}
+                            </span>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 bg-card/80 dark:bg-slate-900/80 backdrop-blur py-4 mt-12">
+      <footer className="border-t border-border bg-card py-4 mt-auto">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-2">
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
@@ -385,6 +755,37 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {} }
           </div>
         </div>
       </footer>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Test</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{testToDelete?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                setTestToDelete(null)
+              }}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

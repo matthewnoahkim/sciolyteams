@@ -8,32 +8,32 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  email              String              @unique
-  name               String?
-  image              String?
-  emailVerified      DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  accounts           Account[]
-  activityLogs       ActivityLog[]
-  apiLogs            ApiLog[]
-  errorLogs          ErrorLog[]
-  attachments        Attachment[]
-  attendanceCheckIns AttendanceCheckIn[]
-  emailsReceived     EmailLog[]
-  eventRSVPs         EventRSVP[]
-  memberships        Membership[]
-  reactions          Reaction[]
-  sessions           Session[]
-  clubsCreated       Club[]              @relation("ClubCreator")
-  mediaUploads       MediaItem[]         @relation("MediaUploads")
-  formSubmissions    FormSubmission[]    @relation("FormSubmissions")
-  homePageWidgets    HomePageWidget[]    @relation("UserHomePageWidgets")
-  tournamentsCreated Tournament[]        @relation("TournamentCreator")
-  tournamentAdmins   TournamentAdmin[]   @relation("TournamentAdmins")
+  id                      String                   @id @default(cuid())
+  email                   String                   @unique
+  name                    String?
+  image                   String?
+  emailVerified           DateTime?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  accounts                Account[]
+  activityLogs            ActivityLog[]
+  apiLogs                 ApiLog[]
+  attachments             Attachment[]
+  attendanceCheckIns      AttendanceCheckIn[]
+  clubsCreated            Club[]                   @relation("ClubCreator")
+  emailsReceived          EmailLog[]
+  errorLogs               ErrorLog[]
+  eventRSVPs              EventRSVP[]
+  formSubmissions         FormSubmission[]         @relation("FormSubmissions")
+  homePageWidgets         HomePageWidget[]         @relation("UserHomePageWidgets")
+  mediaUploads            MediaItem[]              @relation("MediaUploads")
+  memberships             Membership[]
+  reactions               Reaction[]
+  sessions                Session[]
+  tournamentsCreated      Tournament[]             @relation("TournamentCreator")
+  tournamentAdmins        TournamentAdmin[]        @relation("TournamentAdmins")
   tournamentRegistrations TournamentRegistration[] @relation("TournamentRegistrationsBy")
-  tournamentStaff    TournamentStaff[]   @relation("TournamentStaffUser")
+  tournamentStaff         TournamentStaff[]        @relation("TournamentStaffUser")
 }
 
 model Account {
@@ -74,7 +74,7 @@ model VerificationToken {
 }
 
 model Club {
-  id                        String            @id @default(cuid())
+  id                        String                   @id @default(cuid())
   name                      String
   division                  Division
   createdById               String
@@ -82,27 +82,27 @@ model Club {
   memberInviteCodeHash      String
   adminInviteCodeEncrypted  String
   memberInviteCodeEncrypted String
-  backgroundType            String            @default("grid")
+  backgroundType            String                   @default("grid")
   backgroundColor           String?
   gradientStartColor        String?
   gradientEndColor          String?
-  gradientColors            String[]          @default([])
+  gradientColors            String[]                 @default([])
   gradientDirection         String?
   backgroundImageUrl        String?
-  createdAt                 DateTime          @default(now())
-  updatedAt                 DateTime          @updatedAt
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  albums                    Album[]
   announcements             Announcement[]
   calendarEvents            CalendarEvent[]
+  createdBy                 User                     @relation("ClubCreator", fields: [createdById], references: [id])
   eventBudgets              EventBudget[]
   expenses                  Expense[]
+  forms                     Form[]
+  homePageWidgets           HomePageWidget[]
   memberships               Membership[]
   purchaseRequests          PurchaseRequest[]
   teams                     Team[]
-  createdBy                 User              @relation("ClubCreator", fields: [createdById], references: [id])
   tests                     Test[]
-  homePageWidgets           HomePageWidget[]
-  albums                    Album[]
-  forms                     Form[]
   todos                     Todo[]
   tournamentRegistrations   TournamentRegistration[] @relation("TournamentRegistrations")
 
@@ -123,14 +123,14 @@ model Membership {
   attendanceCheckIns  AttendanceCheckIn[]
   attendeeEvents      CalendarEvent[]     @relation("AttendeeEvents")
   calendarEvents      CalendarEvent[]     @relation("CreatorEvents")
-  team                Team?               @relation(fields: [teamId], references: [id])
-  club                Club                @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rosterAssignments   RosterAssignment[]
-  todos               Todo[]
   preferences         MemberPreferences?
+  club                Club                @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  team                Team?               @relation(fields: [teamId], references: [id])
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   noteSheets          NoteSheet[]
   reviewedNoteSheets  NoteSheet[]         @relation("NoteSheetReviewer")
+  rosterAssignments   RosterAssignment[]
+  todos               Todo[]
 
   @@unique([userId, clubId])
   @@index([clubId])
@@ -158,25 +158,25 @@ model Team {
 }
 
 model Event {
-  id                       String                      @id @default(cuid())
-  division                 Division
-  name                     String
-  slug                     String
-  maxCompetitors           Int                         @default(2)
-  selfScheduled            Boolean                     @default(false)
-  createdAt                DateTime                    @default(now())
-  conflictGroupEvents      ConflictGroupEvent[]
-  eventBudgets             EventBudget[]
-  expenses                 Expense[]
-  purchaseRequests         PurchaseRequest[]
-  rosterAssignments        RosterAssignment[]
-  announcementVisibilities AnnouncementVisibility[]
-  calendarEventTargets     CalendarEventTarget[]
-  testAssignments          TestAssignment[]
+  id                        String                      @id @default(cuid())
+  division                  Division
+  name                      String
+  slug                      String
+  maxCompetitors            Int                         @default(2)
+  selfScheduled             Boolean                     @default(false)
+  createdAt                 DateTime                    @default(now())
+  announcementVisibilities  AnnouncementVisibility[]
+  calendarEventTargets      CalendarEventTarget[]
+  conflictGroupEvents       ConflictGroupEvent[]
+  esTests                   ESTest[]
+  eventBudgets              EventBudget[]
+  esAssignments             EventSupervisorAssignment[]
+  expenses                  Expense[]
+  purchaseRequests          PurchaseRequest[]
+  rosterAssignments         RosterAssignment[]
+  testAssignments           TestAssignment[]
   tournamentEventSelections TournamentEventSelection[]
-  tournamentTestEvents      TournamentTest[]           @relation("TournamentTestEvents")
-  esAssignments            EventSupervisorAssignment[]
-  esTests                  ESTest[]
+  tournamentTestEvents      TournamentTest[]            @relation("TournamentTestEvents")
 
   @@unique([division, slug])
   @@index([division])
@@ -294,8 +294,8 @@ model AnnouncementVisibility {
   eventId        String?
   createdAt      DateTime          @default(now())
   announcement   Announcement      @relation(fields: [announcementId], references: [id], onDelete: Cascade)
-  team           Team?             @relation(fields: [teamId], references: [id], onDelete: Cascade)
   event          Event?            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  team           Team?             @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([announcementId])
   @@index([teamId])
@@ -333,15 +333,15 @@ model CalendarEvent {
   attachments          Attachment[]
   attendance           Attendance?
   attendee             Membership?           @relation("AttendeeEvents", fields: [attendeeId], references: [id], onDelete: Cascade)
-  creator              Membership            @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
-  team                 Team?                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
   club                 Club                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  creator              Membership            @relation("CreatorEvents", fields: [creatorId], references: [id], onDelete: Cascade)
   parentEvent          CalendarEvent?        @relation("RecurringEvents", fields: [parentEventId], references: [id], onDelete: Cascade)
   childEvents          CalendarEvent[]       @relation("RecurringEvents")
+  team                 Team?                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  test                 Test?                 @relation(fields: [testId], references: [id])
+  targets              CalendarEventTarget[]
   rsvps                EventRSVP[]
   reactions            Reaction[]
-  targets              CalendarEventTarget[]
-  test                 Test?                 @relation(fields: [testId], references: [id], onDelete: SetNull)
 
   @@index([clubId])
   @@index([creatorId])
@@ -480,10 +480,10 @@ model Expense {
   updatedAt         DateTime         @updatedAt
   eventId           String?
   teamId            String?
+  club              Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
   event             Event?           @relation(fields: [eventId], references: [id])
   purchaseRequest   PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id])
   team              Team?            @relation(fields: [teamId], references: [id])
-  club              Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
   @@index([clubId])
   @@index([eventId])
@@ -510,9 +510,9 @@ model PurchaseRequest {
   eventId         String?
   teamId          String?
   expense         Expense?
+  club            Club                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
   event           Event?                @relation(fields: [eventId], references: [id])
   team            Team?                 @relation(fields: [teamId], references: [id])
-  club            Club                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
   @@index([clubId])
   @@index([eventId])
@@ -530,9 +530,9 @@ model EventBudget {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   teamId    String?
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   team      Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
   @@unique([clubId, eventId, teamId])
   @@index([clubId])
@@ -566,16 +566,16 @@ model Test {
   createdByMembershipId  String
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
+  aiSuggestions          AiGradingSuggestion[]
+  calendarEvents         CalendarEvent[]
+  noteSheets             NoteSheet[]
   questions              Question[]
   club                   Club                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
   assignments            TestAssignment[]
   attempts               TestAttempt[]
   audits                 TestAudit[]
   sections               TestSection[]
-  aiSuggestions          AiGradingSuggestion[]
-  calendarEvents         CalendarEvent[]
-  noteSheets             NoteSheet[]
-  tournamentTests        TournamentTest[] @relation("TournamentTests")
+  tournamentTests        TournamentTest[]      @relation("TournamentTests")
 
   @@index([clubId])
   @@index([status])
@@ -598,9 +598,9 @@ model NoteSheet {
   reviewedAt      DateTime?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
-  test            Test            @relation(fields: [testId], references: [id], onDelete: Cascade)
   membership      Membership      @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-  reviewer        Membership?     @relation("NoteSheetReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewer        Membership?     @relation("NoteSheetReviewer", fields: [reviewedById], references: [id])
+  test            Test            @relation(fields: [testId], references: [id], onDelete: Cascade)
 
   @@unique([testId, membershipId])
   @@index([testId])
@@ -634,11 +634,11 @@ model Question {
   numericTolerance Decimal?              @db.Decimal(8, 3)
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
+  aiSuggestions    AiGradingSuggestion[]
   answers          AttemptAnswer[]
   section          TestSection?          @relation(fields: [sectionId], references: [id])
   test             Test                  @relation(fields: [testId], references: [id], onDelete: Cascade)
   options          QuestionOption[]
-  aiSuggestions    AiGradingSuggestion[]
 
   @@index([testId])
   @@index([sectionId])
@@ -665,9 +665,9 @@ model TestAssignment {
   targetRole         String?
   eventId            String?
   createdAt          DateTime            @default(now())
+  event              Event?              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   team               Team?               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   test               Test                @relation(fields: [testId], references: [id], onDelete: Cascade)
-  event              Event?              @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([testId])
   @@index([teamId])
@@ -693,10 +693,10 @@ model TestAttempt {
   updatedAt             DateTime              @updatedAt
   tabSwitchCount        Int                   @default(0)
   timeOffPageSeconds    Int                   @default(0)
+  aiSuggestions         AiGradingSuggestion[]
   answers               AttemptAnswer[]
   gradeAdjustments      GradeAdjustment[]
   proctorEvents         ProctorEvent[]
-  aiSuggestions         AiGradingSuggestion[]
   test                  Test                  @relation(fields: [testId], references: [id], onDelete: Cascade)
 
   @@index([testId])
@@ -718,9 +718,9 @@ model AttemptAnswer {
   markedForReview   Boolean               @default(false)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
+  aiSuggestions     AiGradingSuggestion[]
   attempt           TestAttempt           @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question          Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  aiSuggestions     AiGradingSuggestion[]
 
   @@unique([attemptId, questionId])
   @@index([attemptId])
@@ -773,8 +773,8 @@ model AiGradingSuggestion {
   acceptedByMembershipId  String?
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
-  attempt                 TestAttempt        @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   answer                  AttemptAnswer      @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  attempt                 TestAttempt        @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question                Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
   test                    Test               @relation(fields: [testId], references: [id], onDelete: Cascade)
 
@@ -833,7 +833,7 @@ model ApiLog {
   responseSize  Int?
   error         String?
   timestamp     DateTime @default(now())
-  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user          User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([timestamp])
@@ -854,7 +854,7 @@ model ErrorLog {
   metadata  Json?
   timestamp DateTime      @default(now())
   resolved  Boolean       @default(false)
-  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user      User?         @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([timestamp])
@@ -980,6 +980,334 @@ model FormSubmission {
   @@index([userId])
   @@index([membershipId])
   @@index([status])
+}
+
+model Todo {
+  id           String       @id @default(cuid())
+  clubId       String
+  membershipId String
+  title        String
+  description  String?
+  completed    Boolean      @default(false)
+  priority     TodoPriority @default(MEDIUM)
+  dueDate      DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  club         Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  membership   Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([clubId])
+  @@index([membershipId])
+  @@index([completed])
+  @@index([priority])
+  @@index([dueDate])
+}
+
+model MemberPreferences {
+  id                 String     @id @default(cuid())
+  membershipId       String     @unique
+  preferredEvents    String[]   @default([])
+  avoidEvents        String[]   @default([])
+  adminNotes         String?
+  strengths          String?
+  weaknesses         String?
+  availability       String?
+  experienceLevel    String?
+  backgroundType     String?
+  backgroundColor    String?
+  gradientStartColor String?
+  gradientEndColor   String?
+  gradientColors     String[]   @default([])
+  gradientDirection  String?
+  backgroundImageUrl String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  membership         Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([membershipId])
+}
+
+model AIRosterGeneration {
+  id              String    @id @default(cuid())
+  clubId          String
+  teamId          String?
+  prompt          String
+  response        String
+  generatedRoster Json
+  appliedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  createdById     String
+
+  @@index([clubId])
+  @@index([teamId])
+  @@index([createdAt])
+}
+
+model Tournament {
+  id                      String                    @id @default(cuid())
+  name                    String
+  division                Division
+  description             String?
+  price                   Float                     @default(0)
+  startDate               DateTime
+  endDate                 DateTime
+  startTime               DateTime
+  endTime                 DateTime
+  location                String?
+  createdById             String
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  paymentInstructions     String?
+  isOnline                Boolean                   @default(false)
+  approved                Boolean                   @default(false)
+  rejectionReason         String?
+  hostingRequestId        String?                   @unique
+  pageContent             String?
+  slug                    String?                   @unique
+  additionalTeamPrice     Float?
+  earlyBirdDeadline       DateTime?
+  earlyBirdDiscount       Float?
+  eligibilityRequirements String?
+  eventsRun               String?
+  feeStructure            String                    @default("flat")
+  lateFee                 Float?
+  lateFeeStartDate        DateTime?
+  otherDiscounts          String?
+  registrationEndDate     DateTime?
+  registrationStartDate   DateTime?
+  esTests                 ESTest[]
+  createdBy               User                      @relation("TournamentCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  hostingRequest          TournamentHostingRequest? @relation("TournamentFromRequest", fields: [hostingRequestId], references: [id])
+  admins                  TournamentAdmin[]
+  registrations           TournamentRegistration[]
+  staff                   TournamentStaff[]
+  tests                   TournamentTest[]
+  timeline                TournamentTimeline[]
+
+  @@index([createdById])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([division])
+  @@index([approved])
+  @@index([slug])
+  @@index([hostingRequestId])
+}
+
+model TournamentAdmin {
+  id           String     @id @default(cuid())
+  tournamentId String
+  userId       String
+  createdAt    DateTime   @default(now())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user         User       @relation("TournamentAdmins", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, userId])
+  @@index([tournamentId])
+  @@index([userId])
+}
+
+model TournamentRegistration {
+  id              String                       @id @default(cuid())
+  tournamentId    String
+  clubId          String
+  teamId          String?
+  registeredById  String
+  status          TournamentRegistrationStatus @default(PENDING)
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  paid            Boolean                      @default(false)
+  eventSelections TournamentEventSelection[]
+  club            Club                         @relation("TournamentRegistrations", fields: [clubId], references: [id], onDelete: Cascade)
+  registeredBy    User                         @relation("TournamentRegistrationsBy", fields: [registeredById], references: [id], onDelete: Cascade)
+  team            Team?                        @relation("TournamentRegistrations", fields: [teamId], references: [id], onDelete: Cascade)
+  tournament      Tournament                   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, clubId, teamId])
+  @@index([tournamentId])
+  @@index([clubId])
+  @@index([teamId])
+  @@index([registeredById])
+  @@index([status])
+}
+
+model TournamentEventSelection {
+  id             String                 @id @default(cuid())
+  registrationId String
+  eventId        String
+  createdAt      DateTime               @default(now())
+  event          Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registration   TournamentRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId, eventId])
+  @@index([registrationId])
+  @@index([eventId])
+}
+
+model TournamentTest {
+  id           String     @id @default(cuid())
+  tournamentId String
+  testId       String
+  eventId      String?
+  createdAt    DateTime   @default(now())
+  event        Event?     @relation("TournamentTestEvents", fields: [eventId], references: [id])
+  test         Test       @relation("TournamentTests", fields: [testId], references: [id], onDelete: Cascade)
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, testId])
+  @@index([tournamentId])
+  @@index([testId])
+  @@index([eventId])
+}
+
+model TournamentHostingRequest {
+  id               String                         @id @default(cuid())
+  tournamentName   String
+  tournamentLevel  String
+  division         String
+  tournamentFormat String
+  location         String?
+  preferredSlug    String?
+  directorName     String
+  directorEmail    String
+  directorPhone    String?
+  otherNotes       String?
+  status           TournamentHostingRequestStatus @default(PENDING)
+  reviewNotes      String?
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+  pageContent      String?
+  tournament       Tournament?                    @relation("TournamentFromRequest")
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model BlogPost {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  title      String
+  excerpt    String?
+  content    String
+  coverImage String?
+  published  Boolean  @default(false)
+  authorName String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([published])
+  @@index([createdAt])
+}
+
+model TournamentStaff {
+  id                 String                      @id @default(cuid())
+  tournamentId       String
+  email              String
+  name               String?
+  role               StaffRole
+  status             StaffInviteStatus           @default(PENDING)
+  inviteToken        String                      @unique
+  invitedAt          DateTime                    @default(now())
+  acceptedAt         DateTime?
+  userId             String?
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  tests              ESTest[]                    @relation("ESTestOwner")
+  testsCreated       ESTest[]                    @relation("ESTestCreator")
+  events             EventSupervisorAssignment[]
+  tournament         Tournament                  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user               User?                       @relation("TournamentStaffUser", fields: [userId], references: [id])
+
+  @@unique([tournamentId, email])
+  @@index([tournamentId])
+  @@index([email])
+  @@index([userId])
+  @@index([status])
+}
+
+model EventSupervisorAssignment {
+  id        String          @id @default(cuid())
+  staffId   String
+  eventId   String
+  createdAt DateTime        @default(now())
+  event     Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  staff     TournamentStaff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, eventId])
+  @@index([staffId])
+  @@index([eventId])
+}
+
+model TournamentTimeline {
+  id           String     @id @default(cuid())
+  tournamentId String
+  name         String
+  description  String?
+  dueDate      DateTime
+  type         String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@index([tournamentId])
+  @@index([dueDate])
+}
+
+model ESTest {
+  id               String               @id @default(cuid())
+  staffId          String               // Current owner/maintainer (can be changed for collaboration)
+  createdByStaffId String               // Original creator (never changes)
+  tournamentId     String
+  eventId          String?
+  name             String
+  description      String?
+  instructions     String?
+  content          String?
+  status           TestStatus           @default(DRAFT)
+  durationMinutes  Int                  @default(60)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  event            Event?               @relation(fields: [eventId], references: [id])
+  staff            TournamentStaff      @relation("ESTestOwner", fields: [staffId], references: [id], onDelete: Cascade)
+  createdBy        TournamentStaff      @relation("ESTestCreator", fields: [createdByStaffId], references: [id], onDelete: Cascade)
+  tournament       Tournament           @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  questions        ESTestQuestion[]
+
+  @@index([staffId])
+  @@index([createdByStaffId])
+  @@index([tournamentId])
+  @@index([eventId])
+  @@index([status])
+}
+
+model ESTestQuestion {
+  id               String                 @id @default(cuid())
+  testId           String
+  type             QuestionType
+  promptMd         String
+  explanation      String?
+  points           Decimal                @db.Decimal(5, 2)
+  order            Int                    @default(0)
+  shuffleOptions   Boolean                @default(false)
+  numericTolerance Decimal?               @db.Decimal(8, 3)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  test             ESTest                 @relation(fields: [testId], references: [id], onDelete: Cascade)
+  options          ESTestQuestionOption[]
+
+  @@index([testId])
+}
+
+model ESTestQuestionOption {
+  id         String         @id @default(cuid())
+  questionId String
+  label      String
+  isCorrect  Boolean        @default(false)
+  order      Int            @default(0)
+  createdAt  DateTime       @default(now())
+  question   ESTestQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
 }
 
 enum Division {
@@ -1178,218 +1506,10 @@ enum TodoPriority {
   URGENT
 }
 
-model Todo {
-  id           String       @id @default(cuid())
-  clubId       String
-  membershipId String
-  title        String
-  description  String?
-  completed    Boolean      @default(false)
-  priority     TodoPriority @default(MEDIUM)
-  dueDate      DateTime?
-  completedAt  DateTime?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  club         Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  membership   Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-
-  @@index([clubId])
-  @@index([membershipId])
-  @@index([completed])
-  @@index([priority])
-  @@index([dueDate])
-}
-
-model MemberPreferences {
-  id                  String     @id @default(cuid())
-  membershipId        String     @unique
-  preferredEvents     String[]   @default([])
-  avoidEvents         String[]   @default([])
-  adminNotes          String?    @db.Text
-  strengths           String?    @db.Text
-  weaknesses          String?    @db.Text
-  availability        String?
-  experienceLevel     String?
-  backgroundType      String?
-  backgroundColor     String?
-  gradientStartColor  String?
-  gradientEndColor    String?
-  gradientColors      String[]   @default([])
-  gradientDirection   String?
-  backgroundImageUrl  String?
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
-  membership          Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-
-  @@index([membershipId])
-}
-
-model AIRosterGeneration {
-  id              String    @id @default(cuid())
-  clubId          String
-  teamId          String?
-  prompt          String    @db.Text
-  response        String    @db.Text
-  generatedRoster Json
-  appliedAt       DateTime?
-  createdAt       DateTime  @default(now())
-  createdById     String
-
-  @@index([clubId])
-  @@index([teamId])
-  @@index([createdAt])
-}
-
-model Tournament {
-  id                    String                    @id @default(cuid())
-  name                  String
-  slug                  String?                   @unique
-  division              Division
-  description           String?                   @db.Text
-  price                 Float                     @default(0)
-  additionalTeamPrice   Float?                    // Price for additional teams (if different from first team)
-  feeStructure          String                    @default("flat") // "flat" or "tiered"
-  paymentInstructions   String?                   @db.Text
-  isOnline              Boolean                   @default(false)
-  startDate             DateTime
-  endDate               DateTime
-  startTime             DateTime
-  endTime               DateTime
-  location              String?
-  
-  // Registration window
-  registrationStartDate DateTime?
-  registrationEndDate   DateTime?
-  
-  // Discounts and penalties
-  earlyBirdDiscount     Float?                    // Amount to discount
-  earlyBirdDeadline     DateTime?                 // Deadline for early bird
-  lateFee               Float?                    // Late fee amount
-  lateFeeStartDate      DateTime?                 // When late fee kicks in
-  otherDiscounts        String?                   @db.Text // JSON for conditional discounts
-  
-  // Eligibility and events
-  eligibilityRequirements String?                 @db.Text
-  eventsRun             String?                   @db.Text // JSON array of event IDs or names
-  
-  approved              Boolean                   @default(false)
-  rejectionReason       String?                   @db.Text
-  createdById           String
-  hostingRequestId      String?                   @unique
-  pageContent           String?                   @db.Text // JSON for custom page builder
-  createdAt             DateTime                  @default(now())
-  updatedAt             DateTime                  @updatedAt
-  admins                TournamentAdmin[]
-  registrations         TournamentRegistration[]
-  tests                 TournamentTest[]
-  staff                 TournamentStaff[]
-  timeline              TournamentTimeline[]
-  esTests               ESTest[]
-  createdBy             User                      @relation("TournamentCreator", fields: [createdById], references: [id], onDelete: Cascade)
-  hostingRequest        TournamentHostingRequest? @relation("TournamentFromRequest", fields: [hostingRequestId], references: [id], onDelete: SetNull)
-
-  @@index([createdById])
-  @@index([startDate])
-  @@index([endDate])
-  @@index([division])
-  @@index([approved])
-  @@index([slug])
-  @@index([hostingRequestId])
-}
-
-model TournamentAdmin {
-  id           String     @id @default(cuid())
-  tournamentId String
-  userId       String
-  createdAt    DateTime   @default(now())
-  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  user         User       @relation("TournamentAdmins", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([tournamentId, userId])
-  @@index([tournamentId])
-  @@index([userId])
-}
-
-model TournamentRegistration {
-  id             String                       @id @default(cuid())
-  tournamentId   String
-  clubId         String
-  teamId         String?
-  registeredById String
-  status         TournamentRegistrationStatus @default(PENDING)
-  paid           Boolean                      @default(false)
-  createdAt      DateTime                     @default(now())
-  updatedAt      DateTime                     @updatedAt
-  tournament     Tournament                   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  club           Club                         @relation("TournamentRegistrations", fields: [clubId], references: [id], onDelete: Cascade)
-  team           Team?                        @relation("TournamentRegistrations", fields: [teamId], references: [id], onDelete: Cascade)
-  registeredBy   User                         @relation("TournamentRegistrationsBy", fields: [registeredById], references: [id], onDelete: Cascade)
-  eventSelections TournamentEventSelection[]
-
-  @@unique([tournamentId, clubId, teamId])
-  @@index([tournamentId])
-  @@index([clubId])
-  @@index([teamId])
-  @@index([registeredById])
-  @@index([status])
-}
-
-model TournamentEventSelection {
-  id             String                 @id @default(cuid())
-  registrationId String
-  eventId        String
-  createdAt      DateTime               @default(now())
-  registration   TournamentRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-  event          Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  @@unique([registrationId, eventId])
-  @@index([registrationId])
-  @@index([eventId])
-}
-
-model TournamentTest {
-  id           String     @id @default(cuid())
-  tournamentId String
-  testId       String
-  eventId      String?
-  createdAt    DateTime   @default(now())
-  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  test         Test       @relation("TournamentTests", fields: [testId], references: [id], onDelete: Cascade)
-  event        Event?     @relation("TournamentTestEvents", fields: [eventId], references: [id], onDelete: SetNull)
-
-  @@unique([tournamentId, testId])
-  @@index([tournamentId])
-  @@index([testId])
-  @@index([eventId])
-}
-
 enum TournamentRegistrationStatus {
   PENDING
   CONFIRMED
   CANCELLED
-}
-
-model TournamentHostingRequest {
-  id               String                           @id @default(cuid())
-  tournamentName   String
-  tournamentLevel  String                           // invitational, regional, state, national
-  division         String                           // B, C, or B&C
-  tournamentFormat String                           // in-person, satellite, mini-so
-  location         String?
-  preferredSlug    String?
-  directorName     String
-  directorEmail    String
-  directorPhone    String?
-  otherNotes       String?                          @db.Text
-  status           TournamentHostingRequestStatus   @default(PENDING)
-  reviewNotes      String?                          @db.Text
-  pageContent      String?                          @db.Text // JSON for custom page sections
-  createdAt        DateTime                         @default(now())
-  updatedAt        DateTime                         @updatedAt
-  tournament       Tournament?                      @relation("TournamentFromRequest")
-
-  @@index([status])
-  @@index([createdAt])
 }
 
 enum TournamentHostingRequestStatus {
@@ -1398,23 +1518,6 @@ enum TournamentHostingRequestStatus {
   REJECTED
 }
 
-model BlogPost {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  title       String
-  excerpt     String?
-  content     String   @db.Text
-  coverImage  String?
-  published   Boolean  @default(false)
-  authorName  String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([published])
-  @@index([createdAt])
-}
-
-// Event Supervisor / Tournament Staff System
 enum StaffRole {
   EVENT_SUPERVISOR
   TOURNAMENT_DIRECTOR
@@ -1424,111 +1527,4 @@ enum StaffInviteStatus {
   PENDING
   ACCEPTED
   DECLINED
-}
-
-model TournamentStaff {
-  id           String                      @id @default(cuid())
-  tournamentId String
-  email        String
-  name         String?
-  role         StaffRole
-  status       StaffInviteStatus           @default(PENDING)
-  inviteToken  String                      @unique
-  invitedAt    DateTime                    @default(now())
-  acceptedAt   DateTime?
-  userId       String?
-  createdAt    DateTime                    @default(now())
-  updatedAt    DateTime                    @updatedAt
-  tournament   Tournament                  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  user         User?                       @relation("TournamentStaffUser", fields: [userId], references: [id], onDelete: SetNull)
-  events       EventSupervisorAssignment[]
-  tests        ESTest[]
-
-  @@unique([tournamentId, email])
-  @@index([tournamentId])
-  @@index([email])
-  @@index([userId])
-  @@index([status])
-}
-
-model EventSupervisorAssignment {
-  id        String          @id @default(cuid())
-  staffId   String
-  eventId   String
-  createdAt DateTime        @default(now())
-  staff     TournamentStaff @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  event     Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  @@unique([staffId, eventId])
-  @@index([staffId])
-  @@index([eventId])
-}
-
-model TournamentTimeline {
-  id           String     @id @default(cuid())
-  tournamentId String
-  name         String
-  description  String?
-  dueDate      DateTime
-  type         String // draft_due, final_due, review_due, etc.
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-
-  @@index([tournamentId])
-  @@index([dueDate])
-}
-
-model ESTest {
-  id              String               @id @default(cuid())
-  staffId         String
-  tournamentId    String
-  eventId         String?
-  name            String
-  description     String?
-  instructions    String?
-  content         String?              @db.Text
-  status          TestStatus           @default(DRAFT)
-  durationMinutes Int                  @default(60)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  staff           TournamentStaff      @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  tournament      Tournament           @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  event           Event?               @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  questions       ESTestQuestion[]
-
-  @@index([staffId])
-  @@index([tournamentId])
-  @@index([eventId])
-  @@index([status])
-}
-
-model ESTestQuestion {
-  id               String                 @id @default(cuid())
-  testId           String
-  type             QuestionType
-  promptMd         String
-  explanation      String?
-  points           Decimal                @db.Decimal(5, 2)
-  order            Int                    @default(0)
-  shuffleOptions   Boolean                @default(false)
-  numericTolerance Decimal?               @db.Decimal(8, 3)
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  test             ESTest                 @relation(fields: [testId], references: [id], onDelete: Cascade)
-  options          ESTestQuestionOption[]
-
-  @@index([testId])
-}
-
-model ESTestQuestionOption {
-  id         String         @id @default(cuid())
-  questionId String
-  label      String
-  isCorrect  Boolean        @default(false)
-  order      Int            @default(0)
-  createdAt  DateTime       @default(now())
-  question   ESTestQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
-
-  @@index([questionId])
 }

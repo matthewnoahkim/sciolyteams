@@ -17,7 +17,7 @@ export default async function ESEditTestPage({ params }: Props) {
 
   const { testId } = await params
 
-  // Find the ES test and verify ownership
+  // Find the ES test
   const esTest = await prisma.eSTest.findUnique({
     where: { id: testId },
     include: {
@@ -30,6 +30,13 @@ export default async function ESEditTestPage({ params }: Props) {
               division: true,
             },
           },
+        },
+      },
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
         },
       },
       event: {
@@ -49,17 +56,109 @@ export default async function ESEditTestPage({ params }: Props) {
     },
   })
 
-  if (!esTest) {
+  if (!esTest || !esTest.eventId) {
     notFound()
   }
 
-  // Verify this test belongs to the user
-  const isOwner = esTest.staff.userId === session.user.id || 
-    esTest.staff.email.toLowerCase() === session.user.email.toLowerCase()
+  // Verify user has access (assigned to the same event - collaborative access)
+  // OR user is a tournament director for this tournament
+  // Check ALL staff memberships to find one where user is assigned to the event
+  // and the tournament matches the test's tournament
+  const userStaffMemberships = await prisma.tournamentStaff.findMany({
+    where: {
+      OR: [
+        { userId: session.user.id },
+        { email: { equals: session.user.email, mode: 'insensitive' } },
+      ],
+      status: 'ACCEPTED',
+    },
+    include: {
+      events: {
+        select: {
+          eventId: true,
+        },
+      },
+      tournament: {
+        select: {
+          id: true,
+          name: true,
+          division: true,
+        },
+      },
+    },
+  })
 
-  if (!isOwner) {
+  // Check if user is a tournament director for this tournament
+  const isTournamentDirector = await (async () => {
+    // Check tournament admin table
+    const admin = await prisma.tournamentAdmin.findUnique({
+      where: {
+        tournamentId_userId: {
+          tournamentId: esTest.tournamentId,
+          userId: session.user.id,
+        },
+      },
+    })
+    if (admin) return true
+
+    // Check if user created the tournament
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: esTest.tournamentId },
+      select: { createdById: true },
+    })
+    if (tournament?.createdById === session.user.id) return true
+
+    // Check if user is director on hosting request
+    const hostingRequest = await prisma.tournamentHostingRequest.findFirst({
+      where: {
+        tournament: {
+          id: esTest.tournamentId,
+        },
+        directorEmail: {
+          equals: session.user.email,
+          mode: 'insensitive',
+        },
+        status: 'APPROVED',
+      },
+    })
+    return !!hostingRequest
+  })()
+
+  // Find a staff membership where user is assigned to the event AND tournament matches
+  const userStaff = userStaffMemberships.find(staff => 
+    staff.tournament.id === esTest.tournamentId &&
+    staff.events.some(e => e.eventId === esTest.eventId)
+  )
+
+  // If no exact match, find any staff membership where user is assigned to the event
+  // (allows cross-tournament collaboration if needed)
+  const userStaffFallback = userStaff || userStaffMemberships.find(staff => 
+    staff.events.some(e => e.eventId === esTest.eventId)
+  )
+
+  // If user is TD, find their staff membership for this tournament (or create access)
+  const tdStaff = isTournamentDirector 
+    ? userStaffMemberships.find(staff => 
+        staff.tournament.id === esTest.tournamentId && 
+        staff.role === 'TOURNAMENT_DIRECTOR'
+      )
+    : null
+
+  if (!userStaffFallback && !tdStaff && !isTournamentDirector) {
     redirect('/es')
   }
+
+  // If TD, allow access even without staff membership
+  // Use the staff membership that matches the test's tournament, or fallback to any matching membership
+  // If TD, prefer TD staff membership, otherwise use event-based one
+  // For TDs without staff membership, use the test's current staffId
+  const staffToUse = tdStaff || userStaff || userStaffFallback || userStaffMemberships.find(staff => 
+    staff.tournament.id === esTest.tournamentId
+  )
+
+  // If TD but no staff membership found, we still allow access but need to handle staffMembershipId
+  // In this case, we'll use the test's original staff membership (TDs can edit any test)
+  const staffMembershipIdToUse = staffToUse?.id || esTest.staffId
 
   // Format the test for the builder
   const formattedTest = {
@@ -95,13 +194,20 @@ export default async function ESEditTestPage({ params }: Props) {
     })),
   }
 
+  // Get tournament info for the builder
+  const tournament = esTest.staff?.tournament || (staffToUse ? staffToUse.tournament : null)
+  
+  if (!tournament) {
+    redirect('/es')
+  }
+
   return (
     <NewTestBuilder
       esMode={true}
-      staffMembershipId={esTest.staff.id}
-      tournamentId={esTest.staff.tournament.id}
-      tournamentName={esTest.staff.tournament.name}
-      tournamentDivision={esTest.staff.tournament.division}
+      staffMembershipId={staffMembershipIdToUse}
+      tournamentId={esTest.tournamentId}
+      tournamentName={tournament.name}
+      tournamentDivision={tournament.division}
       eventId={esTest.event?.id}
       eventName={esTest.event?.name}
       test={formattedTest}

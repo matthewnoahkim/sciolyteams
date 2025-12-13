@@ -70,10 +70,17 @@ export function TakeTestClient({
       const loadedAnswers: Record<string, any> = {}
       const markedQuestions = new Set<string>()
       existingAttempt.answers.forEach((answer: any) => {
+        // For fill-in-the-blank, parse the answerText back into blankAnswers array
+        let blankAnswers: string[] | undefined = undefined
+        if (answer.answerText && answer.answerText.includes(' | ')) {
+          blankAnswers = answer.answerText.split(' | ')
+        }
+        
         loadedAnswers[answer.questionId] = {
           answerText: answer.answerText,
           selectedOptionIds: answer.selectedOptionIds || [],
           numericAnswer: answer.numericAnswer,
+          blankAnswers,
         }
         if (answer.markedForReview) {
           markedQuestions.add(answer.questionId)
@@ -732,7 +739,135 @@ export function TakeTestClient({
                       </span>
                     </Button>
                   </div>
-                  <QuestionPrompt promptMd={question.promptMd} />
+                  {question.type === 'SHORT_TEXT' && (() => {
+                    // Check if this is a fill-in-the-blank question (contains blank markers: [blank] or [blank1], [blank2], etc.)
+                    const promptText = question.promptMd || ''
+                    const hasBlanks = /\[blank\d*\]/.test(promptText)
+                    
+                    if (hasBlanks) {
+                      // Parse the prompt to extract context and prompt sections
+                      const parts = promptText.split('---')
+                      const contextSection = parts.length > 1 ? parts[0].trim() : ''
+                      const promptSection = parts.length > 1 ? parts[1].trim() : promptText.trim()
+                      
+                      // Extract just the text content (remove image and table markdown temporarily)
+                      // We'll render images/tables separately using QuestionPrompt
+                      const imageRegex = /!\[([^\]]*)\]\((data:image\/[^)]+)\)/g
+                      const tableRegex = /(\|.+\|[\r\n]+\|[-:\s|]+\|[\r\n]+(?:\|.+\|(?:\r?\n(?!\r?\n))?)+)/g
+                      
+                      // Store images and tables to render separately
+                      const imagesAndTables: string[] = []
+                      let textOnly = promptSection
+                      
+                      // Extract images
+                      let match
+                      const imageMatches: string[] = []
+                      while ((match = imageRegex.exec(promptSection)) !== null) {
+                        imageMatches.push(match[0])
+                      }
+                      
+                      // Extract tables
+                      const tableMatches: string[] = []
+                      while ((match = tableRegex.exec(promptSection)) !== null) {
+                        tableMatches.push(match[0])
+                      }
+                      
+                      // Remove images and tables from text for blank processing
+                      textOnly = textOnly.replace(imageRegex, '')
+                      textOnly = textOnly.replace(tableRegex, '')
+                      
+                      // Split on blank markers ([blank], [blank1], [blank2], etc.) to get text segments
+                      // First normalize all blank markers to a placeholder, then split
+                      const normalizedText = textOnly.replace(/\[blank\d*\]/g, '[BLANK_MARKER]')
+                      const textSegments = normalizedText.split('[BLANK_MARKER]')
+                      const blankCount = textSegments.length - 1
+                      
+                      // Initialize blank answers if not present
+                      const blankAnswers = answers[question.id]?.blankAnswers || Array(blankCount).fill('')
+                      
+                      return (
+                        <div className="space-y-4">
+                          {/* Render context if exists */}
+                          {contextSection && (
+                            <div className="pb-3 border-b border-border">
+                              <QuestionPrompt promptMd={contextSection} />
+                            </div>
+                          )}
+                          
+                          {/* Render prompt text with inline blanks */}
+                          <div className="text-base leading-relaxed">
+                            {textSegments.map((segment, index) => (
+                              <span key={index} className="inline">
+                                {segment && (
+                                  <span className="whitespace-pre-wrap">{segment}</span>
+                                )}
+                                {index < textSegments.length - 1 && (
+                                  <Input
+                                    type="text"
+                                    placeholder=""
+                                    value={blankAnswers[index] || ''}
+                                    onChange={(e) => {
+                                      const newBlankAnswers = [...blankAnswers]
+                                      newBlankAnswers[index] = e.target.value
+                                      handleAnswerChange(question.id, {
+                                        blankAnswers: newBlankAnswers,
+                                        answerText: newBlankAnswers.join(' | '), // Store as delimited string for compatibility
+                                      })
+                                    }}
+                                    className="inline-block w-auto min-w-[150px] max-w-[300px] mx-2 align-middle"
+                                  />
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                          
+                          {/* Render images separately if they exist (before the text) */}
+                          {imageMatches.length > 0 && (
+                            <div className="mb-4">
+                              {imageMatches.map((img, idx) => (
+                                <div key={`img-${idx}`} className="my-3 rounded-md border border-input overflow-hidden bg-muted/30">
+                                  <img
+                                    src={img.match(/\(([^)]+)\)/)?.[1] || ''}
+                                    alt={img.match(/\[([^\]]*)\]/)?.[1] || 'Image'}
+                                    className="max-w-full max-h-96 object-contain block mx-auto"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Render tables separately if they exist (after the text) */}
+                          {tableMatches.length > 0 && (
+                            <div className="mt-4">
+                              {tableMatches.map((table, idx) => (
+                                <div key={`table-${idx}`} className="my-3">
+                                  <QuestionPrompt promptMd={table} />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }
+                    
+                    // Regular short text question - render normally
+                    return (
+                      <>
+                        <QuestionPrompt promptMd={question.promptMd} />
+                        <Input
+                          type="text"
+                          placeholder="Enter your answer"
+                          value={answers[question.id]?.answerText ?? ''}
+                          onChange={(e) => handleAnswerChange(question.id, {
+                            answerText: e.target.value,
+                          })}
+                        />
+                        />
+                      </>
+                    )
+                  })()}
+                  
+                  {question.type !== 'SHORT_TEXT' && <QuestionPrompt promptMd={question.promptMd} />}
                   
                   {question.type === 'MCQ_SINGLE' && (
                     <RadioGroup 
@@ -792,17 +927,6 @@ export function TakeTestClient({
                       value={answers[question.id]?.numericAnswer ?? ''}
                       onChange={(e) => handleAnswerChange(question.id, {
                         numericAnswer: e.target.value ? parseFloat(e.target.value) : null,
-                      })}
-                    />
-                  )}
-
-                  {question.type === 'SHORT_TEXT' && (
-                    <Input
-                      type="text"
-                      placeholder="Enter your answer"
-                      value={answers[question.id]?.answerText ?? ''}
-                      onChange={(e) => handleAnswerChange(question.id, {
-                        answerText: e.target.value,
                       })}
                     />
                   )}

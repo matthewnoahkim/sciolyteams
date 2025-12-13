@@ -148,10 +148,13 @@ export function autoGradeQuestion(question: {
   type: string
   points: number
   numericTolerance?: number | null
+  promptMd?: string | null
+  explanation?: string | null
   options?: Array<{ id: string; isCorrect: boolean; label: string }>
 }, answer: {
   selectedOptionIds?: string[]
   numericAnswer?: number | null
+  answerText?: string | null
 }): { pointsAwarded: number; isCorrect: boolean } {
   const points = Number(question.points)
 
@@ -194,6 +197,72 @@ export function autoGradeQuestion(question: {
     const isCorrect = Math.abs(studentAnswer - correctAnswer) <= tolerance
     
     return { pointsAwarded: isCorrect ? points : 0, isCorrect }
+  }
+
+  // Handle fill-in-the-blank questions (SHORT_TEXT with blank markers: [blank] or [blank1], [blank2], etc.)
+  if (question.type === 'SHORT_TEXT' && question.promptMd && /\[blank\d*\]/.test(question.promptMd) && answer.answerText) {
+    try {
+      // Parse correct answers and points from explanation field (stored as JSON object)
+      const parsed = question.explanation ? JSON.parse(question.explanation) : null
+      let correctAnswers: string[] = []
+      let blankPoints: (number | null)[] = []
+      
+      if (parsed && typeof parsed === 'object' && 'answers' in parsed) {
+        // New format: { answers: string[], points?: number[] }
+        correctAnswers = parsed.answers || []
+        blankPoints = parsed.points || []
+      } else if (Array.isArray(parsed)) {
+        // Old format: just array of answers
+        correctAnswers = parsed
+        blankPoints = []
+      }
+      
+      if (correctAnswers.length === 0) {
+        return { pointsAwarded: 0, isCorrect: false }
+      }
+
+      // Parse student's answers (stored as delimited string)
+      const studentAnswers = answer.answerText.split(' | ').map(a => a.trim())
+      
+      // Check if all blanks are filled
+      if (studentAnswers.length !== correctAnswers.length) {
+        return { pointsAwarded: 0, isCorrect: false }
+      }
+
+      // Check if per-blank points are specified
+      const hasPerBlankPoints = blankPoints.length > 0 && blankPoints.some(p => p !== null && p !== undefined)
+      
+      if (hasPerBlankPoints) {
+        // Award points per correct blank
+        let pointsAwarded = 0
+        let allCorrect = true
+        
+        studentAnswers.forEach((studentAnswer, index) => {
+          const correctAnswer = correctAnswers[index]?.trim() || ''
+          const isCorrect = studentAnswer.toLowerCase() === correctAnswer.toLowerCase()
+          const blankPointValue = blankPoints[index]
+          
+          if (isCorrect && blankPointValue !== null && blankPointValue !== undefined) {
+            pointsAwarded += Number(blankPointValue)
+          } else {
+            allCorrect = false
+          }
+        })
+        
+        return { pointsAwarded, isCorrect: allCorrect }
+      } else {
+        // All-or-nothing: all blanks must be correct
+        const allCorrect = studentAnswers.every((studentAnswer, index) => {
+          const correctAnswer = correctAnswers[index]?.trim() || ''
+          return studentAnswer.toLowerCase() === correctAnswer.toLowerCase()
+        })
+
+        return { pointsAwarded: allCorrect ? points : 0, isCorrect: allCorrect }
+      }
+    } catch (error) {
+      // If parsing fails, require manual grading
+      return { pointsAwarded: 0, isCorrect: false }
+    }
   }
 
   // Text questions require manual grading
