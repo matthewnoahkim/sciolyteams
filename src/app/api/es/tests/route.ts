@@ -66,6 +66,8 @@ export async function GET(request: NextRequest) {
             name: true,
             division: true,
             startDate: true,
+            hostingRequestId: true,
+            slug: true,
           },
         },
         events: {
@@ -76,6 +78,11 @@ export async function GET(request: NextRequest) {
                 name: true,
                 division: true,
               },
+            },
+          },
+          orderBy: {
+            event: {
+              name: 'asc',
             },
           },
         },
@@ -191,10 +198,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Get hosting request divisions for all tournaments
+    const hostingRequests = await prisma.tournamentHostingRequest.findMany({
+      where: {
+        tournament: {
+          id: { in: tournamentIds },
+        },
+      },
+      select: {
+        id: true,
+        division: true,
+        tournament: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    })
+    const hostingRequestMap = new Map(hostingRequests.map(hr => [hr.tournament.id, hr.division]))
+
     // Map staff memberships with tests organized by event
     // For each event assignment, look for tests in ANY tournament the user has access to
     // (not just the membership's tournament) - this enables cross-tournament test visibility
     const staffMembershipsWithTests = staffMemberships.map(membership => {
+      // Use hosting request division for display if available (supports "B&C")
+      const displayDivision = hostingRequestMap.get(membership.tournament.id) || membership.tournament.division
+      
       const membershipData = {
         id: membership.id,
         email: membership.email,
@@ -206,10 +235,11 @@ export async function GET(request: NextRequest) {
         tournament: {
           id: membership.tournament.id,
           name: membership.tournament.name,
-          division: membership.tournament.division,
+          division: displayDivision,
           startDate: membership.tournament.startDate.toISOString(),
+          slug: membership.tournament.slug,
         },
-        events: membership.events.map(e => {
+        events: [...membership.events].sort((a, b) => a.event.name.localeCompare(b.event.name)).map(e => {
           // Look for tests for this event across ALL tournaments the user has access to
           // This allows tests to be visible to all ESs assigned to the same event, even if they're in different tournament memberships
           let eventTests: typeof allTests = []

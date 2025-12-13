@@ -31,6 +31,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { formatDivision } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -266,7 +267,7 @@ export function TournamentRequests() {
                         {/* Header */}
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                           {getStatusBadge(req.status)}
-                          <Badge variant="outline">Division {req.division}</Badge>
+                          <Badge variant="outline">Division {formatDivision(req.division)}</Badge>
                           <Badge variant="outline">{getLevelLabel(req.tournamentLevel)}</Badge>
                           <Badge variant="outline">{getFormatLabel(req.tournamentFormat)}</Badge>
                         </div>

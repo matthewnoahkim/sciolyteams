@@ -9,6 +9,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { ClipboardList, AlertCircle, Calendar, MapPin, Users } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { formatDivision } from '@/lib/utils'
 
 interface InviteInfo {
   id: string
@@ -91,7 +92,7 @@ export function ESLoginClient({ unauthorized, email, inviteInfo, token }: ESLogi
                       {roleLabel}
                     </Badge>
                     <Badge variant="outline" className="border-teamy-primary/30">
-                      Division {inviteInfo.tournament.division}
+                      Division {formatDivision(inviteInfo.tournament.division)}
                     </Badge>
                   </div>
                   

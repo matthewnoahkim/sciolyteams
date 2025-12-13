@@ -54,10 +54,14 @@ export default async function TournamentManageByRequestPage({ params }: Props) {
     }
 
     // Determine division - handle "B&C" case
+    // For "B&C" tournaments, store as 'C' in database but we'll display from hosting request
     let division: 'B' | 'C' = 'C'
     if (request.division === 'B') {
       division = 'B'
     } else if (request.division === 'C') {
+      division = 'C'
+    } else if (request.division.includes('B') && request.division.includes('C')) {
+      // For "B&C", default to 'C' but we'll track the original in hostingRequest
       division = 'C'
     }
 
@@ -105,6 +109,11 @@ export default async function TournamentManageByRequestPage({ params }: Props) {
             },
           },
         },
+        orderBy: {
+          event: {
+            name: 'asc',
+          },
+        },
       },
       tests: {
         select: {
@@ -130,27 +139,49 @@ export default async function TournamentManageByRequestPage({ params }: Props) {
     },
   })
 
-  // Fetch events for this division
-  const events = await prisma.event.findMany({
-    where: {
-      division: tournament.division,
-    },
-    select: {
-      id: true,
-      name: true,
-      division: true,
-    },
-    orderBy: {
-      name: 'asc',
-    },
-  })
-
   // Serialize dates for client component
+  // Use hosting request division for display (supports "B&C"), but fallback to tournament division
+  const displayDivision = request.division || tournament.division
+
+  // Fetch events for this division - handle B&C tournaments
+  let events
+  if (displayDivision === 'B&C' || (typeof displayDivision === 'string' && displayDivision.includes('B') && displayDivision.includes('C'))) {
+    // For B&C tournaments, fetch both B and C events
+    const [bEvents, cEvents] = await Promise.all([
+      prisma.event.findMany({
+        where: { division: 'B' },
+        select: { id: true, name: true, division: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.event.findMany({
+        where: { division: 'C' },
+        select: { id: true, name: true, division: true },
+        orderBy: { name: 'asc' },
+      }),
+    ])
+    // Combine and deduplicate by slug (though there shouldn't be duplicates)
+    events = [...bEvents, ...cEvents].sort((a, b) => a.name.localeCompare(b.name))
+  } else {
+    // For single division tournaments
+    events = await prisma.event.findMany({
+      where: {
+        division: tournament.division,
+      },
+      select: {
+        id: true,
+        name: true,
+        division: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    })
+  }
   const serializedTournament = {
     id: tournament.id,
     name: tournament.name,
     slug: tournament.slug,
-    division: tournament.division,
+    division: displayDivision, // Use hosting request division for display
     startDate: tournament.startDate.toISOString(),
     endDate: tournament.endDate.toISOString(),
     startTime: tournament.startTime.toISOString(),

@@ -21,11 +21,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar, MapPin, Users, DollarSign, ArrowLeft, Settings, Trophy, CheckCircle2, Plus, X, AlertCircle, CreditCard, Monitor, UserCheck, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { groupEventsByCategory, categoryOrder, type EventCategory } from '@/lib/event-categories'
+import { formatDivision, divisionsMatch } from '@/lib/utils'
 
 interface Tournament {
   id: string
   name: string
-  division: 'B' | 'C'
+  division: 'B' | 'C' | 'B&C'
   description: string | null
   price: number
   paymentInstructions: string | null
@@ -161,11 +162,30 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
   const loadEvents = async () => {
     try {
       if (!tournament) return
-      const response = await fetch(`/api/events?division=${tournament.division}`)
-      if (!response.ok) throw new Error('Failed to load events')
       
-      const data = await response.json()
-      setEvents(data.events || [])
+      // For B&C tournaments, load both B and C events
+      if (tournament.division.includes('B') && tournament.division.includes('C')) {
+        const [bResponse, cResponse] = await Promise.all([
+          fetch('/api/events?division=B'),
+          fetch('/api/events?division=C')
+        ])
+        if (!bResponse.ok || !cResponse.ok) throw new Error('Failed to load events')
+        const [bData, cData] = await Promise.all([
+          bResponse.json(),
+          cResponse.json()
+        ])
+        // Combine and deduplicate by slug (in case there are any duplicates)
+        const combinedEvents = [...(bData.events || []), ...(cData.events || [])]
+        const uniqueEvents = Array.from(
+          new Map(combinedEvents.map((e: any) => [e.slug, e])).values()
+        )
+        setEvents(uniqueEvents)
+      } else {
+        const response = await fetch(`/api/events?division=${tournament.division}`)
+        if (!response.ok) throw new Error('Failed to load events')
+        const data = await response.json()
+        setEvents(data.events || [])
+      }
     } catch (error: any) {
       console.error('Failed to load events:', error)
     }
@@ -348,8 +368,11 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
     }
   }
 
-  const filteredTeams = userTeams.filter(t => !tournament || t.division === tournament.division)
-  const groupedEvents = tournament ? groupEventsByCategory(events, tournament.division) : {} as Record<EventCategory, any[]>
+  const filteredTeams = userTeams.filter(t => !tournament || divisionsMatch(tournament.division, t.division))
+  // For B&C tournaments, group events by C (since C has more events and better categorization)
+  // This is a workaround since groupEventsByCategory only accepts 'B' | 'C'
+  const divisionForGrouping = tournament?.division.includes('C') ? 'C' : (tournament?.division.includes('B') ? 'B' : undefined)
+  const groupedEvents = tournament && divisionForGrouping ? groupEventsByCategory(events, divisionForGrouping) : {} as Record<EventCategory, any[]>
 
   if (loading) {
     return (
@@ -396,8 +419,8 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                   <div className="flex-1 min-w-0">
                     <CardTitle className="text-3xl mb-2 break-words">{tournament.name}</CardTitle>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant={tournament.division === 'B' ? 'default' : 'secondary'}>
-                        Division {tournament.division}
+                      <Badge variant={tournament.division.includes('B') && !tournament.division.includes('C') ? 'default' : 'secondary'}>
+                        Division {formatDivision(tournament.division)}
                       </Badge>
                       {!tournament.approved && tournament.createdBy.id === user.id && (
                         <Badge variant="destructive">
@@ -554,7 +577,7 @@ export function TournamentDetailClient({ tournamentId, userTeams, user }: Tourna
                 {filteredTeams.length === 0 ? (
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      You don&apos;t have admin access to any {tournament.division} division teams. Only team admins can register teams for tournaments.
+                      You don&apos;t have admin access to any {formatDivision(tournament.division)} division teams. Only team admins can register teams for tournaments.
                     </p>
                     <Button variant="outline" onClick={() => router.push('/dashboard')}>
                       Go to Dashboard

@@ -31,6 +31,7 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
             division: true,
             startDate: true,
             endDate: true,
+            hostingRequestId: true,
           },
         },
         events: {
@@ -49,11 +50,24 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
 
   // If not signed in, show login page with invite info if available
   if (!session?.user?.email) {
+    // Get hosting request division for display if available
+    let displayDivision = inviteInfo?.tournament?.division
+    if (inviteInfo?.tournament?.hostingRequestId) {
+      const hostingRequest = await prisma.tournamentHostingRequest.findUnique({
+        where: { id: inviteInfo.tournament.hostingRequestId },
+        select: { division: true },
+      })
+      if (hostingRequest?.division) {
+        displayDivision = hostingRequest.division
+      }
+    }
+    
     // Serialize dates to strings for client component
     const serializedInviteInfo = inviteInfo ? {
       ...inviteInfo,
       tournament: {
         ...inviteInfo.tournament,
+        division: displayDivision,
         startDate: inviteInfo.tournament.startDate.toISOString(),
         endDate: inviteInfo.tournament.endDate.toISOString(),
       },
@@ -88,25 +102,32 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
       status: 'ACCEPTED',
     },
     include: {
-      tournament: {
-        select: {
-          id: true,
-          name: true,
-          division: true,
-          startDate: true,
+        tournament: {
+          select: {
+            id: true,
+            name: true,
+            division: true,
+            startDate: true,
+            hostingRequestId: true,
+            slug: true,
+          },
         },
-      },
-      events: {
-        include: {
-          event: {
-            select: {
-              id: true,
-              name: true,
-              division: true,
+        events: {
+          include: {
+            event: {
+              select: {
+                id: true,
+                name: true,
+                division: true,
+              },
+            },
+          },
+          orderBy: {
+            event: {
+              name: 'asc',
             },
           },
         },
-      },
       // Tests will be fetched separately via API organized by event
     },
     orderBy: {
@@ -128,12 +149,25 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
 
     // If there's a pending invite that matches but wasn't auto-accepted (edge case), show appropriate message
     if (pendingInvite && pendingInvite.inviteToken === token) {
+      // Get hosting request division for display if available
+      let displayDivision = inviteInfo?.tournament?.division
+      if (inviteInfo?.tournament?.hostingRequestId) {
+        const hostingRequest = await prisma.tournamentHostingRequest.findUnique({
+          where: { id: inviteInfo.tournament.hostingRequestId },
+          select: { division: true },
+        })
+        if (hostingRequest?.division) {
+          displayDivision = hostingRequest.division
+        }
+      }
+      
       // The email didn't match but there's an invite - redirect to correct flow
       // Serialize dates to strings for client component
       const serializedInviteInfo = inviteInfo ? {
         ...inviteInfo,
         tournament: {
           ...inviteInfo.tournament,
+          division: displayDivision,
           startDate: inviteInfo.tournament.startDate.toISOString(),
           endDate: inviteInfo.tournament.endDate.toISOString(),
         },
@@ -232,8 +266,30 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
     testsByEvent.get(test.eventId)!.push(test)
   }
 
+  // Get hosting request divisions for all tournaments
+  const hostingRequests = await prisma.tournamentHostingRequest.findMany({
+    where: {
+      tournament: {
+        id: { in: tournamentIds },
+      },
+    },
+    select: {
+      id: true,
+      division: true,
+      tournament: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  })
+  const hostingRequestMap = new Map(hostingRequests.map(hr => [hr.tournament.id, hr.division]))
+
   // Map staff memberships with tests organized by event
   const staffMembershipsWithTests = staffMemberships.map(membership => {
+    // Use hosting request division for display if available (supports "B&C")
+    const displayDivision = hostingRequestMap.get(membership.tournament.id) || membership.tournament.division
+    
     return {
       id: membership.id,
       email: membership.email,
@@ -245,10 +301,11 @@ export default async function ESPortalPage({ searchParams }: ESPortalPageProps) 
       tournament: {
         id: membership.tournament.id,
         name: membership.tournament.name,
-        division: membership.tournament.division,
+        division: displayDivision,
         startDate: membership.tournament.startDate.toISOString(),
+        slug: membership.tournament.slug,
       },
-      events: membership.events.map(e => {
+      events: [...membership.events].sort((a, b) => a.event.name.localeCompare(b.event.name)).map(e => {
         // Look for tests for this event across ALL tournaments the user has access to
         let eventTests: typeof allTests = []
         for (const [tournamentId, eventMap] of testsByTournament.entries()) {

@@ -22,6 +22,11 @@ export async function GET(req: NextRequest) {
     const tournaments = await prisma.tournament.findMany({
       where,
       include: {
+        hostingRequest: {
+          select: {
+            division: true,
+          },
+        },
         _count: {
           select: {
             registrations: true,
@@ -34,7 +39,13 @@ export async function GET(req: NextRequest) {
       take: 50, // Limit to 50 tournaments
     })
 
-    return NextResponse.json({ tournaments })
+    // Use hosting request division for display if available (supports "B&C")
+    const tournamentsWithDisplayDivision = tournaments.map(t => ({
+      ...t,
+      division: (t.hostingRequest?.division || t.division) as any,
+    }))
+
+    return NextResponse.json({ tournaments: tournamentsWithDisplayDivision })
   } catch (error) {
     console.error('Get public tournaments error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

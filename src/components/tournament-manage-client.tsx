@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ArrowLeft, Users, Settings, FileText, Search, Calendar, Plus, X, Trash2, Edit, Save, Mail, Download, DollarSign, UserCheck } from 'lucide-react'
 import Link from 'next/link'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { formatDivision } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,7 @@ import {
 interface Tournament {
   id: string
   name: string
-  division: 'B' | 'C'
+  division: 'B' | 'C' | 'B&C'
   description: string | null
   price: number
   paymentInstructions: string | null
@@ -117,7 +118,7 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
   const [isEditing, setIsEditing] = useState(false)
   const [editFormData, setEditFormData] = useState({
     name: '',
-    division: 'B' as 'B' | 'C',
+    division: 'B' as 'B' | 'C' | 'B&C',
     description: '',
     price: '',
     paymentInstructions: '',
@@ -167,15 +168,13 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
       const startTimeStr = startDate.toTimeString().slice(0, 5)
       const endTimeStr = endDate.toTimeString().slice(0, 5)
       
-      // Ensure division is always 'B' or 'C'
-      const divisionValue = (tournament.division === 'B' || tournament.division === 'C') 
-        ? tournament.division 
-        : 'B'
-      
+      // Preserve division value (can be 'B', 'C', or 'B&C')
       setEditFormData(prev => ({
         ...prev,
         name: tournament.name || '',
-        division: divisionValue,
+        division: (tournament.division === 'B' || tournament.division === 'C' || tournament.division === 'B&C') 
+          ? tournament.division 
+          : 'B',
         description: tournament.description || '',
         price: tournament.price?.toString() || '0',
         paymentInstructions: tournament.paymentInstructions || '',
@@ -530,7 +529,7 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
       return
     }
     
-    if (!editFormData.division || (editFormData.division !== 'B' && editFormData.division !== 'C')) {
+    if (!editFormData.division || (editFormData.division !== 'B' && editFormData.division !== 'C' && editFormData.division !== 'B&C')) {
       toast({
         title: 'Error',
         description: 'Please select a division',
@@ -578,17 +577,13 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
         return
       }
 
-      // Ensure division is always 'B' or 'C'
-      const divisionValue = (editFormData.division === 'B' || editFormData.division === 'C') 
-        ? editFormData.division 
-        : 'B'
-      
+      // Preserve division value (can be 'B', 'C', or 'B&C')
       const response = await fetch(`/api/tournaments/${tournamentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: editFormData.name,
-          division: divisionValue,
+          division: editFormData.division,
           description: editFormData.description || undefined,
           price: parseFloat(editFormData.price) || 0,
           paymentInstructions: editFormData.paymentInstructions || undefined,
@@ -937,13 +932,11 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                           const startTimeStr = startDate.toTimeString().slice(0, 5)
                           const endTimeStr = endDate.toTimeString().slice(0, 5)
                           
-                          const divisionValue = (tournament.division === 'B' || tournament.division === 'C') 
-                            ? tournament.division 
-                            : 'B'
-                          
                           setEditFormData({
                             name: tournament.name || '',
-                            division: divisionValue,
+                            division: (tournament.division === 'B' || tournament.division === 'C' || tournament.division === 'B&C') 
+                              ? tournament.division 
+                              : 'B',
                             description: tournament.description || '',
                             price: tournament.price?.toString() || '0',
                             paymentInstructions: tournament.paymentInstructions || '',
@@ -999,8 +992,8 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                     <div className="space-y-2">
                       <Label htmlFor="edit-division">Division *</Label>
                       <Select
-                        value={editFormData.division && (editFormData.division === 'B' || editFormData.division === 'C') ? editFormData.division : 'B'}
-                        onValueChange={(value) => setEditFormData({ ...editFormData, division: value as 'B' | 'C' })}
+                        value={editFormData.division && (editFormData.division === 'B' || editFormData.division === 'C' || editFormData.division === 'B&C') ? editFormData.division : 'B'}
+                        onValueChange={(value) => setEditFormData({ ...editFormData, division: value as 'B' | 'C' | 'B&C' })}
                         required
                       >
                         <SelectTrigger>
@@ -1009,6 +1002,7 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                         <SelectContent>
                           <SelectItem value="B">Division B</SelectItem>
                           <SelectItem value="C">Division C</SelectItem>
+                          <SelectItem value="B&C">Division B & C</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1126,7 +1120,7 @@ export function TournamentManageClient({ tournamentId, user }: TournamentManageC
                     </div>
                     <div>
                       <Label className="text-sm text-muted-foreground">Division</Label>
-                      <p className="font-medium">Division {tournament.division}</p>
+                      <p className="font-medium">Division {formatDivision(tournament.division)}</p>
                     </div>
                     {tournament.description && (
                       <div>

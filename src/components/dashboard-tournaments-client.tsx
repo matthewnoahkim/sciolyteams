@@ -12,6 +12,7 @@ import { PageLoading } from '@/components/ui/loading-spinner'
 import { Search, Calendar, MapPin, Trophy, Monitor, User, Mail, ExternalLink } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
+import { formatDivision } from '@/lib/utils'
 
 interface TournamentRequest {
   id: string
@@ -269,7 +270,7 @@ export function DashboardTournamentsClient({ user }: DashboardTournamentsClientP
                 <Card className="hover:shadow-lg transition-all hover:border-teamy-primary/50 cursor-pointer h-full">
                   <CardHeader>
                     <div className="flex items-center gap-2 mb-3 flex-wrap">
-                      <Badge variant="outline">Division {tournament.division}</Badge>
+                      <Badge variant="outline">Division {formatDivision(tournament.division)}</Badge>
                       <Badge variant="outline">{getLevelLabel(tournament.tournamentLevel)}</Badge>
                       <Badge variant="outline">{getFormatLabel(tournament.tournamentFormat)}</Badge>
                     </div>

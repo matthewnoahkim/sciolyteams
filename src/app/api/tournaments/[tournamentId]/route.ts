@@ -145,6 +145,24 @@ export async function GET(
       return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
     }
 
+    // Get hosting request division if available (supports "B&C")
+    let displayDivision = tournament.division
+    if (tournament.hostingRequestId) {
+      const hostingRequest = await prisma.tournamentHostingRequest.findUnique({
+        where: { id: tournament.hostingRequestId },
+        select: { division: true },
+      })
+      if (hostingRequest?.division) {
+        displayDivision = hostingRequest.division as any // Use hosting request division for display
+      }
+    }
+
+    // Override division for display
+    const tournamentWithDisplayDivision = {
+      ...tournament,
+      division: displayDivision,
+    }
+
     const isAdmin = await isTournamentAdmin(session.user.id, params.tournamentId)
     
     // Debug logging in development
@@ -152,7 +170,7 @@ export async function GET(
       console.log(`[Tournament ${params.tournamentId}] User ${session.user.id} isAdmin: ${isAdmin}`)
     }
 
-    return NextResponse.json({ tournament, isAdmin })
+    return NextResponse.json({ tournament: tournamentWithDisplayDivision, isAdmin })
   } catch (error) {
     console.error('Get tournament error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'

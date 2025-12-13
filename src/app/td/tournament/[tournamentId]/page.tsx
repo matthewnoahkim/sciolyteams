@@ -86,27 +86,50 @@ export default async function TournamentManagePage({ params }: Props) {
     },
   })
 
-  // Fetch events for this division
-  const events = await prisma.event.findMany({
-    where: {
-      division: request.tournament.division,
-    },
-    select: {
-      id: true,
-      name: true,
-      division: true,
-    },
-    orderBy: {
-      name: 'asc',
-    },
-  })
+  // Get display division from hosting request (supports "B&C"), fallback to tournament division
+  const displayDivision = request.division || request.tournament.division
+
+  // Fetch events for this division - handle B&C tournaments
+  let events
+  if (displayDivision === 'B&C' || (typeof displayDivision === 'string' && displayDivision.includes('B') && displayDivision.includes('C'))) {
+    // For B&C tournaments, fetch both B and C events
+    const [bEvents, cEvents] = await Promise.all([
+      prisma.event.findMany({
+        where: { division: 'B' },
+        select: { id: true, name: true, division: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.event.findMany({
+        where: { division: 'C' },
+        select: { id: true, name: true, division: true },
+        orderBy: { name: 'asc' },
+      }),
+    ])
+    // Combine and deduplicate by slug (though there shouldn't be duplicates)
+    events = [...bEvents, ...cEvents].sort((a, b) => a.name.localeCompare(b.name))
+  } else {
+    // For single division tournaments
+    events = await prisma.event.findMany({
+      where: {
+        division: request.tournament.division,
+      },
+      select: {
+        id: true,
+        name: true,
+        division: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    })
+  }
 
   // Serialize dates for client component
   const serializedTournament = {
     id: request.tournament.id,
     name: request.tournament.name,
     slug: request.tournament.slug,
-    division: request.tournament.division,
+    division: displayDivision, // Use hosting request division for display
     startDate: request.tournament.startDate.toISOString(),
     endDate: request.tournament.endDate.toISOString(),
     startTime: request.tournament.startTime.toISOString(),

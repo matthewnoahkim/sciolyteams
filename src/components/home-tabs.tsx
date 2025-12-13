@@ -9,11 +9,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollAnimate } from '@/components/scroll-animate'
+import { formatDivision } from '@/lib/utils'
 
 interface Tournament {
   id: string
   name: string
-  division: 'B' | 'C'
+  division: 'B' | 'C' | 'B&C'
   description: string | null
   price: number
   isOnline: boolean
@@ -210,7 +211,7 @@ export function HomeTabs() {
                     <CardHeader>
                       <div className="flex items-center justify-between mb-3 gap-2">
                         <Badge variant="outline">
-                          Division {tournament.division}
+                          Division {formatDivision(tournament.division)}
                         </Badge>
                       </div>
                       <CardTitle className="text-xl break-words leading-snug">

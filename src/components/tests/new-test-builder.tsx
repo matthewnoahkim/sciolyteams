@@ -1408,7 +1408,7 @@ export function NewTestBuilder({
           description: 'Passwords do not match',
           variant: 'destructive',
         })
-        return
+        return 
       }
     }
 

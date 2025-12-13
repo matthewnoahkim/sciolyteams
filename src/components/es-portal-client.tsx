@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -26,9 +28,12 @@ import {
   Trophy,
   ChevronRight,
   ArrowLeft,
+  ExternalLink,
+  Search,
 } from 'lucide-react'
 import { format, isPast, isToday } from 'date-fns'
 import Link from 'next/link'
+import { formatDivision } from '@/lib/utils'
 
 interface Test {
   id: string
@@ -77,8 +82,9 @@ interface StaffMembership {
   tournament: {
     id: string
     name: string
-    division: 'B' | 'C'
+    division: 'B' | 'C' | 'B&C' | string
     startDate: string
+    slug?: string | null
   }
   events: Array<{
     event: {
@@ -108,6 +114,27 @@ interface ESPortalClientProps {
   staffMemberships: StaffMembership[]
   initialTimelines?: Record<string, TimelineItem[]>
   initialTournamentId?: string | null
+}
+
+// Helper function to highlight search terms in text
+const highlightText = (text: string | null | undefined, searchQuery: string): string | (string | JSX.Element)[] => {
+  if (!text || !searchQuery) return text || ''
+  
+  const query = searchQuery.trim()
+  if (!query) return text
+  
+  // Escape special regex characters
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escapedQuery})`, 'gi')
+  const parts = text.split(regex)
+  
+  return parts.map((part, index) => 
+    regex.test(part) ? (
+      <mark key={index} className="bg-yellow-200 dark:bg-yellow-900 text-foreground px-0.5 rounded">
+        {part}
+      </mark>
+    ) : part
+  )
 }
 
 export function ESPortalClient({ user, staffMemberships, initialTimelines = {}, initialTournamentId }: ESPortalClientProps) {
@@ -160,6 +187,8 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {}, 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [testToDelete, setTestToDelete] = useState<Test | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [eventFilter, setEventFilter] = useState<string>('all')
   const { toast } = useToast()
 
   // Load saved content tab from localStorage on mount and mark as hydrated
@@ -457,11 +486,25 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {}, 
                   {/* Tournament Info */}
                   <Card className="bg-card/90 backdrop-blur border border-white/10">
                     <CardHeader>
-                      <div>
-                        <CardTitle className="text-xl">{membership.tournament.name}</CardTitle>
-                        <CardDescription>
-                          Division {membership.tournament.division} • {format(new Date(membership.tournament.startDate), 'MMMM d, yyyy')}
-                        </CardDescription>
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <CardTitle className="text-xl">{membership.tournament.name}</CardTitle>
+                          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              {format(new Date(membership.tournament.startDate), 'MMM d, yyyy')}
+                            </span>
+                            <Badge variant="outline">Division {formatDivision(membership.tournament.division)}</Badge>
+                          </div>
+                        </div>
+                        {membership.tournament.slug && (
+                          <Link href={`/tournaments/${membership.tournament.slug}`} target="_blank">
+                            <Button variant="outline" size="sm">
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              View Public Page
+                            </Button>
+                          </Link>
+                        )}
                       </div>
                     </CardHeader>
                   </Card>
@@ -497,107 +540,195 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {}, 
                               </div>
                             ) : (
                               <div className="space-y-6">
-                                {membership.events.map(eventAssignment => {
-                                  const tests = eventAssignment.tests || []
-                                  console.log(`Rendering event ${eventAssignment.event.id} (${eventAssignment.event.name}):`, tests.length, 'tests', tests.map((t: any) => ({ id: t.id, name: t.name })))
-                                  return (
-                                  <div key={eventAssignment.event.id} className="space-y-3">
-                                    <div className="flex items-center justify-between pb-2 border-b border-border">
-                                      <div>
-                                        <h3 className="font-semibold text-lg">{eventAssignment.event.name}</h3>
-                                        <p className="text-sm text-muted-foreground">
-                                          {tests.length} test{tests.length !== 1 ? 's' : ''}
-                                        </p>
-                                      </div>
-                                      <Link 
-                                        href={`/es/tests/new?staffId=${membership.id}&eventId=${eventAssignment.event.id}`}
-                                      >
-                                        <Button size="sm" className="bg-teamy-primary text-white hover:bg-teamy-primary-dark">
-                                          <Plus className="h-4 w-4 mr-2" />
-                                          Create Test
-                                        </Button>
-                                      </Link>
-                                    </div>
-                                    
-                                    {tests.length === 0 ? (
-                                      <div className="text-center py-6 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-border">
-                                        <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                                        <p className="text-sm text-muted-foreground">No tests created yet for this event.</p>
-                                      </div>
-                                    ) : (
-                                      <div className="space-y-3">
-                                        {tests.map(test => (
-                                          <div 
-                                            key={test.id}
-                                            className="flex items-center justify-between p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-slate-900/60"
-                                          >
-                                            <div className="flex-1">
-                                              <div className="flex items-center gap-2 mb-1">
-                                                <h4 className="font-semibold">{test.name}</h4>
-                                                <Badge 
-                                                  variant="outline" 
-                                                  className={
-                                                    test.status === 'PUBLISHED' 
-                                                      ? 'bg-green-500/10 text-green-600 border-green-500/20' 
-                                                      : test.status === 'CLOSED'
-                                                        ? 'bg-slate-500/10 text-slate-600 border-slate-500/20'
-                                                        : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                                                  }
-                                                >
-                                                  {test.status}
-                                                </Badge>
-                                              </div>
-                                              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                                <span>{test.questions.length} question{test.questions.length !== 1 ? 's' : ''}</span>
-                                                {test.createdBy && (
-                                                  <>
-                                                    <span>•</span>
-                                                    <span>Created by {test.createdBy.name || test.createdBy.email}</span>
-                                                  </>
-                                                )}
-                                                {test.updatedAt !== test.createdAt && (
-                                                  <>
-                                                    <span>•</span>
-                                                    <span>
-                                                      Last edited {
-                                                        test.staff && test.createdBy && test.staff.id !== test.createdBy.id 
-                                                          ? `by ${test.staff.name || test.staff.email} `
-                                                          : test.staff
-                                                            ? `by ${test.staff.name || test.staff.email} `
-                                                            : test.createdBy 
-                                                              ? `by ${test.createdBy.name || test.createdBy.email} `
-                                                              : ''
-                                                      }
-                                                      on {format(new Date(test.updatedAt), 'MMM d, yyyy \'at\' h:mm a')}
-                                                    </span>
-                                                  </>
-                                                )}
-                                              </div>
-                                            </div>
-                                            <div className="flex gap-2">
-                                              <Link href={`/es/tests/${test.id}`}>
-                                                <Button variant="outline" size="sm">
-                                                  <Edit className="h-4 w-4 mr-1" />
-                                                  Edit
-                                                </Button>
-                                              </Link>
-                                              <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                onClick={() => handleDeleteClick(test)}
-                                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                              >
-                                                <Trash2 className="h-4 w-4 mr-1" />
-                                                Delete
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
+                                {/* Search and Filter Controls */}
+                                <div className="flex flex-col sm:flex-row gap-3 pb-4 border-b border-border">
+                                  <div className="flex-1 relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                      placeholder="Search tests..."
+                                      value={searchQuery}
+                                      onChange={(e) => setSearchQuery(e.target.value)}
+                                      className="pl-9"
+                                    />
                                   </div>
-                                  )
-                                })}
+                                  <Select value={eventFilter} onValueChange={setEventFilter}>
+                                    <SelectTrigger className="w-full sm:w-[200px]">
+                                      <SelectValue placeholder="Filter by event" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">All Events</SelectItem>
+                                      {[...membership.events]
+                                        .sort((a, b) => a.event.name.localeCompare(b.event.name))
+                                        .map((eventAssignment) => (
+                                          <SelectItem key={eventAssignment.event.id} value={eventAssignment.event.id}>
+                                            {eventAssignment.event.name} (Div {eventAssignment.event.division})
+                                          </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {/* Events and Tests */}
+                                {[...membership.events]
+                                  .sort((a, b) => a.event.name.localeCompare(b.event.name))
+                                  .filter((eventAssignment) => {
+                                    // Filter by selected event
+                                    if (eventFilter !== 'all' && eventAssignment.event.id !== eventFilter) {
+                                      return false
+                                    }
+                                    // Show event if it has tests matching search query or no search query
+                                    if (!searchQuery) return true
+                                    const tests = eventAssignment.tests || []
+                                    return tests.some((test) =>
+                                      test.name.toLowerCase().includes(searchQuery.toLowerCase())
+                                    )
+                                  })
+                                  .map((eventAssignment) => {
+                                    const allTests = eventAssignment.tests || []
+                                    // Filter tests by search query
+                                    const filteredTests = allTests.filter((test) => {
+                                      if (!searchQuery) return true
+                                      return test.name.toLowerCase().includes(searchQuery.toLowerCase())
+                                    })
+                                    
+                                    // Skip event if showing all events and no tests match search
+                                    if (filteredTests.length === 0 && eventFilter === 'all' && searchQuery) {
+                                      return null
+                                    }
+                                    
+                                    return (
+                                      <div key={eventAssignment.event.id} className="space-y-3">
+                                        <div className="flex items-center justify-between pb-2 border-b border-border">
+                                          <div>
+                                            <div className="flex items-center gap-2">
+                                              <h3 className="font-semibold text-lg">{eventAssignment.event.name}</h3>
+                                              <Badge variant="outline" className="text-xs">
+                                                Div {eventAssignment.event.division}
+                                              </Badge>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">
+                                              {filteredTests.length} test{filteredTests.length !== 1 ? 's' : ''}
+                                              {searchQuery && filteredTests.length !== allTests.length && (
+                                                <span> (filtered from {allTests.length})</span>
+                                              )}
+                                            </p>
+                                          </div>
+                                          <Link 
+                                            href={`/es/tests/new?staffId=${membership.id}&eventId=${eventAssignment.event.id}`}
+                                          >
+                                            <Button size="sm" className="bg-teamy-primary text-white hover:bg-teamy-primary-dark">
+                                              <Plus className="h-4 w-4 mr-2" />
+                                              Create Test
+                                            </Button>
+                                          </Link>
+                                        </div>
+                                        
+                                        {filteredTests.length === 0 ? (
+                                          <div className="text-center py-6 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-border">
+                                            <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                                            <p className="text-sm text-muted-foreground">
+                                              {searchQuery 
+                                                ? `No tests match "${searchQuery}" for this event.`
+                                                : 'No tests created yet for this event.'}
+                                            </p>
+                                          </div>
+                                        ) : (
+                                          <div className="space-y-3">
+                                            {filteredTests.map((test) => (
+                                              <div 
+                                                key={test.id}
+                                                className="flex items-center justify-between p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-slate-900/60"
+                                              >
+                                                <div className="flex-1">
+                                                  <div className="flex items-center gap-2 mb-1">
+                                                    <h4 className="font-semibold">
+                                                      {searchQuery ? highlightText(test.name, searchQuery) : test.name}
+                                                    </h4>
+                                                    <Badge 
+                                                      variant="outline" 
+                                                      className={
+                                                        test.status === 'PUBLISHED' 
+                                                          ? 'bg-green-500/10 text-green-600 border-green-500/20' 
+                                                          : test.status === 'CLOSED'
+                                                            ? 'bg-slate-500/10 text-slate-600 border-slate-500/20'
+                                                            : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                                      }
+                                                    >
+                                                      {test.status}
+                                                    </Badge>
+                                                  </div>
+                                                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                                    <span>{test.questions.length} question{test.questions.length !== 1 ? 's' : ''}</span>
+                                                    {test.createdBy && (
+                                                      <>
+                                                        <span>•</span>
+                                                        <span>Created by {test.createdBy.name || test.createdBy.email}</span>
+                                                      </>
+                                                    )}
+                                                    {test.updatedAt !== test.createdAt && (
+                                                      <>
+                                                        <span>•</span>
+                                                        <span>
+                                                          Last edited {
+                                                            test.staff && test.createdBy && test.staff.id !== test.createdBy.id 
+                                                              ? `by ${test.staff.name || test.staff.email} `
+                                                              : test.staff
+                                                                ? `by ${test.staff.name || test.staff.email} `
+                                                                : test.createdBy 
+                                                                  ? `by ${test.createdBy.name || test.createdBy.email} `
+                                                                  : ''
+                                                          }
+                                                          on {format(new Date(test.updatedAt), 'MMM d, yyyy \'at\' h:mm a')}
+                                                        </span>
+                                                      </>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                  <Link href={`/es/tests/${test.id}`}>
+                                                    <Button variant="outline" size="sm">
+                                                      <Edit className="h-4 w-4 mr-1" />
+                                                      Edit
+                                                    </Button>
+                                                  </Link>
+                                                  <Button 
+                                                    variant="outline" 
+                                                    size="sm"
+                                                    onClick={() => handleDeleteClick(test)}
+                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                                  >
+                                                    <Trash2 className="h-4 w-4 mr-1" />
+                                                    Delete
+                                                  </Button>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })
+                                  .filter(Boolean)}
+                                
+                                {/* Show message if no events match filters */}
+                                {[...membership.events]
+                                  .filter((eventAssignment) => {
+                                    if (eventFilter !== 'all' && eventAssignment.event.id !== eventFilter) {
+                                      return false
+                                    }
+                                    if (!searchQuery) return true
+                                    const tests = eventAssignment.tests || []
+                                    return tests.some((test) =>
+                                      test.name.toLowerCase().includes(searchQuery.toLowerCase())
+                                    )
+                                  }).length === 0 && (
+                                  <div className="text-center py-12">
+                                    <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                                    <p className="text-muted-foreground">
+                                      No tests found matching your search criteria.
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </CardContent>
@@ -716,7 +847,7 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {}, 
                       </CardHeader>
                       <CardContent className="pt-0">
                         <div className="flex flex-wrap gap-2 mb-4">
-                          <Badge variant="outline">Division {membership.tournament.division}</Badge>
+                          <Badge variant="outline">Division {formatDivision(membership.tournament.division)}</Badge>
                           {membership.events.length > 0 && (
                             <Badge variant="outline">
                               {membership.events.length} Event{membership.events.length !== 1 ? 's' : ''}
@@ -727,7 +858,7 @@ export function ESPortalClient({ user, staffMemberships, initialTimelines = {}, 
                           <div className="text-sm text-muted-foreground">
                             <span className="font-medium">Assigned Events: </span>
                             <span className="truncate">
-                              {membership.events.slice(0, 3).map(e => e.event.name).join(', ')}
+                              {[...membership.events].sort((a, b) => a.event.name.localeCompare(b.event.name)).slice(0, 3).map(e => e.event.name).join(', ')}
                               {membership.events.length > 3 && ` +${membership.events.length - 3} more`}
                             </span>
                           </div>

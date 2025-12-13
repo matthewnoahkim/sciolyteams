@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { formatDivision } from '@/lib/utils'
 
 interface TournamentRequest {
   id: string
@@ -270,7 +271,7 @@ export function TDPortalClient({ user, requests }: TDPortalClientProps) {
                     <CardContent className="pt-0">
                       <div className="flex flex-wrap gap-2 mb-4">
                         <Badge variant="outline">{getLevelLabel(request.tournamentLevel)}</Badge>
-                        <Badge variant="outline">Division {request.division}</Badge>
+                        <Badge variant="outline">Division {formatDivision(request.division)}</Badge>
                         <Badge variant="outline">{getFormatLabel(request.tournamentFormat)}</Badge>
                       </div>
                       {request.location && (

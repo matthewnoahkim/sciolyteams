@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { format, isBefore, isAfter } from 'date-fns'
+import { formatDivision, divisionsMatch } from '@/lib/utils'
 
 interface TournamentHostingRequest {
   id: string
@@ -57,7 +58,7 @@ interface Tournament {
   id: string
   name: string
   slug: string | null
-  division: string
+  division: 'B' | 'C' | 'B&C' | string
   description: string | null
   isOnline: boolean
   startDate: string
@@ -112,7 +113,7 @@ export function TournamentPageClient({ hostingRequest, tournament, isDirector, u
       id: '1',
       type: 'header',
       title: 'About',
-      content: `Welcome to ${hostingRequest.tournamentName}! This is a ${hostingRequest.tournamentLevel} Science Olympiad tournament for Division ${hostingRequest.division}.`
+      content: `Welcome to ${hostingRequest.tournamentName}! This is a ${hostingRequest.tournamentLevel} Science Olympiad tournament for Division ${formatDivision(hostingRequest.division)}.`
     }
   ])
   const [saving, setSaving] = useState(false)
@@ -122,6 +123,10 @@ export function TournamentPageClient({ hostingRequest, tournament, isDirector, u
   const [selectedClub, setSelectedClub] = useState<string>('')
   const [selectedTeams, setSelectedTeams] = useState<string[]>([])
   const [registering, setRegistering] = useState(false)
+
+  // Events not being run
+  const [eventsNotRun, setEventsNotRun] = useState<Array<{ id: string; name: string; division: string }>>([])
+  const [eventsNotRunLoading, setEventsNotRunLoading] = useState(true)
 
   // Load saved page content
   useEffect(() => {
@@ -140,6 +145,76 @@ export function TournamentPageClient({ hostingRequest, tournament, isDirector, u
     }
     loadPageContent()
   }, [hostingRequest.id])
+
+  // Fetch events and calculate which are not being run
+  useEffect(() => {
+    const fetchEventsNotRun = async () => {
+      if (!tournament) {
+        setEventsNotRunLoading(false)
+        return
+      }
+
+      setEventsNotRunLoading(true)
+
+      try {
+        // Determine which divisions to fetch events for
+        const divisions: ('B' | 'C')[] = []
+        if (tournament.division === 'B' || tournament.division === 'B&C') {
+          divisions.push('B')
+        }
+        if (tournament.division === 'C' || tournament.division === 'B&C') {
+          divisions.push('C')
+        }
+
+        if (divisions.length === 0) {
+          setEventsNotRun([])
+          setEventsNotRunLoading(false)
+          return
+        }
+
+        // Fetch events for all relevant divisions
+        const allEvents: Array<{ id: string; name: string; division: string }> = []
+        for (const division of divisions) {
+          const response = await fetch(`/api/events?division=${division}`)
+          if (response.ok) {
+            const data = await response.json()
+            if (data.events) {
+              allEvents.push(...data.events)
+            }
+          }
+        }
+
+        // Parse eventsRun - if null/empty, assume all events are being run
+        let eventsRunIds: string[] = []
+        if (tournament.eventsRun && tournament.eventsRun.trim()) {
+          try {
+            const parsed = JSON.parse(tournament.eventsRun)
+            eventsRunIds = Array.isArray(parsed) ? parsed : []
+          } catch (e) {
+            console.error('Error parsing eventsRun:', e)
+          }
+        }
+
+        // If eventsRun is empty, all events are being run, so nothing to show
+        if (eventsRunIds.length === 0) {
+          setEventsNotRun([])
+          setEventsNotRunLoading(false)
+          return
+        }
+
+        // Find events that are NOT in eventsRun
+        const notRun = allEvents.filter(event => !eventsRunIds.includes(event.id))
+        setEventsNotRun(notRun.sort((a, b) => a.name.localeCompare(b.name)))
+      } catch (error) {
+        console.error('Error fetching events:', error)
+        setEventsNotRun([])
+      } finally {
+        setEventsNotRunLoading(false)
+      }
+    }
+
+    fetchEventsNotRun()
+  }, [tournament?.id, tournament?.division, tournament?.eventsRun])
 
   const handleSave = async () => {
     setSaving(true)
@@ -341,7 +416,7 @@ export function TournamentPageClient({ hostingRequest, tournament, isDirector, u
             <Badge variant="outline" className="text-sm">
               {hostingRequest.tournamentLevel.charAt(0).toUpperCase() + hostingRequest.tournamentLevel.slice(1)}
             </Badge>
-            <Badge variant="outline" className="text-sm">Division {hostingRequest.division}</Badge>
+            <Badge variant="outline" className="text-sm">Division {formatDivision(hostingRequest.division)}</Badge>
             <Badge variant="outline" className="text-sm">
               {hostingRequest.tournamentFormat === 'satellite' ? 'Online' : 'In-Person'}
             </Badge>
@@ -390,16 +465,16 @@ export function TournamentPageClient({ hostingRequest, tournament, isDirector, u
                           <SelectValue placeholder="Choose a club" />
                         </SelectTrigger>
                         <SelectContent>
-                          {userClubs.filter(c => c.division === tournament?.division).map(club => (
+                          {userClubs.filter(c => tournament && divisionsMatch(tournament.division, c.division)).map(club => (
                             <SelectItem key={club.id} value={club.id}>
-                              {club.name} (Division {club.division})
+                              {club.name} (Division {formatDivision(club.division)})
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      {userClubs.filter(c => c.division === tournament?.division).length === 0 && (
+                      {tournament && userClubs.filter(c => divisionsMatch(tournament.division, c.division)).length === 0 && (
                         <p className="text-sm text-muted-foreground">
-                          You don&apos;t have any clubs in Division {tournament?.division}.
+                          You don&apos;t have any clubs in Division {formatDivision(tournament.division)}.
                         </p>
                       )}
                     </div>
@@ -580,7 +655,44 @@ export function TournamentPageClient({ hostingRequest, tournament, isDirector, u
                     <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="font-medium">Division</p>
-                      <p className="text-sm text-muted-foreground">Division {tournament.division}</p>
+                      <p className="text-sm text-muted-foreground">Division {formatDivision(tournament.division)}</p>
+                    </div>
+                  </div>
+
+                  {/* Events Not Being Run */}
+                  <div className="flex items-start gap-3">
+                    <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium">Events Not Being Run</p>
+                      <div className="mt-2">
+                        {eventsNotRunLoading ? (
+                          <p className="text-sm text-muted-foreground">Loading...</p>
+                        ) : eventsNotRun.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {eventsNotRun.map((event) => {
+                              const showDivision = tournament.division === 'B&C'
+                              return (
+                                <Badge key={event.id} variant="outline" className="text-xs">
+                                  {showDivision ? (
+                                    <span>
+                                      {event.name}
+                                      <span className="text-muted-foreground">
+                                        {' '}(Div {event.division})
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    event.name
+                                  )}
+                                </Badge>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            All events are being run
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>

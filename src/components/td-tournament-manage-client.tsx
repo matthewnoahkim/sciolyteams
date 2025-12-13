@@ -37,9 +37,11 @@ import {
   ClipboardList,
   FileText,
   RefreshCw,
+  Search,
 } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { formatDivision } from '@/lib/utils'
 
 interface StaffMember {
   id: string
@@ -128,6 +130,27 @@ interface TDTournamentManageClientProps {
   initialStaff: StaffMember[]
   initialTimeline: TimelineItem[]
   events: EventInfo[]
+}
+
+// Helper function to highlight search terms in text
+const highlightText = (text: string | null | undefined, searchQuery: string): string | (string | JSX.Element)[] => {
+  if (!text || !searchQuery) return text || ''
+  
+  const query = searchQuery.trim()
+  if (!query) return text
+  
+  // Escape special regex characters
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escapedQuery})`, 'gi')
+  const parts = text.split(regex)
+  
+  return parts.map((part, index) => 
+    regex.test(part) ? (
+      <mark key={index} className="bg-yellow-200 dark:bg-yellow-900 text-foreground px-0.5 rounded">
+        {part}
+      </mark>
+    ) : part
+  )
 }
 
 export function TDTournamentManageClient({ 
@@ -261,6 +284,12 @@ export function TDTournamentManageClient({
     }>
   }>>([])
   const [loadingEvents, setLoadingEvents] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [eventFilter, setEventFilter] = useState<string>('all')
+  const [divisionFilter, setDivisionFilter] = useState<string>('all')
+  
+  // Check if tournament is B&C
+  const isBCTournament = tournament.division === 'B&C' || (typeof tournament.division === 'string' && tournament.division.includes('B') && tournament.division.includes('C'))
   
   // Delete test dialog state
   const [deleteTestDialogOpen, setDeleteTestDialogOpen] = useState(false)
@@ -648,6 +677,28 @@ export function TDTournamentManageClient({
     }))
   }
 
+  const handleSelectAllDivisionB = () => {
+    const divisionBEvents = events.filter(e => e.division === 'B')
+    const allBSelected = divisionBEvents.every(e => settingsForm.eventsRun.includes(e.id))
+    setSettingsForm(prev => ({
+      ...prev,
+      eventsRun: allBSelected
+        ? prev.eventsRun.filter(id => !divisionBEvents.some(e => e.id === id))
+        : [...prev.eventsRun.filter(id => !divisionBEvents.some(e => e.id === id)), ...divisionBEvents.map(e => e.id)],
+    }))
+  }
+
+  const handleSelectAllDivisionC = () => {
+    const divisionCEvents = events.filter(e => e.division === 'C')
+    const allCSelected = divisionCEvents.every(e => settingsForm.eventsRun.includes(e.id))
+    setSettingsForm(prev => ({
+      ...prev,
+      eventsRun: allCSelected
+        ? prev.eventsRun.filter(id => !divisionCEvents.some(e => e.id === id))
+        : [...prev.eventsRun.filter(id => !divisionCEvents.some(e => e.id === id)), ...divisionCEvents.map(e => e.id)],
+    }))
+  }
+
   // Fetch events with tests
   const fetchEventsWithTests = async () => {
     setLoadingEvents(true)
@@ -790,7 +841,7 @@ export function TDTournamentManageClient({
                         {tournament.location}
                       </span>
                     )}
-                    <Badge variant="outline">Division {tournament.division}</Badge>
+                    <Badge variant="outline">Division {formatDivision(tournament.division)}</Badge>
                   </div>
                 </div>
                 {tournament.slug && (
@@ -902,51 +953,116 @@ export function TDTournamentManageClient({
                         </div>
                         {inviteForm.role === 'EVENT_SUPERVISOR' && events.length > 0 && (
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label>Assign Events</Label>
-                              {events.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    const allSelected = events.every(e => inviteForm.eventIds.includes(e.id))
-                                    setInviteForm(prev => ({
-                                      ...prev,
-                                      eventIds: allSelected ? [] : events.map(e => e.id)
-                                    }))
-                                  }}
-                                  className="h-7 text-xs"
-                                >
-                                  {events.every(e => inviteForm.eventIds.includes(e.id)) ? 'Deselect All' : 'Select All'}
-                                </Button>
+                            <Label>Assign Events</Label>
+                            <div className={`grid gap-4 ${(tournament.division === 'B' || tournament.division === 'C') ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                              {/* Division B Events */}
+                              {(tournament.division === 'B' || tournament.division === 'B&C') && (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold text-foreground">Division B</h4>
+                                    {events.filter(e => e.division === 'B').length > 0 && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          const divisionBEvents = events.filter(e => e.division === 'B')
+                                          const allBSelected = divisionBEvents.every(e => inviteForm.eventIds.includes(e.id))
+                                          setInviteForm(prev => ({
+                                            ...prev,
+                                            eventIds: allBSelected
+                                              ? prev.eventIds.filter(id => !divisionBEvents.some(e => e.id === id))
+                                              : [...prev.eventIds.filter(id => !divisionBEvents.some(e => e.id === id)), ...divisionBEvents.map(e => e.id)],
+                                          }))
+                                        }}
+                                        className="h-7 text-xs"
+                                      >
+                                        {events.filter(e => e.division === 'B').every(e => inviteForm.eventIds.includes(e.id)) ? 'Deselect All' : 'Select All'}
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <div className="space-y-1 max-h-48 overflow-y-auto border rounded-lg p-3">
+                                    {events.filter(e => e.division === 'B').sort((a, b) => a.name.localeCompare(b.name)).map(event => (
+                                      <label 
+                                        key={event.id} 
+                                        className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
+                                      >
+                                        <Checkbox
+                                          checked={inviteForm.eventIds.includes(event.id)}
+                                          onCheckedChange={(checked) => {
+                                            if (checked) {
+                                              setInviteForm(prev => ({ 
+                                                ...prev, 
+                                                eventIds: [...prev.eventIds, event.id] 
+                                              }))
+                                            } else {
+                                              setInviteForm(prev => ({ 
+                                                ...prev, 
+                                                eventIds: prev.eventIds.filter(id => id !== event.id) 
+                                              }))
+                                            }
+                                          }}
+                                        />
+                                        <span>{event.name}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-lg p-3">
-                              {events.map(event => (
-                                <label 
-                                  key={event.id} 
-                                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
-                                >
-                                  <Checkbox
-                                    checked={inviteForm.eventIds.includes(event.id)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setInviteForm(prev => ({ 
-                                          ...prev, 
-                                          eventIds: [...prev.eventIds, event.id] 
-                                        }))
-                                      } else {
-                                        setInviteForm(prev => ({ 
-                                          ...prev, 
-                                          eventIds: prev.eventIds.filter(id => id !== event.id) 
-                                        }))
-                                      }
-                                    }}
-                                  />
-                                  <span>{event.name}</span>
-                                </label>
-                              ))}
+                              {/* Division C Events */}
+                              {(tournament.division === 'C' || tournament.division === 'B&C') && (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold text-foreground">Division C</h4>
+                                    {events.filter(e => e.division === 'C').length > 0 && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          const divisionCEvents = events.filter(e => e.division === 'C')
+                                          const allCSelected = divisionCEvents.every(e => inviteForm.eventIds.includes(e.id))
+                                          setInviteForm(prev => ({
+                                            ...prev,
+                                            eventIds: allCSelected
+                                              ? prev.eventIds.filter(id => !divisionCEvents.some(e => e.id === id))
+                                              : [...prev.eventIds.filter(id => !divisionCEvents.some(e => e.id === id)), ...divisionCEvents.map(e => e.id)],
+                                          }))
+                                        }}
+                                        className="h-7 text-xs"
+                                      >
+                                        {events.filter(e => e.division === 'C').every(e => inviteForm.eventIds.includes(e.id)) ? 'Deselect All' : 'Select All'}
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <div className="space-y-1 max-h-48 overflow-y-auto border rounded-lg p-3">
+                                    {events.filter(e => e.division === 'C').sort((a, b) => a.name.localeCompare(b.name)).map(event => (
+                                      <label 
+                                        key={event.id} 
+                                        className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
+                                      >
+                                        <Checkbox
+                                          checked={inviteForm.eventIds.includes(event.id)}
+                                          onCheckedChange={(checked) => {
+                                            if (checked) {
+                                              setInviteForm(prev => ({ 
+                                                ...prev, 
+                                                eventIds: [...prev.eventIds, event.id] 
+                                              }))
+                                            } else {
+                                              setInviteForm(prev => ({ 
+                                                ...prev, 
+                                                eventIds: prev.eventIds.filter(id => id !== event.id) 
+                                              }))
+                                            }
+                                          }}
+                                        />
+                                        <span>{event.name}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
@@ -998,7 +1114,7 @@ export function TDTournamentManageClient({
                               </Badge>
                               {member.events.length > 0 && (
                                 <span>
-                                  {member.events.map(e => e.event.name).join(', ')}
+                                  {[...member.events].sort((a, b) => a.event.name.localeCompare(b.event.name)).map(e => e.event.name).join(', ')}
                                 </span>
                               )}
                             </div>
@@ -1096,51 +1212,116 @@ export function TDTournamentManageClient({
                     </div>
                     {editStaffForm.role === 'EVENT_SUPERVISOR' && events.length > 0 && (
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label>Assign Events</Label>
-                          {events.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                const allSelected = events.every(e => editStaffForm.eventIds.includes(e.id))
-                                setEditStaffForm(prev => ({
-                                  ...prev,
-                                  eventIds: allSelected ? [] : events.map(e => e.id),
-                                }))
-                              }}
-                              className="h-7 text-xs"
-                            >
-                              {events.every(e => editStaffForm.eventIds.includes(e.id)) ? 'Deselect All' : 'Select All'}
-                            </Button>
+                        <Label>Assign Events</Label>
+                        <div className={`grid gap-4 ${(tournament.division === 'B' || tournament.division === 'C') ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                          {/* Division B Events */}
+                          {(tournament.division === 'B' || tournament.division === 'B&C') && (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-semibold text-foreground">Division B</h4>
+                                {events.filter(e => e.division === 'B').length > 0 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      const divisionBEvents = events.filter(e => e.division === 'B')
+                                      const allBSelected = divisionBEvents.every(e => editStaffForm.eventIds.includes(e.id))
+                                      setEditStaffForm(prev => ({
+                                        ...prev,
+                                        eventIds: allBSelected
+                                          ? prev.eventIds.filter(id => !divisionBEvents.some(e => e.id === id))
+                                          : [...prev.eventIds.filter(id => !divisionBEvents.some(e => e.id === id)), ...divisionBEvents.map(e => e.id)],
+                                      }))
+                                    }}
+                                    className="h-7 text-xs"
+                                  >
+                                    {events.filter(e => e.division === 'B').every(e => editStaffForm.eventIds.includes(e.id)) ? 'Deselect All' : 'Select All'}
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="space-y-1 max-h-48 overflow-y-auto border rounded-lg p-3">
+                                {events.filter(e => e.division === 'B').map(event => (
+                                  <label 
+                                    key={event.id} 
+                                    className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
+                                  >
+                                    <Checkbox
+                                      checked={editStaffForm.eventIds.includes(event.id)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setEditStaffForm(prev => ({ 
+                                            ...prev, 
+                                            eventIds: [...prev.eventIds, event.id] 
+                                          }))
+                                        } else {
+                                          setEditStaffForm(prev => ({ 
+                                            ...prev, 
+                                            eventIds: prev.eventIds.filter(id => id !== event.id) 
+                                          }))
+                                        }
+                                      }}
+                                    />
+                                    <span>{event.name}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
                           )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-lg p-3">
-                          {events.map(event => (
-                            <label 
-                              key={event.id} 
-                              className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
-                            >
-                              <Checkbox
-                                checked={editStaffForm.eventIds.includes(event.id)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setEditStaffForm(prev => ({ 
-                                      ...prev, 
-                                      eventIds: [...prev.eventIds, event.id] 
-                                    }))
-                                  } else {
-                                    setEditStaffForm(prev => ({ 
-                                      ...prev, 
-                                      eventIds: prev.eventIds.filter(id => id !== event.id) 
-                                    }))
-                                  }
-                                }}
-                              />
-                              <span>{event.name}</span>
-                            </label>
-                          ))}
+                          {/* Division C Events */}
+                          {(tournament.division === 'C' || tournament.division === 'B&C') && (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-semibold text-foreground">Division C</h4>
+                                {events.filter(e => e.division === 'C').length > 0 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      const divisionCEvents = events.filter(e => e.division === 'C')
+                                      const allCSelected = divisionCEvents.every(e => editStaffForm.eventIds.includes(e.id))
+                                      setEditStaffForm(prev => ({
+                                        ...prev,
+                                        eventIds: allCSelected
+                                          ? prev.eventIds.filter(id => !divisionCEvents.some(e => e.id === id))
+                                          : [...prev.eventIds.filter(id => !divisionCEvents.some(e => e.id === id)), ...divisionCEvents.map(e => e.id)],
+                                      }))
+                                    }}
+                                    className="h-7 text-xs"
+                                  >
+                                    {events.filter(e => e.division === 'C').every(e => editStaffForm.eventIds.includes(e.id)) ? 'Deselect All' : 'Select All'}
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="space-y-1 max-h-48 overflow-y-auto border rounded-lg p-3">
+                                {events.filter(e => e.division === 'C').map(event => (
+                                  <label 
+                                    key={event.id} 
+                                    className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
+                                  >
+                                    <Checkbox
+                                      checked={editStaffForm.eventIds.includes(event.id)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setEditStaffForm(prev => ({ 
+                                            ...prev, 
+                                            eventIds: [...prev.eventIds, event.id] 
+                                          }))
+                                        } else {
+                                          setEditStaffForm(prev => ({ 
+                                            ...prev, 
+                                            eventIds: prev.eventIds.filter(id => id !== event.id) 
+                                          }))
+                                        }
+                                      }}
+                                    />
+                                    <span>{event.name}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1359,104 +1540,212 @@ export function TDTournamentManageClient({
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {eventsWithTests.map(({ event, tests }) => (
-                      <div key={event.id} className="space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b border-border">
-                          <div>
-                            <h3 className="font-semibold text-lg">{event.name}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {tests.length} test{tests.length !== 1 ? 's' : ''}
-                            </p>
-                          </div>
-                          <Button 
-                            size="sm"
-                            onClick={() => {
-                              router.push(`/td/tests/new?tournamentId=${tournament.id}&eventId=${event.id}`)
-                            }}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Create Test
-                          </Button>
-                        </div>
-                        
-                        {tests.length === 0 ? (
-                          <div className="text-center py-6 bg-muted/50 rounded-lg border border-border">
-                            <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                            <p className="text-sm text-muted-foreground">No tests created yet for this event.</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {tests.map(test => (
-                              <div 
-                                key={test.id}
-                                className="flex items-center justify-between p-4 rounded-lg border bg-card"
-                              >
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="font-semibold">{test.name}</h4>
-                                    <Badge 
-                                      variant="outline" 
-                                      className={
-                                        test.status === 'PUBLISHED' 
-                                          ? 'bg-green-500/10 text-green-600 border-green-500/20' 
-                                          : test.status === 'CLOSED'
-                                            ? 'bg-slate-500/10 text-slate-600 border-slate-500/20'
-                                            : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                                      }
-                                    >
-                                      {test.status}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                    <span>{test.questions.length} question{test.questions.length !== 1 ? 's' : ''}</span>
-                                    {test.createdBy && (
-                                      <>
-                                        <span>•</span>
-                                        <span>Created by {test.createdBy.name || test.createdBy.email}</span>
-                                      </>
-                                    )}
-                                    {test.updatedAt !== test.createdAt && (
-                                      <>
-                                        <span>•</span>
-                                        <span>
-                                          Last edited {
-                                            test.staff && test.createdBy && test.staff.id !== test.createdBy.id 
-                                              ? `by ${test.staff.name || test.staff.email} `
-                                              : test.staff
-                                                ? `by ${test.staff.name || test.staff.email} `
-                                                : test.createdBy 
-                                                  ? `by ${test.createdBy.name || test.createdBy.email} `
-                                                  : ''
-                                          }
-                                          on {format(new Date(test.updatedAt), 'MMM d, yyyy \'at\' h:mm a')}
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex gap-2">
-                                  <Link href={`/td/tests/${test.id}`}>
-                                    <Button variant="outline" size="sm">
-                                      <Edit className="h-4 w-4 mr-1" />
-                                      Edit
-                                    </Button>
-                                  </Link>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => handleDeleteTestClick({ id: test.id, name: test.name })}
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-1" />
-                                    Delete
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                    {/* Search and Filter Controls */}
+                    <div className="flex flex-col sm:flex-row gap-3 pb-4 border-b border-border">
+                      <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search tests..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-9"
+                        />
                       </div>
-                    ))}
+                      {isBCTournament && (
+                        <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+                          <SelectTrigger className="w-full sm:w-[180px]">
+                            <SelectValue placeholder="Filter by division" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Divisions</SelectItem>
+                            <SelectItem value="B">Division B</SelectItem>
+                            <SelectItem value="C">Division C</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                      <Select value={eventFilter} onValueChange={setEventFilter}>
+                        <SelectTrigger className="w-full sm:w-[200px]">
+                          <SelectValue placeholder="Filter by event" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Events</SelectItem>
+                          {[...eventsWithTests]
+                            .sort((a, b) => a.event.name.localeCompare(b.event.name))
+                            .map(({ event }) => (
+                              <SelectItem key={event.id} value={event.id}>
+                                {event.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Events and Tests */}
+                    {[...eventsWithTests]
+                      .sort((a, b) => a.event.name.localeCompare(b.event.name))
+                      .filter(({ event, tests }) => {
+                        // Filter by division (only for B&C tournaments)
+                        if (isBCTournament && divisionFilter !== 'all' && event.division !== divisionFilter) {
+                          return false
+                        }
+                        // Filter by selected event
+                        if (eventFilter !== 'all' && event.id !== eventFilter) {
+                          return false
+                        }
+                        // Show event if it has tests matching search query or no search query
+                        if (!searchQuery) return true
+                        return tests.some((test) =>
+                          test.name.toLowerCase().includes(searchQuery.toLowerCase())
+                        )
+                      })
+                      .map(({ event, tests }) => {
+                        // Filter tests by search query
+                        const filteredTests = tests.filter((test) => {
+                          if (!searchQuery) return true
+                          return test.name.toLowerCase().includes(searchQuery.toLowerCase())
+                        })
+
+                        // Skip event if showing all events and no tests match search
+                        if (filteredTests.length === 0 && eventFilter === 'all' && searchQuery) {
+                          return null
+                        }
+
+                        return (
+                          <div key={event.id} className="space-y-3">
+                            <div className="flex items-center justify-between pb-2 border-b border-border">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-semibold text-lg">{event.name}</h3>
+                                  {tournament.division === 'B&C' && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Div {event.division}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {filteredTests.length} test{filteredTests.length !== 1 ? 's' : ''}
+                                  {searchQuery && filteredTests.length !== tests.length && (
+                                    <span> (filtered from {tests.length})</span>
+                                  )}
+                                </p>
+                              </div>
+                              <Button 
+                                size="sm"
+                                onClick={() => {
+                                  router.push(`/td/tests/new?tournamentId=${tournament.id}&eventId=${event.id}`)
+                                }}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Create Test
+                              </Button>
+                            </div>
+                            
+                            {filteredTests.length === 0 ? (
+                              <div className="text-center py-6 bg-muted/50 rounded-lg border border-border">
+                                <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                                <p className="text-sm text-muted-foreground">
+                                  {searchQuery 
+                                    ? `No tests match "${searchQuery}" for this event.`
+                                    : 'No tests created yet for this event.'}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {filteredTests.map((test) => (
+                                  <div 
+                                    key={test.id}
+                                    className="flex items-center justify-between p-4 rounded-lg border bg-card"
+                                  >
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <h4 className="font-semibold">
+                                          {searchQuery ? highlightText(test.name, searchQuery) : test.name}
+                                        </h4>
+                                        <Badge 
+                                          variant="outline" 
+                                          className={
+                                            test.status === 'PUBLISHED' 
+                                              ? 'bg-green-500/10 text-green-600 border-green-500/20' 
+                                              : test.status === 'CLOSED'
+                                                ? 'bg-slate-500/10 text-slate-600 border-slate-500/20'
+                                                : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                          }
+                                        >
+                                          {test.status}
+                                        </Badge>
+                                      </div>
+                                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                        <span>{test.questions.length} question{test.questions.length !== 1 ? 's' : ''}</span>
+                                        {test.createdBy && (
+                                          <>
+                                            <span>•</span>
+                                            <span>Created by {test.createdBy.name || test.createdBy.email}</span>
+                                          </>
+                                        )}
+                                        {test.updatedAt !== test.createdAt && (
+                                          <>
+                                            <span>•</span>
+                                            <span>
+                                              Last edited {
+                                                test.staff && test.createdBy && test.staff.id !== test.createdBy.id 
+                                                  ? `by ${test.staff.name || test.staff.email} `
+                                                  : test.staff
+                                                    ? `by ${test.staff.name || test.staff.email} `
+                                                    : test.createdBy 
+                                                      ? `by ${test.createdBy.name || test.createdBy.email} `
+                                                      : ''
+                                              }
+                                              on {format(new Date(test.updatedAt), 'MMM d, yyyy \'at\' h:mm a')}
+                                            </span>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Link href={`/td/tests/${test.id}`}>
+                                        <Button variant="outline" size="sm">
+                                          <Edit className="h-4 w-4 mr-1" />
+                                          Edit
+                                        </Button>
+                                      </Link>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => handleDeleteTestClick({ id: test.id, name: test.name })}
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-1" />
+                                        Delete
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })
+                      .filter(Boolean)}
+                    
+                    {/* Show message if no events match filters */}
+                    {[...eventsWithTests]
+                      .filter(({ event, tests }) => {
+                        if (eventFilter !== 'all' && event.id !== eventFilter) {
+                          return false
+                        }
+                        if (!searchQuery) return true
+                        const filteredTests = tests.filter((test) =>
+                          test.name.toLowerCase().includes(searchQuery.toLowerCase())
+                        )
+                        return filteredTests.length > 0
+                      }).length === 0 && (
+                      <div className="text-center py-12">
+                        <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                        <p className="text-muted-foreground">
+                          No tests found matching your search criteria.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -1488,7 +1777,7 @@ export function TDTournamentManageClient({
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Division(s)</Label>
-                    <p className="text-base font-semibold">Division {tournament.division}</p>
+                    <p className="text-base font-semibold">Division {formatDivision(tournament.division)}</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Format / Location</Label>
@@ -1588,44 +1877,99 @@ export function TDTournamentManageClient({
 
                 {/* Events Run */}
                 <div className="border-b pb-6">
-                  <div className="flex items-center justify-between mb-5">
+                  <div className="mb-5">
                     <h3 className="text-base font-semibold text-foreground">Events Run</h3>
-                    {isEditingSettings && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSelectAllEvents}
-                      >
-                        {settingsForm.eventsRun.length === events.length ? 'Deselect All' : 'Select All'}
-                      </Button>
-                    )}
                   </div>
                   {isEditingSettings ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto border rounded-lg p-3">
-                      {events.map(event => (
-                        <label 
-                          key={event.id} 
-                          className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
-                        >
-                          <Checkbox
-                            checked={settingsForm.eventsRun.includes(event.id)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSettingsForm(prev => ({
-                                  ...prev,
-                                  eventsRun: [...prev.eventsRun, event.id]
-                                }))
-                              } else {
-                                setSettingsForm(prev => ({
-                                  ...prev,
-                                  eventsRun: prev.eventsRun.filter(id => id !== event.id)
-                                }))
-                              }
-                            }}
-                          />
-                          {event.name}
-                        </label>
-                      ))}
+                    <div className={`grid gap-4 ${(tournament.division === 'B' || tournament.division === 'C') ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                      {/* Division B Events */}
+                      {(tournament.division === 'B' || tournament.division === 'B&C') && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-foreground">Division B</h4>
+                            {events.filter(e => e.division === 'B').length > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleSelectAllDivisionB}
+                                className="h-7 text-xs"
+                              >
+                                {events.filter(e => e.division === 'B').every(e => settingsForm.eventsRun.includes(e.id)) ? 'Deselect All' : 'Select All'}
+                              </Button>
+                            )}
+                          </div>
+                          <div className="space-y-1 max-h-64 overflow-y-auto border rounded-lg p-3">
+                            {events.filter(e => e.division === 'B').map(event => (
+                              <label 
+                                key={event.id} 
+                                className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
+                              >
+                                <Checkbox
+                                  checked={settingsForm.eventsRun.includes(event.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSettingsForm(prev => ({
+                                        ...prev,
+                                        eventsRun: [...prev.eventsRun, event.id]
+                                      }))
+                                    } else {
+                                      setSettingsForm(prev => ({
+                                        ...prev,
+                                        eventsRun: prev.eventsRun.filter(id => id !== event.id)
+                                      }))
+                                    }
+                                  }}
+                                />
+                                <span>{event.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* Division C Events */}
+                      {(tournament.division === 'C' || tournament.division === 'B&C') && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-foreground">Division C</h4>
+                            {events.filter(e => e.division === 'C').length > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleSelectAllDivisionC}
+                                className="h-7 text-xs"
+                              >
+                                {events.filter(e => e.division === 'C').every(e => settingsForm.eventsRun.includes(e.id)) ? 'Deselect All' : 'Select All'}
+                              </Button>
+                            )}
+                          </div>
+                          <div className="space-y-1 max-h-64 overflow-y-auto border rounded-lg p-3">
+                            {events.filter(e => e.division === 'C').map(event => (
+                              <label 
+                                key={event.id} 
+                                className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-2 rounded"
+                              >
+                                <Checkbox
+                                  checked={settingsForm.eventsRun.includes(event.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSettingsForm(prev => ({
+                                        ...prev,
+                                        eventsRun: [...prev.eventsRun, event.id]
+                                      }))
+                                    } else {
+                                      setSettingsForm(prev => ({
+                                        ...prev,
+                                        eventsRun: prev.eventsRun.filter(id => id !== event.id)
+                                      }))
+                                    }
+                                  }}
+                                />
+                                <span>{event.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
@@ -1633,7 +1977,10 @@ export function TDTournamentManageClient({
                         settingsForm.eventsRun.map(eventId => {
                           const event = events.find(e => e.id === eventId)
                           return event ? (
-                            <Badge key={eventId} variant="secondary">{event.name}</Badge>
+                            <Badge key={eventId} variant="secondary" className="flex items-center gap-1">
+                              {event.name}
+                              <span className="text-xs opacity-70">(Div {event.division})</span>
+                            </Badge>
                           ) : null
                         })
                       ) : (

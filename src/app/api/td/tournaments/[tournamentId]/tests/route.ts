@@ -63,12 +63,22 @@ export async function GET(
     // Get tournament info to get division
     const tournament = await prisma.tournament.findUnique({
       where: { id: params.tournamentId },
-      select: { division: true },
+      select: { 
+        division: true,
+        hostingRequest: {
+          select: {
+            division: true,
+          },
+        },
+      },
     })
 
     if (!tournament) {
       return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
     }
+
+    // Get display division from hosting request (supports "B&C"), fallback to tournament division
+    const displayDivision = tournament.hostingRequest?.division || tournament.division
 
     // Fetch all ES tests for this tournament
     const allTests = await prisma.eSTest.findMany({
@@ -122,20 +132,40 @@ export async function GET(
       testsByEvent.get(test.eventId)!.push(test)
     }
 
-    // Get all events for this division
-    const events = await prisma.event.findMany({
-      where: {
-        division: tournament.division,
-      },
-      select: {
-        id: true,
-        name: true,
-        division: true,
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    })
+    // Get all events for this division - handle B&C tournaments
+    let events
+    if (displayDivision === 'B&C' || (typeof displayDivision === 'string' && displayDivision.includes('B') && displayDivision.includes('C'))) {
+      // For B&C tournaments, fetch both B and C events
+      const [bEvents, cEvents] = await Promise.all([
+        prisma.event.findMany({
+          where: { division: 'B' },
+          select: { id: true, name: true, division: true },
+          orderBy: { name: 'asc' },
+        }),
+        prisma.event.findMany({
+          where: { division: 'C' },
+          select: { id: true, name: true, division: true },
+          orderBy: { name: 'asc' },
+        }),
+      ])
+      // Combine and sort
+      events = [...bEvents, ...cEvents].sort((a, b) => a.name.localeCompare(b.name))
+    } else {
+      // For single division tournaments
+      events = await prisma.event.findMany({
+        where: {
+          division: tournament.division,
+        },
+        select: {
+          id: true,
+          name: true,
+          division: true,
+        },
+        orderBy: {
+          name: 'asc',
+        },
+      })
+    }
 
     // Build response with events and their tests
     const eventsWithTests = events.map(event => ({
