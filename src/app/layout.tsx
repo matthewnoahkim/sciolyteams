@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { FaviconLoader } from '@/components/favicon-loader'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Analytics } from '@vercel/analytics/next'
+import { DiscordBanner } from '@/components/discord-banner'
 
 export const metadata: Metadata = {
   title: 'Teamy',
@@ -50,6 +51,7 @@ export default function RootLayout({
         />
         <FaviconLoader />
         <Providers>
+          <DiscordBanner />
           {children}
           <Toaster />
           <SpeedInsights />

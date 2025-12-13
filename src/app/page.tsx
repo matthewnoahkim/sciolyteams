@@ -66,7 +66,7 @@ export default async function HomePage() {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 pt-4 px-4">
               <Link href={isLoggedIn ? "/dashboard" : "/login"} className="w-full sm:w-auto">
                 <button className="group w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold bg-teamy-primary text-white rounded-full shadow-lg hover:bg-teamy-primary-dark hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2">
-                  {isLoggedIn ? "Go to Dashboard" : "Get Started Free"}
+                  {isLoggedIn ? "Go to Dashboard" : "Get started today"}
                   <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
                 </button>
               </Link>
