@@ -16,7 +16,8 @@ const navItems: NavItem[] = [
   { label: 'Pricing', href: '/pricing' },
   { label: 'Tournaments', href: '/tournaments' },
   { label: 'Blog', href: '/blog' },
-  { label: 'Contact', href: '/contact' }
+  { label: 'Contact', href: '/contact' },
+  { label: 'About', href: '/about' },
 ]
 
 interface HomeNavProps {
