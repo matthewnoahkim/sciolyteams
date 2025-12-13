@@ -441,158 +441,17 @@ export function TournamentPageClient({ hostingRequest, tournament, isDirector, u
           )}
           
           {/* Register Button */}
-          {canRegister && user && userClubs.length > 0 && (
-            <div className="mt-6">
-              <Dialog open={registerDialogOpen} onOpenChange={setRegisterDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="lg" className="gap-2">
-                    <Trophy className="h-5 w-5" />
-                    Register Now
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Register for {hostingRequest.tournamentName}</DialogTitle>
-                    <DialogDescription>
-                      Select your club and teams to register for this tournament.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Select Club</Label>
-                      <Select value={selectedClub} onValueChange={(v) => { setSelectedClub(v); setSelectedTeams([]) }}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a club" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {userClubs.filter(c => tournament && divisionsMatch(tournament.division, c.division)).map(club => (
-                            <SelectItem key={club.id} value={club.id}>
-                              {club.name} (Division {formatDivision(club.division)})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {tournament && userClubs.filter(c => divisionsMatch(tournament.division, c.division)).length === 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          You don&apos;t have any clubs in Division {formatDivision(tournament.division)}.
-                        </p>
-                      )}
-                    </div>
-
-                    {selectedClub && eligibleTeams.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label>Select Teams</Label>
-                          {eligibleTeams.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                const allSelected = eligibleTeams.every(team => selectedTeams.includes(team.id))
-                                if (allSelected) {
-                                  setSelectedTeams([])
-                                } else {
-                                  setSelectedTeams(eligibleTeams.map(team => team.id))
-                                }
-                              }}
-                              className="h-7 text-xs"
-                            >
-                              {eligibleTeams.every(team => selectedTeams.includes(team.id)) ? 'Deselect All' : 'Select All'}
-                            </Button>
-                          )}
-                        </div>
-                        <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
-                          {eligibleTeams.map(team => (
-                            <label key={team.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded">
-                              <Checkbox
-                                checked={selectedTeams.includes(team.id)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setSelectedTeams([...selectedTeams, team.id])
-                                  } else {
-                                    setSelectedTeams(selectedTeams.filter(id => id !== team.id))
-                                  }
-                                }}
-                              />
-                              <span>{team.name}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedClub && eligibleTeams.length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        This club has no teams. Create teams in your club settings first.
-                      </p>
-                    )}
-
-                    {selectedTeams.length > 0 && tournament && (
-                      <Card className="bg-muted/50">
-                        <CardContent className="pt-4">
-                          <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                              <span>Teams selected:</span>
-                              <span className="font-medium">{selectedTeams.length}</span>
-                            </div>
-                            {isEarlyBird && tournament.earlyBirdDiscount && (
-                              <div className="flex justify-between text-green-600">
-                                <span>Early bird discount:</span>
-                                <span>-${tournament.earlyBirdDiscount * selectedTeams.length}</span>
-                              </div>
-                            )}
-                            {isLateFee && tournament.lateFee && (
-                              <div className="flex justify-between text-red-600">
-                                <span>Late fee:</span>
-                                <span>+${tournament.lateFee * selectedTeams.length}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between font-semibold border-t pt-2">
-                              <span>Total:</span>
-                              <span>${calculatePrice(selectedTeams.length)}</span>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setRegisterDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleRegister} 
-                      disabled={registering || !selectedClub || selectedTeams.length === 0}
-                    >
-                      {registering ? 'Registering...' : 'Submit Registration'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          )}
-
-          {!user && canRegister && (
-            <div className="mt-6">
-              <Link href="/login">
+          {tournament && (
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href={`/tournaments/${tournament.slug || tournament.id}/register`}>
                 <Button size="lg" className="gap-2">
                   <Trophy className="h-5 w-5" />
-                  Sign in to Register
+                  {canRegister ? 'Register Now' : 'View Registration'}
                 </Button>
               </Link>
             </div>
           )}
 
-          {registrationClosed && (
-            <Badge variant="destructive" className="mt-4">Registration Closed</Badge>
-          )}
-
-          {!registrationOpen && tournament?.registrationStartDate && (
-            <Badge variant="outline" className="mt-4">
-              Registration opens {format(new Date(tournament.registrationStartDate), 'MMMM d, yyyy')}
-            </Badge>
-          )}
         </div>
       </section>
 
