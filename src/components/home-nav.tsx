@@ -14,10 +14,10 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Features', href: '/features' },
   { label: 'Pricing', href: '/pricing' },
-  { label: 'Tournaments', href: '/tournaments' },
+  { label: 'Host Tournaments', href: '/tournaments' },
   { label: 'Blog', href: '/blog' },
-  { label: 'Contact', href: '/contact' },
   { label: 'About', href: '/about' },
+  { label: 'Contact', href: '/contact' },
 ]
 
 interface HomeNavProps {

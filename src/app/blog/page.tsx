@@ -1,49 +1,18 @@
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { PublicPageLayout } from '@/components/public-page-layout'
 import { ArrowLeft, Calendar, User, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
-import { Logo } from '@/components/logo'
-import { HomeNav } from '@/components/home-nav'
 import { format } from 'date-fns'
 
 export default async function BlogPage() {
-  const session = await getServerSession(authOptions)
-  const isLoggedIn = !!session?.user
-
   const posts = await prisma.blogPost.findMany({
     where: { published: true },
     orderBy: { createdAt: 'desc' },
   })
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground grid-pattern">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
-        <div className="container mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-2 overflow-x-auto">
-          <Logo size="md" href="/" variant="light" />
-          <div className="flex items-center gap-2 sm:gap-4 md:gap-6 flex-shrink-0">
-            <HomeNav 
-              variant="light" 
-              mobileButton={
-                <Link href={isLoggedIn ? "/dashboard" : "/login"}>
-                  <button className="w-full px-4 py-2.5 text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors shadow-sm">
-                    {isLoggedIn ? "Dashboard" : "Sign In"}
-                  </button>
-                </Link>
-              }
-            />
-            <Link href={isLoggedIn ? "/dashboard" : "/login"} className="hidden md:block">
-              <button className="px-5 md:px-6 py-2 md:py-2.5 text-xs md:text-sm font-semibold bg-white text-teamy-primary rounded-full hover:bg-white/90 transition-colors shadow-sm whitespace-nowrap">
-                {isLoggedIn ? "Dashboard" : "Sign In"}
-              </button>
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="flex-1 py-16 px-4 sm:px-6 overflow-x-hidden">
+    <PublicPageLayout>
+      <div className="py-16 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           {/* Back link */}
           <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8">
@@ -114,20 +83,7 @@ export default async function BlogPage() {
             </div>
           )}
         </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-border bg-card">
-        <div className="container mx-auto px-4 sm:px-6 py-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
-              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
-            </div>
-            <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Teamy. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-    </div>
+      </div>
+    </PublicPageLayout>
   )
 }

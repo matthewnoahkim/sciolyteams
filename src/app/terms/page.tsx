@@ -1,19 +1,12 @@
+import { PublicPageLayout } from '@/components/public-page-layout'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Logo } from '@/components/logo'
 
 export default function TermsOfServicePage() {
   return (
-    <div className="min-h-screen bg-background grid-pattern">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-teamy-primary dark:bg-slate-900 shadow-nav">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Logo size="md" href="/" variant="light" />
-        </div>
-      </header>
-
-      <div className="container mx-auto max-w-4xl px-4 py-12">
+    <PublicPageLayout>
+      <div className="container mx-auto max-w-4xl px-4 sm:px-6 py-12">
         <Link href="/">
           <Button variant="ghost" className="mb-8">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -150,19 +143,6 @@ export default function TermsOfServicePage() {
           </section>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="border-t border-border bg-card">
-        <div className="container mx-auto px-4 sm:px-6 py-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
-              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
-            </div>
-            <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Teamy. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </PublicPageLayout>
   )
 }

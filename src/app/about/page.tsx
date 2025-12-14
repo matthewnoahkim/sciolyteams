@@ -1,8 +1,7 @@
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import { PublicPageLayout } from '@/components/public-page-layout'
 import { Card, CardContent } from '@/components/ui/card'
-import { Logo } from '@/components/logo'
-import { ThemeToggle } from '@/components/theme-toggle'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import { 
   Github, 
   Heart, 
@@ -21,24 +20,8 @@ export const metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      {/* Header */}
-      <header className="bg-teamy-primary dark:bg-slate-900 border-b">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <Logo className="h-8 w-8" />
-            <span className="font-semibold text-lg text-white">Teamy</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <Link href="/login">
-              <Button variant="outline" size="sm">Sign In</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-12 max-w-4xl">
+    <PublicPageLayout>
+      <div className="container mx-auto px-4 sm:px-6 py-12 max-w-4xl">
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
@@ -217,35 +200,7 @@ export default function AboutPage() {
             </CardContent>
           </Card>
         </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t mt-12">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Logo className="h-6 w-6" />
-              <span className="text-sm text-muted-foreground">
-                © {new Date().getFullYear()} Teamy. All rights reserved.
-              </span>
-            </div>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <Link href="/terms" className="hover:text-foreground">Terms</Link>
-              <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-              <Link href="/contact" className="hover:text-foreground">Contact</Link>
-              <Link 
-                href="https://github.com/matthewnoahkim/teamy" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="hover:text-foreground"
-              >
-                GitHub
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </div>
+      </div>
+    </PublicPageLayout>
   )
 }
-
